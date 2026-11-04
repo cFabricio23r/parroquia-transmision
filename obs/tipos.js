@@ -32,6 +32,9 @@ const _MISA_COMPLETA = [
   { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' }
 ];
 
+/* Misa completa más el Santo Rosario (prenovena, novena y fiesta patronal). Lista nueva: no muta _MISA_COMPLETA. */
+const _MISA_CON_ROSARIO = [..._MISA_COMPLETA, { id: 'rosario', base: 'rosario', nombre: 'Santo Rosario' }];
+
 const _CUENTA_FIESTA = { hasta: '12-08', texto: 'para nuestra\nFiesta Patronal' };
 const _FRANJA = '«TODA HERMOSA ERES, MARÍA»';
 const _GRACIAS_CURSIVA = 'Nos vemos en la próxima\ntransmisión';
@@ -93,7 +96,7 @@ const TIPOS = {
     rotulos: [
       { id: 'guia',      base: 'persona',   nombre: 'Guía', ceja: 'GUÍA' },
       { id: 'santisimo', base: 'santisimo', nombre: 'Exposición del Santísimo' },
-      { id: 'lectura1',  base: 'lectura1',  nombre: 'Lectura' },
+      { id: 'lectura1',  base: 'lectura1',  nombre: 'Lectura', ceja: 'LECTURA' },
       { id: 'oracion',   base: 'oracion',   nombre: 'Oración' },
       { id: 'bendicion', base: 'libre',     nombre: 'Bendición', ceja: 'BENDICIÓN', texto: 'Bendición con el Santísimo' }
     ],
@@ -195,7 +198,7 @@ const TIPOS = {
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
     portada: 'fiesta',
-    rotulos: _MISA_COMPLETA,
+    rotulos: _MISA_CON_ROSARIO,
     datos: ['dia']
   },
   novena: {
@@ -213,7 +216,7 @@ const TIPOS = {
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
     portada: 'fiesta',
-    rotulos: _MISA_COMPLETA,
+    rotulos: _MISA_CON_ROSARIO,
     datos: ['dia']
   },
   patronal: {
@@ -231,7 +234,7 @@ const TIPOS = {
     esquinaTexto: '',
     cuenta: false,
     portada: 'fiesta',
-    rotulos: _MISA_COMPLETA,
+    rotulos: _MISA_CON_ROSARIO,
     datos: []
   },
   evento: {
@@ -307,10 +310,17 @@ function rotulosDe(s) {
     let texto;
     switch (uso.base) {
       case 'persona':
-        texto = { k: p.k || uso.ceja || s.celebranteRol || ROTULOS.persona.ceja, t: s.celebrante || '', s: parroquia };
+        // Con ceja propia (Guía de la Hora Santa o de la procesión) es otra persona que el celebrante:
+        // su nombre vive en rotulosTexto[id].t. Sin ceja propia, el celebrante de siempre.
+        texto = uso.ceja
+          ? { k: p.k || uso.ceja, t: p.t || '', s: parroquia }
+          : { k: p.k || s.celebranteRol || ROTULOS.persona.ceja, t: s.celebrante || '', s: parroquia };
         break;
       case 'lectura1':
       case 'lectura2':
+        // Ceja: lo escrito en el rótulo, luego la del uso (p. ej. la lectura única de la Hora Santa), luego la heredada.
+        texto = { k: p.k || uso.ceja || tx(s, 'k_' + uso.base), t: s[uso.base] || '', s: parroquia };
+        break;
       case 'evangelio':
         texto = { k: p.k || tx(s, 'k_' + uso.base), t: s[uso.base] || '', s: parroquia };
         break;

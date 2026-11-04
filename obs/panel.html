@@ -418,11 +418,14 @@ function camposDe(uso) {
   const libre = (c, etiqueta, auto) => campo(c, etiqueta, () => propio(id, c), (v) => escribirPropio(id, c, v), auto);
   switch (uso.base) {
     case 'persona':
+      // Con ceja propia (Guía) el nombre es de ese rótulo; sin ella, el del celebrante de la transmisión.
       return [
         Object.assign(delTipo.ceja
           ? libre('k', 'Cargo', () => delTipo.ceja)
           : campo('k', 'Cargo', () => s.celebranteRol, (v) => { s.celebranteRol = v; }, () => ROTULOS.persona.ceja), { lista: 'cargos' }),
-        campo('t', 'Nombre', () => s.celebrante, (v) => { s.celebrante = v; })
+        delTipo.ceja
+          ? libre('t', 'Nombre')
+          : campo('t', 'Nombre', () => s.celebrante, (v) => { s.celebrante = v; })
       ];
     case 'lectura1': case 'lectura2': case 'evangelio':
       return [campo('t', 'Cita', () => s[uso.base], (v) => { s[uso.base] = v; }, () => uso.base === 'evangelio' ? 'Ej.: Según san Mateo 24, 37-44' : 'Ej.: Isaías 2, 1-5')];

@@ -56,6 +56,8 @@ const FRASE_ANTIGUA = '«TODA HERMOSA ERES, MARÍA»';
 function normalizarEstado(guardado) {
   guardado = guardado && typeof guardado === 'object' ? guardado : {};
   const s = Object.assign({}, PREDETERMINADO, guardado);
+  // Copias propias de lo anidado: mutar el estado nunca debe tocar PREDETERMINADO (ni lo que recibió).
+  ['textos', 'avisos', 'rotulosTexto'].forEach((c) => { if (s[c] && typeof s[c] === 'object') s[c] = JSON.parse(JSON.stringify(s[c])); });
   if (['a', 'b', 'c'].includes(guardado.virgen)) s.imagen = 'virgen-' + guardado.virgen;
   delete s.virgen;
   if (s.rotulo === 'celebrante') s.rotulo = 'persona';
@@ -152,7 +154,8 @@ function cuentaVisible(s, hoy = new Date()) {
   if (!tipo.cuenta && s.cuenta !== true) return false;
   const d = diasFaltan(s, hoy);
   if (d <= 0) return false;
-  if (tipo.cuenta && tipo.cuenta.desdeDias && d > tipo.cuenta.desdeDias) return false;
+  // Con la cuenta activada a mano (s.cuenta === true) no se aplica la ventana de desdeDias.
+  if (s.cuenta !== true && tipo.cuenta && tipo.cuenta.desdeDias && d > tipo.cuenta.desdeDias) return false;
   return true;
 }
 

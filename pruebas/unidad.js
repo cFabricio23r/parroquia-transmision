@@ -257,6 +257,20 @@ grupo('estado', () => {
     assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '7' }, new Date(2026, 10, 8)), 7);
     assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '' }, new Date(2026, 10, 8)), 30);
   });
+  prueba('cuentaVisible: con s.cuenta true se salta la ventana desdeDias (pero no si ya pasó)', () => {
+    assert.equal(c.cuentaVisible({ tipo: 'dominical', cuenta: true, diasManual: '' }, new Date(2026, 6, 1)), true);
+    assert.equal(c.cuentaVisible({ tipo: 'dominical', cuenta: null, diasManual: '' }, new Date(2026, 6, 1)), false);
+    assert.equal(c.cuentaVisible({ tipo: 'dominical', cuenta: true, diasManual: '' }, new Date(2026, 11, 8)), false);
+  });
+  prueba('normalizarEstado devuelve copias: mutarlas no cambia PREDETERMINADO', () => {
+    const antes = JSON.stringify(c.PREDETERMINADO);
+    const s = c.normalizarEstado({});
+    s.avisos[0].a = 'cambiado'; s.avisos.push({ a: 'x', f: 'y' });
+    s.textos.k_rosario = 'z'; s.rotulosTexto.guia = { t: 'w' };
+    assert.equal(JSON.stringify(c.PREDETERMINADO), antes);
+    const g = c.normalizarEstado({ avisos: [{ a: 'p', f: 'q' }] });
+    assert.equal(g.avisos.length, 4);
+  });
   prueba('cuentaVisible: depende del tipo, de s.cuenta y de los días', () => {
     assert.equal(c.cuentaVisible({ tipo: 'patronalsector' }), false);
     assert.equal(c.cuentaVisible({ tipo: 'dominical', diasManual: '' }, new Date(2026, 10, 8)), true);
@@ -300,14 +314,40 @@ grupo('rotulos', () => {
     assert.deepEqual(ids({ tipo: 'dominical' }), ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio']);
     assert.deepEqual(ids({ tipo: 'semana' }), ['persona', 'lectura1', 'salmo', 'evangelio']);
   });
-  prueba('Hora Santa: la guía usa la ceja del uso y el nombre del celebrante', () => {
-    const g = c.rotulosDe({ tipo: 'horasanta', celebrante: 'Juan', rotulosTexto: {} })[0];
+  prueba('Hora Santa: la guía usa la ceja del uso y su propio nombre (no el del celebrante)', () => {
+    const g = c.rotulosDe({ tipo: 'horasanta', celebrante: 'Pbro. X', rotulosTexto: { guia: { t: 'Juan' } } })[0];
     assert.equal(g.texto.k, 'GUÍA');
     assert.equal(g.texto.t, 'Juan');
   });
   prueba('procesión: el uso «persona» (Guía) lleva la ceja GUÍA, no CELEBRANTE', () => {
     assert.equal(uso({ tipo: 'procesion', celebrante: 'Ana' }, 'persona').texto.k, 'GUÍA');
-    assert.equal(uso({ tipo: 'procesion', celebrante: 'Ana' }, 'persona').texto.t, 'Ana');
+    assert.equal(uso({ tipo: 'procesion', celebrante: 'Ana', rotulosTexto: { persona: { t: 'Beto' } } }, 'persona').texto.t, 'Beto');
+  });
+  prueba('persona con ceja propia (guía): el nombre sale de rotulosTexto, nunca de s.celebrante', () => {
+    const s = { tipo: 'horasanta', celebrante: 'Pbro. Héctor', rotulosTexto: {} };
+    assert.equal(uso(s, 'guia').texto.t, '');
+    assert.equal(uso(Object.assign({}, s, { rotulosTexto: { guia: { t: 'Marta' } } }), 'guia').texto.t, 'Marta');
+    assert.equal(uso({ tipo: 'procesion', celebrante: 'Pbro. Héctor' }, 'persona').texto.t, '');
+  });
+  prueba('persona sin ceja propia (dominical): sigue leyendo s.celebrante y s.celebranteRol', () => {
+    const s = { tipo: 'dominical', celebrante: 'Pbro. Héctor', celebranteRol: 'PÁRROCO', rotulosTexto: { guia: { t: 'Marta' } } };
+    assert.equal(uso(s, 'persona').texto.t, 'Pbro. Héctor');
+    assert.equal(uso(s, 'persona').texto.k, 'PÁRROCO');
+  });
+  prueba('Santo Rosario: prenovena, novena y patronal lo llevan al final; dominical y otros no', () => {
+    for (const k of ['prenovena', 'novena', 'patronal']) {
+      const r = c.TIPOS[k].rotulos;
+      assert.equal(r.length, 6, k);
+      assert.deepEqual(Object.assign({}, r[5]), { id: 'rosario', base: 'rosario', nombre: 'Santo Rosario' }, k);
+    }
+    for (const k of ['dominical', 'otros']) assert.ok(!c.TIPOS[k].rotulos.some((r) => r.id === 'rosario'), k);
+    assert.equal(c.TIPOS.dominical.rotulos.length, 5);
+  });
+  prueba('Hora Santa: la lectura única sale con ceja LECTURA; en la misa sigue PRIMERA LECTURA', () => {
+    assert.equal(uso({ tipo: 'horasanta', rotulosTexto: {} }, 'lectura1').texto.k, 'LECTURA');
+    assert.equal(uso({ tipo: 'dominical' }, 'lectura1').texto.k, 'PRIMERA LECTURA');
+    assert.equal(uso({ tipo: 'dominical' }, 'lectura2').texto.k, 'SEGUNDA LECTURA');
+    assert.equal(uso({ tipo: 'horasanta', rotulosTexto: { lectura1: { k: 'MI LECTURA' } } }, 'lectura1').texto.k, 'MI LECTURA');
   });
   prueba('portada: solo prenovena, novena, patronal y evento tienen portada propia', () => {
     const con = Object.keys(c.TIPOS).filter((k) => c.TIPOS[k].portada).sort();

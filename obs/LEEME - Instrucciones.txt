@@ -78,7 +78,7 @@ Botón azul "Siguiente": sigue el orden de los rótulos del tipo elegido
 (en una misa: Celebrante → 1.ª lectura → Salmo → 2.ª lectura →
 Evangelio).
 Atajos de teclado (con el panel seleccionado):
-  1 a 9 = mostrar/ocultar ese rótulo · Espacio o N = siguiente
+  1 a 9 = mostrar/ocultar ese rótulo · Espacio, Enter o N = siguiente
   (estos solo funcionan en la pestaña EN VIVO)
   Esc = ocultar el rótulo (funciona en cualquier pestaña)
 Si a un rótulo le falta el texto, aparece en "Faltan N datos".

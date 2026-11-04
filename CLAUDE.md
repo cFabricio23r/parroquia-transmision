@@ -51,7 +51,7 @@ y los mensajes van en español.
 - `obs/panel.html` — dock (Panel 2.0). Tres pestañas: **Preparar** (elegir el tipo, lista «Faltan N datos», datos,
   campos de los rótulos, imagen/esquina/cuenta, y los avisos y textos en secciones plegables), **En vivo** (sin campos
   de texto: botón «Siguiente», rótulos, duración, logo/EN VIVO/barra) y **Guardadas**. Los rótulos y el orden de
-  «Siguiente» salen de `rotulosDe(s)` (o sea, de `tipos.js`). Atajos: 1–9, Espacio y N **solo con En vivo abierta**;
+  «Siguiente» salen de `rotulosDe(s)` (o sea, de `tipos.js`). Atajos: 1–9, Espacio, Enter y N **solo con En vivo abierta**;
   Esc en cualquier pestaña. Cambiar de tipo vuelve a automático la imagen, la esquina y la cuenta regresiva; los
   datos, rótulos y avisos se quedan. `ESQUEMA` define los textos editables.
 - `obs/estilos.css` — tokens de color en `:root`, componentes y la sección «ANIMACIONES».
@@ -82,13 +82,13 @@ Migraciones en `normalizarEstado`: `virgen` a|b|c → `imagen` `virgen-a|b|c`; r
   `sector`, `fecha`, `lugar`, `evento`; si un texto usa `{santo}` o `{sector}`, el tipo debe pedir ese dato). Las claves
   de tipo existentes (`dominical`, `otros`, `prenovena`, `novena`, `patronal`) no se cambian.
 - **Nuevo rótulo**: una base en `ROTULOS` (`{ ceja }`) y un uso en la lista `rotulos` de cada tipo que lo lleve:
-  `{ id, base, nombre[, ceja, texto] }`. Con eso basta, sin tocar código: `rotulosDe()` (rama `default`) toma la ceja de
+  `{ id, base, nombre[, ceja, texto] }`. Con eso basta, sin tocar la lógica (la entrada en `ROTULOS` sigue siendo un dato): `rotulosDe()` (rama `default`) toma la ceja de
   `ROTULOS[base].ceja` y los textos de `rotulosTexto[id]`, y `camposDe()` del panel (rama `default`) da los campos
   Título / Texto / Texto opcional, como `libre`; el aviso de «falta» cae a «el texto» (`FALTA[base]`) y `rotulos.html`
   no lee `base`. Solo una base con campos o lógica propios necesita su caso en **los dos** sitios: `rotulosDe()` en
   `tipos.js` y `camposDe()` en `panel.html` (hoy tienen caso en ambos `persona`, `lectura1/2`, `evangelio`, `salmo`, `rosario` y `lugar`; `santisimo` y
-  `oracion` solo en `camposDe()`), y de forma opcional una entrada en `FALTA` (`panel.html`). Los atajos 1–9 cubren
-  los nueve primeros usos.
+  `oracion` solo en `camposDe()`), y de forma opcional una entrada en `FALTA` (`panel.html`). Un uso `persona` con `ceja` propia (Guía) guarda su nombre en `rotulosTexto[id].t`, no en `s.celebrante`.
+  Los atajos 1–9 cubren los nueve primeros usos.
 - **Nueva pantalla completa**: nueva vista `<div class="texto" id="v-NOMBRE" hidden>` en `pantalla.html`, su rama en
   `pintar()` y la fila en README/LEEME con `?tipo=NOMBRE`.
 - **Nueva imagen**: un PNG recortado en `obs/img/` con el nombre de la clave (`obs/img/NOMBRE.png`, ver `imagenDe()`)

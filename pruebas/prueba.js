@@ -55,6 +55,8 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await panel.click('#dia-mas'); await panel.click('#dia-mas');
   await inicio.waitForTimeout(600);
   revisar((await inicio.textContent('#i-pildora')) === 'NOVENA · DÍA 3', 'inicio muestra NOVENA · DÍA 3');
+  revisar(await panel.isVisible('#rot-rosario-s'), 'novena: el panel tiene el campo del Santo Rosario');
+  revisar((await panel.$$eval('#hoja-vivo [data-rotulo] .nom', (ns) => ns.map((n) => n.textContent))).includes('Santo Rosario'), 'novena: En vivo tiene el botón «Santo Rosario»');
 
   console.log('Rótulos');
   await elegirTipo('dominical');
@@ -210,6 +212,8 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await elegirTipo('horasanta');
   await panel.fill('#rot-guia-t', 'Juan');
   await panel.waitForTimeout(500);
+  revisar((await estadoPanel()).celebrante === 'Pbro. Héctor Cruz', 'el nombre de la guía no pisa al celebrante (' + (await estadoPanel()).celebrante + ')');
+  revisar((await estadoPanel()).rotulosTexto.guia.t === 'Juan', 'el nombre de la guía queda en rotulosTexto.guia');
   await panel.click('#guardar-esta');
   revisar(await panel.isVisible('#hoja-guardadas'), '«Guardar esta transmisión…» abre la pestaña Guardadas');
   revisar((await panel.evaluate(() => document.activeElement.id)) === 'guardar-nombre', 'y deja el foco en el nombre');

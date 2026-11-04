@@ -38,7 +38,7 @@ El panel tiene tres pestañas:
   lista **«Faltan N datos»** (cada línea lleva al campo que falta; cuando está completo dice «Todo listo»). Aquí también
   se ajustan la imagen, la esquina y la cuenta regresiva, los avisos y los textos de las pantallas.
 - **En vivo** (durante la misa): sin campos de texto, solo botones: «Siguiente», un botón por rótulo, cuánto tiempo
-  queda en pantalla y el logo, EN VIVO y la barra. Atajos: **1 a 9** muestran u ocultan ese rótulo, **Espacio** o **N**
+  queda en pantalla y el logo, EN VIVO y la barra. Atajos: **1 a 9** muestran u ocultan ese rótulo, **Espacio**, **Enter** o **N**
   = siguiente (solo con En vivo abierta, para no sacar nada al aire por accidente); **Esc** oculta el rótulo desde
   cualquier pestaña.
 - **Guardadas**: guardar la transmisión actual con un nombre (p. ej. «Hora Santa jueves») y **cargar, duplicar o borrar**
