@@ -282,3 +282,43 @@ function rellenar(plantilla, s) {
     return texto || '[' + clave + ']';
   });
 }
+
+/* Rótulos de la transmisión, en el orden del tipo. Cada uno trae su texto ya resuelto:
+   { id, base, nombre, texto: { k (ceja), t (texto grande), s (subtexto), chico } }.
+   Las bases heredadas (persona, lecturas, salmo, rosario) leen los campos de siempre del estado y la
+   ceja de tx() (que respeta lo escrito en la pestaña Textos), para verse igual que antes. Las demás
+   leen s.rotulosTexto[id], con respaldo en el uso y en la base. Devuelve objetos nuevos: nunca muta
+   tipo.rotulos (varios tipos comparten la misma lista). Usa tx() de comun.js solo al ser llamada. */
+function rotulosDe(s) {
+  s = s || {};
+  const propio = s.rotulosTexto || {};
+  return tipoDe(s).rotulos.map((uso) => {
+    const p = propio[uso.id] || {};
+    const parroquia = s.parroquia || '';
+    let texto;
+    switch (uso.base) {
+      case 'persona':
+        texto = { k: p.k || uso.ceja || s.celebranteRol || ROTULOS.persona.ceja, t: s.celebrante || '', s: parroquia };
+        break;
+      case 'lectura1':
+      case 'lectura2':
+      case 'evangelio':
+        texto = { k: p.k || tx(s, 'k_' + uso.base), t: s[uso.base] || '', s: parroquia };
+        break;
+      case 'salmo':
+        texto = { k: p.k || tx(s, 'k_salmo') + (s.salmoNum ? ' · ' + s.salmoNum.toUpperCase() : ''), t: s.salmoResp || '', s: parroquia, chico: true };
+        break;
+      case 'rosario':
+        texto = { k: p.k || tx(s, 'k_rosario'), t: tx(s, 't_rosario'), s: s.rosario || parroquia };
+        break;
+      default:
+        texto = {
+          k: p.k || uso.ceja || ROTULOS[uso.base].ceja,
+          t: p.t || uso.texto || '',
+          s: p.s || parroquia
+        };
+    }
+    texto.chico = !!texto.chico;
+    return { id: uso.id, base: uso.base, nombre: uso.nombre, texto };
+  });
+}

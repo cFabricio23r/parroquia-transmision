@@ -286,6 +286,79 @@ grupo('estado', () => {
   });
 });
 
+grupo('rotulos', () => {
+  let c;
+  try {
+    c = cargar(['tipos.js', 'comun.js']);
+  } catch (e) {
+    prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
+    return;
+  }
+  const ids = (s) => Array.from(c.rotulosDe(s), (r) => r.id);
+  const uso = (s, id) => c.rotulosDe(s).find((r) => r.id === id);
+  prueba('el orden de los rótulos es el del tipo', () => {
+    assert.deepEqual(ids({ tipo: 'dominical' }), ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio']);
+    assert.deepEqual(ids({ tipo: 'semana' }), ['persona', 'lectura1', 'salmo', 'evangelio']);
+  });
+  prueba('Hora Santa: la guía usa la ceja del uso y el nombre del celebrante', () => {
+    const g = c.rotulosDe({ tipo: 'horasanta', celebrante: 'Juan', rotulosTexto: {} })[0];
+    assert.equal(g.texto.k, 'GUÍA');
+    assert.equal(g.texto.t, 'Juan');
+  });
+  prueba('Hora Santa: el último uso es la bendición con su texto y ceja', () => {
+    const rs = c.rotulosDe({ tipo: 'horasanta', rotulosTexto: {} });
+    const b = rs[rs.length - 1];
+    assert.equal(b.texto.t, 'Bendición con el Santísimo');
+    assert.equal(b.texto.k, 'BENDICIÓN');
+  });
+  prueba('persona: celebranteRol gana a la ceja del uso y rotulosTexto gana a todo', () => {
+    assert.equal(uso({ tipo: 'dominical', celebranteRol: 'PÁRROCO' }, 'persona').texto.k, 'PÁRROCO');
+    assert.equal(uso({ tipo: 'dominical' }, 'persona').texto.k, 'CELEBRANTE');
+    assert.equal(uso({ tipo: 'horasanta', celebranteRol: 'PÁRROCO' }, 'guia').texto.k, 'GUÍA');
+    assert.equal(uso({ tipo: 'horasanta', rotulosTexto: { guia: { k: 'DIÁCONO' } } }, 'guia').texto.k, 'DIÁCONO');
+  });
+  prueba('salmo: usa salmoResp, suma salmoNum en mayúsculas a la ceja y es chico', () => {
+    const r = uso({ tipo: 'dominical', salmoNum: 'Sal 121', salmoResp: 'Vamos' }, 'salmo');
+    assert.equal(r.texto.k, 'SALMO RESPONSORIAL · SAL 121');
+    assert.equal(r.texto.t, 'Vamos');
+    assert.equal(r.texto.chico, true);
+  });
+  prueba('lecturas y evangelio salen de los campos del mismo nombre, con s = parroquia', () => {
+    const s = { tipo: 'dominical', lectura1: 'Is 1', lectura2: 'Hb 2', evangelio: 'Mt 3', parroquia: 'Parroquia X' };
+    assert.equal(uso(s, 'lectura1').texto.t, 'Is 1');
+    assert.equal(uso(s, 'lectura2').texto.t, 'Hb 2');
+    assert.equal(uso(s, 'evangelio').texto.t, 'Mt 3');
+    assert.equal(uso(s, 'evangelio').texto.s, 'Parroquia X');
+    assert.equal(uso(s, 'evangelio').texto.k, 'SANTO EVANGELIO');
+  });
+  prueba('rosario: ceja y texto automáticos, s = s.rosario o la parroquia', () => {
+    const r = uso({ tipo: 'procesion', rosario: 'Misterios gozosos', parroquia: 'P' }, 'rosario');
+    assert.equal(r.texto.k, c.tx({ tipo: 'procesion' }, 'k_rosario'));
+    assert.equal(r.texto.t, c.tx({ tipo: 'procesion' }, 't_rosario'));
+    assert.equal(r.texto.s, 'Misterios gozosos');
+    assert.equal(uso({ tipo: 'procesion', parroquia: 'P' }, 'rosario').texto.s, 'P');
+  });
+  prueba('bases nuevas: rotulosTexto, luego el uso, luego la base; s cae en la parroquia', () => {
+    const s = { tipo: 'sector', parroquia: 'P', rotulosTexto: { lugar: { t: 'Capilla', s: 'Cantón' } } };
+    assert.deepEqual(Object.assign({}, uso(s, 'lugar').texto), { k: 'LUGAR', t: 'Capilla', s: 'Cantón', chico: false });
+    const v = uso({ tipo: 'sector', parroquia: 'P' }, 'lugar').texto;
+    assert.equal(v.t, '');
+    assert.equal(v.s, 'P');
+    assert.equal(uso({ tipo: 'evento', rotulosTexto: { libre: { k: 'AVISO', t: 'Hola' } } }, 'libre').texto.k, 'AVISO');
+  });
+  prueba('no muta el catálogo ni mezcla tipos que comparten la lista', () => {
+    const antes = JSON.stringify(c.TIPOS.dominical.rotulos);
+    c.rotulosDe({ tipo: 'dominical', salmoNum: 'x', celebrante: 'Ana' });
+    assert.equal(JSON.stringify(c.TIPOS.dominical.rotulos), antes);
+    assert.equal(uso({ tipo: 'novena', celebrante: 'Luis' }, 'persona').texto.t, 'Luis');
+    assert.equal(uso({ tipo: 'patronal' }, 'persona').texto.t, '');
+  });
+  prueba('un id que no es del tipo no tiene rótulo (el contenido queda en null)', () => {
+    assert.equal(uso({ tipo: 'semana' }, 'lectura2'), undefined);
+    assert.equal(uso({ tipo: 'dominical' }, 'guia'), undefined);
+  });
+});
+
 /* ---------- Resultado ---------- */
 console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
 process.exit(fallos ? 1 : 0);
