@@ -201,7 +201,9 @@ details label{margin-bottom:9px}
 
     <div class="seccion">
       <h3 id="campos-titulo">Rótulos</h3>
+      <span class="ayuda">Lo gris es el texto automático: sale así si deja la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
       <div id="campos-rotulos" style="display:flex;flex-direction:column;gap:10px"></div>
+      <datalist id="cargos"></datalist>
       <button type="button" class="secundario" id="limpiar-lecturas">Borrar lecturas (para la próxima misa)</button>
     </div>
 
@@ -237,9 +239,9 @@ details label{margin-bottom:9px}
 
     <details id="det-textos">
       <summary>Textos de las pantallas</summary>
-      <div class="ayuda" style="margin-bottom:8px">Si deja una casilla vacía se usa el texto automático (en gris). Enter = nueva línea.</div>
+      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si deja la casilla vacía. Enter = nueva línea.</div>
       <label>Frase de la franja inferior<input type="text" id="frase"></label>
-      <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto" placeholder="Vacío = título de la celebración"></label>
+      <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto"></label>
       <label>Línea bajo los rótulos<input type="text" id="parroquia"></label>
       <div id="textos"></div>
       <button type="button" class="secundario" id="restablecer" style="width:100%;margin-bottom:8px">Volver a los textos automáticos</button>
@@ -303,7 +305,8 @@ function abrir(h) {
   document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
   try { localStorage.setItem('parroquia_panel_hoja', h); } catch (e) {}
 }
-document.querySelectorAll('[data-hoja]').forEach(b => b.addEventListener('click', () => abrir(b.dataset.hoja)));
+// Con el mouse (detail > 0) la pestaña suelta el foco: así Espacio queda para «siguiente» y no la vuelve a apretar.
+document.querySelectorAll('[data-hoja]').forEach(b => b.addEventListener('click', (e) => { abrir(b.dataset.hoja); if (e.detail > 0) b.blur(); }));
 let hojaGuardada = null;
 try { hojaGuardada = localStorage.getItem('parroquia_panel_hoja'); } catch (e) {}
 abrir(hojaGuardada);
@@ -327,11 +330,15 @@ function verEleccion(si) {
 ORDEN_TIPOS.forEach(clave => {
   const tipo = TIPOS[clave];
   const b = nuevo('button'); b.type = 'button'; b.dataset.tipo = clave;
-  b.append(nuevo('span', 'nom', tipo.nombre), nuevo('span', 'sub', tipo.rotulos.length + (tipo.rotulos.length === 1 ? ' rótulo' : ' rótulos')));
+  b.append(nuevo('span', 'nom', tipo.nombre), nuevo('span', 'sub', tipo.descripcion || ''));
   b.addEventListener('click', () => cambiarTipo(clave));
   $('tipos').append(b);
 });
 function cambiarTipo(clave) {
+  if (clave !== s.tipo) {
+    // Otro tipo: imagen, esquina y cuenta vuelven a las del tipo nuevo (los datos, rótulos y avisos se quedan).
+    s.imagen = ''; s.esquina = ''; s.esquinaTexto = ''; s.cuenta = null;
+  }
   s.tipo = clave;
   const ids = rotulosDe(s).map(r => r.id);
   if (!ids.includes(s.rotulo)) { s.rotulo = 'ninguno'; s.rotuloHasta = 0; }
@@ -376,24 +383,24 @@ function camposDe(uso) {
   switch (uso.base) {
     case 'persona':
       return [
-        delTipo.ceja
+        Object.assign(delTipo.ceja
           ? libre('k', 'Cargo', () => delTipo.ceja)
-          : campo('k', 'Cargo', () => s.celebranteRol, (v) => { s.celebranteRol = v; }, () => ROTULOS.persona.ceja),
+          : campo('k', 'Cargo', () => s.celebranteRol, (v) => { s.celebranteRol = v; }, () => ROTULOS.persona.ceja), { lista: 'cargos' }),
         campo('t', 'Nombre', () => s.celebrante, (v) => { s.celebrante = v; })
       ];
     case 'lectura1': case 'lectura2': case 'evangelio':
       return [campo('t', 'Cita', () => s[uso.base], (v) => { s[uso.base] = v; }, () => uso.base === 'evangelio' ? 'Ej.: Según san Mateo 24, 37-44' : 'Ej.: Isaías 2, 1-5')];
     case 'salmo':
       return [
-        campo('k', 'Salmo', () => s.salmoNum, (v) => { s.salmoNum = v; }, () => 'Salmo 121'),
-        campo('t', 'Respuesta', () => s.salmoResp, (v) => { s.salmoResp = v; }, () => 'Vamos con alegría…')
+        campo('k', 'Salmo', () => s.salmoNum, (v) => { s.salmoNum = v; }, () => 'Ej.: Salmo 121'),
+        campo('t', 'Respuesta', () => s.salmoResp, (v) => { s.salmoResp = v; }, () => 'Ej.: Vamos con alegría…')
       ];
     case 'rosario':
       return [campo('s', 'Misterios o intención', () => s.rosario, (v) => { s.rosario = v; }, () => 'Ej.: Misterios Gozosos')];
     case 'santisimo':
       return [libre('t', 'Texto'), libre('s', 'Guía o intención', () => s.parroquia)];
     case 'lugar':
-      return [libre('k', 'Texto pequeño', () => delTipo.ceja || ROTULOS.lugar.ceja), libre('t', 'Lugar'), libre('s', 'Sector o comunidad', () => s.parroquia)];
+      return [libre('k', 'Texto pequeño', () => delTipo.ceja || ROTULOS.lugar.ceja), libre('t', 'Lugar', () => s.lugar), libre('s', 'Sector o comunidad', () => String(s.sector || '').trim() || s.parroquia)];
     case 'oracion':
       return [libre('t', 'Intención')];
     default:   // libre
@@ -401,6 +408,7 @@ function camposDe(uso) {
   }
 }
 const idCampo = (usoId, c) => 'rot-' + usoId + '-' + c;
+CARGOS.forEach(c => { const o = nuevo('option'); o.value = c; $('cargos').append(o); });
 let camposPintados = [];   // [{ el, uso, def }]
 let tipoPintado = null;
 function pintarCampos() {
@@ -419,6 +427,7 @@ function pintarCampos() {
       const el = nuevo('input'); el.type = 'text';
       el.id = idCampo(uso.id, def.c);
       el.dataset.uso = uso.id; el.dataset.c = def.c;
+      if (def.lista) el.setAttribute('list', def.lista);
       el.setAttribute('aria-label', uso.nombre + ' · ' + def.etiqueta);
       el.addEventListener('input', () => { def.escribir(el.value); guardarPronto(); refrescarFaltas(); });
       l.append(el); fila.append(l);
@@ -458,7 +467,7 @@ $('limpiar-lecturas').addEventListener('click', () => { ['lectura1','salmoNum','
 for (let i = 0; i < 4; i++) {
   const d = nuevo('div', 'aviso');
   const campos = nuevo('div', 'campos');
-  [['a', 'Actividad o aviso', 'Aviso ' + (i + 1)], ['f', 'Fecha y hora (ej.: Sáb 30 · 6:00 p. m.)', 'Fecha del aviso ' + (i + 1)]].forEach(([c, ph, al]) => {
+  [['a', 'Ej.: Rezo del Santo Rosario', 'Aviso ' + (i + 1)], ['f', 'Ej.: Sáb 30 · 6:00 p. m.', 'Fecha y hora del aviso ' + (i + 1)]].forEach(([c, ph, al]) => {
     const el = nuevo('input'); el.type = 'text'; el.dataset.aviso = i; el.dataset.c = c; el.placeholder = ph; el.setAttribute('aria-label', al);
     campos.append(el);
   });
@@ -530,17 +539,29 @@ $('ocultar').addEventListener('click', ocultar);
 document.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { s.duracionSeg = parseInt(b.dataset.seg, 10); guardar(); }));
 document.querySelectorAll('[data-switch]').forEach(b => b.addEventListener('click', () => { s[b.dataset.switch] = !s[b.dataset.switch]; guardar(); }));
 
-/* Atajos de teclado. Nunca mientras se escribe en una casilla: escribir «2» no muestra un rótulo. */
+/* Atajos de teclado.
+   - Esc (ocultar) funciona siempre, salvo dentro de una casilla (ahí solo sale de la casilla).
+   - 1–9, Espacio y N solo con la hoja En vivo abierta: en Preparar nada sale al aire por accidente.
+   - Espacio y Enter no le quitan su acción a un botón, enlace, resumen o interruptor enfocado, salvo los
+     botones de rótulo y «Siguiente» (ahí «siguiente» es lo esperado). */
+function esControl(el) {
+  if (!el || el === document.body) return false;
+  if (el.closest('.rot') || el.id === 'siguiente') return false;
+  return !!el.closest('button, a, summary, [role=switch], [role=tab]');
+}
 document.addEventListener('keydown', (e) => {
   const t = e.target;
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
+  if (!$('hoja-vivo').classList.contains('activa')) return;
   if (/^[1-9]$/.test(e.key)) {
     const uso = usos()[+e.key - 1];          // solo si el tipo tiene un rótulo con ese número
     if (uso) { alternar(uso.id); e.preventDefault(); }
-  } else if (e.key === ' ' || e.key.toLowerCase() === 'n' || (e.key === 'Enter' && t === document.body)) {
+  } else if (e.key.toLowerCase() === 'n' || ((e.key === ' ' || e.key === 'Enter') && !esControl(t))) {
+    if (e.key === 'Enter' && t !== document.body) return;   // Enter en un botón de rótulo: su propio clic
     const u = siguienteUso(); if (u) mostrar(u.id); e.preventDefault();
-  } else if (e.key === 'Escape') { ocultar(); e.preventDefault(); }
+  }
 });
 
 /* ---------- pintar el panel ---------- */
@@ -560,7 +581,10 @@ function faltas() {
   tipoDe(s).datos.forEach(d => {
     if (DATOS[d] && !String(s[d] ?? '').trim()) lista.push({ campo: DATOS[d].campo, texto: DATOS[d].falta });
   });
+  const conLugar = tipoDe(s).datos.includes('lugar');
   rotulosDe(s).forEach(uso => {
+    // El rótulo «Lugar» sin texto propio usa el dato Lugar: si falta, ya se pide una vez arriba.
+    if (uso.base === 'lugar' && conLugar && !propio(uso.id, 't')) return;
     if (!String(uso.texto.t || '').trim()) lista.push({ campo: idCampo(uso.id, 't'), texto: uso.nombre + ': falta ' + (FALTA[uso.base] || 'el texto') });
   });
   return lista;
@@ -619,7 +643,7 @@ function refrescar() {
   const dias = diasFaltan(s);
   $('cuenta-estado').textContent = cuentaVisible(s) ? 'Ahora se ve: faltan ' + dias + (dias === 1 ? ' día.' : ' días.') : 'Ahora no se ve en las pantallas.';
   const auto = diasFaltan(Object.assign({}, s, { diasManual: '' }));
-  $('diasManual').placeholder = 'Vacío = automático (' + auto + ')';
+  $('diasManual').placeholder = String(auto);
 
   const escritos = s.avisos.filter(a => (a.a || '').trim()).length;
   document.querySelector('#det-avisos > summary').textContent = 'Avisos (' + escritos + (escritos === 1 ? ' escrito)' : ' escritos)');
@@ -660,6 +684,7 @@ function refrescar() {
     if (document.activeElement !== el) el.value = (s.textos && s.textos[k]) || '';
   });
   $('frase').placeholder = base.franja || '';
+  $('barraTexto').placeholder = tituloCelebracion(s);
 }
 
 /* «EN PANTALLA · se oculta en 9 s» */

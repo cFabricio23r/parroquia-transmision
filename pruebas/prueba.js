@@ -128,6 +128,67 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   revisar((await estadoPanel()).rotulo === 'ninguno', 'la tecla 1 dentro de una casilla no muestra un rótulo');
   await panel.fill('#rot-oracion-t', '');
 
+  console.log('Panel 2.0 · atajos solo en En vivo');
+  await panel.waitForTimeout(500);
+  await panel.focus('#cambiar-tipo');
+  await panel.keyboard.press('2');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'Preparar: la tecla 2 no muestra un rótulo');
+  await panel.focus('#cambiar-tipo');
+  await panel.keyboard.press(' ');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'Preparar: Espacio sobre «Cambiar» no muestra un rótulo');
+  revisar(await panel.isVisible('#elegir'), 'Preparar: Espacio sobre «Cambiar» hace lo del botón (abre Elegir)');
+  await panel.focus('[data-tipo="horasanta"]');
+  await panel.keyboard.press(' ');
+  await panel.keyboard.press('2');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'Preparar: Espacio y 2 sobre un tipo no muestran un rótulo');
+  revisar((await panel.textContent('[data-tipo="horasanta"] .sub')) === (await panel.evaluate(() => TIPOS.horasanta.descripcion)), 'el botón del tipo muestra su descripción');
+  await panel.click('#continuar');
+  revisar((await panel.$$eval('#rot-guia-k', (els) => els[0] && els[0].list ? els[0].list.options.length : 0)) === 6, 'el cargo sugiere los 6 CARGOS');
+
+  await panel.click('[data-hoja="vivo"]');
+  const logoAntes = (await estadoPanel()).mostrarLogo;
+  await panel.focus('[data-switch="mostrarLogo"]');
+  await panel.keyboard.press(' ');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).mostrarLogo === !logoAntes, 'En vivo: Espacio sobre el interruptor del logo lo cambia');
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'En vivo: Espacio sobre el interruptor no muestra un rótulo');
+  await panel.keyboard.press(' ');
+  await panel.waitForTimeout(400);
+  await panel.focus('#siguiente');
+  await panel.keyboard.press(' ');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).rotulo === 'guia', 'En vivo: Espacio sobre «Siguiente» muestra el siguiente (Guía)');
+  await panel.keyboard.press('Escape');
+  await panel.waitForTimeout(400);
+
+  console.log('Panel 2.0 · cambiar de tipo');
+  await panel.click('[data-hoja="preparar"]');
+  await panel.click('[data-imagen="virgen-b"]');
+  await panel.selectOption('#esquina', 'texto');
+  await panel.fill('#esquinaTexto', 'SOLO HORA SANTA');
+  await panel.click('[data-cuenta="si"]');
+  await panel.waitForTimeout(500);
+  const antesTipo = await estadoPanel();
+  revisar(antesTipo.imagen === 'virgen-b' && antesTipo.esquina === 'texto' && antesTipo.esquinaTexto === 'SOLO HORA SANTA' && antesTipo.cuenta === true, 'Hora Santa: imagen, esquina y cuenta elegidas a mano');
+  await elegirTipo('sector');
+  const trasTipo = await estadoPanel();
+  revisar(trasTipo.imagen === '' && trasTipo.esquina === '' && trasTipo.esquinaTexto === '' && trasTipo.cuenta === null, 'al cambiar de tipo, imagen, esquina, texto de esquina y cuenta vuelven a automático');
+  revisar(trasTipo.lectura1 === antesTipo.lectura1 && trasTipo.celebrante === antesTipo.celebrante && trasTipo.santo === antesTipo.santo
+    && JSON.stringify(trasTipo.avisos) === JSON.stringify(antesTipo.avisos) && JSON.stringify(trasTipo.rotulosTexto) === JSON.stringify(antesTipo.rotulosTexto), 'al cambiar de tipo se conservan datos, textos de rótulos y avisos');
+
+  // Misa en sector: el lugar se escribe una sola vez (dato y rótulo «Lugar»).
+  await panel.fill('#dato-lugar', '');
+  await panel.waitForTimeout(500);
+  const faltasLugar = await panel.$$eval('#revision a', (as) => as.filter((a) => /lugar/i.test(a.textContent)).length);
+  revisar(faltasLugar === 1, 'Misa en sector sin lugar: la lista lo pide una sola vez (' + faltasLugar + ')');
+  await panel.fill('#dato-lugar', 'Capilla San Juan');
+  await panel.waitForTimeout(500);
+  revisar((await panel.$$eval('#revision a', (as) => as.filter((a) => /lugar/i.test(a.textContent)).length)) === 0, 'Misa en sector con lugar: ya no falta');
+  revisar((await panel.textContent('#hoja-vivo [data-rotulo="lugar"] .prev')) === 'Capilla San Juan', 'el rótulo «Lugar» toma el lugar del dato');
+
   await elegirTipo('patronalsector');
   await panel.fill('#dato-sector', '');
   await panel.waitForTimeout(500);

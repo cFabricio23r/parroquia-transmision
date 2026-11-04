@@ -20,6 +20,9 @@ const ROTULOS = {
   libre:     { ceja: '' }
 };
 
+/* Sugerencias del cargo del rótulo «persona» en el panel (se puede escribir otro). */
+const CARGOS = ['CELEBRANTE', 'PREDICADOR', 'CONCELEBRANTE', 'DIÁCONO', 'GUÍA', 'CORO'];
+
 /* Rótulos de una misa con segunda lectura (el orden de la misa). */
 const _MISA_COMPLETA = [
   { id: 'persona',   base: 'persona',   nombre: 'Celebrante' },
@@ -293,7 +296,7 @@ function rellenar(plantilla, s) {
    { id, base, nombre, texto: { k (ceja), t (texto grande), s (subtexto), chico } }.
    Las bases heredadas (persona, lecturas, salmo, rosario) leen los campos de siempre del estado y la
    ceja de tx() (que respeta lo escrito en la pestaña Textos), para verse igual que antes. Las demás
-   leen s.rotulosTexto[id], con respaldo en el uso y en la base. Devuelve objetos nuevos: nunca muta
+   leen s.rotulosTexto[id], con respaldo en el uso y en la base (lugar: en s.lugar y s.sector). Devuelve objetos nuevos: nunca muta
    tipo.rotulos (varios tipos comparten la misma lista). Usa tx() de comun.js solo al ser llamada. */
 function rotulosDe(s) {
   s = s || {};
@@ -317,6 +320,17 @@ function rotulosDe(s) {
       case 'rosario':
         texto = { k: p.k || tx(s, 'k_rosario'), t: tx(s, 't_rosario'), s: s.rosario || parroquia };
         break;
+      case 'lugar': {
+        // Sin texto propio usa los datos de la transmisión: así el lugar se escribe una sola vez.
+        const lugar = String(s.lugar || '').trim();
+        const sector = String(s.sector || '').trim();
+        texto = {
+          k: p.k || uso.ceja || ROTULOS.lugar.ceja,
+          t: p.t || uso.texto || lugar,
+          s: p.s || sector || parroquia
+        };
+        break;
+      }
       default:
         texto = {
           k: p.k || uso.ceja || ROTULOS[uso.base].ceja,

@@ -355,6 +355,27 @@ grupo('rotulos', () => {
     assert.equal(v.s, 'P');
     assert.equal(uso({ tipo: 'evento', rotulosTexto: { libre: { k: 'AVISO', t: 'Hola' } } }, 'libre').texto.k, 'AVISO');
   });
+  prueba('lugar: sin texto propio, t cae en s.lugar y s en s.sector, luego en la parroquia', () => {
+    const v = uso({ tipo: 'sector', lugar: 'Capilla San Juan', sector: 'SECTOR 8', parroquia: 'P' }, 'lugar').texto;
+    assert.equal(v.t, 'Capilla San Juan');
+    assert.equal(v.s, 'SECTOR 8');
+    assert.equal(uso({ tipo: 'procesion', lugar: 'Parque central', parroquia: 'P' }, 'lugar').texto.t, 'Parque central');
+    assert.equal(uso({ tipo: 'procesion', lugar: 'Parque central', sector: '', parroquia: 'P' }, 'lugar').texto.s, 'P');
+    assert.equal(uso({ tipo: 'sector', sector: '   ', parroquia: 'P' }, 'lugar').texto.s, 'P');
+  });
+  prueba('lugar: lo escrito en rotulosTexto gana a s.lugar y s.sector', () => {
+    const s = { tipo: 'sector', lugar: 'Capilla', sector: 'SECTOR 8', parroquia: 'P', rotulosTexto: { lugar: { t: 'Cancha', s: 'Cantón' } } };
+    assert.equal(uso(s, 'lugar').texto.t, 'Cancha');
+    assert.equal(uso(s, 'lugar').texto.s, 'Cantón');
+  });
+  prueba('lugar: las otras bases nuevas no usan s.lugar ni s.sector', () => {
+    const o = uso({ tipo: 'procesion', lugar: 'Parque', sector: 'S8', parroquia: 'P' }, 'oracion').texto;
+    assert.equal(o.t, '');
+    assert.equal(o.s, 'P');
+  });
+  prueba('CARGOS: sugerencias del cargo de la persona, en tipos.js', () => {
+    assert.deepEqual(Array.from(c.CARGOS || []), ['CELEBRANTE', 'PREDICADOR', 'CONCELEBRANTE', 'DIÁCONO', 'GUÍA', 'CORO']);
+  });
   prueba('no muta el catálogo ni mezcla tipos que comparten la lista', () => {
     const antes = JSON.stringify(c.TIPOS.dominical.rotulos);
     c.rotulosDe({ tipo: 'dominical', salmoNum: 'x', celebrante: 'Ana' });
