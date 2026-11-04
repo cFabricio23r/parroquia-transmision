@@ -34,6 +34,7 @@ let estado = leerEstado();
 function contenido(s) {
   const p = s.parroquia;
   switch (s.rotulo) {
+    case 'persona':
     case 'celebrante': return { k: s.celebranteRol || 'CELEBRANTE', t: s.celebrante, s: p };
     case 'lectura1':   return { k: tx(s, 'k_lectura1'), t: s.lectura1, s: p };
     case 'salmo':      return { k: tx(s, 'k_salmo') + (s.salmoNum ? ' · ' + s.salmoNum.toUpperCase() : ''), t: s.salmoResp, s: p, chico: true };

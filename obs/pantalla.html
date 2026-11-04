@@ -108,7 +108,7 @@ function pintar(s) {
   const variante = (/virgen-([abc])\.png$/.exec(src) || [])[1] || 'a';   // a | b | c: tamaño y posición de la Virgen
   v.classList.remove('a', 'b', 'c'); v.classList.add(variante);
   if (vista === 'avisos') v.style.height = variante === 'c' ? '980px' : '900px';
-  $('frase').textContent = s.frase || '';
+  $('frase').textContent = tx(s, 'franja');
   $('t-marca').textContent = tx(s, 'marca');
 
   let firma = '';

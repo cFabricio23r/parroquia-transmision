@@ -190,6 +190,30 @@ grupo('estado', () => {
     assert.deepEqual(Object.assign({}, s.rotulosTexto), {});
     for (const k of ['sector', 'fecha', 'lugar', 'evento', 'esquina', 'esquinaTexto']) assert.equal(s[k], '', k);
   });
+  prueba('mostrarCuenta:false se migra una sola vez (ida y vuelta por guardar)', () => {
+    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"mostrarCuenta":false,"cuenta":null}' });
+    let s = m.leerEstado();
+    assert.equal(s.cuenta, false);
+    m.guardarEstado(s);
+    s = m.leerEstado();
+    s.cuenta = null;
+    m.guardarEstado(s);
+    assert.equal(m.leerEstado().cuenta, null);
+  });
+  prueba('imagenDe del logo apunta a logo-blanco.png', () => {
+    assert.equal(c.imagenDe({ tipo: 'evento', imagen: '' }), 'img/logo-blanco.png');
+  });
+  prueba('la frase antigua por defecto se migra a vacío y cada tipo muestra su franja', () => {
+    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"tipo":"novena","frase":"«TODA HERMOSA ERES, MARÍA»"}' });
+    const s = m.leerEstado();
+    assert.equal(s.frase, '');
+    assert.equal(m.tx(s, 'franja'), '«TODA HERMOSA ERES, MARÍA»');
+    for (const t of ['dominical', 'otros', 'prenovena', 'novena', 'patronal']) {
+      assert.equal(m.tx(Object.assign({}, s, { tipo: t }), 'franja'), '«TODA HERMOSA ERES, MARÍA»', t);
+    }
+    assert.equal(m.tx(Object.assign({}, s, { tipo: 'horasanta' }), 'franja'), '«BENDITO Y ALABADO SEA JESÚS SACRAMENTADO»');
+    assert.equal(m.tx(Object.assign({}, s, { frase: 'Mi frase' }), 'franja'), 'Mi frase');
+  });
   prueba('imagenDe usa la imagen del tipo y respeta la elegida', () => {
     assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
     assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'img/fachada.jpg');

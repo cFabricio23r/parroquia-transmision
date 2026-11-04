@@ -61,6 +61,9 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await rotulos.waitForTimeout(1600);
   revisar((await rotulos.textContent('#r-t')).startsWith('Vamos con alegría'), 'Espacio pasa al salmo');
   await rotulos.screenshot({ path: path.join(salida, 'rotulo.png') });
+  await panel.evaluate(() => { const e = leerEstado(); e.rotulo = 'persona'; e.rotuloHasta = 0; guardarEstado(e); });
+  await rotulos.waitForTimeout(1600);
+  revisar((await rotulos.textContent('#r-t')) === 'Pbro. Héctor Cruz', 'el rótulo «persona» muestra al celebrante');
   await panel.keyboard.press('Escape');
   await rotulos.waitForTimeout(700);
   revisar(!(await rotulos.getAttribute('#rotulo', 'class')).includes('en'), 'Esc oculta el rótulo');

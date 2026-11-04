@@ -18,7 +18,7 @@ const PREDETERMINADO = {
   mostrarCuenta: true,       // solo se conserva para migrarlo a `cuenta`
   cuenta: null,              // null = la del tipo; true / false = forzada
   diasManual: '',            // vacío = se calcula solo hasta el 8 de diciembre
-  frase: '«TODA HERMOSA ERES, MARÍA»',
+  frase: '',                 // vacío = la franja del tipo; escrita, reemplaza a la del tipo
   imagen: '',                // vacío = la del tipo (clave de imagen: virgen-a, santo, custodia…)
   esquina: '',               // vacío = la del tipo (hoy | fecha | fiesta | texto)
   esquinaTexto: '',
@@ -49,6 +49,8 @@ const PREDETERMINADO = {
   ]
 };
 
+const FRASE_ANTIGUA = '«TODA HERMOSA ERES, MARÍA»';
+
 /* Completa un estado guardado con los valores por defecto y lo pasa al formato actual:
    virgen:'b' -> imagen:'virgen-b', rotulo:'celebrante' -> 'persona', mostrarCuenta:false -> cuenta:false. */
 function normalizarEstado(guardado) {
@@ -57,7 +59,13 @@ function normalizarEstado(guardado) {
   if (['a', 'b', 'c'].includes(guardado.virgen)) s.imagen = 'virgen-' + guardado.virgen;
   delete s.virgen;
   if (s.rotulo === 'celebrante') s.rotulo = 'persona';
-  if (guardado.mostrarCuenta === false && (guardado.cuenta === undefined || guardado.cuenta === null)) s.cuenta = false;
+  // mostrarCuenta:false se migra una sola vez: después queda en true para no volver a forzar cuenta:false.
+  if (guardado.mostrarCuenta === false) {
+    if (guardado.cuenta === undefined || guardado.cuenta === null) s.cuenta = false;
+    s.mostrarCuenta = true;
+  }
+  // La frase por defecto de antes pasa a vacío: cada tipo trae su propia franja.
+  if (typeof s.frase === 'string' && s.frase.trim() === FRASE_ANTIGUA) s.frase = '';
   if (!Array.isArray(s.avisos)) s.avisos = PREDETERMINADO.avisos;
   while (s.avisos.length < 4) s.avisos.push({ a: '', f: '' });
   if (!s.textos || typeof s.textos !== 'object') s.textos = {};
@@ -219,7 +227,9 @@ function tx(s, clave) {
 /* Ruta de la imagen de la transmisión: la elegida en el panel o la del tipo. */
 function imagenDe(s) {
   const clave = s.imagen || tipoDe(s).imagen;
-  return 'img/' + clave + (clave === 'fachada' ? '.jpg' : '.png');
+  if (clave === 'fachada') return 'img/fachada.jpg';
+  if (clave === 'logo') return 'img/logo-blanco.png';
+  return 'img/' + clave + '.png';
 }
 
 /* Escala el escenario de 1920×1080 al tamaño real de la fuente de navegador. */
