@@ -11,19 +11,44 @@ const CAMPOS_DE_AIRE = ['rotulo', 'rotuloHasta', 'rotuloDesde'];
 const copiaProfunda = (x) => JSON.parse(JSON.stringify(x));
 const mismoNombre = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
-/* Lista guardada, de la más usada a la menos usada. Si lo guardado no se puede leer, no es una lista
-   o trae entradas rotas, devuelve lo que sirva (o []). */
+const CLAVE_RESPALDO = 'parroquia_obs_guardadas_v1_respaldo';
+const esGuardadaValida = (g) => !!g && typeof g === 'object' && typeof g.id === 'string' && typeof g.nombre === 'string' && !!g.datos && typeof g.datos === 'object';
+
+/* Lo que hay guardado, sin filtrar: { items, crudo }. `items` es la lista tal cual está (puede traer entradas
+   rotas); si el valor no se puede leer o no es una lista, `items` es [] y `crudo` guarda el texto original. */
+function leerTodo() {
+  let crudo = null;
+  try { crudo = localStorage.getItem(CLAVE_GUARDADAS); } catch (e) { return { items: [], crudo: null }; }
+  if (crudo === null || crudo === '') return { items: [], crudo: null };
+  try {
+    const lista = JSON.parse(crudo);
+    if (Array.isArray(lista)) return { items: lista, crudo: null };
+  } catch (e) {}
+  return { items: [], crudo };
+}
+
+/* Lista guardada, de la más usada a la menos usada. Si lo guardado no se puede leer o no es una lista,
+   devuelve []. Las entradas rotas no se muestran (pero se conservan en el almacén al escribir). */
 function leerGuardadas() {
-  let lista;
-  try { lista = JSON.parse(localStorage.getItem(CLAVE_GUARDADAS) || '[]'); } catch (e) { return []; }
-  if (!Array.isArray(lista)) return [];
-  return lista
-    .filter((g) => g && typeof g === 'object' && typeof g.id === 'string' && typeof g.nombre === 'string' && g.datos && typeof g.datos === 'object')
+  return leerTodo().items
+    .filter(esGuardadaValida)
     .sort((a, b) => (b.usadaEn || 0) - (a.usadaEn || 0) || (b.guardadaEn || 0) - (a.guardadaEn || 0));
 }
 
-function escribirGuardadas(lista) {
-  try { localStorage.setItem(CLAVE_GUARDADAS, JSON.stringify(lista)); } catch (e) {}
+/* Escribe la lista `validas` conservando las entradas rotas que ya había. Si lo guardado era ilegible,
+   antes copia el texto original a CLAVE_RESPALDO. Devuelve true si quedó escrito. */
+function escribirGuardadas(validas) {
+  const { items, crudo } = leerTodo();
+  try {
+    if (crudo !== null) localStorage.setItem(CLAVE_RESPALDO, crudo);
+    localStorage.setItem(CLAVE_GUARDADAS, JSON.stringify(items.filter((g) => !esGuardadaValida(g)).concat(validas)));
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ¿Ya hay una guardada con ese nombre? (sin importar mayúsculas ni espacios de los lados) */
+function existeGuardada(nombre) {
+  return leerGuardadas().some((g) => mismoNombre(g.nombre, nombre));
 }
 
 /* Un id nuevo: la hora en base 36; si ya existe (dos en el mismo milisegundo), sube de a uno. */
@@ -45,8 +70,7 @@ function guardarTransmision(nombre, s) {
   const tipo = TIPOS[datos.tipo] ? datos.tipo : 'dominical';
   const previa = lista.find((g) => mismoNombre(g.nombre, nombre));
   const guardada = { id: previa ? previa.id : idNuevo(lista), nombre, tipo, guardadaEn: ahora, usadaEn: ahora, datos };
-  escribirGuardadas(previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada));
-  return guardada;
+  return escribirGuardadas(previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada)) ? guardada : null;
 }
 
 /* El estado de una guardada, listo para el panel: completo (los estados viejos se migran),
@@ -74,10 +98,10 @@ function duplicarTransmision(id) {
   for (let n = 2; lista.some((g) => mismoNombre(g.nombre, nombre)); n++) nombre = origen.nombre + ' (copia ' + n + ')';
   const ahora = Date.now();
   const copia = { id: idNuevo(lista), nombre, tipo: origen.tipo, guardadaEn: ahora, usadaEn: ahora, datos: copiaProfunda(origen.datos) };
-  escribirGuardadas(lista.concat(copia));
-  return copia;
+  return escribirGuardadas(lista.concat(copia)) ? copia : null;
 }
 
+/* true si quedó borrada; false si el navegador no dejó escribir. */
 function borrarTransmision(id) {
-  escribirGuardadas(leerGuardadas().filter((g) => g.id !== id));
+  return escribirGuardadas(leerGuardadas().filter((g) => g.id !== id));
 }

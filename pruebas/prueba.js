@@ -223,8 +223,20 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   revisar((await guardadasLs()).length === 1 && (await guardadasLs())[0].tipo === 'horasanta', 'Guardar crea la entrada «Prueba HS» de tipo horasanta');
   revisar(!('rotulo' in (await guardadasLs())[0].datos), 'lo guardado no incluye el rótulo al aire');
   await panel.fill('#guardar-nombre', 'prueba hs ');
+  await panel.fill('#guardar-nombre', 'prueba hs ');
+  let pregunta = '';
+  panel.once('dialog', (d) => { pregunta = d.message(); d.dismiss(); });
   await panel.click('#guardar-boton');
-  revisar((await guardadasLs()).length === 1, 'guardar con el mismo nombre (otras mayúsculas) reemplaza la entrada');
+  revisar(pregunta === 'Ya existe «prueba hs». ¿Reemplazarla?', 'guardar con un nombre existente pregunta antes de reemplazar (' + pregunta + ')');
+  revisar((await guardadasLs()).length === 1 && (await guardadasLs())[0].nombre === 'Prueba HS', 'Cancelar no guarda nada');
+  panel.once('dialog', (d) => d.accept());
+  await panel.click('#guardar-boton');
+  revisar((await guardadasLs()).length === 1 && (await guardadasLs())[0].nombre === 'prueba hs', 'Aceptar reemplaza la entrada (otras mayúsculas)');
+  await panel.evaluate(() => { window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'parroquia_obs_guardadas_v1') throw new Error('cuota'); return window.__setItem.call(this, k, v); }; });
+  await panel.fill('#guardar-nombre', 'Otra');
+  await panel.click('#guardar-boton');
+  revisar((await panel.textContent('#estado-guardadas')).includes('No se pudo guardar'), 'si el navegador no deja escribir, el panel no dice «Guardada»');
+  await panel.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
 
   // otro tipo, con un rótulo al aire: cargar tiene que dejar la pantalla sin rótulo
   await elegirTipo('dominical');

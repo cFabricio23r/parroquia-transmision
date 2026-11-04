@@ -478,6 +478,47 @@ grupo('guardadas', () => {
     c.borrarTransmision(a.id);
     assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.nombre), ['B']);
   });
+  prueba('si el navegador no deja escribir: guardar y duplicar devuelven null, borrar devuelve false, y nada cambia', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('A', c.PREDETERMINADO);
+    const antes = c.__almacen[KEY];
+    c.localStorage.setItem = () => { throw new Error('cuota'); };
+    assert.equal(c.guardarTransmision('B', c.PREDETERMINADO), null);
+    assert.equal(c.duplicarTransmision(g.id), null);
+    assert.equal(c.borrarTransmision(g.id), false);
+    assert.equal(c.__almacen[KEY], antes);
+  });
+  prueba('existeGuardada compara sin importar mayúsculas ni espacios', () => {
+    const c = nuevo();
+    c.guardarTransmision('Hora Santa jueves', c.PREDETERMINADO);
+    assert.equal(c.existeGuardada('  hora SANTA jueves '), true);
+    assert.equal(c.existeGuardada('otra'), false);
+  });
+  prueba('las entradas rotas se esconden pero se conservan al guardar, duplicar, borrar y cargar', () => {
+    const rota = { nombre: 'sin id', datos: {} };
+    const c = nuevo({ [KEY]: JSON.stringify([5, rota, { id: 'ok', nombre: 'Ok', tipo: 'novena', guardadaEn: 1, usadaEn: 1, datos: {} }]) });
+    const rotas = () => JSON.parse(c.__almacen[KEY]).filter((g) => !(g && typeof g === 'object' && typeof g.id === 'string'));
+    const quedan = () => assert.deepEqual(rotas(), [5, rota]);
+    c.guardarTransmision('Nueva', c.PREDETERMINADO); quedan();
+    c.duplicarTransmision('ok'); quedan();
+    c.cargarTransmision('ok'); quedan();
+    c.borrarTransmision('ok'); quedan();
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.nombre).sort(), ['Nueva', 'Ok (copia)']);
+  });
+  prueba('si lo guardado es ilegible, el texto original se copia al respaldo antes de escribir', () => {
+    const c = nuevo({ [KEY]: 'no-es-json' });
+    assert.ok(c.guardarTransmision('A', c.PREDETERMINADO));
+    assert.equal(c.__almacen[KEY + '_respaldo'], 'no-es-json');
+    assert.equal(c.leerGuardadas().length, 1);
+    const d = nuevo({ [KEY]: '{"a":1}' });
+    d.guardarTransmision('A', d.PREDETERMINADO);
+    assert.equal(d.__almacen[KEY + '_respaldo'], '{"a":1}');
+  });
+  prueba('sin lo guardado ilegible no se crea respaldo', () => {
+    const c = nuevo();
+    c.guardarTransmision('A', c.PREDETERMINADO);
+    assert.ok(!(KEY + '_respaldo' in c.__almacen));
+  });
   prueba('las entradas rotas de la lista se ignoran', () => {
     const c = nuevo({ [KEY]: JSON.stringify([null, 5, { id: 'ok', nombre: 'Ok', datos: {} }, { nombre: 'sin id', datos: {} }]) });
     assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['ok']);

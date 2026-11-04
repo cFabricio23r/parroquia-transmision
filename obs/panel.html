@@ -151,6 +151,7 @@ details label{margin-bottom:9px}
 .enlace{background:transparent;border:0;color:#6cb6f0;font-size:13px;text-align:left;padding:0 4px}
 .enlace:hover{background:transparent;text-decoration:underline}
 .estado-guardadas{font-size:12px;font-weight:700;color:var(--verde-texto);min-height:16px}
+.estado-guardadas.error{color:var(--ambar)}
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 </style>
@@ -602,7 +603,7 @@ document.addEventListener('keydown', (e) => {
 /* ---------- transmisiones guardadas ---------- */
 let nombreEscrito = false;   // el voluntario ya tocó el nombre: no se le pisa con la sugerencia
 const nombreSugerido = () => tipoDe(s).nombre + ' ' + fechaCorta(fechaTransmision());
-function avisoGuardadas(texto) { $('estado-guardadas').textContent = texto; }
+function avisoGuardadas(texto, error) { const e = $('estado-guardadas'); e.textContent = texto; e.classList.toggle('error', !!error); }
 
 /* «hoy», «ayer», «hace 7 días»… (por días de calendario) */
 function haceCuanto(ms) {
@@ -637,8 +638,9 @@ function guardarActual() {
   const campo = $('guardar-nombre');
   const nombre = campo.value.trim();
   if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
-  const existia = leerGuardadas().some(g => g.nombre.trim().toLowerCase() === nombre.toLowerCase());
-  guardarTransmision(nombre, s);
+  const existia = existeGuardada(nombre);
+  if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
+  if (!guardarTransmision(nombre, s)) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
   nombreEscrito = false;
   avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
   pintarGuardadas();
@@ -664,15 +666,15 @@ function pintarGuardadas() {
       boton('duplicar', 'Duplicar', () => {
         const copia = duplicarTransmision(g.id);
         pintarGuardadas();
-        if (!copia) return;
+        if (!copia) { avisoGuardadas('No se pudo duplicar en este navegador.', true); return; }
         avisoGuardadas('Duplicada: «' + copia.nombre + '»');
         const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
         if (nuevoCargar) nuevoCargar.focus();
       }),
       boton('borrar', 'Borrar', () => {
         if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
-        borrarTransmision(g.id);
-        avisoGuardadas('Borrada: «' + g.nombre + '»');
+        const borrada = borrarTransmision(g.id);
+        avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
         pintarGuardadas();
         $('titulo-guardadas').focus();
       })
