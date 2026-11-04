@@ -93,8 +93,172 @@ grupo('tipos', () => {
   });
   prueba('todo tipo define todos los campos', () => {
     const campos = ['nombre', 'descripcion', 'titulo', 'ceja', 'cursiva', 'franja', 'graciasCursiva',
-      'graciasPie', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos'];
+      'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos'];
     for (const k of ORDEN_TIPOS) for (const f of campos) assert.ok(f in TIPOS[k], k + '.' + f);
+  });
+});
+
+/* Textos que las 5 transmisiones heredadas ya mostraban antes de leerlos del catálogo: no deben cambiar. */
+grupo('textos heredados', () => {
+  let c;
+  try {
+    c = cargar(['tipos.js', 'comun.js']);
+  } catch (e) {
+    prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
+    return;
+  }
+  const hoy = new Date();
+  const anio = hoy.getFullYear() + (hoy.getMonth() === 11 && hoy.getDate() > 8 ? 1 : 0);
+  const comunes = {
+    marca: 'Parroquia Inmaculada\nConcepción de María · Ciudad Arce',
+    inicio_titulo: 'En breve\ncomenzamos',
+    portada_ceja: 'FIESTAS PATRONALES ' + anio,
+    portada_cursiva: 'en honor a la',
+    portada_titulo: 'Inmaculada\nConcepción\nde María',
+    portada_fecha: 'DE DICIEMBRE',
+    portada_sub: 'Solemnidad de nuestra Patrona',
+    gracias_titulo: '¡Gracias por\nacompañarnos!',
+    gracias_cursiva: 'Nos vemos en la próxima\ntransmisión',
+    avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    avisos_titulo: 'Avisos',
+    capa_logo: 'Parroquia Inmaculada\nConcepción de María',
+    k_lectura1: 'PRIMERA LECTURA',
+    k_salmo: 'SALMO RESPONSORIAL',
+    k_lectura2: 'SEGUNDA LECTURA',
+    k_evangelio: 'SANTO EVANGELIO',
+    k_rosario: 'ORACIÓN',
+    t_rosario: 'Santo Rosario'
+  };
+  const cuenta = 'días para nuestra\nFiesta Patronal';
+  const esperado = {
+    dominical: { titulo: 'SANTA MISA DOMINICAL', ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES', cursiva: '¡Ya se acerca la fiesta\nde nuestra Patrona!', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
+    otros: { titulo: 'MISA EN HONOR A SAN JOSÉ', ceja: 'CAMINO A NUESTRA FIESTA PATRONAL', cursiva: 'rumbo a la fiesta de la\nInmaculada Concepción', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
+    prenovena: { titulo: 'PRENOVENA · DÍA 2', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'preparándonos para celebrar\na nuestra Patrona', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
+    novena: { titulo: 'NOVENA · DÍA 3', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'en honor a la Inmaculada\nConcepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
+    // La cuenta de la patronal nunca se muestra, así que su texto no forma parte de lo heredado.
+    patronal: { titulo: 'SANTA MISA PATRONAL', ceja: 'SOLEMNIDAD DE LA INMACULADA CONCEPCIÓN', cursiva: '¡Felices Fiestas Patronales!', pie: '¡FELICES FIESTAS PATRONALES!', barra: '¡Felices Fiestas Patronales!', cuenta: undefined }
+  };
+  for (const tipo of Object.keys(esperado)) {
+    const e = esperado[tipo];
+    prueba(tipo + ': tituloCelebracion y textosBase no cambian', () => {
+      const s = Object.assign({}, c.PREDETERMINADO, { tipo, santo: 'San José', prenovenaDia: 2, novenaDia: 3, diasManual: '5' });
+      assert.equal(c.tituloCelebracion(s), e.titulo);
+      const obtenido = Object.assign({}, c.textosBase(s));
+      const previsto = Object.assign({}, comunes, {
+        inicio_pildora: e.titulo, inicio_ceja: e.ceja, inicio_cursiva: e.cursiva, inicio_cuenta: e.cuenta,
+        gracias_pildora: e.titulo, gracias_ceja: e.pie, barra_y: e.barra
+      });
+      if (e.cuenta === undefined) { delete obtenido.inicio_cuenta; delete previsto.inicio_cuenta; }
+      // franja es una clave nueva (la frase por defecto); no existía antes.
+      delete obtenido.franja;
+      assert.deepEqual(obtenido, previsto);
+    });
+  }
+  prueba('con un solo día que falta, la cuenta dice «día» en singular', () => {
+    const s = Object.assign({}, c.PREDETERMINADO, { tipo: 'otros', santo: 'San José', diasManual: '1' });
+    assert.equal(c.textosBase(s).inicio_cuenta, 'día para nuestra\nFiesta Patronal');
+  });
+});
+
+grupo('estado', () => {
+  let c;
+  try {
+    c = cargar(['tipos.js', 'comun.js'], {
+      parroquia_obs_estado_v1: '{"tipo":"novena","virgen":"c","rotulo":"celebrante"}'
+    });
+  } catch (e) {
+    prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
+    return;
+  }
+
+  prueba('leerEstado migra virgen y celebrante al formato nuevo', () => {
+    const s = c.leerEstado();
+    assert.equal(s.imagen, 'virgen-c');
+    assert.equal(s.rotulo, 'persona');
+    assert.equal(s.tipo, 'novena');
+    assert.ok(!('virgen' in s));
+  });
+  prueba('leerEstado migra mostrarCuenta:false a cuenta:false', () => {
+    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"mostrarCuenta":false}' });
+    assert.equal(m.leerEstado().cuenta, false);
+  });
+  prueba('leerEstado sin nada guardado devuelve los valores nuevos por defecto', () => {
+    const m = cargar(['tipos.js', 'comun.js']);
+    const s = m.leerEstado();
+    assert.equal(s.cuenta, null);
+    assert.equal(s.imagen, '');
+    assert.deepEqual(Object.assign({}, s.rotulosTexto), {});
+    for (const k of ['sector', 'fecha', 'lugar', 'evento', 'esquina', 'esquinaTexto']) assert.equal(s[k], '', k);
+  });
+  prueba('imagenDe usa la imagen del tipo y respeta la elegida', () => {
+    assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'img/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'virgen-b' }), 'img/virgen-b.png');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: 'fachada' }), 'img/fachada.jpg');
+  });
+  prueba('esquinaDe: fecha del sector, leída como fecha local', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'patronalsector', fecha: '2026-11-27' })),
+      { num: '27', txt: 'DE\nNOVIEMBRE' });
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'patronalsector', fecha: '2026-12-01' })),
+      { num: '1', txt: 'DE\nDICIEMBRE' });
+  });
+  prueba('esquinaDe: fecha vacía usa la de hoy', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'patronalsector', fecha: '' }, new Date(2026, 10, 8))),
+      { num: '8', txt: 'DE\nNOVIEMBRE' });
+  });
+  prueba('esquinaDe: hoy muestra día de la semana y mes en mayúsculas', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'dominical' }, new Date(2026, 10, 8))),
+      { num: '8', txt: 'DOMINGO\nNOVIEMBRE' });
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'semana' }, new Date(2026, 10, 4))),
+      { num: '4', txt: 'MIÉRCOLES\nNOVIEMBRE' });
+  });
+  prueba('esquinaDe: fiesta es el 8 de diciembre', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'novena' })), { num: '8', txt: 'DE\nDICIEMBRE' });
+  });
+  prueba('esquinaDe: texto usa esquinaTexto del estado o el del tipo, con los datos rellenados', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'horasanta' })), { num: '', txt: 'JUEVES\nEUCARÍSTICO' });
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'sector', sector: 'SECTOR 8' })), { num: '', txt: 'SECTOR 8' });
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'horasanta', esquinaTexto: 'JUEVES' })), { num: '', txt: 'JUEVES' });
+  });
+  prueba('esquinaDe: s.esquina fuerza el modo de la esquina', () => {
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'novena', esquina: 'fiesta' })), { num: '8', txt: 'DE\nDICIEMBRE' });
+    assert.equal(c.esquinaDe({ tipo: 'novena', esquina: 'texto', esquinaTexto: 'HOLA' }).txt, 'HOLA');
+  });
+  prueba('diasHasta cuenta hasta la próxima ocurrencia', () => {
+    assert.equal(c.diasHasta('12-08', new Date(2026, 11, 9)), 364);
+    assert.equal(c.diasHasta('12-08', new Date(2026, 11, 8)), 0);
+    assert.equal(c.diasHasta('12-08', new Date(2026, 10, 8)), 30);
+  });
+  prueba('diasFaltan respeta diasManual y acepta hoy', () => {
+    assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '7' }, new Date(2026, 10, 8)), 7);
+    assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '' }, new Date(2026, 10, 8)), 30);
+  });
+  prueba('cuentaVisible: depende del tipo, de s.cuenta y de los días', () => {
+    assert.equal(c.cuentaVisible({ tipo: 'patronalsector' }), false);
+    assert.equal(c.cuentaVisible({ tipo: 'dominical', diasManual: '' }, new Date(2026, 10, 8)), true);
+    assert.equal(c.cuentaVisible({ tipo: 'dominical', diasManual: '' }, new Date(2026, 6, 1)), false);
+    assert.equal(c.cuentaVisible({ tipo: 'novena', diasManual: '' }, new Date(2026, 6, 1)), true);
+    assert.equal(c.cuentaVisible({ tipo: 'novena', cuenta: false, diasManual: '' }, new Date(2026, 10, 8)), false);
+    assert.equal(c.cuentaVisible({ tipo: 'semana', cuenta: true, diasManual: '' }, new Date(2026, 10, 8)), true);
+    assert.equal(c.cuentaVisible({ tipo: 'novena', diasManual: '' }, new Date(2026, 11, 8)), false);
+  });
+  prueba('tituloCelebracion rellena los datos', () => {
+    assert.equal(c.tituloCelebracion({ tipo: 'patronalsector', sector: 'SECTOR 8' }), 'MISA PATRONAL · SECTOR 8');
+  });
+  prueba('tituloCelebracion sigue en mayúsculas aunque el dato venga en minúsculas', () => {
+    assert.equal(c.tituloCelebracion({ tipo: 'otros', santo: 'San José' }), 'MISA EN HONOR A SAN JOSÉ');
+    assert.equal(c.tituloCelebracion({ tipo: 'evento', evento: 'Retiro de jóvenes' }), 'RETIRO DE JÓVENES');
+  });
+  prueba('textosBase: franja es la del tipo y s.frase gana cuando está escrita', () => {
+    assert.equal(c.textosBase({ tipo: 'horasanta', frase: '' }).franja, '«BENDITO Y ALABADO SEA JESÚS SACRAMENTADO»');
+    assert.equal(c.textosBase({ tipo: 'horasanta', frase: 'Hola' }).franja, 'Hola');
+  });
+  prueba('textosBase: la procesión dice «En breve salimos»', () => {
+    assert.equal(c.textosBase({ tipo: 'procesion' }).inicio_titulo, 'En breve\nsalimos');
+  });
+  prueba('textosBase: un tipo sin cuenta no deja llaves sin reemplazar', () => {
+    const t = c.textosBase({ tipo: 'patronalsector', sector: 'SECTOR 8' });
+    for (const k of Object.keys(t)) assert.ok(!/[{}]/.test(t[k]), k + ': ' + t[k]);
   });
 });
 

@@ -74,6 +74,7 @@
 </div>
 </div>
 
+<script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script>
 const vista = (new URLSearchParams(location.search).get('tipo') || 'inicio').toLowerCase();
@@ -102,10 +103,11 @@ function reanimar(el) { el.classList.remove('entra'); void el.offsetWidth; el.cl
 
 function pintar(s) {
   const v = $('virgen');
-  const src = imagenVirgen(s);
+  const src = imagenDe(s);
   if (!v.src.endsWith(src)) { v.src = src; v.classList.remove('virgen-entra'); void v.offsetWidth; v.classList.add('virgen-entra'); }
-  v.classList.remove('a', 'b', 'c'); v.classList.add(s.virgen);
-  if (vista === 'avisos') v.style.height = s.virgen === 'c' ? '980px' : '900px';
+  const variante = (/virgen-([abc])\.png$/.exec(src) || [])[1] || 'a';   // a | b | c: tamaño y posición de la Virgen
+  v.classList.remove('a', 'b', 'c'); v.classList.add(variante);
+  if (vista === 'avisos') v.style.height = variante === 'c' ? '980px' : '900px';
   $('frase').textContent = s.frase || '';
   $('t-marca').textContent = tx(s, 'marca');
 
@@ -117,7 +119,7 @@ function pintar(s) {
     $('i-titulo').textContent = tx(s, 'inicio_titulo');
     $('i-cursiva').textContent = tx(s, 'inicio_cursiva');
     const d = diasFaltan(s);
-    $('i-cuenta').style.display = (s.mostrarCuenta && s.tipo !== 'patronal' && d > 0) ? 'flex' : 'none';
+    $('i-cuenta').style.display = cuentaVisible(s) ? 'flex' : 'none';
     $('i-dias').textContent = d;
     $('i-cuenta-txt').textContent = tx(s, 'inicio_cuenta');
     firma = s.tipo + '|' + $('i-pildora').textContent;
