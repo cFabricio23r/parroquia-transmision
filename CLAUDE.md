@@ -82,10 +82,13 @@ Migraciones en `normalizarEstado`: `virgen` a|b|c → `imagen` `virgen-a|b|c`; r
   `sector`, `fecha`, `lugar`, `evento`; si un texto usa `{santo}` o `{sector}`, el tipo debe pedir ese dato). Las claves
   de tipo existentes (`dominical`, `otros`, `prenovena`, `novena`, `patronal`) no se cambian.
 - **Nuevo rótulo**: una base en `ROTULOS` (`{ ceja }`) y un uso en la lista `rotulos` de cada tipo que lo lleve:
-  `{ id, base, nombre[, ceja, texto] }`. Las bases sin lógica propia leen `rotulosTexto[id]` y salen con el texto del
-  panel; una base con lógica especial (como `lugar` o `salmo`) necesita su caso en `rotulosDe()`. Si la base es nueva,
-  revisar también `rotulos.html` (diseño) y el panel (campos y avisos de «falta»). Los atajos 1–9 cubren los nueve
-  primeros usos.
+  `{ id, base, nombre[, ceja, texto] }`. Con eso basta, sin tocar código: `rotulosDe()` (rama `default`) toma la ceja de
+  `ROTULOS[base].ceja` y los textos de `rotulosTexto[id]`, y `camposDe()` del panel (rama `default`) da los campos
+  Título / Texto / Texto opcional, como `libre`; el aviso de «falta» cae a «el texto» (`FALTA[base]`) y `rotulos.html`
+  no lee `base`. Solo una base con campos o lógica propios necesita su caso en **los dos** sitios: `rotulosDe()` en
+  `tipos.js` y `camposDe()` en `panel.html` (hoy tienen caso en ambos `persona`, `lectura1/2`, `evangelio`, `salmo`, `rosario` y `lugar`; `santisimo` y
+  `oracion` solo en `camposDe()`), y de forma opcional una entrada en `FALTA` (`panel.html`). Los atajos 1–9 cubren
+  los nueve primeros usos.
 - **Nueva pantalla completa**: nueva vista `<div class="texto" id="v-NOMBRE" hidden>` en `pantalla.html`, su rama en
   `pintar()` y la fila en README/LEEME con `?tipo=NOMBRE`.
 - **Nueva imagen**: un PNG recortado en `obs/img/` con el nombre de la clave (`obs/img/NOMBRE.png`, ver `imagenDe()`)
