@@ -2,16 +2,18 @@ PANTALLAS EN VIVO · PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA · CIUDAD ARCE
 Instalación en OBS (Windows)
 ==========================================================================
 
-Todo funciona dentro de OBS: no necesita internet, websocket ni plugins.
+Las pantallas están publicadas en internet, en
+  https://parroquia-transmision.vercel.app
+No necesita websocket ni plugins. Si se va el internet, vea
+"SIN INTERNET" al final.
 
 ---------------------------------------------------------------
-1. COPIAR LA CARPETA
+1. LA DIRECCIÓN
 ---------------------------------------------------------------
-Las direcciones de abajo usan C:/Parroquia_OBS como ejemplo.
-• Si copió esta carpeta "obs" como C:\Parroquia_OBS, úselas tal cual.
-• Si trabaja desde el repositorio (por ejemplo C:\parroquia-obs\obs),
-  cambie "C:/Parroquia_OBS" por "C:/parroquia-obs/obs" en todas,
-  usando barras /.
+Todas las direcciones de abajo empiezan igual:
+  https://parroquia-transmision.vercel.app/
+Escríbalas exactamente así en el panel y en TODAS las fuentes.
+Si una sola usa otra dirección, esa no recibe los cambios del panel.
 
 ---------------------------------------------------------------
 2. AGREGAR EL PANEL DE CONTROL
@@ -20,7 +22,7 @@ En OBS: menú  Docks (en español puede decir "Paneles")  →
         "Docks/Paneles de navegador personalizados…"
         (en inglés: Docks → Custom Browser Docks…)
   Nombre:  Panel Parroquia
-  URL:     file:///C:/Parroquia_OBS/panel.html
+  URL:     https://parroquia-transmision.vercel.app/panel.html
 Pulse Aplicar. El panel aparece como una ventana que puede acomodar
 junto a sus escenas.
 
@@ -33,13 +35,15 @@ IMPORTANTE en cada una:
   • Ancho 1920 · Alto 1080
   • Deje DESMARCADO "Apagar la fuente cuando no esté visible".
 
-  Escena                     URL
+  Escena                     URL (después de https://parroquia-transmision.vercel.app/)
   ---------------------------------------------------------------------
-  Inicio (en breve…)         file:///C:/Parroquia_OBS/pantalla.html?tipo=inicio
-  Portada 8 de diciembre     file:///C:/Parroquia_OBS/pantalla.html?tipo=portada
-  Avisos                     file:///C:/Parroquia_OBS/pantalla.html?tipo=avisos
-  Gracias                    file:///C:/Parroquia_OBS/pantalla.html?tipo=gracias
-  Misa (encima de la cámara) file:///C:/Parroquia_OBS/rotulos.html
+  Inicio (en breve…)         pantalla.html?tipo=inicio
+  Portada 8 de diciembre     pantalla.html?tipo=portada
+  Avisos                     pantalla.html?tipo=avisos
+  Gracias                    pantalla.html?tipo=gracias
+  Misa (encima de la cámara) rotulos.html
+
+  Ejemplo completo: https://parroquia-transmision.vercel.app/pantalla.html?tipo=inicio
 
 La fuente "rotulos.html" tiene fondo transparente: póngala ENCIMA de la
 cámara en la escena de la misa. Ahí aparecen el logo, la etiqueta
@@ -94,10 +98,23 @@ En la carpeta "transiciones" (en la raíz del repositorio) están las transicion
 ---------------------------------------------------------------
 SI ALGO NO CAMBIA
 ---------------------------------------------------------------
-• Revise que las fuentes usen la dirección file:/// (sin marcar
-  "Archivo local") y que el panel también use file:///.
+• Revise que el panel y todas las fuentes empiecen con
+  https://parroquia-transmision.vercel.app/ (sin marcar "Archivo local").
 • Clic derecho en la fuente → Propiedades → "Actualizar caché de la
   página actual".
+
+---------------------------------------------------------------
+SIN INTERNET
+---------------------------------------------------------------
+Si una pantalla queda en blanco porque se fue el internet, use la
+copia de la carpeta "obs" en la computadora (por ejemplo
+C:\parroquia-obs\obs). Cambie el inicio de TODAS las direcciones,
+panel incluido, de
+  https://parroquia-transmision.vercel.app/
+a
+  file:///C:/parroquia-obs/obs/
+(con barras /). Los textos escritos en el panel no pasan de una
+dirección a la otra: vuelva a escribirlos.
 
 Créditos de imágenes: "Inmaculada Concepción" (La Colosal), B. E. Murillo,
 y "Inmaculada Concepción", G. B. Tiepolo, ambas de dominio público

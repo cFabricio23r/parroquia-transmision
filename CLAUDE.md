@@ -7,12 +7,17 @@ y los mensajes van en español.
 
 ## Reglas que no se rompen
 
-1. **Todo dentro de OBS y sin internet.** Nada de websockets, obs-websocket, servidores, CDNs ni Google Fonts.
-   Fuentes e imágenes son archivos locales en `obs/fuentes` y `obs/img`.
+1. **Sitio estático, sin dependencias externas.** OBS carga las páginas desde Vercel
+   (`https://parroquia-transmision.vercel.app`, publica solo `obs/`, se despliega solo con cada push a `main`).
+   Nada de websockets, obs-websocket, servidores, funciones, CDNs ni Google Fonts: fuentes e imágenes son
+   archivos propios en `obs/fuentes` y `obs/img`, con rutas relativas. Así la carpeta `obs/` sigue funcionando
+   también sin internet, con `file:///`, como respaldo.
 2. **Comunicación panel ↔ pantallas** solo por `localStorage` (clave `parroquia_obs_estado_v1`) + `BroadcastChannel('parroquia_obs')`.
    Las páginas también revisan `localStorage` cada 300 ms como respaldo. El panel es el único que escribe el estado;
    las pantallas solo leen y escriben su «latido» en `parroquia_obs_latido_v1`.
-3. **Direcciones `file:///`** en OBS (no «Archivo local», que usa otro origen y rompe el almacenamiento compartido).
+3. **Un solo origen en OBS.** Panel y fuentes usan todos `https://parroquia-transmision.vercel.app/…`
+   (o todos `file:///` en el respaldo sin internet). Mezclar orígenes —otro dominio de Vercel, `file:///` o
+   «Archivo local»— separa el almacenamiento y esa fuente deja de recibir los cambios del panel.
 4. **Escenario fijo de 1920×1080** dentro de `.escenario`, escalado con `escalarEscenario()` (en `comun.js`) para
    cualquier tamaño de fuente. Todo se diseña en píxeles de 1920×1080.
 5. **Texto siempre con `textContent`** (nunca `innerHTML` con datos del panel). Los saltos de línea se muestran con
@@ -68,4 +73,5 @@ Si un cambio afecta lo que se ve, revisar también `inicio_800x600.png` (tamaño
 
 ## Después de cambiar algo en OBS
 
+Los cambios llegan a OBS solo después de `git push` a `main` (Vercel publica en segundos).
 Clic derecho en la fuente → Propiedades → «Actualizar caché de la página actual». En el dock: clic derecho → Recargar.

@@ -3,8 +3,10 @@
 Pantallas, rótulos y panel de control para las transmisiones en vivo con **OBS Studio (Windows)**:
 misas dominicales, misas de otros santos, prenovena, novena y la Misa Patronal del **8 de diciembre**.
 
-Todo funciona **dentro de OBS**, sin internet, sin websockets y sin plugins: son archivos HTML locales
-cargados como *fuentes de navegador* y un *dock de navegador personalizado* que hace de panel de control.
+Son páginas HTML estáticas, sin websockets ni plugins, publicadas en **Vercel**
+(`https://parroquia-transmision.vercel.app`) y cargadas en OBS como *fuentes de navegador* y un
+*dock de navegador personalizado* que hace de panel de control. Si falla el internet, la carpeta `obs/`
+funciona igual desde el disco con direcciones `file:///` (ver «Respaldo sin internet»).
 
 ![Pantalla de inicio](docs/capturas/inicio.png)
 
@@ -27,23 +29,30 @@ cargados como *fuentes de navegador* y un *dock de navegador personalizado* que 
 
 ## Instalación rápida en OBS
 
-1. Clone o copie el repositorio, por ejemplo en `C:\parroquia-obs`.
-2. **Docks → Docks de navegador personalizados**: nombre `Panel Parroquia`, URL
-   `file:///C:/parroquia-obs/obs/panel.html`
-3. En cada escena, **Fuente → Navegador**, *sin* marcar «Archivo local», **1920 × 1080**:
+1. **Docks → Docks de navegador personalizados**: nombre `Panel Parroquia`, URL
+   `https://parroquia-transmision.vercel.app/panel.html`
+2. En cada escena, **Fuente → Navegador**, *sin* marcar «Archivo local», **1920 × 1080**:
 
    | Escena | URL |
    |---|---|
-   | Inicio | `file:///C:/parroquia-obs/obs/pantalla.html?tipo=inicio` |
-   | Portada 8 de diciembre | `file:///C:/parroquia-obs/obs/pantalla.html?tipo=portada` |
-   | Avisos | `file:///C:/parroquia-obs/obs/pantalla.html?tipo=avisos` |
-   | Gracias | `file:///C:/parroquia-obs/obs/pantalla.html?tipo=gracias` |
-   | Misa (sobre la cámara) | `file:///C:/parroquia-obs/obs/rotulos.html` |
+   | Inicio | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=inicio` |
+   | Portada 8 de diciembre | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=portada` |
+   | Avisos | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=avisos` |
+   | Gracias | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=gracias` |
+   | Misa (sobre la cámara) | `https://parroquia-transmision.vercel.app/rotulos.html` |
 
-4. Transición: **Stinger** con `transiciones/Transicion_2000ms_Logo.webm` (o `_Virgen`), punto de transición **1000 ms**.
+3. Transición: **Stinger** con `transiciones/Transicion_2000ms_Logo.webm` (o `_Virgen`), punto de transición **1000 ms**.
+   Las transiciones son archivos locales: clone o copie el repositorio, por ejemplo en `C:\parroquia-obs`.
 
-> Importante: panel y fuentes deben usar direcciones `file:///` para compartir el mismo almacenamiento.
-> Si se marca «Archivo local» en una fuente, esa fuente no recibe los cambios del panel.
+> Importante: panel y fuentes deben usar **exactamente el mismo dominio** (`parroquia-transmision.vercel.app`)
+> para compartir el mismo almacenamiento. Otro dominio de Vercel, una dirección `file:///` o «Archivo local»
+> en una sola fuente hacen que esa fuente no reciba los cambios del panel.
+
+### Respaldo sin internet
+
+Si falla el internet y OBS no puede cargar una página, cambie **todas** las direcciones (panel y fuentes) a la
+copia local, por ejemplo `file:///C:/parroquia-obs/obs/panel.html`, `file:///C:/parroquia-obs/obs/pantalla.html?tipo=inicio`, etc.
+Los textos escritos en el panel no pasan de una dirección a la otra: hay que volver a escribirlos.
 
 ## Desarrollo
 
@@ -59,7 +68,10 @@ npm run transiciones    # vuelve a generar los .webm de transiciones/
 Para ver los cambios sin OBS: abra `obs/panel.html` y `obs/pantalla.html?tipo=inicio` en Chrome o Edge
 (en el mismo navegador) y cambie cosas en el panel.
 
-En OBS, después de cambiar archivos: clic derecho en la fuente → **Propiedades → Actualizar caché de la página actual**,
+**Publicar:** cada `git push` a `main` publica la carpeta `obs/` en Vercel en unos segundos
+(proyecto `parroquia-transmision`). Hasta el push, OBS sigue mostrando la versión anterior.
+
+En OBS, después de publicar: clic derecho en la fuente → **Propiedades → Actualizar caché de la página actual**,
 y en el panel clic derecho → **Recargar**.
 
 ## Diseño
