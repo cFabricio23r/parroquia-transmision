@@ -305,6 +305,15 @@ grupo('rotulos', () => {
     assert.equal(g.texto.k, 'GUÍA');
     assert.equal(g.texto.t, 'Juan');
   });
+  prueba('procesión: el uso «persona» (Guía) lleva la ceja GUÍA, no CELEBRANTE', () => {
+    assert.equal(uso({ tipo: 'procesion', celebrante: 'Ana' }, 'persona').texto.k, 'GUÍA');
+    assert.equal(uso({ tipo: 'procesion', celebrante: 'Ana' }, 'persona').texto.t, 'Ana');
+  });
+  prueba('portada: solo prenovena, novena, patronal y evento tienen portada propia', () => {
+    const con = Object.keys(c.TIPOS).filter((k) => c.TIPOS[k].portada).sort();
+    assert.deepEqual(con, ['evento', 'novena', 'patronal', 'prenovena']);
+    assert.equal(c.TIPOS.evento.portada, 'evento');
+  });
   prueba('Hora Santa: el último uso es la bendición con su texto y ceja', () => {
     const rs = c.rotulosDe({ tipo: 'horasanta', rotulosTexto: {} });
     const b = rs[rs.length - 1];

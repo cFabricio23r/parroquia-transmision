@@ -156,7 +156,7 @@ const TIPOS = {
       { id: 'lugar',   base: 'lugar',   nombre: 'Estación' },
       { id: 'oracion', base: 'oracion', nombre: 'Oración' },
       { id: 'rosario', base: 'rosario', nombre: 'Rosario' },
-      { id: 'persona', base: 'persona', nombre: 'Guía' }
+      { id: 'persona', base: 'persona', nombre: 'Guía', ceja: 'GUÍA' }
     ],
     datos: ['santo', 'lugar']
   },
@@ -191,6 +191,7 @@ const TIPOS = {
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
+    portada: 'fiesta',
     rotulos: _MISA_COMPLETA,
     datos: ['dia']
   },
@@ -208,6 +209,7 @@ const TIPOS = {
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
+    portada: 'fiesta',
     rotulos: _MISA_COMPLETA,
     datos: ['dia']
   },
@@ -225,6 +227,7 @@ const TIPOS = {
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: false,
+    portada: 'fiesta',
     rotulos: _MISA_COMPLETA,
     datos: []
   },
@@ -242,6 +245,9 @@ const TIPOS = {
     esquina: 'texto',
     esquinaTexto: '{evento}',
     cuenta: false,
+    portada: 'evento',
+    portadaCeja: 'EVENTO ESPECIAL',
+    portadaCursiva: 'les invita a',
     rotulos: [
       { id: 'persona', base: 'persona', nombre: 'Persona' },
       { id: 'libre',   base: 'libre',   nombre: 'Texto libre' }

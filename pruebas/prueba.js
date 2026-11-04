@@ -81,6 +81,64 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await avisos.waitForTimeout(900);
   revisar((await avisos.textContent('#a-filas')).includes('Rezo de la novena'), 'avisos muestra el aviso');
 
+  console.log('Tipos');
+  const fijar = (cambios) => panel.evaluate((c) => { const s = leerEstado(); Object.assign(s, c); guardarEstado(s); }, cambios);
+  const imagenFinal = (p) => p.evaluate(() => document.getElementById('virgen').getAttribute('src'));
+  const esquinaTx = (p) => p.evaluate(() => [document.querySelector('.franja .fecha b').hidden ? '' : document.querySelector('.franja .fecha b').textContent, document.querySelector('.franja .fecha span').textContent]);
+  await fijar({ tipo: 'horasanta', imagen: '', cuenta: null });
+  await inicio.waitForTimeout(700);
+  revisar((await inicio.textContent('#i-pildora')) === 'HORA SANTA', 'Hora Santa: la píldora dice HORA SANTA');
+  revisar((await inicio.$eval('#i-cuenta', (e) => getComputedStyle(e).display)) === 'none', 'Hora Santa: sin cuenta regresiva');
+  revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Hora Santa: sin custodia.png cae a la fachada');
+  const [numHS, txtHS] = await esquinaTx(inicio);
+  revisar(numHS === '' && txtHS === 'JUEVES\nEUCARÍSTICO', 'Hora Santa: la esquina es solo texto, sin número');
+  await inicio.screenshot({ path: path.join(salida, 'inicio_horasanta.png') });
+
+  await fijar({ tipo: 'patronalsector', sector: 'SECTOR 8', santo: 'la Virgen de la Medalla Milagrosa', fecha: '2026-11-27' });
+  await inicio.waitForTimeout(700);
+  revisar((await inicio.textContent('#i-pildora')) === 'MISA PATRONAL · SECTOR 8', 'Patronal de sector: píldora con el sector');
+  const [numPS, txtPS] = await esquinaTx(inicio);
+  revisar(numPS === '27' && txtPS === 'DE\nNOVIEMBRE', 'Patronal de sector: la franja dice 27 DE NOVIEMBRE');
+  revisar((await inicio.$eval('#i-cuenta', (e) => getComputedStyle(e).display)) === 'none', 'Patronal de sector: sin cuenta regresiva');
+  await inicio.screenshot({ path: path.join(salida, 'inicio_patronalsector.png') });
+
+  await fijar({ tipo: 'procesion', santo: 'San José', lugar: 'Parque central · 5:00 p. m.', fecha: '' });
+  await inicio.waitForTimeout(700);
+  revisar((await inicio.textContent('#i-titulo')) === 'En breve\nsalimos', 'Procesión: el título dice «En breve salimos»');
+  revisar((await inicio.$eval('#i-salida', (e) => getComputedStyle(e).display)) !== 'none', 'Procesión: se ve el recuadro de salida');
+  revisar((await inicio.textContent('#i-salida-lugar')) === 'Parque central · 5:00 p. m.', 'Procesión: el recuadro muestra el lugar');
+  await inicio.screenshot({ path: path.join(salida, 'inicio_procesion.png') });
+  await fijar({ tipo: 'dominical' });
+  await inicio.waitForTimeout(500);
+  revisar((await inicio.$eval('#i-salida', (e) => getComputedStyle(e).display)) === 'none', 'Dominical: sin recuadro de salida');
+
+  await fijar({ tipo: 'novena', imagen: '' });
+  await inicio.waitForTimeout(500);
+  revisar((await imagenFinal(inicio)).endsWith('img/virgen-a.png'), 'Novena: imagen del tipo (virgen-a)');
+  await panel.evaluate(() => { const s = JSON.parse(localStorage.getItem('parroquia_obs_estado_v1')); s.virgen = 'b'; delete s.imagen; localStorage.setItem('parroquia_obs_estado_v1', JSON.stringify(s)); });
+  await inicio.waitForTimeout(700);
+  revisar((await imagenFinal(inicio)).endsWith('virgen-b.png'), 'Novena con estado viejo virgen:b: la imagen es virgen-b.png');
+  await fijar({ tipo: 'novena', imagen: '' });
+
+  await fijar({ tipo: 'evento', evento: 'Concierto de Adviento', fecha: '2026-12-13', lugar: 'Salón parroquial' });
+  await portada.waitForTimeout(800);
+  revisar((await portada.$eval('#v-portada', (e) => !e.hidden)) && (await portada.textContent('#p-titulo')) === 'CONCIERTO DE ADVIENTO', 'Portada de evento: muestra el nombre del evento');
+  revisar((await portada.textContent('#p-caja-num')) === '13' && (await portada.textContent('#p-caja-mes')) === 'DIC', 'Portada de evento: fecha 13 DIC');
+  revisar((await portada.textContent('#p-fecha')) === 'Salón parroquial', 'Portada de evento: lugar');
+  revisar(await portada.$eval('#p-aro', (e) => !e.hidden), 'Portada de evento: logo grande');
+  await portada.screenshot({ path: path.join(salida, 'portada_evento.png') });
+  await fijar({ tipo: 'dominical' });
+  await portada.waitForTimeout(800);
+  revisar((await portada.$eval('#v-inicio', (e) => !e.hidden)) && (await portada.$eval('#v-portada', (e) => e.hidden)), 'Portada de un tipo sin portada: pinta el Inicio');
+  await fijar({ tipo: 'novena', imagen: '' });
+  await portada.waitForTimeout(800);
+  revisar((await portada.textContent('#p-fecha')) === 'DE DICIEMBRE' && (await portada.$eval('#p-aro', (e) => e.hidden)), 'Portada de novena: la portada del 8 de diciembre');
+  await fijar({ tipo: 'novena', imagen: 'custodia' });
+  await inicio.waitForTimeout(900);
+  revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Imagen que no existe: cae a la fachada sin repetir la carga');
+  await fijar({ tipo: 'novena', imagen: '' });
+  await inicio.waitForTimeout(500);
+
   for (const [n, p] of [['inicio', inicio], ['gracias', gracias], ['avisos', avisos], ['portada', portada], ['inicio_800x600', chica], ['panel', panel]]) {
     await p.screenshot({ path: path.join(salida, n + '.png'), fullPage: n === 'panel' });
   }
