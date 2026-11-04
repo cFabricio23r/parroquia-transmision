@@ -389,6 +389,101 @@ grupo('rotulos', () => {
   });
 });
 
+grupo('guardadas', () => {
+  const KEY = 'parroquia_obs_guardadas_v1';
+  const nuevo = (almacen) => cargar(['tipos.js', 'comun.js', 'guardadas.js'], almacen);
+
+  prueba('si lo guardado no es JSON, leerGuardadas() es []', () => {
+    assert.deepEqual(Array.from(nuevo({ [KEY]: 'no-es-json' }).leerGuardadas()), []);
+  });
+  prueba('si lo guardado no es una lista, leerGuardadas() es []', () => {
+    assert.deepEqual(Array.from(nuevo({ [KEY]: '{"a":1}' }).leerGuardadas()), []);
+  });
+  prueba('guardar una Hora Santa: lo guardado no trae rótulo al aire y al cargar queda «ninguno»', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('Hora Santa jueves', { ...c.PREDETERMINADO, tipo: 'horasanta', rotulo: 'guia', rotuloHasta: 99, rotuloDesde: 5, celebrante: 'Juan' });
+    for (const campo of ['rotulo', 'rotuloHasta', 'rotuloDesde']) assert.ok(!(campo in g.datos), campo);
+    const crudo = JSON.parse(c.__almacen[KEY])[0];
+    assert.ok(!('rotulo' in crudo.datos));
+    const e = c.cargarTransmision(g.id);
+    assert.equal(e.rotulo, 'ninguno');
+    assert.equal(e.rotuloHasta, 0);
+    assert.equal(e.tipo, 'horasanta');
+    assert.equal(e.celebrante, 'Juan');
+  });
+  prueba('guardar dos veces «hora santa JUEVES» deja una sola entrada', () => {
+    const c = nuevo();
+    c.guardarTransmision('Hora Santa jueves', { ...c.PREDETERMINADO, tipo: 'horasanta' });
+    c.guardarTransmision('  hora santa JUEVES ', { ...c.PREDETERMINADO, tipo: 'horasanta', celebrante: 'Ana' });
+    const lista = c.leerGuardadas();
+    assert.equal(lista.length, 1);
+    assert.equal(lista[0].datos.celebrante, 'Ana');
+  });
+  prueba('un nombre vacío no se guarda', () => {
+    const c = nuevo();
+    assert.equal(c.guardarTransmision('   ', c.PREDETERMINADO), null);
+    assert.deepEqual(Array.from(c.leerGuardadas()), []);
+  });
+  prueba('una guardada con tipo «viejo» se carga como dominical', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('Vieja', { ...c.PREDETERMINADO, tipo: 'viejo' });
+    assert.equal(c.cargarTransmision(g.id).tipo, 'dominical');
+  });
+  prueba('cargar migra un estado viejo (virgen b -> imagen virgen-b) y completa los campos que faltan', () => {
+    const c = nuevo({ [KEY]: JSON.stringify([{ id: 'x', nombre: 'Antigua', tipo: 'novena', guardadaEn: 1, usadaEn: 1, datos: { tipo: 'novena', virgen: 'b' } }]) });
+    const e = c.cargarTransmision('x');
+    assert.equal(e.imagen, 'virgen-b');
+    assert.ok(!('virgen' in e));
+    assert.equal(e.avisos.length, 4);
+  });
+  prueba('cargar un id que no existe devuelve null', () => {
+    assert.equal(nuevo().cargarTransmision('nada'), null);
+  });
+  prueba('cargar actualiza usadaEn y leerGuardadas ordena por usadaEn descendente', () => {
+    const c = nuevo({ [KEY]: JSON.stringify([
+      { id: 'a', nombre: 'A', tipo: 'novena', guardadaEn: 1, usadaEn: 10, datos: {} },
+      { id: 'b', nombre: 'B', tipo: 'novena', guardadaEn: 2, usadaEn: 20, datos: {} }
+    ]) });
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['b', 'a']);
+    c.cargarTransmision('a');
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['a', 'b']);
+    assert.ok(c.leerGuardadas()[0].usadaEn > 20);
+  });
+  prueba('lo guardado y lo cargado no comparten referencias con el estado vivo', () => {
+    const c = nuevo();
+    const vivo = { ...c.PREDETERMINADO, avisos: [{ a: 'uno', f: '' }, { a: '', f: '' }, { a: '', f: '' }, { a: '', f: '' }] };
+    const g = c.guardarTransmision('Copia', vivo);
+    vivo.avisos[0].a = 'cambiado';
+    assert.equal(g.datos.avisos[0].a, 'uno');
+    assert.equal(c.leerGuardadas()[0].datos.avisos[0].a, 'uno');
+    const e = c.cargarTransmision(g.id);
+    e.avisos[0].a = 'otro';
+    assert.equal(c.leerGuardadas()[0].datos.avisos[0].a, 'uno');
+  });
+  prueba('duplicar crea «{nombre} (copia)» con los mismos datos y otro id; una segunda copia no repite el nombre', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('Novena 2026', { ...c.PREDETERMINADO, tipo: 'novena', santo: 'San Juan' });
+    const d = c.duplicarTransmision(g.id);
+    assert.equal(d.nombre, 'Novena 2026 (copia)');
+    assert.notEqual(d.id, g.id);
+    assert.equal(d.datos.santo, 'San Juan');
+    assert.equal(c.duplicarTransmision(g.id).nombre, 'Novena 2026 (copia 2)');
+    assert.equal(c.leerGuardadas().length, 3);
+    assert.equal(new Set(Array.from(c.leerGuardadas(), (x) => x.id)).size, 3);
+  });
+  prueba('borrar quita solo esa entrada', () => {
+    const c = nuevo();
+    const a = c.guardarTransmision('A', c.PREDETERMINADO);
+    c.guardarTransmision('B', c.PREDETERMINADO);
+    c.borrarTransmision(a.id);
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.nombre), ['B']);
+  });
+  prueba('las entradas rotas de la lista se ignoran', () => {
+    const c = nuevo({ [KEY]: JSON.stringify([null, 5, { id: 'ok', nombre: 'Ok', datos: {} }, { nombre: 'sin id', datos: {} }]) });
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['ok']);
+  });
+});
+
 /* ---------- Resultado ---------- */
 console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
 process.exit(fallos ? 1 : 0);

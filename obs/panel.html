@@ -133,6 +133,24 @@ details label{margin-bottom:9px}
 .aviso{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:start;margin-bottom:10px}
 .aviso .n{width:24px;height:24px;border-radius:6px;background:var(--rey);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;margin-top:10px}
 .aviso .campos{display:flex;flex-direction:column;gap:5px}
+/* guardadas (tablero S2PanelGuardadas) */
+.guardada{border-top:1px solid var(--borde);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.guardada:first-child{border-top:0;padding-top:0}
+.guardada .nom{font-weight:800;font-size:15px;overflow-wrap:anywhere}
+.guardada .meta{font-size:12px;color:var(--suave)}
+.guardada .acciones{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px}
+.guardada .acciones button{font-size:12px;padding:8px 4px}
+.guardada .acciones .cargar{background:var(--rey);color:#fff;font-size:14px}
+.guardada .acciones .cargar:hover{background:#1863bd}
+.guardada .acciones .borrar{background:transparent;border-color:var(--borde);color:var(--suave)}
+.rapida{display:flex;align-items:center;gap:8px}
+.rapida .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rapida .nom{font-weight:800;font-size:14px;overflow-wrap:anywhere}
+.rapida .meta{font-size:11px;color:var(--suave)}
+.rapida button{min-width:84px}
+.enlace{background:transparent;border:0;color:#6cb6f0;font-size:13px;text-align:left;padding:0 4px}
+.enlace:hover{background:transparent;text-decoration:underline}
+.estado-guardadas{font-size:12px;font-weight:700;color:var(--verde-texto);min-height:16px}
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 </style>
@@ -168,6 +186,11 @@ details label{margin-bottom:9px}
       <h3>¿Qué vamos a transmitir?</h3>
       <div class="tipos" id="tipos"></div>
       <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después puede cambiar cualquier dato.</span>
+    </div>
+    <div class="seccion" id="sec-rapidas" hidden>
+      <h3>O cargar una guardada</h3>
+      <div id="rapidas" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button type="button" class="enlace" id="ver-guardadas">Ver todas las guardadas</button>
     </div>
     <button type="button" class="primario" id="continuar">Continuar</button>
   </div>
@@ -246,6 +269,8 @@ details label{margin-bottom:9px}
       <div id="textos"></div>
       <button type="button" class="secundario" id="restablecer" style="width:100%;margin-bottom:8px">Volver a los textos automáticos</button>
     </details>
+
+    <button type="button" class="secundario" id="guardar-esta">Guardar esta transmisión…</button>
   </div>
 </section>
 
@@ -271,13 +296,23 @@ details label{margin-bottom:9px}
 
 <!-- ================= GUARDADAS (Tarea 6) ================= -->
 <section class="hoja" id="hoja-guardadas" role="tabpanel" aria-labelledby="tab-guardadas">
-  <div class="seccion"><h3>Transmisiones guardadas</h3><span class="ayuda">Todavía no hay transmisiones guardadas.</span></div>
+  <div class="seccion">
+    <h3>Guardar la transmisión actual</h3>
+    <label>Nombre<input type="text" id="guardar-nombre" autocomplete="off" maxlength="80"></label>
+    <button type="button" class="primario" id="guardar-boton" style="font-size:14px;min-height:44px">Guardar</button>
+    <span class="estado-guardadas" id="estado-guardadas" role="status"></span>
+  </div>
+  <div class="seccion" id="sec-guardadas">
+    <h3 id="titulo-guardadas" tabindex="-1">Transmisiones guardadas</h3>
+    <div id="lista-guardadas" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
 </section>
 
 <div class="guardado" id="guardado" role="status">Guardado ✓</div>
 
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
+<script src="guardadas.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const nuevo = (etiqueta, clase, texto) => {
@@ -564,6 +599,113 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ---------- transmisiones guardadas ---------- */
+let nombreEscrito = false;   // el voluntario ya tocó el nombre: no se le pisa con la sugerencia
+const nombreSugerido = () => tipoDe(s).nombre + ' ' + fechaCorta(fechaTransmision());
+function avisoGuardadas(texto) { $('estado-guardadas').textContent = texto; }
+
+/* «hoy», «ayer», «hace 7 días»… (por días de calendario) */
+function haceCuanto(ms) {
+  const a = new Date(ms), h = new Date();
+  const dias = Math.round((new Date(h.getFullYear(), h.getMonth(), h.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 14) return 'hace ' + dias + ' días';
+  if (dias < 60) return 'hace ' + Math.floor(dias / 7) + ' semanas';
+  if (dias < 365) return 'hace ' + Math.floor(dias / 30) + ' meses';
+  const anios = Math.floor(dias / 365);
+  return 'hace ' + anios + (anios === 1 ? ' año' : ' años');
+}
+const nombreTipo = (clave) => (TIPOS[clave] || TIPOS.dominical).nombre;
+const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
+
+function cargarGuardada(id) {
+  const estado = cargarTransmision(id, s);
+  if (!estado) { pintarGuardadas(); return; }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  s = estado;                       // reemplaza todo el estado; el rótulo queda en «ninguno»
+  ultimoMostrado = null;
+  tipoPintado = null; botonesDe = null;   // reconstruye los campos aunque alguno tuviera el foco
+  guardar();                        // las pantallas se enteran
+  llenar();
+  nombreEscrito = false;
+  pintarGuardadas();
+  verEleccion(false);
+  abrir('preparar');
+}
+function guardarActual() {
+  const campo = $('guardar-nombre');
+  const nombre = campo.value.trim();
+  if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
+  const existia = leerGuardadas().some(g => g.nombre.trim().toLowerCase() === nombre.toLowerCase());
+  guardarTransmision(nombre, s);
+  nombreEscrito = false;
+  avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
+  pintarGuardadas();
+}
+function pintarGuardadas() {
+  const lista = leerGuardadas();
+  const caja = $('lista-guardadas'); caja.textContent = '';
+  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay transmisiones guardadas. Escriba un nombre arriba y apriete Guardar.'));
+  lista.forEach(g => {
+    const fila = nuevo('div', 'guardada');
+    const info = nuevo('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · usada ' + haceCuanto(ultimoUso(g))));
+    info.title = 'Última vez: ' + new Date(ultimoUso(g)).toLocaleDateString('es');
+    const acciones = nuevo('div', 'acciones');
+    const boton = (clase, texto, accion) => {
+      const b = nuevo('button', clase, texto); b.type = 'button'; b.dataset.id = g.id;
+      b.setAttribute('aria-label', texto + ' «' + g.nombre + '»');
+      b.addEventListener('click', accion);
+      return b;
+    };
+    acciones.append(
+      boton('cargar', 'Cargar', () => cargarGuardada(g.id)),
+      boton('duplicar', 'Duplicar', () => {
+        const copia = duplicarTransmision(g.id);
+        pintarGuardadas();
+        if (!copia) return;
+        avisoGuardadas('Duplicada: «' + copia.nombre + '»');
+        const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
+        if (nuevoCargar) nuevoCargar.focus();
+      }),
+      boton('borrar', 'Borrar', () => {
+        if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
+        borrarTransmision(g.id);
+        avisoGuardadas('Borrada: «' + g.nombre + '»');
+        pintarGuardadas();
+        $('titulo-guardadas').focus();
+      })
+    );
+    fila.append(info, acciones);
+    caja.append(fila);
+  });
+
+  /* «O cargar una guardada» en Elegir: las 2 más usadas */
+  const rapidas = $('rapidas'); rapidas.textContent = '';
+  $('sec-rapidas').hidden = !lista.length;
+  lista.slice(0, 2).forEach(g => {
+    const fila = nuevo('div', 'rapida');
+    const txt = nuevo('div', 'txt');
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
+    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
+    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
+    b.addEventListener('click', () => cargarGuardada(g.id));
+    fila.append(txt, b);
+    rapidas.append(fila);
+  });
+}
+$('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
+$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual(); e.preventDefault(); } });
+$('guardar-boton').addEventListener('click', guardarActual);
+$('ver-guardadas').addEventListener('click', () => abrir('guardadas'));
+$('guardar-esta').addEventListener('click', () => {
+  abrir('guardadas');
+  if (!nombreEscrito) $('guardar-nombre').value = nombreSugerido();
+  $('guardar-nombre').focus(); $('guardar-nombre').select();
+});
+window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS) pintarGuardadas(); });
+
 /* ---------- pintar el panel ---------- */
 function llenar() {
   if (tipoPintado !== s.tipo) pintarCampos();
@@ -614,6 +756,7 @@ function refrescar() {
   if (botonesDe !== s.tipo) armarBotones();
 
   $('transmision').textContent = tipo.nombre + ' · ' + fechaCorta(fechaTransmision());
+  if (!nombreEscrito && document.activeElement !== $('guardar-nombre')) $('guardar-nombre').value = nombreSugerido();
   document.querySelectorAll('[data-tipo]').forEach(b => b.setAttribute('aria-pressed', s.tipo === b.dataset.tipo ? 'true' : 'false'));
   $('continuar').textContent = 'Continuar con ' + tipo.nombre;
   $('tipo-nombre').textContent = tipo.nombre;
@@ -713,6 +856,7 @@ setInterval(() => {
 
 escucharEstado((nuevoEstado) => { s = nuevoEstado; llenar(); });
 llenar();
+pintarGuardadas();
 </script>
 </body>
 </html>

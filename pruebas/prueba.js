@@ -201,6 +201,80 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await panel.screenshot({ path: path.join(salida, 'panel_elegir.png'), fullPage: true });
   await panel.click('#continuar');
 
+  console.log('Guardadas');
+  const abrirGuardadas = async () => { await panel.click('[data-hoja="guardadas"]'); };
+  await panel.evaluate(() => localStorage.removeItem('parroquia_obs_guardadas_v1'));
+  await panel.reload();
+  await panel.waitForTimeout(500);
+  revisar(!(await panel.isVisible('#sec-rapidas')), 'sin guardadas, Elegir no muestra «O cargar una guardada»');
+  await elegirTipo('horasanta');
+  await panel.fill('#rot-guia-t', 'Juan');
+  await panel.waitForTimeout(500);
+  await panel.click('#guardar-esta');
+  revisar(await panel.isVisible('#hoja-guardadas'), '«Guardar esta transmisión…» abre la pestaña Guardadas');
+  revisar((await panel.evaluate(() => document.activeElement.id)) === 'guardar-nombre', 'y deja el foco en el nombre');
+  revisar((await panel.inputValue('#guardar-nombre')).startsWith('Hora Santa '), 'el nombre viene sugerido (' + (await panel.inputValue('#guardar-nombre')) + ')');
+  await panel.fill('#guardar-nombre', '   ');
+  await panel.click('#guardar-boton');
+  revisar((await panel.evaluate(() => JSON.parse(localStorage.getItem('parroquia_obs_guardadas_v1') || '[]').length)) === 0, 'un nombre vacío no guarda nada');
+  await panel.fill('#guardar-nombre', 'Prueba HS');
+  await panel.click('#guardar-boton');
+  const guardadasLs = () => panel.evaluate(() => JSON.parse(localStorage.getItem('parroquia_obs_guardadas_v1') || '[]'));
+  revisar((await guardadasLs()).length === 1 && (await guardadasLs())[0].tipo === 'horasanta', 'Guardar crea la entrada «Prueba HS» de tipo horasanta');
+  revisar(!('rotulo' in (await guardadasLs())[0].datos), 'lo guardado no incluye el rótulo al aire');
+  await panel.fill('#guardar-nombre', 'prueba hs ');
+  await panel.click('#guardar-boton');
+  revisar((await guardadasLs()).length === 1, 'guardar con el mismo nombre (otras mayúsculas) reemplaza la entrada');
+
+  // otro tipo, con un rótulo al aire: cargar tiene que dejar la pantalla sin rótulo
+  await elegirTipo('dominical');
+  await panel.fill('#rot-lectura1-t', 'Isaías 2, 1-5');
+  await panel.waitForTimeout(500);
+  await panel.click('[data-hoja="vivo"]');
+  await panel.keyboard.press('2');
+  await rotulos.waitForTimeout(1500);
+  revisar((await rotulos.getAttribute('#rotulo', 'class')).includes('en'), 'antes de cargar hay un rótulo al aire');
+  await abrirGuardadas();
+  const botonCargar = panel.locator('#lista-guardadas button[aria-label="Cargar «prueba hs»"]');
+  revisar((await botonCargar.count()) === 1, 'el botón «Cargar» tiene el nombre de la transmisión');
+  for (const b of await panel.locator('#lista-guardadas button').all()) {
+    const caja = await b.boundingBox();
+    if (caja.height < 44) revisar(false, 'botón de menos de 44 px: ' + (await b.getAttribute('aria-label')) + ' ' + caja.height);
+  }
+  await panel.screenshot({ path: path.join(salida, 'panel_guardadas.png'), fullPage: true });
+  await botonCargar.click();
+  await rotulos.waitForTimeout(1500);
+  revisar((await estadoPanel()).tipo === 'horasanta', 'Cargar vuelve a Hora Santa');
+  revisar(await panel.isVisible('#hoja-preparar'), 'Cargar abre Preparar');
+  revisar((await panel.inputValue('#rot-guia-t')) === 'Juan', 'el campo del guía vuelve a «Juan»');
+  revisar((await panel.textContent('#transmision')).startsWith('Hora Santa'), 'la píldora dice Hora Santa');
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'Cargar deja el rótulo en «ninguno»');
+  revisar(!(await rotulos.getAttribute('#rotulo', 'class')).includes('en'), 'rotulos.html no muestra rótulo tras cargar');
+  revisar(!(await rotulos.isVisible('#r-t')), '#r-t de rotulos.html no está visible');
+
+  // desde Elegir
+  await elegirTipo('dominical');
+  await panel.click('#cambiar-tipo');
+  revisar(await panel.isVisible('#sec-rapidas'), 'con guardadas, Elegir muestra «O cargar una guardada»');
+  await panel.click('#rapidas button[aria-label="Cargar «prueba hs»"]');
+  await panel.waitForTimeout(400);
+  revisar((await estadoPanel()).tipo === 'horasanta' && await panel.isVisible('#preparar-datos'), 'Cargar desde Elegir también vuelve a Hora Santa');
+
+  // duplicar y borrar
+  await abrirGuardadas();
+  await panel.click('#lista-guardadas button[aria-label="Duplicar «prueba hs»"]');
+  revisar((await guardadasLs()).map((g) => g.nombre).sort().join('|') === 'prueba hs|prueba hs (copia)', 'Duplicar crea «(copia)»');
+  panel.once('dialog', (d) => d.dismiss());
+  await panel.click('#lista-guardadas button[aria-label="Borrar «prueba hs (copia)»"]');
+  revisar((await guardadasLs()).length === 2, 'Borrar y decir que no, no borra');
+  panel.once('dialog', (d) => d.accept());
+  await panel.click('#lista-guardadas button[aria-label="Borrar «prueba hs (copia)»"]');
+  revisar((await guardadasLs()).length === 1, 'Borrar y aceptar quita la entrada');
+  panel.once('dialog', (d) => d.accept());
+  await panel.click('#lista-guardadas button[aria-label="Borrar «prueba hs»"]');
+  revisar((await guardadasLs()).length === 0 && (await panel.textContent('#lista-guardadas')).includes('Todavía no hay'), 'sin guardadas la lista lo dice');
+  await panel.click('[data-hoja="preparar"]');
+
   console.log('Tipos');
   const fijar = (cambios) => panel.evaluate((c) => { const s = leerEstado(); Object.assign(s, c); guardarEstado(s); }, cambios);
   const imagenFinal = (p) => p.evaluate(() => document.getElementById('virgen').getAttribute('src'));
