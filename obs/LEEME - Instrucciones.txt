@@ -53,41 +53,66 @@ lecturas, salmo, evangelio, rosario).
 ---------------------------------------------------------------
 4. USO DIARIO
 ---------------------------------------------------------------
-El panel tiene 4 pestañas:
-  EN VIVO   → lo que se usa durante la misa: rótulos, celebración del
-              día y lo que aparece sobre la cámara.
-  PREPARAR  → llenar antes de la misa: celebrante, lecturas, salmo,
-              evangelio, rosario, frase e imagen de la Virgen.
-  AVISOS    → los avisos parroquiales.
-  TEXTOS    → cambiar cualquier texto de las pantallas.
+El panel tiene 3 pestañas:
+  PREPARAR  → antes de la misa. Elija QUÉ VAN A TRANSMITIR (misa
+              dominical, entre semana, Hora Santa, misa en sector,
+              patronal de sector, procesión, misa de otro santo,
+              prenovena, novena, fiesta patronal o evento especial)
+              y llene los datos y los rótulos.
+  EN VIVO   → durante la misa. No tiene casillas para escribir, solo
+              botones: "Siguiente", los rótulos y lo que aparece
+              sobre la cámara (logo, EN VIVO, barra).
+  GUARDADAS → guardar la transmisión con un nombre y volver a usarla
+              otro día.
+
+Paso a paso:
+  1. En PREPARAR elija el tipo. Las pantallas, la imagen y los rótulos
+     se ajustan solos.
+  2. Mire el recuadro "Faltan N datos". Cada línea es algo que falta:
+     pulse la línea y el panel lo lleva a esa casilla. Cuando dice
+     "Todo listo", ya puede pasar a EN VIVO.
+  3. En EN VIVO pulse "Siguiente" o el rótulo que quiera mostrar.
 
 Arriba siempre se ve qué rótulo está EN PANTALLA y el botón Ocultar.
-Botón azul "Mostrar el siguiente": sigue el orden de la misa
-(Celebrante → 1.ª lectura → Salmo → 2.ª lectura → Evangelio → Rosario).
+Botón azul "Siguiente": sigue el orden de los rótulos del tipo elegido
+(en una misa: Celebrante → 1.ª lectura → Salmo → 2.ª lectura →
+Evangelio).
 Atajos de teclado (con el panel seleccionado):
-  1 a 6 = mostrar/ocultar ese rótulo · Espacio = siguiente · Esc = ocultar
-Si a un rótulo le falta el texto, aparece en amarillo
-"Falta escribirlo en Preparar".
+  1 a 9 = mostrar/ocultar ese rótulo · Espacio o N = siguiente
+  (estos solo funcionan en la pestaña EN VIVO)
+  Esc = ocultar el rótulo (funciona en cualquier pestaña)
+Si a un rótulo le falta el texto, aparece en "Faltan N datos".
 
 • Arriba del panel debe decir "Conectado con X pantallas" (punto verde).
-• Tipo de celebración: Misa dominical, Misa de otro santo, Prenovena,
-  Novena o Misa Patronal. La pantalla de inicio, la de gracias y la
-  barra cambian solas.
+• Si cambia de tipo, la imagen, la esquina y la cuenta regresiva
+  vuelven a ser automáticas. Los datos que ya escribió se quedan.
 • Día de prenovena / novena: use los botones − y +.
-• Cuenta regresiva: se calcula sola hasta el 8 de diciembre. Si quiere
+• Cuenta regresiva: elija Automática, Mostrar o No mostrar. Si quiere
   otro número, escríbalo en "Días que faltan" (vacío = automático).
-• Rótulos: escriba las citas y pulse el botón (1.ª lectura, Salmo…)
-  para mostrarlo. Pulse el mismo botón otra vez u "Ocultar rótulo"
+• Rótulos: escriba las citas en PREPARAR y pulse el botón del rótulo
+  en EN VIVO para mostrarlo. Pulse el mismo botón otra vez u "Ocultar"
   para quitarlo. Puede elegir que se oculte solo a los 8, 12 o 20 s.
 • Los textos se guardan solos y siguen ahí al abrir OBS otro día.
-• Imagen de la Virgen: elija A, B o C en el panel.
-• Todos los textos: al final del panel, en "Todos los textos", puede
-  cambiar cualquier texto de cualquier pantalla. Si deja la casilla
-  vacía se usa el texto automático (el que se ve en gris).
-  "Volver a los textos automáticos" borra lo escrito a mano.
+• Imagen: en PREPARAR, "Pantallas", elija la imagen o déjela en
+  Automática. Si a un tipo le falta su imagen, se ve la fachada.
+• Textos de las pantallas: en PREPARAR, abra "Textos de las pantallas".
+  Si deja la casilla vacía se usa el texto automático (el que se ve en
+  gris). "Volver a los textos automáticos" borra lo escrito a mano.
 • Al cambiar de un rótulo a otro, el anterior sale y el nuevo entra
   con animación. Si corrige el texto de un rótulo que ya está en
   pantalla, solo cambia el texto (sin volver a entrar).
+
+GUARDADAS (para no escribir todo cada semana):
+  • Escriba un nombre (por ejemplo "Hora Santa jueves") y pulse
+    Guardar. Si el nombre ya existe, le pregunta si quiere reemplazarla.
+  • Cargar = trae todos los datos de esa transmisión. Nunca deja un
+    rótulo en pantalla.
+  • Duplicar = hace una copia para cambiarle lo que haga falta.
+    Borrar = la quita (pregunta antes).
+  • Las guardadas se quedan en ESTA computadora y en esta dirección.
+    Si abre el panel con otra dirección (por ejemplo file:///, el
+    respaldo sin internet), ahí no aparecen. No se pueden copiar a
+    otra computadora.
 
 ---------------------------------------------------------------
 5. TRANSICIÓN
