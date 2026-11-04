@@ -1,0 +1,13 @@
+{
+  "name": "parroquia-obs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pantallas, rótulos y panel de control para OBS · Parroquia Inmaculada Concepción de María, Ciudad Arce",
+  "scripts": {
+    "prueba": "node pruebas/prueba.js",
+    "transiciones": "node herramientas/transiciones/render.js --plantilla stinger.html --duracion 2 --salida transiciones/Transicion_2000ms_Logo.webm && node herramientas/transiciones/render.js --plantilla stinger_virgen.html --duracion 2 --salida transiciones/Transicion_2000ms_Virgen.webm"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

@@ -1,0 +1,104 @@
+PANTALLAS EN VIVO · PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA · CIUDAD ARCE
+Instalación en OBS (Windows)
+==========================================================================
+
+Todo funciona dentro de OBS: no necesita internet, websocket ni plugins.
+
+---------------------------------------------------------------
+1. COPIAR LA CARPETA
+---------------------------------------------------------------
+Las direcciones de abajo usan C:/Parroquia_OBS como ejemplo.
+• Si copió esta carpeta "obs" como C:\Parroquia_OBS, úselas tal cual.
+• Si trabaja desde el repositorio (por ejemplo C:\parroquia-obs\obs),
+  cambie "C:/Parroquia_OBS" por "C:/parroquia-obs/obs" en todas,
+  usando barras /.
+
+---------------------------------------------------------------
+2. AGREGAR EL PANEL DE CONTROL
+---------------------------------------------------------------
+En OBS: menú  Docks (en español puede decir "Paneles")  →
+        "Docks/Paneles de navegador personalizados…"
+        (en inglés: Docks → Custom Browser Docks…)
+  Nombre:  Panel Parroquia
+  URL:     file:///C:/Parroquia_OBS/panel.html
+Pulse Aplicar. El panel aparece como una ventana que puede acomodar
+junto a sus escenas.
+
+---------------------------------------------------------------
+3. CREAR LAS FUENTES DE NAVEGADOR
+---------------------------------------------------------------
+En cada escena: Fuentes → + → Navegador.
+IMPORTANTE en cada una:
+  • NO marque "Archivo local". Escriba la dirección en el campo URL.
+  • Ancho 1920 · Alto 1080
+  • Deje DESMARCADO "Apagar la fuente cuando no esté visible".
+
+  Escena                     URL
+  ---------------------------------------------------------------------
+  Inicio (en breve…)         file:///C:/Parroquia_OBS/pantalla.html?tipo=inicio
+  Portada 8 de diciembre     file:///C:/Parroquia_OBS/pantalla.html?tipo=portada
+  Avisos                     file:///C:/Parroquia_OBS/pantalla.html?tipo=avisos
+  Gracias                    file:///C:/Parroquia_OBS/pantalla.html?tipo=gracias
+  Misa (encima de la cámara) file:///C:/Parroquia_OBS/rotulos.html
+
+La fuente "rotulos.html" tiene fondo transparente: póngala ENCIMA de la
+cámara en la escena de la misa. Ahí aparecen el logo, la etiqueta
+EN VIVO, la barra con el título del día y los rótulos (celebrante,
+lecturas, salmo, evangelio, rosario).
+
+---------------------------------------------------------------
+4. USO DIARIO
+---------------------------------------------------------------
+El panel tiene 4 pestañas:
+  EN VIVO   → lo que se usa durante la misa: rótulos, celebración del
+              día y lo que aparece sobre la cámara.
+  PREPARAR  → llenar antes de la misa: celebrante, lecturas, salmo,
+              evangelio, rosario, frase e imagen de la Virgen.
+  AVISOS    → los avisos parroquiales.
+  TEXTOS    → cambiar cualquier texto de las pantallas.
+
+Arriba siempre se ve qué rótulo está EN PANTALLA y el botón Ocultar.
+Botón azul "Mostrar el siguiente": sigue el orden de la misa
+(Celebrante → 1.ª lectura → Salmo → 2.ª lectura → Evangelio → Rosario).
+Atajos de teclado (con el panel seleccionado):
+  1 a 6 = mostrar/ocultar ese rótulo · Espacio = siguiente · Esc = ocultar
+Si a un rótulo le falta el texto, aparece en amarillo
+"Falta escribirlo en Preparar".
+
+• Arriba del panel debe decir "Conectado con X pantallas" (punto verde).
+• Tipo de celebración: Misa dominical, Misa de otro santo, Prenovena,
+  Novena o Misa Patronal. La pantalla de inicio, la de gracias y la
+  barra cambian solas.
+• Día de prenovena / novena: use los botones − y +.
+• Cuenta regresiva: se calcula sola hasta el 8 de diciembre. Si quiere
+  otro número, escríbalo en "Días que faltan" (vacío = automático).
+• Rótulos: escriba las citas y pulse el botón (1.ª lectura, Salmo…)
+  para mostrarlo. Pulse el mismo botón otra vez u "Ocultar rótulo"
+  para quitarlo. Puede elegir que se oculte solo a los 8, 12 o 20 s.
+• Los textos se guardan solos y siguen ahí al abrir OBS otro día.
+• Imagen de la Virgen: elija A, B o C en el panel.
+• Todos los textos: al final del panel, en "Todos los textos", puede
+  cambiar cualquier texto de cualquier pantalla. Si deja la casilla
+  vacía se usa el texto automático (el que se ve en gris).
+  "Volver a los textos automáticos" borra lo escrito a mano.
+• Al cambiar de un rótulo a otro, el anterior sale y el nuevo entra
+  con animación. Si corrige el texto de un rótulo que ya está en
+  pantalla, solo cambia el texto (sin volver a entrar).
+
+---------------------------------------------------------------
+5. TRANSICIÓN
+---------------------------------------------------------------
+En la carpeta "transiciones" (en la raíz del repositorio) están las transiciones Stinger
+(2000 ms, punto de transición 1000 ms).
+
+---------------------------------------------------------------
+SI ALGO NO CAMBIA
+---------------------------------------------------------------
+• Revise que las fuentes usen la dirección file:/// (sin marcar
+  "Archivo local") y que el panel también use file:///.
+• Clic derecho en la fuente → Propiedades → "Actualizar caché de la
+  página actual".
+
+Créditos de imágenes: "Inmaculada Concepción" (La Colosal), B. E. Murillo,
+y "Inmaculada Concepción", G. B. Tiepolo, ambas de dominio público
+(Wikimedia Commons). Tipografías Montserrat y Great Vibes (licencia SIL OFL).

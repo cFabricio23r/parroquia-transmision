@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Parroquia</title>
+<style>
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-500-normal.woff2) format('woff2');font-weight:500}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
+:root{--fondo:#0f1724;--caja:#172235;--caja2:#1d2b43;--borde:#2a3a55;--texto:#eef3fb;--suave:#9fb0c9;--rey:#1d63c2;--rey2:#2f7de0;--rojo:#d63a2f;--verde:#22a565;--ambar:#e0a526}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fondo);color:var(--texto);font-family:Mont,system-ui,sans-serif;font-size:13px}
+body{padding-bottom:30px}
+button{font:inherit;font-weight:800;border:0;border-radius:9px;cursor:pointer;color:var(--texto);background:#24344f;min-height:38px;padding:8px 10px}
+button:hover{background:#2d4166}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--rey2);outline-offset:1px}
+input[type=text],input[type=number],textarea,select{width:100%;background:#0b121e;color:var(--texto);border:1px solid var(--borde);border-radius:8px;padding:9px 10px;font:inherit;font-weight:500;font-size:13px}
+textarea{resize:vertical;min-height:40px}
+label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;color:var(--suave)}
+
+/* barra superior fija: qué hay en pantalla */
+.arriba{position:sticky;top:0;z-index:5;background:var(--fondo);padding:8px 10px 0;border-bottom:1px solid var(--borde)}
+.conexion{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--suave);margin-bottom:6px}
+.punto{width:9px;height:9px;border-radius:50%;background:#556}
+.punto.ok{background:var(--verde)}
+.ahora{display:flex;align-items:center;gap:8px;background:var(--caja);border:1px solid var(--borde);border-radius:10px;padding:8px 8px 8px 10px;margin-bottom:8px;min-height:48px}
+.ahora .info{flex:1;min-width:0}
+.ahora .tit{font-size:11px;font-weight:800;letter-spacing:1px;color:var(--suave)}
+.ahora .val{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ahora.en{border-color:var(--verde);background:#123327}
+.ahora.en .tit{color:#7fe0b0}
+.ahora button{background:var(--rojo);min-width:84px}
+.progreso{height:3px;background:var(--verde);width:0;transition:width .25s linear;border-radius:2px;margin-top:4px}
+.pestanas{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px}
+.pestanas button{border-radius:8px 8px 0 0;background:transparent;color:var(--suave);min-height:36px;font-size:12px;padding:6px 2px}
+.pestanas button[aria-selected=true]{background:var(--caja);color:var(--texto);box-shadow:inset 0 -3px 0 var(--rey2)}
+
+.hoja{padding:10px;display:none;flex-direction:column;gap:12px}
+.hoja.activa{display:flex}
+.seccion{background:var(--caja);border:1px solid var(--borde);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:9px}
+.seccion h3{margin:0;font-size:11px;letter-spacing:1.5px;color:var(--suave);font-weight:800;text-transform:uppercase}
+.fila{display:flex;gap:8px}
+.fila>*{flex:1;min-width:0}
+
+/* chips de celebración */
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.chips button{background:var(--caja2);border:2px solid transparent;font-size:12px;min-height:42px}
+.chips button[aria-pressed=true]{border-color:var(--rey2);background:#1a3a6b}
+.chips button.ancho{grid-column:1/-1}
+.dia{display:flex;align-items:center;gap:8px}
+.dia button{width:48px;font-size:20px;flex:none}
+.dia .num{flex:1;text-align:center;font-weight:800;font-size:18px;background:#0b121e;border:1px solid var(--borde);border-radius:8px;padding:7px 0}
+.titulo-vista{font-size:12px;color:var(--suave);background:#0b121e;border:1px dashed var(--borde);border-radius:8px;padding:8px}
+.titulo-vista b{color:var(--texto)}
+
+/* rótulos */
+.siguiente{background:var(--rey);font-size:14px;min-height:46px}
+.siguiente:hover{background:var(--rey2)}
+.rotulos{display:flex;flex-direction:column;gap:6px}
+.rot{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;background:var(--caja2);border:2px solid transparent;padding:8px 10px;min-height:52px}
+.rot .tecla{width:26px;height:26px;border-radius:7px;background:#0b121e;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--suave)}
+.rot .nom{font-size:13px}
+.rot .prev{display:block;font-weight:500;font-size:11px;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rot .prev.falta{color:var(--ambar)}
+.rot .est{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--suave)}
+.rot[aria-pressed=true]{border-color:var(--verde);background:#123327}
+.rot[aria-pressed=true] .est{color:#7fe0b0}
+.segmento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.segmento button{background:var(--caja2);font-size:12px;min-height:34px}
+.segmento button[aria-pressed=true]{background:#1a3a6b;box-shadow:inset 0 0 0 2px var(--rey2)}
+
+/* interruptores */
+.interruptor{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:700;color:var(--texto);font-size:13px;flex-direction:row;cursor:pointer}
+.interruptor input{appearance:none;width:42px;height:24px;border-radius:12px;background:#38475f;position:relative;cursor:pointer;flex:none;transition:background .2s}
+.interruptor input::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+.interruptor input:checked{background:var(--verde)}
+.interruptor input:checked::after{left:21px}
+
+.ayuda{font-size:11px;color:var(--suave);font-weight:500;line-height:1.4}
+.ayuda kbd{background:#0b121e;border:1px solid var(--borde);border-radius:4px;padding:0 5px;font-family:inherit;font-weight:800}
+.imgs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.imgs button{padding:4px;background:#0b121e;border:2px solid transparent;min-height:0}
+.imgs button[aria-pressed=true]{border-color:var(--verde)}
+.imgs img{width:100%;height:74px;object-fit:contain;display:block}
+.secundario{background:transparent;border:1px solid var(--borde);color:var(--suave);font-weight:700}
+details{border:1px solid var(--borde);border-radius:9px;padding:6px 9px;background:var(--caja)}
+summary{cursor:pointer;font-weight:800;padding:5px 0}
+details[open] summary{margin-bottom:8px}
+details label{margin-bottom:9px}
+.aviso{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:start}
+.aviso .n{width:24px;height:24px;border-radius:6px;background:var(--rey);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;margin-top:6px}
+.aviso .campos{display:flex;flex-direction:column;gap:5px}
+.guardado{position:fixed;right:10px;bottom:8px;background:var(--verde);color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
+.guardado.si{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="arriba">
+  <div class="conexion"><span class="punto" id="punto"></span><span id="conexion">Buscando pantallas…</span></div>
+  <div class="ahora" id="ahora">
+    <div class="info">
+      <div class="tit" id="ahora-tit">EN PANTALLA</div>
+      <div class="val" id="ahora-val">Ningún rótulo</div>
+      <div class="progreso" id="progreso"></div>
+    </div>
+    <button type="button" id="ocultar" title="Ocultar (Esc)">Ocultar</button>
+  </div>
+  <div class="pestanas" role="tablist">
+    <button type="button" role="tab" data-hoja="vivo" aria-selected="true">En vivo</button>
+    <button type="button" role="tab" data-hoja="preparar" aria-selected="false">Preparar</button>
+    <button type="button" role="tab" data-hoja="avisos" aria-selected="false">Avisos</button>
+    <button type="button" role="tab" data-hoja="textos" aria-selected="false">Textos</button>
+  </div>
+</div>
+
+<!-- ================= EN VIVO ================= -->
+<section class="hoja activa" id="hoja-vivo" role="tabpanel">
+  <div class="seccion">
+    <h3>Rótulos de la misa</h3>
+    <button type="button" class="siguiente" id="siguiente">▶ Mostrar el siguiente <span id="sig-nom" style="font-weight:500"></span></button>
+    <div class="rotulos" id="rotulos"></div>
+    <div>
+      <div class="ayuda" style="margin-bottom:5px">Ocultar solo después de:</div>
+      <div class="segmento" id="duracion">
+        <button type="button" data-seg="0">Manual</button><button type="button" data-seg="8">8 s</button><button type="button" data-seg="12">12 s</button><button type="button" data-seg="20">20 s</button>
+      </div>
+    </div>
+    <div class="ayuda">Atajos (con el panel seleccionado): <kbd>1</kbd>–<kbd>6</kbd> mostrar · <kbd>Espacio</kbd> siguiente · <kbd>Esc</kbd> ocultar</div>
+  </div>
+
+  <div class="seccion">
+    <h3>Celebración de hoy</h3>
+    <div class="chips" id="chips">
+      <button type="button" data-tipo="dominical">Misa dominical</button>
+      <button type="button" data-tipo="otros">Otro santo</button>
+      <button type="button" data-tipo="prenovena">Prenovena</button>
+      <button type="button" data-tipo="novena">Novena</button>
+      <button type="button" data-tipo="patronal" class="ancho">Misa Patronal · 8 de diciembre</button>
+    </div>
+    <div class="dia" id="caja-dia">
+      <button type="button" id="dia-menos" aria-label="Día anterior">−</button>
+      <div class="num" id="dia-num">DÍA 1</div>
+      <button type="button" id="dia-mas" aria-label="Día siguiente">+</button>
+    </div>
+    <label id="caja-santo">Nombre del santo<input type="text" id="santo" placeholder="Ej.: San José"></label>
+    <div class="titulo-vista">Se verá: <b id="vista-titulo"></b></div>
+  </div>
+
+  <div class="seccion">
+    <h3>Sobre la cámara</h3>
+    <label class="interruptor">Logo arriba a la izquierda<input type="checkbox" id="mostrarLogo"></label>
+    <label class="interruptor">Etiqueta «EN VIVO»<input type="checkbox" id="mostrarEnVivo"></label>
+    <label class="interruptor">Barra con el título del día<input type="checkbox" id="mostrarBarra"></label>
+  </div>
+</section>
+
+<!-- ================= PREPARAR ================= -->
+<section class="hoja" id="hoja-preparar" role="tabpanel">
+  <div class="ayuda">Llene esto antes de la misa, en el orden en que se usa.</div>
+  <div class="seccion">
+    <h3>Celebrante</h3>
+    <div class="fila">
+      <label style="flex:.85">Cargo
+        <select id="celebranteRol"><option>CELEBRANTE</option><option>PREDICADOR</option><option>CONCELEBRANTE</option><option>DIÁCONO</option></select></label>
+      <label>Nombre<input type="text" id="celebrante"></label>
+    </div>
+  </div>
+  <div class="seccion">
+    <h3>Liturgia de la Palabra</h3>
+    <label>1.ª lectura<input type="text" id="lectura1" placeholder="Ej.: Isaías 2, 1-5"></label>
+    <div class="fila">
+      <label style="flex:.6">Salmo<input type="text" id="salmoNum" placeholder="Salmo 121"></label>
+      <label>Respuesta<input type="text" id="salmoResp" placeholder="Vamos con alegría…"></label>
+    </div>
+    <label>2.ª lectura<input type="text" id="lectura2" placeholder="Ej.: Romanos 13, 11-14"></label>
+    <label>Evangelio<input type="text" id="evangelio" placeholder="Ej.: Según san Mateo 24, 37-44"></label>
+    <button type="button" class="secundario" id="limpiar-lecturas">Borrar lecturas (para la próxima misa)</button>
+  </div>
+  <div class="seccion">
+    <h3>Santo Rosario</h3>
+    <label>Misterios o intención<input type="text" id="rosario" placeholder="Ej.: Misterios Gozosos"></label>
+  </div>
+  <div class="seccion">
+    <h3>Pantallas</h3>
+    <label class="interruptor">Mostrar cuenta regresiva al 8 de diciembre<input type="checkbox" id="mostrarCuenta"></label>
+    <div class="fila" style="align-items:flex-end">
+      <label>Días que faltan<input type="number" id="diasManual" min="0" placeholder="automático"></label>
+      <div class="ayuda" id="dias-auto" style="padding-bottom:10px"></div>
+    </div>
+    <label>Frase de la franja inferior<input type="text" id="frase"></label>
+    <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto" placeholder="Vacío = título de la celebración"></label>
+    <label>Línea bajo los rótulos<input type="text" id="parroquia"></label>
+    <div class="ayuda">Imagen de la Virgen</div>
+    <div class="imgs">
+      <button type="button" data-virgen="a" aria-label="Imagen A"><img src="img/virgen-a.png" alt=""></button>
+      <button type="button" data-virgen="b" aria-label="Imagen B"><img src="img/virgen-b.png" alt=""></button>
+      <button type="button" data-virgen="c" aria-label="Imagen C"><img src="img/virgen-c.png" alt=""></button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= AVISOS ================= -->
+<section class="hoja" id="hoja-avisos" role="tabpanel">
+  <div class="seccion">
+    <h3>Avisos parroquiales</h3>
+    <div class="ayuda">Solo se muestran los avisos que tengan texto.</div>
+    <div id="avisos" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button type="button" class="secundario" id="limpiar-avisos">Borrar todos los avisos</button>
+  </div>
+</section>
+
+<!-- ================= TEXTOS ================= -->
+<section class="hoja" id="hoja-textos" role="tabpanel">
+  <div class="ayuda">Cambie cualquier texto de las pantallas. Si deja la casilla vacía se usa el texto automático (en gris). Enter = nueva línea.</div>
+  <div id="textos" style="display:flex;flex-direction:column;gap:8px"></div>
+  <button type="button" class="secundario" id="restablecer">Volver a los textos automáticos</button>
+</section>
+
+<div class="guardado" id="guardado" role="status">Guardado ✓</div>
+
+<script src="comun.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let s = leerEstado();
+
+/* ---------- guardar ---------- */
+let avisoT, esperaT;
+function guardar() {
+  guardarEstado(s); refrescar();
+  $('guardado').classList.add('si'); clearTimeout(avisoT); avisoT = setTimeout(() => $('guardado').classList.remove('si'), 800);
+}
+function guardarPronto() { clearTimeout(esperaT); esperaT = setTimeout(guardar, 350); }
+
+/* ---------- pestañas ---------- */
+function abrir(h) {
+  document.querySelectorAll('[data-hoja]').forEach(b => b.setAttribute('aria-selected', b.dataset.hoja === h ? 'true' : 'false'));
+  document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
+  try { localStorage.setItem('parroquia_panel_hoja', h); } catch (e) {}
+}
+document.querySelectorAll('[data-hoja]').forEach(b => b.addEventListener('click', () => abrir(b.dataset.hoja)));
+try { abrir(localStorage.getItem('parroquia_panel_hoja') || 'vivo'); } catch (e) {}
+
+/* ---------- rótulos ---------- */
+const ORDEN = [
+  ['celebrante', 'Celebrante', st => st.celebrante],
+  ['lectura1', '1.ª lectura', st => st.lectura1],
+  ['salmo', 'Salmo', st => st.salmoResp],
+  ['lectura2', '2.ª lectura', st => st.lectura2],
+  ['evangelio', 'Evangelio', st => st.evangelio],
+  ['rosario', 'Santo Rosario', st => st.rosario || 'Santo Rosario']
+];
+const cajaRot = $('rotulos');
+ORDEN.forEach(([clave, nombre], i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'rot'; b.dataset.rotulo = clave;
+  b.innerHTML = `<span class="tecla">${i + 1}</span><span><span class="nom">${nombre}</span><span class="prev"></span></span><span class="est"></span>`;
+  b.addEventListener('click', () => alternar(clave));
+  cajaRot.append(b);
+});
+let ultimoMostrado = null;
+function visible() { return s.rotulo !== 'ninguno' && !(s.rotuloHasta && Date.now() > s.rotuloHasta) ? s.rotulo : null; }
+function mostrar(clave) {
+  s.rotulo = clave; ultimoMostrado = clave;
+  const seg = s.duracionSeg || 0; s.rotuloHasta = seg ? Date.now() + seg * 1000 : 0; s.rotuloDesde = Date.now();
+  guardar();
+}
+function ocultar() { s.rotulo = 'ninguno'; s.rotuloHasta = 0; guardar(); }
+function alternar(clave) { if (visible() === clave) ocultar(); else mostrar(clave); }
+function siguienteClave() {
+  const base = visible() || ultimoMostrado;
+  const i = ORDEN.findIndex(x => x[0] === base);
+  return ORDEN[(i + 1) % ORDEN.length][0];
+}
+$('siguiente').addEventListener('click', () => mostrar(siguienteClave()));
+$('ocultar').addEventListener('click', ocultar);
+document.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { s.duracionSeg = parseInt(b.dataset.seg, 10); guardar(); }));
+
+/* atajos de teclado (no cuando se escribe en una casilla) */
+document.addEventListener('keydown', (e) => {
+  const t = e.target.tagName;
+  if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') { if (e.key === 'Escape') e.target.blur(); return; }
+  if (e.key >= '1' && e.key <= '6') { alternar(ORDEN[+e.key - 1][0]); e.preventDefault(); }
+  else if (e.key === ' ' || e.key === 'Enter' || e.key.toLowerCase() === 'n') { mostrar(siguienteClave()); e.preventDefault(); }
+  else if (e.key === 'Escape') { ocultar(); e.preventDefault(); }
+});
+
+/* ---------- celebración ---------- */
+document.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () => { s.tipo = b.dataset.tipo; guardar(); }));
+function campoDia() { return s.tipo === 'prenovena' ? 'prenovenaDia' : 'novenaDia'; }
+$('dia-mas').addEventListener('click', () => { const c = campoDia(); s[c] = (parseInt(s[c], 10) || 1) + 1; if (c === 'novenaDia') s[c] = Math.min(9, s[c]); guardar(); });
+$('dia-menos').addEventListener('click', () => { const c = campoDia(); s[c] = Math.max(1, (parseInt(s[c], 10) || 1) - 1); guardar(); });
+document.querySelectorAll('[data-virgen]').forEach(b => b.addEventListener('click', () => { s.virgen = b.dataset.virgen; guardar(); }));
+
+/* ---------- casillas de texto ---------- */
+const CAMPOS = ['santo','celebranteRol','celebrante','lectura1','salmoNum','salmoResp','lectura2','evangelio','rosario','diasManual','frase','barraTexto','parroquia'];
+const CHECKS = ['mostrarLogo','mostrarEnVivo','mostrarBarra','mostrarCuenta'];
+CAMPOS.forEach(c => {
+  const el = $(c);
+  el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => { s[c] = el.value; el.tagName === 'SELECT' ? guardar() : guardarPronto(); });
+});
+CHECKS.forEach(c => $(c).addEventListener('change', () => { s[c] = $(c).checked; guardar(); }));
+$('limpiar-lecturas').addEventListener('click', () => { ['lectura1','salmoNum','salmoResp','lectura2','evangelio','rosario'].forEach(c => s[c] = ''); llenar(); guardar(); });
+
+/* ---------- avisos ---------- */
+for (let i = 0; i < 4; i++) {
+  const d = document.createElement('div'); d.className = 'aviso';
+  d.innerHTML = `<span class="n">${i + 1}</span><div class="campos">
+    <input type="text" data-aviso="${i}" data-c="a" placeholder="Actividad o aviso" aria-label="Aviso ${i + 1}">
+    <input type="text" data-aviso="${i}" data-c="f" placeholder="Fecha y hora (ej.: Sáb 30 · 6:00 p. m.)" aria-label="Fecha del aviso ${i + 1}"></div>`;
+  $('avisos').append(d);
+}
+document.querySelectorAll('[data-aviso]').forEach(el => el.addEventListener('input', () => { s.avisos[el.dataset.aviso][el.dataset.c] = el.value; guardarPronto(); }));
+$('limpiar-avisos').addEventListener('click', () => { s.avisos = [{a:'',f:''},{a:'',f:''},{a:'',f:''},{a:'',f:''}]; llenar(); guardar(); });
+
+/* ---------- todos los textos ---------- */
+const ESQUEMA = [
+  ['Pantalla de inicio', [['inicio_pildora','Etiqueta blanca'],['inicio_ceja','Texto pequeño'],['inicio_titulo','Título',1],['inicio_cursiva','Frase en cursiva',1],['inicio_cuenta','Texto de la cuenta regresiva',1]]],
+  ['Portada 8 de diciembre', [['portada_ceja','Texto pequeño'],['portada_cursiva','Frase en cursiva'],['portada_titulo','Título',1],['portada_fecha','Fecha'],['portada_sub','Texto bajo la fecha']]],
+  ['Gracias por acompañarnos', [['gracias_pildora','Etiqueta blanca'],['gracias_titulo','Título',1],['gracias_cursiva','Frase en cursiva',1],['gracias_ceja','Texto final']]],
+  ['Avisos', [['avisos_sub','Texto pequeño'],['avisos_titulo','Título']]],
+  ['Logo y barra', [['marca','Nombre junto al logo (pantallas)',1],['capa_logo','Nombre junto al logo (cámara)',1],['barra_y','Segunda parte de la barra']]],
+  ['Títulos de los rótulos', [['k_lectura1','Primera lectura'],['k_salmo','Salmo'],['k_lectura2','Segunda lectura'],['k_evangelio','Evangelio'],['k_rosario','Texto pequeño del Rosario'],['t_rosario','Título del Rosario']]]
+];
+ESQUEMA.forEach(([grupo, lista]) => {
+  const d = document.createElement('details');
+  const sm = document.createElement('summary'); sm.textContent = grupo; d.append(sm);
+  lista.forEach(([clave, nombre, multi]) => {
+    const l = document.createElement('label'); l.textContent = nombre;
+    const el = document.createElement(multi ? 'textarea' : 'input');
+    if (multi) el.rows = 2; else el.type = 'text';
+    el.dataset.texto = clave;
+    el.addEventListener('input', () => { s.textos = s.textos || {}; s.textos[clave] = el.value; guardarPronto(); });
+    l.append(el); d.append(l);
+  });
+  $('textos').append(d);
+});
+$('restablecer').addEventListener('click', () => { s.textos = {}; llenar(); guardar(); });
+
+/* ---------- pintar el panel ---------- */
+function llenar() {
+  CAMPOS.forEach(c => { if (document.activeElement !== $(c)) $(c).value = s[c] ?? ''; });
+  CHECKS.forEach(c => { $(c).checked = !!s[c]; });
+  document.querySelectorAll('[data-aviso]').forEach(el => { if (document.activeElement !== el) el.value = s.avisos[el.dataset.aviso][el.dataset.c] || ''; });
+  refrescar();
+}
+
+function refrescar() {
+  document.querySelectorAll('[data-tipo]').forEach(b => b.setAttribute('aria-pressed', s.tipo === b.dataset.tipo ? 'true' : 'false'));
+  const conDia = s.tipo === 'prenovena' || s.tipo === 'novena';
+  $('caja-dia').style.display = conDia ? '' : 'none';
+  $('dia-num').textContent = 'DÍA ' + (s[campoDia()] || 1);
+  $('caja-santo').style.display = s.tipo === 'otros' ? '' : 'none';
+  $('vista-titulo').textContent = tx(s, 'inicio_pildora');
+
+  const auto = diasFaltan(Object.assign({}, s, { diasManual: '' }));
+  $('dias-auto').textContent = 'Automático: ' + auto + (auto === 1 ? ' día' : ' días');
+
+  const v = visible();
+  ORDEN.forEach(([clave, nombre, val]) => {
+    const b = cajaRot.querySelector(`[data-rotulo="${clave}"]`);
+    const texto = (val(s) || '').trim();
+    const p = b.querySelector('.prev');
+    p.textContent = texto || '⚠ Falta escribirlo en «Preparar»';
+    p.classList.toggle('falta', !texto);
+    b.setAttribute('aria-pressed', v === clave ? 'true' : 'false');
+    b.querySelector('.est').textContent = v === clave ? 'EN PANTALLA' : '';
+  });
+  const nom = ORDEN.find(x => x[0] === siguienteClave())[1];
+  $('sig-nom').textContent = '(' + nom + ')';
+  $('ahora').classList.toggle('en', !!v);
+  $('ahora-tit').textContent = v ? 'EN PANTALLA AHORA' : 'EN PANTALLA';
+  $('ahora-val').textContent = v ? ORDEN.find(x => x[0] === v)[1] + ' — ' + ((ORDEN.find(x => x[0] === v)[2](s)) || '') : 'Ningún rótulo';
+  $('ocultar').disabled = !v; $('ocultar').style.opacity = v ? 1 : .45;
+
+  document.querySelectorAll('[data-seg]').forEach(b => b.setAttribute('aria-pressed', String(s.duracionSeg || 0) === b.dataset.seg ? 'true' : 'false'));
+  document.querySelectorAll('[data-virgen]').forEach(b => b.setAttribute('aria-pressed', s.virgen === b.dataset.virgen ? 'true' : 'false'));
+
+  const base = textosBase(s);
+  document.querySelectorAll('[data-texto]').forEach(el => {
+    const k = el.dataset.texto; el.placeholder = base[k] || '';
+    if (document.activeElement !== el) el.value = (s.textos && s.textos[k]) || '';
+  });
+}
+
+/* barra de progreso del ocultado automático + conexión */
+setInterval(() => {
+  const v = visible();
+  const pr = $('progreso');
+  if (v && s.rotuloHasta) {
+    const total = (s.rotuloHasta - (s.rotuloDesde || s.rotuloHasta - (s.duracionSeg || 1) * 1000));
+    pr.style.width = Math.max(0, Math.min(100, 100 * (s.rotuloHasta - Date.now()) / total)) + '%';
+  } else pr.style.width = '0';
+  if (s.rotuloHasta && Date.now() > s.rotuloHasta && s.rotulo !== 'ninguno') refrescar();
+
+  let l = {}; try { l = JSON.parse(localStorage.getItem(CLAVE_LATIDO) || '{}'); } catch (e) {}
+  const vivos = Object.entries(l).filter(([, t]) => Date.now() - t < 3000).length;
+  $('punto').classList.toggle('ok', vivos > 0);
+  $('conexion').textContent = vivos ? 'Conectado con ' + vivos + (vivos === 1 ? ' pantalla' : ' pantallas') : 'Sin pantallas conectadas (revise la instalación)';
+}, 250);
+
+escucharEstado((nuevo) => { s = nuevo; llenar(); });
+llenar();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Mont;src:url(../../obs/fuentes/montserrat-latin-800-normal.woff2);font-weight:800}
+@font-face{font-family:Mont;src:url(../../obs/fuentes/montserrat-latin-600-normal.woff2);font-weight:600}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:transparent}
+.p{position:absolute;top:-10%;height:120%;width:150%;left:-25%;transform-origin:center}
+.logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:22px;color:#fff;font-family:Mont,sans-serif}
+.logo img{display:block}
+.logo .t{font-weight:800;font-size:34px;letter-spacing:6px}
+.logo .s{font-weight:600;font-size:22px;letter-spacing:8px;color:#bfe0ff}
+.line{position:absolute;left:0;right:0;height:4px;background:linear-gradient(90deg,transparent,#8cc0ef,transparent)}
+</style></head>
+<body>
+<div class="p" id="p0" style="background:#8cc0ef"></div>
+<div class="p" id="p1" style="background:#3d9be0"></div>
+<div class="p" id="p2" style="background:#1155a4"></div>
+<div class="p" id="p3" style="background:linear-gradient(135deg,#0c3562,#1155a4 60%,#157ec1)"></div>
+<div class="logo" id="logo" style="flex-direction:row;gap:60px;align-items:center;z-index:5"><img src="../../obs/img/virgen-a.png" style="height:860px;filter:drop-shadow(0 20px 40px rgba(0,0,0,.4))"><div style="display:flex;flex-direction:column;gap:18px;align-items:flex-start"><img src="../../obs/img/logo-blanco.png" style="height:110px"><div class="t" style="font-size:44px;letter-spacing:4px;line-height:1.1">INMACULADA<br>CONCEPCIÓN<br>DE MARÍA</div><div class="s">CIUDAD ARCE</div></div></div>
+<div class="line" id="l1" style="top:430px"></div>
+<div class="line" id="l2" style="top:650px"></div>
+<script>
+const D=1.2; // segundos
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const W=1920*1.6;
+// DURACION_TOTAL (segundos) se define en render.js; la animación base dura 1.2 s y se estira.
+window.DURACION_TOTAL = window.DURACION_TOTAL || 2.0;
+window.setFrame=(T)=>{ const time=T*1.2/window.DURACION_TOTAL;
+  for(let i=0;i<4;i++){
+    const inS=0.00+i*0.07, inE=inS+0.36;
+    const outS=0.68+(3-i)*0.05, outE=outS+0.36;
+    let x;
+    if(time<outS){ const k=ease(clamp((time-inS)/(inE-inS))); x=(1-k)*W; }
+    else { const k=ease(clamp((time-outS)/(outE-outS))); x=-k*W; }
+    document.getElementById('p'+i).style.transform=`translateX(${x}px) skewX(-18deg)`;
+  }
+  // logo: aparece con el panel oscuro, sale con él
+  const lin=clamp((time-0.40)/0.15), lout=clamp((time-0.68)/0.14);
+  const op=lin*(1-lout), sc=0.86+0.14*ease(lin)+0.06*lout;
+  const lg=document.getElementById('logo'); lg.style.opacity=op; lg.style.transform=`translate(-50%,-50%) scale(${sc})`;
+  const lk=clamp((time-0.42)/0.35);
+  ['l1','l2'].forEach((id,j)=>{const e=document.getElementById(id); e.style.opacity=op; e.style.transform=`translateX(${(j?-1:1)*(1-ease(lk))*600}px) scaleX(${0.3+0.7*ease(lk)})`;});
+};
+setFrame(0);
+</script>
+</body></html>
