@@ -41,22 +41,30 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   console.log('Conexión');
   revisar((await panel.textContent('#conexion')).includes('Conectado'), 'el panel ve las pantallas');
 
+  /* Elige un tipo desde Preparar, como lo haría el voluntario. */
+  const elegirTipo = async (clave) => {
+    await panel.click('[data-hoja="preparar"]');
+    await panel.click('#cambiar-tipo');
+    await panel.click(`[data-tipo="${clave}"]`);
+    await panel.click('#continuar');
+  };
+  const estadoPanel = () => panel.evaluate(() => JSON.parse(localStorage.getItem('parroquia_obs_estado_v1')));
+
   console.log('Celebración');
-  await panel.click('[data-hoja="vivo"]');
-  await panel.click('[data-tipo="novena"]');
+  await elegirTipo('novena');
   await panel.click('#dia-mas'); await panel.click('#dia-mas');
   await inicio.waitForTimeout(600);
   revisar((await inicio.textContent('#i-pildora')) === 'NOVENA · DÍA 3', 'inicio muestra NOVENA · DÍA 3');
 
   console.log('Rótulos');
-  await panel.click('[data-hoja="preparar"]');
-  await panel.fill('#lectura1', 'Isaías 2, 1-5');
-  await panel.fill('#salmoResp', 'Vamos con alegría a la casa del Señor');
+  await elegirTipo('dominical');
+  await panel.fill('#rot-lectura1-t', 'Isaías 2, 1-5');
+  await panel.fill('#rot-salmo-t', 'Vamos con alegría a la casa del Señor');
   await panel.waitForTimeout(600);
   await panel.click('[data-hoja="vivo"]');
   await panel.keyboard.press('2');
   await rotulos.waitForTimeout(1500);
-  revisar((await rotulos.textContent('#r-t')) === 'Isaías 2, 1-5', 'tecla 2 muestra la primera lectura');
+  revisar((await rotulos.textContent('#r-t')) === 'Isaías 2, 1-5', 'dominical: la tecla 2 muestra la primera lectura');
   await panel.keyboard.press(' ');
   await rotulos.waitForTimeout(1600);
   revisar((await rotulos.textContent('#r-t')).startsWith('Vamos con alegría'), 'Espacio pasa al salmo');
@@ -69,17 +77,68 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   revisar(!(await rotulos.getAttribute('#rotulo', 'class')).includes('en'), 'Esc oculta el rótulo');
 
   console.log('Textos editables');
-  await panel.click('[data-hoja="textos"]');
+  await panel.click('[data-hoja="preparar"]');
+  await panel.click('#det-textos > summary');
   await panel.click('summary >> text=Gracias por acompañarnos');
   await panel.fill('[data-texto="gracias_cursiva"]', 'Que la Virgen\nlos acompañe');
   await gracias.waitForTimeout(900);
   revisar((await gracias.textContent('#g-cursiva')) === 'Que la Virgen\nlos acompañe', 'gracias usa el texto escrito');
 
   console.log('Avisos');
-  await panel.click('[data-hoja="avisos"]');
+  await panel.click('#det-avisos > summary');
   await panel.fill('[data-aviso="0"][data-c="a"]', 'Rezo de la novena');
   await avisos.waitForTimeout(900);
   revisar((await avisos.textContent('#a-filas')).includes('Rezo de la novena'), 'avisos muestra el aviso');
+  await panel.waitForTimeout(500);
+  revisar((await panel.textContent('#det-avisos > summary')).includes('1 escrito'), 'el resumen de Avisos cuenta los escritos');
+
+  console.log('Panel 2.0');
+  // lectura2 al aire en dominical; al pasar a Hora Santa (sin 2.ª lectura) el rótulo se oculta.
+  await elegirTipo('dominical');
+  await panel.fill('#rot-lectura2-t', 'Romanos 13, 11-14');
+  await panel.waitForTimeout(500);
+  await panel.click('[data-hoja="vivo"]');
+  await panel.keyboard.press('4');
+  await rotulos.waitForTimeout(1500);
+  revisar((await rotulos.textContent('#r-t')) === 'Romanos 13, 11-14', 'dominical: la tecla 4 muestra la segunda lectura');
+  await elegirTipo('horasanta');
+  await rotulos.waitForTimeout(900);
+  revisar(!(await rotulos.getAttribute('#rotulo', 'class')).includes('en'), 'al pasar a Hora Santa, rotulos.html oculta la 2.ª lectura');
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'al pasar a Hora Santa, el estado queda con rotulo «ninguno»');
+  await panel.screenshot({ path: path.join(salida, 'panel_preparar.png'), fullPage: true });
+
+  await panel.click('[data-hoja="vivo"]');
+  const nombresVivo = await panel.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => b.querySelector('.nom').textContent));
+  revisar(nombresVivo.length === 5, 'Hora Santa: la hoja En vivo tiene 5 botones de rótulo (' + nombresVivo.join(', ') + ')');
+  revisar(!nombresVivo.includes('2.ª lectura'), 'Hora Santa: ningún botón es «2.ª lectura»');
+  revisar((await panel.textContent('#siguiente')).includes('Siguiente: Guía'), 'Hora Santa: #siguiente dice «Siguiente: Guía»');
+  revisar((await panel.textContent('#transmision')).startsWith('Hora Santa · '), 'la píldora #transmision muestra el tipo');
+  revisar((await panel.$$eval('#hoja-vivo input, #hoja-vivo textarea', (els) => els.length)) === 0, 'la hoja En vivo no tiene campos de texto');
+  const antes7 = await panel.evaluate(() => localStorage.getItem('parroquia_obs_estado_v1'));
+  await panel.keyboard.press('7');
+  await panel.waitForTimeout(500);
+  revisar((await panel.evaluate(() => localStorage.getItem('parroquia_obs_estado_v1'))) === antes7, 'Hora Santa: la tecla 7 no cambia el estado');
+  await panel.screenshot({ path: path.join(salida, 'panel_vivo.png'), fullPage: true });
+
+  // Escribir un número en una casilla no muestra un rótulo.
+  await panel.click('[data-hoja="preparar"]');
+  await panel.click('#rot-oracion-t');
+  await panel.keyboard.press('1');
+  await panel.waitForTimeout(500);
+  revisar((await estadoPanel()).rotulo === 'ninguno', 'la tecla 1 dentro de una casilla no muestra un rótulo');
+  await panel.fill('#rot-oracion-t', '');
+
+  await elegirTipo('patronalsector');
+  await panel.fill('#dato-sector', '');
+  await panel.waitForTimeout(500);
+  const revision = await panel.textContent('#revision');
+  revisar(revision.includes('Faltan'), 'Patronal de sector sin sector: #revision dice «Faltan» (' + revision.trim().split('\n')[0] + ')');
+  revisar((await panel.$$eval('#revision a[href="#dato-sector"]', (a) => a.length)) === 1, 'la falta del sector enlaza a su campo');
+  await panel.click('#revision a[href="#dato-sector"]');
+  revisar((await panel.evaluate(() => document.activeElement && document.activeElement.id)) === 'dato-sector', 'el enlace de la falta enfoca el campo');
+  await panel.click('#cambiar-tipo');
+  await panel.screenshot({ path: path.join(salida, 'panel_elegir.png'), fullPage: true });
+  await panel.click('#continuar');
 
   console.log('Tipos');
   const fijar = (cambios) => panel.evaluate((c) => { const s = leerEstado(); Object.assign(s, c); guardarEstado(s); }, cambios);
