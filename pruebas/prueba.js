@@ -462,6 +462,22 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await app3.waitForTimeout(1000);
   revisar((await rotuloEstado()) !== 'ninguno', 'en Cámara el panel de la app no oculta rótulos ajenos');
   await app3.close();
+
+  // Si el almacenamiento falla al escribir (cupo lleno), el panel sigue funcionando en memoria.
+  await escribirRotulo();
+  const erroresAntes = errores.length;
+  const app4 = await ctx.newPage();
+  app4.on('pageerror', (e) => errores.push('app4: ' + e.message));
+  await app4.setViewportSize({ width: 360, height: 318 });
+  await app4.addInitScript(() => { const orig = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'parroquia_obs_estado_v1') throw new DOMException('cupo', 'QuotaExceededError'); return orig.call(this, k, v); }; });
+  await app4.goto(url('panel.html?modo=app'));
+  await app4.waitForTimeout(1200);
+  revisar(errores.length === erroresAntes, 'escritura fallida con rótulo guardado fuera de Cámara: sin errores de JavaScript' + (errores.length > erroresAntes ? ' (' + errores.slice(erroresAntes, erroresAntes + 1) + ')' : ''));
+  await app4.click('#tab-vivo');
+  revisar(await app4.$$eval('[data-rotulo]', (bs) => bs.length > 0 && bs.every((b) => b.disabled)), 'escritura fallida: el panel sigue pintando y los rótulos bloqueados');
+  revisar(await app4.evaluate(() => s.rotulo === 'ninguno'), 'escritura fallida: el estado en memoria queda en ninguno');
+  errores.length = erroresAntes;
+  await app4.close();
   await panel.evaluate(() => { const e = JSON.parse(localStorage.getItem('parroquia_obs_estado_v1')); e.rotulo = 'ninguno'; localStorage.setItem('parroquia_obs_estado_v1', JSON.stringify(e)); });
   // El tipo con más rótulos: los 6 primeros botones deben caber en los 318 px de alto.
   const masRotulos = await panel.evaluate(() => ORDEN_TIPOS.map((c) => [c, rotulosDe(normalizarEstado({ tipo: c })).length]).sort((a, b) => b[1] - a[1])[0][0]);

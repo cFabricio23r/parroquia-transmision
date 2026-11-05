@@ -376,21 +376,16 @@ if (document.documentElement.classList.contains('modo-app')) {
     sub.textContent = fuera ? 'Solo en Cámara' : 'Barra espaciadora';
     sub.style.display = fuera ? 'block' : '';
   };
-  /* Fuera de Cámara no se queda ningún rótulo: ni el guardado antes de cargar ni el que escriba otro cliente.
-     Tras ocultar() el estado queda en 'ninguno', así que la segunda pasada no guarda de nuevo (no hay bucle). */
+  /* Fuera de Cámara no se queda ningún rótulo: ni el guardado antes de cargar ni el que escriba otro cliente
+     (llega por escucharEstado, que pone el estado nuevo en `s` y refresca). Solo mira `s`, nunca relee el
+     almacenamiento: ocultar() deja s.rotulo en 'ninguno' antes de guardar, así que aunque la escritura falle
+     (cupo lleno) la pasada siguiente no vuelve a entrar y el panel sigue trabajando en memoria. */
   ocultarFueraDeCamara = () => {
-    if (!rotulosBloqueados()) return;
-    if (s.rotulo === 'ninguno') {
-      const g = leerEstado();                 // otro cliente pudo escribir un rótulo en el estado compartido
-      if (g.rotulo === 'ninguno') return;
-      s = g;
-    }
-    ocultar();
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();
   };
-  setInterval(ocultarFueraDeCamara, 250);
   window.fijarEscenaApp = (escena) => {
     escenaApp = escena;
-    if (rotulosBloqueados() && (s.rotulo !== 'ninguno' || leerEstado().rotulo !== 'ninguno')) ocultarFueraDeCamara();   // guarda y refresca una sola vez
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();   // guarda y refresca una sola vez
     else refrescar();
   };
 }
