@@ -7,7 +7,8 @@ jest.mock('expo-secure-store', () => ({
   }),
 }));
 
-import { AJUSTES_INICIALES, guardarAjustes, leerAjustes, limpiarClave, validar, Ajustes } from './ajustes';
+import * as SecureStore from 'expo-secure-store';
+import { AJUSTES_INICIALES, guardarAjustes, leerAjustes, limpiarClave, puedeGuardar, validar, Ajustes } from './ajustes';
 
 const base: Ajustes = { ...AJUSTES_INICIALES, servidor: 'rtmps://ejemplo.invalido:443/rtmp/', clave: 'FB-123-abc' };
 
@@ -76,5 +77,32 @@ describe('guardar y leer', () => {
   it('completa campos que falten o tengan valores inválidos', async () => {
     almacen['parroquia_ajustes_v1'] = JSON.stringify({ clave: 'FB-123-abc', calidad: '4k' });
     expect(await leerAjustes()).toEqual({ ...AJUSTES_INICIALES, clave: 'FB-123-abc' });
+  });
+});
+
+describe('normalización', () => {
+  it('guarda la clave y el servidor sin espacios en las puntas', async () => {
+    await guardarAjustes({ ...base, clave: 'abc\n', servidor: ' rtmps://x ' });
+    expect(JSON.parse(almacen['parroquia_ajustes_v1'])).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
+    expect(await leerAjustes()).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
+  });
+  it('validar acepta valores con espacios en las puntas', () => {
+    expect(validar({ ...base, clave: 'abc\n', servidor: ' rtmps://x' })).toEqual({ ok: true });
+  });
+  it('leerAjustes normaliza lo que ya estaba guardado sin recortar', async () => {
+    almacen['parroquia_ajustes_v1'] = JSON.stringify({ ...base, clave: 'abc\n', servidor: ' rtmps://x ' });
+    expect(await leerAjustes()).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
+  });
+});
+
+describe('carga segura', () => {
+  it('solo se puede guardar cuando la carga terminó bien', () => {
+    expect(puedeGuardar('cargando')).toBe(false);
+    expect(puedeGuardar('error')).toBe(false);
+    expect(puedeGuardar('listo')).toBe(true);
+  });
+  it('si el almacén falla al leer, leerAjustes rechaza (no devuelve iniciales)', async () => {
+    (SecureStore.getItemAsync as jest.Mock).mockRejectedValueOnce(new Error('fallo'));
+    await expect(leerAjustes()).rejects.toBeDefined();
   });
 });

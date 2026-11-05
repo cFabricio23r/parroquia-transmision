@@ -12,7 +12,9 @@ import {
   Calidad,
   Microfono,
   guardarAjustes,
+  EstadoCarga,
   leerAjustes,
+  puedeGuardar,
   limpiarClave,
   validar,
 } from '../ajustes/ajustes';
@@ -75,23 +77,45 @@ export default function Ajustes({ onVolver }: Props) {
   const [error, setError] = useState<{ campo: 'servidor' | 'clave'; mensaje: string } | null>(null);
   const [red, setRed] = useState<{ texto: string; color: string } | null>(null);
   const [probando, setProbando] = useState(false);
+  const [carga, setCarga] = useState<EstadoCarga>('cargando');
+  const [fallaGuardar, setFallaGuardar] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vivo = true;
-    leerAjustes().then((x) => {
-      if (vivo) setA(x);
-    });
+    setCarga('cargando');
+    leerAjustes().then(
+      (x) => {
+        if (!vivo) return;
+        setA(x);
+        setCarga('listo');
+      },
+      () => {
+        if (vivo) setCarga('error');
+      },
+    );
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [intento]);
+
+  const editable = puedeGuardar(carga);
+
+  // Nunca se guarda antes de que la lectura inicial termine bien; el error no incluye datos.
+  function persistir(nuevo: TipoAjustes) {
+    if (!puedeGuardar(carga)) return;
+    guardarAjustes(nuevo).then(
+      () => setFallaGuardar(false),
+      () => setFallaGuardar(true),
+    );
+  }
 
   // Cada cambio se guarda tal cual; la validación solo avisa debajo del campo.
   function cambiar(parcial: Partial<TipoAjustes>) {
     const nuevo = { ...a, ...parcial };
     setA(nuevo);
     setError(null);
-    guardarAjustes(nuevo).catch(() => {});
+    persistir(nuevo);
   }
 
   function revisar(actual: TipoAjustes) {
@@ -100,10 +124,11 @@ export default function Ajustes({ onVolver }: Props) {
   }
 
   async function pegar() {
+    if (!editable) return;
     const texto = limpiarClave(await Clipboard.getStringAsync());
     const nuevo = { ...a, clave: texto };
     setA(nuevo);
-    guardarAjustes(nuevo).catch(() => {});
+    persistir(nuevo);
     revisar(nuevo);
   }
 
@@ -130,6 +155,16 @@ export default function Ajustes({ onVolver }: Props) {
         <Text style={estilos.nota}>Se guardan solo en este celular</Text>
       </View>
 
+      {carga === 'cargando' && <Text style={estilos.aviso}>Cargando…</Text>}
+      {carga === 'error' && (
+        <View style={estilos.fila}>
+          <Text style={estilos.error}>No se pudieron leer los ajustes guardados.</Text>
+          <Pressable accessibilityRole="button" onPress={() => setIntento(intento + 1)} style={estilos.boton}>
+            <Text style={estilos.botonTexto}>Reintentar</Text>
+          </Pressable>
+        </View>
+      )}
+      {fallaGuardar && <Text style={estilos.error}>No se pudo guardar. Intente de nuevo.</Text>}
       <ScrollView contentContainerStyle={estilos.cuerpo}>
         <View style={estilos.columna}>
           <Text style={estilos.seccion}>DESTINO</Text>
@@ -140,6 +175,7 @@ export default function Ajustes({ onVolver }: Props) {
               <TextInput
                 accessibilityLabel="Clave de transmisión de la página"
                 secureTextEntry
+                editable={editable}
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={a.clave}
@@ -147,7 +183,7 @@ export default function Ajustes({ onVolver }: Props) {
                 onBlur={() => revisar({ ...a, clave: limpiarClave(a.clave) })}
                 style={[estilos.campo, { flexGrow: 1 }]}
               />
-              <Pressable accessibilityRole="button" onPress={pegar} style={estilos.boton}>
+              <Pressable accessibilityRole="button" disabled={!editable} onPress={pegar} style={estilos.boton}>
                 <Text style={estilos.botonTexto}>Pegar</Text>
               </Pressable>
             </View>
@@ -155,6 +191,7 @@ export default function Ajustes({ onVolver }: Props) {
             <Text style={estilos.etiqueta}>Servidor (lo muestra Facebook)</Text>
             <TextInput
               accessibilityLabel="Servidor"
+              editable={editable}
               placeholder="rtmps://…"
               placeholderTextColor={C.suave}
               autoCapitalize="none"
@@ -178,13 +215,13 @@ export default function Ajustes({ onVolver }: Props) {
             <Text style={estilos.etiqueta}>Calidad</Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Calidad" style={estilos.fila}>
               {CALIDADES.map(([v, t]) => (
-                <Opcion key={v} etiqueta={t} activa={a.calidad === v} alPulsar={() => cambiar({ calidad: v })} />
+                <Opcion key={v} etiqueta={t} activa={a.calidad === v} alPulsar={() => editable && cambiar({ calidad: v })} />
               ))}
             </View>
             <Text style={estilos.etiqueta}>Micrófono</Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Micrófono" style={estilos.fila}>
               {MICROFONOS.map(([v, t]) => (
-                <Opcion key={v} etiqueta={t} activa={a.microfono === v} alPulsar={() => cambiar({ microfono: v })} />
+                <Opcion key={v} etiqueta={t} activa={a.microfono === v} alPulsar={() => editable && cambiar({ microfono: v })} />
               ))}
             </View>
           </View>
@@ -247,6 +284,7 @@ const estilos = StyleSheet.create({
   opcion: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', backgroundColor: C.boton, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   opcionActiva: { borderColor: C.seleccion, backgroundColor: C.seleccionFondo },
   opcionTexto: { color: C.texto, fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  aviso: { color: C.suave, fontSize: 12, fontWeight: '700', paddingHorizontal: 12, paddingTop: 6 },
   error: { color: C.ambar, fontSize: 12, fontWeight: '700' },
   youtube: {
     backgroundColor: '#0a1a30',
