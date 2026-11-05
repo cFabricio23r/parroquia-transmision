@@ -7,3 +7,8 @@ Thumbs.db
 
 .vercel
 .env*
+
+# Copia generada de obs/ para la app (npm run copiar-obs)
+app/modules/transmisor/android/src/main/assets/obs/
+# Salida de Gradle de los módulos locales de la app
+app/modules/*/android/build/
