@@ -7,14 +7,21 @@ const CLAVE = 'parroquia_obs_estado_v1';
 const CLAVE_LATIDO = 'parroquia_obs_latido_v1';
 
 const PREDETERMINADO = {
-  tipo: 'novena',            // dominical | otros | prenovena | novena | patronal
+  tipo: 'novena',            // una clave de TIPOS (obs/tipos.js)
   prenovenaDia: 1,
   novenaDia: 1,
   santo: 'San José',
-  mostrarCuenta: true,
+  sector: '',
+  fecha: '',                 // AAAA-MM-DD (patronal de sector, evento)
+  lugar: '',
+  evento: '',
+  mostrarCuenta: true,       // solo se conserva para migrarlo a `cuenta`
+  cuenta: null,              // null = la del tipo; true / false = forzada
   diasManual: '',            // vacío = se calcula solo hasta el 8 de diciembre
-  frase: '«TODA HERMOSA ERES, MARÍA»',
-  virgen: 'a',               // a | b | c
+  frase: '',                 // vacío = la franja del tipo; escrita, reemplaza a la del tipo
+  imagen: '',                // vacío = la del tipo (clave de imagen: virgen-a, santo, custodia…)
+  esquina: '',               // vacío = la del tipo (hoy | fecha | fiesta | texto)
+  esquinaTexto: '',
   parroquia: 'Parroquia Inmaculada Concepción de María · Ciudad Arce',
 
   celebranteRol: 'CELEBRANTE',
@@ -31,9 +38,10 @@ const PREDETERMINADO = {
   mostrarBarra: true,
   barraTexto: '',            // vacío = se usa el título de la celebración
 
-  rotulo: 'ninguno',         // ninguno | celebrante | lectura1 | salmo | lectura2 | evangelio | rosario
+  rotulo: 'ninguno',         // ninguno | id de un rótulo del tipo (persona, lectura1, salmo…)
   rotuloHasta: 0,            // marca de tiempo para ocultar solo (0 = manual)
   duracionSeg: 0,
+  rotulosTexto: {},          // textos de rótulos escritos a mano
   textos: {},                // textos escritos a mano (vacío = automático)
 
   avisos: [
@@ -41,16 +49,37 @@ const PREDETERMINADO = {
   ]
 };
 
+const FRASE_ANTIGUA = '«TODA HERMOSA ERES, MARÍA»';
+
+/* Completa un estado guardado con los valores por defecto y lo pasa al formato actual:
+   virgen:'b' -> imagen:'virgen-b', rotulo:'celebrante' -> 'persona', mostrarCuenta:false -> cuenta:false. */
+function normalizarEstado(guardado) {
+  guardado = guardado && typeof guardado === 'object' ? guardado : {};
+  const s = Object.assign({}, PREDETERMINADO, guardado);
+  // Copias propias de lo anidado: mutar el estado nunca debe tocar PREDETERMINADO (ni lo que recibió).
+  ['textos', 'avisos', 'rotulosTexto'].forEach((c) => { if (s[c] && typeof s[c] === 'object') s[c] = JSON.parse(JSON.stringify(s[c])); });
+  if (['a', 'b', 'c'].includes(guardado.virgen)) s.imagen = 'virgen-' + guardado.virgen;
+  delete s.virgen;
+  if (s.rotulo === 'celebrante') s.rotulo = 'persona';
+  // mostrarCuenta:false se migra una sola vez: después queda en true para no volver a forzar cuenta:false.
+  if (guardado.mostrarCuenta === false) {
+    if (guardado.cuenta === undefined || guardado.cuenta === null) s.cuenta = false;
+    s.mostrarCuenta = true;
+  }
+  // La frase por defecto de antes pasa a vacío: cada tipo trae su propia franja.
+  if (typeof s.frase === 'string' && s.frase.trim() === FRASE_ANTIGUA) s.frase = '';
+  if (!Array.isArray(s.avisos)) s.avisos = PREDETERMINADO.avisos;
+  while (s.avisos.length < 4) s.avisos.push({ a: '', f: '' });
+  if (!s.textos || typeof s.textos !== 'object') s.textos = {};
+  if (!s.rotulosTexto || typeof s.rotulosTexto !== 'object') s.rotulosTexto = {};
+  return s;
+}
+
 function leerEstado() {
   try {
-    const guardado = JSON.parse(localStorage.getItem(CLAVE) || '{}');
-    const s = Object.assign({}, PREDETERMINADO, guardado);
-    if (!Array.isArray(s.avisos)) s.avisos = PREDETERMINADO.avisos;
-    while (s.avisos.length < 4) s.avisos.push({ a: '', f: '' });
-    if (!s.textos || typeof s.textos !== 'object') s.textos = {};
-    return s;
+    return normalizarEstado(JSON.parse(localStorage.getItem(CLAVE) || '{}'));
   } catch (e) {
-    return JSON.parse(JSON.stringify(PREDETERMINADO));
+    return normalizarEstado({});
   }
 }
 
@@ -81,7 +110,7 @@ function escucharEstado(cb) {
   window.addEventListener('storage', revisar);
   if (canal) canal.onmessage = (e) => {
     ultimo = JSON.stringify(e.data);
-    cb(Object.assign({}, PREDETERMINADO, e.data));
+    cb(normalizarEstado(e.data));
   };
 }
 
@@ -97,66 +126,93 @@ function latir(nombre) {
   enviar(); setInterval(enviar, 1000);
 }
 
-function fechaFiesta() {
-  const hoy = new Date();
+const _DIAS_SEMANA = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
+const _MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+
+/* Días hasta la próxima ocurrencia de 'MM-DD' (el mismo día cuenta como 0). */
+function diasHasta(mmdd, hoy = new Date()) {
+  const [m, d] = String(mmdd).split('-').map(Number);
   const h0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  let fiesta = new Date(hoy.getFullYear(), 11, 8);
-  if (h0 > fiesta) fiesta = new Date(hoy.getFullYear() + 1, 11, 8);
-  return { h0, fiesta };
+  let meta = new Date(hoy.getFullYear(), m - 1, d);
+  if (h0 > meta) meta = new Date(hoy.getFullYear() + 1, m - 1, d);
+  return Math.round((meta - h0) / 86400000);
 }
 
-function diasFaltan(s) {
-  if (s && String(s.diasManual).trim() !== '') return parseInt(s.diasManual, 10) || 0;
-  const { h0, fiesta } = fechaFiesta();
-  return Math.round((fiesta - h0) / 86400000);
+/* Cuenta regresiva del tipo; si el tipo no tiene y el panel la fuerza, usa la de la fiesta patronal. */
+function cuentaDe(s) {
+  return tipoDe(s).cuenta || TIPOS.otros.cuenta;
 }
 
-function anioFiesta() { return fechaFiesta().fiesta.getFullYear(); }
+function diasFaltan(s, hoy = new Date()) {
+  if (s && String(s.diasManual == null ? '' : s.diasManual).trim() !== '') return parseInt(s.diasManual, 10) || 0;
+  return diasHasta(cuentaDe(s).hasta, hoy);
+}
 
-function tituloCelebracion(s) {
-  switch (s.tipo) {
-    case 'dominical': return 'SANTA MISA DOMINICAL';
-    case 'otros': return ('MISA EN HONOR A ' + (s.santo || '')).toUpperCase().trim();
-    case 'prenovena': return 'PRENOVENA · DÍA ' + s.prenovenaDia;
-    case 'novena': return 'NOVENA · DÍA ' + s.novenaDia;
-    case 'patronal': return 'SANTA MISA PATRONAL';
-    default: return '';
+function cuentaVisible(s, hoy = new Date()) {
+  const tipo = tipoDe(s);
+  if (s.cuenta === false) return false;
+  if (!tipo.cuenta && s.cuenta !== true) return false;
+  const d = diasFaltan(s, hoy);
+  if (d <= 0) return false;
+  // Con la cuenta activada a mano (s.cuenta === true) no se aplica la ventana de desdeDias.
+  if (s.cuenta !== true && tipo.cuenta && tipo.cuenta.desdeDias && d > tipo.cuenta.desdeDias) return false;
+  return true;
+}
+
+/* Fecha 'AAAA-MM-DD' como fecha LOCAL (new Date('AAAA-MM-DD') la toma en UTC y en El Salvador da un día menos). */
+function fechaLocal(texto) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(texto || '').trim());
+  if (!m) return null;
+  const f = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(f) ? null : f;
+}
+
+/* Esquina del cintillo: número grande + texto debajo. */
+function esquinaDe(s, hoy = new Date()) {
+  const tipo = tipoDe(s);
+  const modo = s.esquina || tipo.esquina;
+  if (modo === 'fiesta') return { num: '8', txt: 'DE\nDICIEMBRE' };
+  if (modo === 'texto') return { num: '', txt: rellenar(s.esquinaTexto || tipo.esquinaTexto, s) };
+  if (modo === 'fecha') {
+    const f = fechaLocal(s.fecha) || hoy;
+    return { num: String(f.getDate()), txt: 'DE\n' + _MESES[f.getMonth()] };
   }
+  return { num: String(hoy.getDate()), txt: _DIAS_SEMANA[hoy.getDay()] + '\n' + _MESES[hoy.getMonth()] };
 }
 
-/* ---------- Textos editables ----------
+/* Título de la celebración, siempre en mayúsculas (como antes). */
+function tituloCelebracion(s) {
+  return rellenar(tipoDe(s).titulo, s).toUpperCase().trim();
+}
+
+/* ---------- Textos editables
    Cada texto tiene un valor automático (según la celebración). Si en el panel
    se escribe algo, eso reemplaza al automático. Salto de línea = Enter. */
 function textosBase(s) {
-  const anio = anioFiesta();
+  const tipo = tipoDe(s);
   const d = diasFaltan(s);
-  const porTipo = {
-    dominical: { ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES', cursiva: '¡Ya se acerca la fiesta\nde nuestra Patrona!', gracias: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre' },
-    otros:     { ceja: 'CAMINO A NUESTRA FIESTA PATRONAL', cursiva: 'rumbo a la fiesta de la\nInmaculada Concepción', gracias: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre' },
-    prenovena: { ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'preparándonos para celebrar\na nuestra Patrona', gracias: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio },
-    novena:    { ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'en honor a la Inmaculada\nConcepción de María', gracias: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio },
-    patronal:  { ceja: 'SOLEMNIDAD DE LA INMACULADA CONCEPCIÓN', cursiva: '¡Felices Fiestas Patronales!', gracias: '¡FELICES FIESTAS PATRONALES!', barra: '¡Felices Fiestas Patronales!' }
-  }[s.tipo] || {};
+  const frase = typeof s.frase === 'string' ? s.frase.trim() : '';
   return {
     marca: 'Parroquia Inmaculada\nConcepción de María · Ciudad Arce',
     inicio_pildora: tituloCelebracion(s),
-    inicio_ceja: porTipo.ceja,
-    inicio_titulo: 'En breve\ncomenzamos',
-    inicio_cursiva: porTipo.cursiva,
-    inicio_cuenta: (d === 1 ? 'día' : 'días') + ' para nuestra\nFiesta Patronal',
-    portada_ceja: 'FIESTAS PATRONALES ' + anio,
+    inicio_ceja: rellenar(tipo.ceja, s).toUpperCase(),
+    inicio_titulo: tipo.tituloInicio || 'En breve\ncomenzamos',
+    inicio_cursiva: rellenar(tipo.cursiva, s),
+    inicio_cuenta: tipo.cuenta || s.cuenta === true ? (d === 1 ? 'día ' : 'días ') + cuentaDe(s).texto : '',
+    portada_ceja: 'FIESTAS PATRONALES ' + rellenar('{anio}', s),
     portada_cursiva: 'en honor a la',
     portada_titulo: 'Inmaculada\nConcepción\nde María',
     portada_fecha: 'DE DICIEMBRE',
     portada_sub: 'Solemnidad de nuestra Patrona',
     gracias_pildora: tituloCelebracion(s),
     gracias_titulo: '¡Gracias por\nacompañarnos!',
-    gracias_cursiva: 'Nos vemos en la próxima\ntransmisión',
-    gracias_ceja: porTipo.gracias,
+    gracias_cursiva: rellenar(tipo.graciasCursiva, s),
+    gracias_ceja: rellenar(tipo.graciasPie, s).toUpperCase(),
     avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     avisos_titulo: 'Avisos',
     capa_logo: 'Parroquia Inmaculada\nConcepción de María',
-    barra_y: porTipo.barra,
+    barra_y: rellenar(tipo.barra, s),
+    franja: frase || rellenar(tipo.franja, s),
     k_lectura1: 'PRIMERA LECTURA',
     k_salmo: 'SALMO RESPONSORIAL',
     k_lectura2: 'SEGUNDA LECTURA',
@@ -171,8 +227,12 @@ function tx(s, clave) {
   return propio || textosBase(s)[clave] || '';
 }
 
-function imagenVirgen(s) {
-  return 'img/virgen-' + (['a', 'b', 'c'].includes(s.virgen) ? s.virgen : 'a') + '.png';
+/* Ruta de la imagen de la transmisión: la elegida en el panel o la del tipo. */
+function imagenDe(s) {
+  const clave = s.imagen || tipoDe(s).imagen;
+  if (clave === 'fachada') return 'img/fachada.jpg';
+  if (clave === 'logo') return 'img/logo-blanco.png';
+  return 'img/' + clave + '.png';
 }
 
 /* Escala el escenario de 1920×1080 al tamaño real de la fuente de navegador. */

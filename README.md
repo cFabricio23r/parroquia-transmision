@@ -1,7 +1,8 @@
 # Parroquia OBS · Inmaculada Concepción de María, Ciudad Arce
 
 Pantallas, rótulos y panel de control para las transmisiones en vivo con **OBS Studio (Windows)**:
-misas dominicales, misas de otros santos, prenovena, novena y la Misa Patronal del **8 de diciembre**.
+11 tipos de transmisión: misa dominical, entre semana, Hora Santa, misa en sector, patronal de sector, procesión,
+misa de otro santo, prenovena, novena, fiesta patronal del **8 de diciembre** y eventos especiales.
 
 Son páginas HTML estáticas, sin websockets ni plugins, publicadas en **Vercel**
 (`https://parroquia-transmision.vercel.app`) y cargadas en OBS como *fuentes de navegador* y un
@@ -14,18 +15,38 @@ funciona igual desde el disco con direcciones `file:///` (ver «Respaldo sin int
 
 | Carpeta / archivo | Para qué sirve |
 |---|---|
-| `obs/panel.html` | Panel de control (dock de OBS). Pestañas **En vivo · Preparar · Avisos · Textos**. |
+| `obs/panel.html` | Panel de control (dock de OBS). Pestañas **Preparar · En vivo · Guardadas**. |
 | `obs/pantalla.html?tipo=…` | Pantallas completas: `inicio`, `portada`, `gracias`, `avisos`. |
 | `obs/rotulos.html` | Capa transparente sobre la cámara: logo, EN VIVO, barra del título y rótulos animados. |
+| `obs/tipos.js` | Catálogo de los tipos de transmisión y de los rótulos (todos los textos y el orden de los rótulos). |
 | `obs/comun.js` | Estado compartido, textos automáticos y utilidades (lo usan todas las páginas). |
+| `obs/guardadas.js` | Transmisiones guardadas (solo lo usa el panel). |
 | `obs/estilos.css` | Diseño y animaciones. |
-| `obs/img/`, `obs/fuentes/` | Imágenes (Virgen A/B/C, fachada, logos) y tipografías locales. |
+| `obs/img/`, `obs/fuentes/` | Imágenes (Virgen A/B/C, fachada, logos) y tipografías locales. Si falta la imagen de un tipo, se usa la fachada. |
 | `obs/LEEME - Instrucciones.txt` | Instalación paso a paso en OBS (para el equipo de transmisión). |
 | `transiciones/` | Transiciones Stinger `.webm` con transparencia (2000 ms, punto de transición 1000 ms). |
 | `herramientas/transiciones/` | Plantillas y script para volver a generar las transiciones. |
 | `pruebas/prueba.js` | Prueba automática del panel y las pantallas. |
 | `CLAUDE.md` | Contexto del proyecto para Claude Code. |
 | `PROMPT_PARA_CLAUDE.md` | Prompt para empezar a trabajar con Claude Code en este repositorio. |
+
+## Uso del panel
+
+El panel tiene tres pestañas:
+
+- **Preparar** (antes de la misa): elegir **qué se transmite** (el tipo), llenar los datos y los rótulos, y revisar la
+  lista **«Faltan N datos»** (cada línea lleva al campo que falta; cuando está completo dice «Todo listo»). Aquí también
+  se ajustan la imagen, la esquina y la cuenta regresiva, los avisos y los textos de las pantallas.
+- **En vivo** (durante la misa): sin campos de texto, solo botones: «Siguiente», un botón por rótulo, cuánto tiempo
+  queda en pantalla y el logo, EN VIVO y la barra. Atajos: **1 a 9** muestran u ocultan ese rótulo, **Espacio**, **Enter** o **N**
+  = siguiente (solo con En vivo abierta, para no sacar nada al aire por accidente); **Esc** oculta el rótulo desde
+  cualquier pestaña.
+- **Guardadas**: guardar la transmisión actual con un nombre (p. ej. «Hora Santa jueves») y **cargar, duplicar o borrar**
+  las que ya hay. Cargar una trae todos los datos pero **nunca deja un rótulo en pantalla**. Las guardadas viven en el
+  navegador del panel y en ese dominio: la dirección de Vercel y `file:///` guardan por separado, y no se pueden exportar.
+
+Al **cambiar de tipo**, la imagen, la esquina y la cuenta regresiva vuelven a ser automáticas; los datos, los rótulos
+y los avisos se quedan. Las direcciones de OBS no cambian.
 
 ## Instalación rápida en OBS
 
@@ -61,6 +82,7 @@ Requisitos: [Node.js LTS](https://nodejs.org) y, para las transiciones, [ffmpeg]
 ```powershell
 npm install
 npx playwright install chromium
+npm run prueba:unidad   # prueba los módulos de obs/ sin navegador
 npm run prueba          # prueba el panel y las pantallas, guarda capturas en pruebas/capturas
 npm run transiciones    # vuelve a generar los .webm de transiciones/
 ```

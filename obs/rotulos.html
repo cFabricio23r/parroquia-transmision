@@ -25,22 +25,16 @@
   </div>
 </div>
 
+<script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 let estado = leerEstado();
 
+/* Texto del rótulo elegido; null si s.rotulo no es un rótulo del tipo activo (el rótulo se oculta). */
 function contenido(s) {
-  const p = s.parroquia;
-  switch (s.rotulo) {
-    case 'celebrante': return { k: s.celebranteRol || 'CELEBRANTE', t: s.celebrante, s: p };
-    case 'lectura1':   return { k: tx(s, 'k_lectura1'), t: s.lectura1, s: p };
-    case 'salmo':      return { k: tx(s, 'k_salmo') + (s.salmoNum ? ' · ' + s.salmoNum.toUpperCase() : ''), t: s.salmoResp, s: p, chico: true };
-    case 'lectura2':   return { k: tx(s, 'k_lectura2'), t: s.lectura2, s: p };
-    case 'evangelio':  return { k: tx(s, 'k_evangelio'), t: s.evangelio, s: p };
-    case 'rosario':    return { k: tx(s, 'k_rosario'), t: tx(s, 't_rosario'), s: s.rosario || p };
-    default: return null;
-  }
+  const r = rotulosDe(s).find((x) => x.id === s.rotulo);
+  return r ? r.texto : null;
 }
 
 /* ----- máquina de animación del rótulo ----- */

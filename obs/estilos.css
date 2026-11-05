@@ -145,3 +145,25 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 
 .barra{transition:opacity .5s, transform .6s cubic-bezier(.2,.8,.2,1)}
 .barra.oculto{transform:translateX(60px)}
+
+/* ---------- Tipos de transmisión (S2InicioProcesion, S2PortadaEvento, S2InicioHoraSanta…) ---------- */
+/* Figura horizontal (la fachada) y logo: ocupan el hueco de 600×780 de los tableros */
+.virgen.foto{left:130px;bottom:150px;width:600px;height:780px;object-fit:cover;object-position:50% 30%;border-radius:40px;border:4px solid rgba(255,255,255,.75)}
+.virgen.logo{left:150px;bottom:360px;height:auto;width:420px}
+/* Avisos: la figura queda a la izquierda de la tarjeta (empieza en x=600) */
+body.avisos .virgen{left:10px;bottom:60px;height:900px}
+body.avisos .virgen.c{height:980px}
+body.avisos .virgen.foto{left:30px;bottom:200px;width:520px;height:700px}
+body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
+
+.ceja.larga{font-size:22px;letter-spacing:6px}
+.salida{display:flex;align-items:center;gap:16px;margin-top:6px;border:2px solid rgba(255,255,255,.7);border-radius:18px;padding:12px 26px 12px 18px}
+.salida span:first-child{font-weight:800;font-size:18px;letter-spacing:4px;color:#bfe0ff}
+.salida span:last-child{font-weight:700;font-size:26px;line-height:1.2}
+
+/* Franja: esquina de solo texto (sin número) */
+.franja .fecha.solo-texto span{font-size:22px;text-align:center}
+
+/* Portada de evento: logo grande dentro de un aro */
+.aro{position:absolute;left:150px;top:230px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22) 0%,rgba(255,255,255,.06) 70%);border:3px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center}
+.aro img{width:340px;display:block;filter:drop-shadow(0 14px 30px rgba(5,20,50,.45))}
