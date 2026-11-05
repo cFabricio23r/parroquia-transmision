@@ -216,7 +216,7 @@ grupo('estado', () => {
   });
   prueba('imagenDe usa la imagen del tipo y respeta la elegida', () => {
     assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
-    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'img/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'img/virgen-a.png');
     assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'virgen-b' }), 'img/virgen-b.png');
     assert.equal(c.imagenDe({ tipo: 'semana', imagen: 'fachada' }), 'img/fachada.jpg');
   });

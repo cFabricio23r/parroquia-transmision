@@ -67,7 +67,7 @@ const TIPOS = {
     graciasCursiva: _GRACIAS_CURSIVA,
     graciasPie: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     barra: 'Parroquia Inmaculada Concepción',
-    imagen: 'fachada',
+    imagen: 'virgen-a',
     esquina: 'hoy',
     esquinaTexto: '',
     cuenta: false,

@@ -291,6 +291,19 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   revisar((await guardadasLs()).length === 0 && (await panel.textContent('#lista-guardadas')).includes('Todavía no hay'), 'sin guardadas la lista lo dice');
   await panel.click('[data-hoja="preparar"]');
 
+  console.log('Imagen en todos los tipos');
+  for (const clave of await panel.evaluate(() => ORDEN_TIPOS)) {
+    await elegirTipo(clave);
+    const def = await panel.evaluate((k) => TIPOS[k].imagen, clave);
+    revisar((await estadoPanel()).imagen === '' && (await panel.getAttribute('[data-imagen=""]', 'aria-pressed')) === 'true', `${clave}: arranca con la imagen del tipo (${def}) precargada`);
+    const otra = def === 'virgen-b' ? 'fachada' : 'virgen-b';
+    await panel.click(`[data-imagen="${otra}"]`);
+    revisar((await estadoPanel()).imagen === otra, `${clave}: la imagen se puede cambiar a ${otra}`);
+  }
+  await elegirTipo('semana');
+  revisar((await panel.textContent('[data-imagen=""] .sub')) === 'Virgen A', 'Misa entre semana: la imagen automática es la Virgen A (Inmaculada)');
+  await panel.click('[data-hoja="preparar"]');
+
   console.log('Tipos');
   const fijar = (cambios) => panel.evaluate((c) => { const s = leerEstado(); Object.assign(s, c); guardarEstado(s); }, cambios);
   const imagenFinal = (p) => p.evaluate(() => document.getElementById('virgen').getAttribute('src'));
