@@ -361,6 +361,7 @@ if (document.documentElement.classList.contains('modo-app')) {
    Es un valor local de este panel (no va al estado compartido) y arranca en 'inicio'. */
 let rotulosBloqueados = () => false;
 let aplicarEscenaApp = () => {};
+let ocultarFueraDeCamara = () => {};
 if (document.documentElement.classList.contains('modo-app')) {
   let escenaApp = 'inicio';
   rotulosBloqueados = () => escenaApp !== 'camara';
@@ -375,9 +376,21 @@ if (document.documentElement.classList.contains('modo-app')) {
     sub.textContent = fuera ? 'Solo en Cámara' : 'Barra espaciadora';
     sub.style.display = fuera ? 'block' : '';
   };
+  /* Fuera de Cámara no se queda ningún rótulo: ni el guardado antes de cargar ni el que escriba otro cliente.
+     Tras ocultar() el estado queda en 'ninguno', así que la segunda pasada no guarda de nuevo (no hay bucle). */
+  ocultarFueraDeCamara = () => {
+    if (!rotulosBloqueados()) return;
+    if (s.rotulo === 'ninguno') {
+      const g = leerEstado();                 // otro cliente pudo escribir un rótulo en el estado compartido
+      if (g.rotulo === 'ninguno') return;
+      s = g;
+    }
+    ocultar();
+  };
+  setInterval(ocultarFueraDeCamara, 250);
   window.fijarEscenaApp = (escena) => {
     escenaApp = escena;
-    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();   // guarda y refresca una sola vez
+    if (rotulosBloqueados() && (s.rotulo !== 'ninguno' || leerEstado().rotulo !== 'ninguno')) ocultarFueraDeCamara();   // guarda y refresca una sola vez
     else refrescar();
   };
 }
@@ -893,6 +906,7 @@ function refrescar() {
   });
   $('frase').placeholder = base.franja || '';
   $('barraTexto').placeholder = tituloCelebracion(s);
+  ocultarFueraDeCamara();   // al final: ocultar() vuelve a refrescar con el estado ya limpio
 }
 
 /* «EN PANTALLA · se oculta en 9 s» */
