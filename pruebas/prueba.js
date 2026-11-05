@@ -291,6 +291,19 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   revisar((await guardadasLs()).length === 0 && (await panel.textContent('#lista-guardadas')).includes('Todavía no hay'), 'sin guardadas la lista lo dice');
   await panel.click('[data-hoja="preparar"]');
 
+  console.log('Imagen en todos los tipos');
+  for (const clave of await panel.evaluate(() => ORDEN_TIPOS)) {
+    await elegirTipo(clave);
+    const def = await panel.evaluate((k) => TIPOS[k].imagen, clave);
+    revisar((await estadoPanel()).imagen === '' && (await panel.getAttribute('[data-imagen=""]', 'aria-pressed')) === 'true', `${clave}: arranca con la imagen del tipo (${def}) precargada`);
+    const otra = def === 'virgen-b' ? 'fachada' : 'virgen-b';
+    await panel.click(`[data-imagen="${otra}"]`);
+    revisar((await estadoPanel()).imagen === otra, `${clave}: la imagen se puede cambiar a ${otra}`);
+  }
+  await elegirTipo('semana');
+  revisar((await panel.textContent('[data-imagen=""] .sub')) === 'Virgen A', 'Misa entre semana: la imagen automática es la Virgen A (Inmaculada)');
+  await panel.click('[data-hoja="preparar"]');
+
   console.log('Tipos');
   const fijar = (cambios) => panel.evaluate((c) => { const s = leerEstado(); Object.assign(s, c); guardarEstado(s); }, cambios);
   const imagenFinal = (p) => p.evaluate(() => document.getElementById('virgen').getAttribute('src'));
@@ -299,7 +312,7 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await inicio.waitForTimeout(700);
   revisar((await inicio.textContent('#i-pildora')) === 'HORA SANTA', 'Hora Santa: la píldora dice HORA SANTA');
   revisar((await inicio.$eval('#i-cuenta', (e) => getComputedStyle(e).display)) === 'none', 'Hora Santa: sin cuenta regresiva');
-  revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Hora Santa: sin custodia.png cae a la fachada');
+  revisar((await inicio.evaluate(() => { const v = document.getElementById('virgen'); return v.currentSrc.endsWith('img/custodia.png') && v.complete && v.naturalHeight > 0; })), 'Hora Santa: muestra la custodia (img/custodia.png carga)');
   const [numHS, txtHS] = await esquinaTx(inicio);
   revisar(numHS === '' && txtHS === 'JUEVES\nEUCARÍSTICO', 'Hora Santa: la esquina es solo texto, sin número');
   await inicio.screenshot({ path: path.join(salida, 'inicio_horasanta.png') });
@@ -343,11 +356,49 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await fijar({ tipo: 'novena', imagen: '' });
   await portada.waitForTimeout(800);
   revisar((await portada.textContent('#p-fecha')) === 'DE DICIEMBRE' && (await portada.$eval('#p-aro', (e) => e.hidden)), 'Portada de novena: la portada del 8 de diciembre');
-  await fijar({ tipo: 'novena', imagen: 'custodia' });
+  await fijar({ tipo: 'novena', imagen: 'santo' });
   await inicio.waitForTimeout(900);
   revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Imagen que no existe: cae a la fachada sin repetir la carga');
   await fijar({ tipo: 'novena', imagen: '' });
   await inicio.waitForTimeout(500);
+
+  console.log('Modo app');
+  const app = await abrir('panel.html?modo=app', 360, 318);
+  await app.waitForTimeout(600);
+  revisar(await app.evaluate(() => document.documentElement.classList.contains('modo-app')), 'modo app: clase modo-app');
+  revisar(!(await app.isVisible('#conexion')), 'modo app: sin fila de conexión');
+  revisar(!(await app.isVisible('#atajos')), 'modo app: sin atajos de teclado');
+  await app.click('#tab-vivo');
+  const caja = (sel) => app.$eval(sel, (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const sig = await caja('#siguiente'); const ocu = await caja('#ocultar');
+  revisar(Math.abs(sig.y - ocu.y) < 4 && ocu.x > sig.x, 'modo app: Ocultar al lado de Siguiente');
+  revisar((await app.textContent('#ocultar-sub')) === 'nada en pantalla', 'modo app: Ocultar dice «nada en pantalla»');
+  const rs = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; }));
+  revisar(rs.length >= 2 && Math.abs(rs[0].y - rs[1].y) < 2 && rs[1].x > rs[0].x, 'modo app: rótulos en dos columnas');
+  revisar(rs.every((r) => r.h >= 44), 'modo app: botones de rótulo de 44 px o más');
+  const teclas = await app.$$eval('#hoja-vivo [data-rotulo] .tecla', (ts) => ts.slice(0, 9).map((e, i) => { const r = e.getBoundingClientRect(); return e.textContent === String(i + 1) && r.width >= 20 && r.height >= 20; }));
+  revisar(teclas.length >= 2 && teclas.every(Boolean), 'modo app: cada rótulo muestra su número en un cuadrito');
+  await app.click('#hoja-vivo [data-rotulo]');
+  await app.waitForTimeout(300);
+  const nomPrimero = await app.textContent('#hoja-vivo [data-rotulo] .nom');
+  revisar((await app.textContent('#ocultar-sub')).startsWith(nomPrimero) && (await app.textContent('#ocultar-sub')) !== 'nada en pantalla', 'modo app: Ocultar muestra el nombre del rótulo en pantalla');
+  const altos = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => b.getBoundingClientRect().height));
+  revisar(altos.length >= 2 && Math.abs(altos[0] - altos[1]) < 0.5 && (await app.getAttribute('#hoja-vivo [data-rotulo]', 'aria-pressed')) === 'true', 'modo app: un rótulo pulsado mide lo mismo que uno sin pulsar');
+  const fin6 = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.slice(0, 6).map((b) => b.getBoundingClientRect().bottom));
+  revisar(fin6.every((f) => f <= 318), 'modo app: con un rótulo pulsado, los 6 primeros siguen dentro de 318 px');
+  await app.click('#ocultar');
+  // El tipo con más rótulos: los 6 primeros botones deben caber en los 318 px de alto.
+  const masRotulos = await panel.evaluate(() => ORDEN_TIPOS.map((c) => [c, rotulosDe(normalizarEstado({ tipo: c })).length]).sort((a, b) => b[1] - a[1])[0][0]);
+  await elegirTipo(masRotulos);
+  await app.reload();
+  await app.waitForTimeout(600);
+  await app.click('#tab-vivo');
+  const sig2 = await caja('#siguiente');
+  const seis = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.slice(0, 6).map((b) => { const r = b.getBoundingClientRect(); return { y: r.y, fin: r.bottom }; }));
+  revisar(seis.length === 6 && seis.every((r) => r.y >= sig2.y + sig2.h - 1 && r.fin <= 318), 'modo app: con el tipo de más rótulos (' + masRotulos + '), los 6 primeros caben en 318 px, tras Siguiente');
+  revisar(!(await panel.evaluate(() => document.documentElement.classList.contains('modo-app'))), 'panel de OBS sin modo app');
+  revisar(await panel.evaluate(() => !!document.querySelector('.arriba #ocultar')), 'panel de OBS: Ocultar sigue en el encabezado');
+  await app.close();
 
   for (const [n, p] of [['inicio', inicio], ['gracias', gracias], ['avisos', avisos], ['portada', portada], ['inicio_800x600', chica], ['panel', panel]]) {
     await p.screenshot({ path: path.join(salida, n + '.png'), fullPage: n === 'panel' });

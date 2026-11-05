@@ -114,6 +114,27 @@ label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;
 .rot[aria-pressed=true]{border-color:var(--verde);background:var(--verde-fondo)}
 .rot[aria-pressed=true] .est{color:var(--verde-texto)}
 
+/* modo app: panel compacto para la columna de la app Android (360 dp de ancho, ~318 px de alto) */
+.modo-app .linea1,.modo-app .ahora,.modo-app #atajos{display:none}
+.modo-app .arriba{padding-top:6px;gap:4px}
+.modo-app .hoja{padding:8px;gap:8px}
+.modo-app .fila-vivo{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px}
+.modo-app #siguiente,.modo-app #ocultar{min-height:52px}
+.modo-app #siguiente{font-size:15px}
+.modo-app #siguiente .sub{display:none}
+.modo-app #ocultar{background:var(--rojo);padding:4px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.modo-app #ocultar:disabled{background:var(--apagado)}
+.modo-app #ocultar .sub{display:block;max-width:100%;font-weight:500;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .seccion{padding:8px;gap:6px}
+.modo-app .seccion h3{display:none}
+.modo-app .rotulos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.modo-app .rot{min-height:52px;padding:4px 8px;grid-template-columns:24px minmax(0,1fr);gap:6px}
+.modo-app .rot .tecla{width:24px;height:24px;border-radius:6px;font-size:12px}
+.modo-app .rot .txt{gap:0}
+.modo-app .rot .nom{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .rot .prev{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .rot .est{display:none}
+
 /* interruptores (botones role=switch: sin campos en la hoja En vivo) */
 .interruptor{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;padding:4px 0;font-weight:700;font-size:14px;text-align:left;width:100%}
 .interruptor:hover{background:transparent}
@@ -315,6 +336,8 @@ details label{margin-bottom:9px}
 <script src="comun.js"></script>
 <script src="guardadas.js"></script>
 <script>
+/* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
+if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
 const $ = (id) => document.getElementById(id);
 const nuevo = (etiqueta, clase, texto) => {
   const el = document.createElement(etiqueta);
@@ -323,6 +346,16 @@ const nuevo = (etiqueta, clase, texto) => {
   return el;
 };
 let s = leerEstado();
+
+/* En modo app, Siguiente y Ocultar van juntos arriba de En vivo (se mueven los mismos nodos, sin clonar). */
+if (document.documentElement.classList.contains('modo-app')) {
+  const fila = nuevo('div', 'fila-vivo');
+  $('hoja-vivo').prepend(fila);
+  fila.append($('siguiente'), $('ocultar'));
+  const sub = nuevo('span', 'sub', 'nada en pantalla');
+  sub.id = 'ocultar-sub';
+  $('ocultar').append(sub);
+}
 
 /* ---------- guardar ---------- */
 let avisoT, esperaT;
@@ -840,6 +873,11 @@ function pintarCuentaAtras() {
   const v = visible();
   const quedan = v && s.rotuloHasta ? Math.max(0, Math.ceil((s.rotuloHasta - Date.now()) / 1000)) : 0;
   $('ahora-tit').textContent = !v ? 'EN PANTALLA' : quedan ? 'EN PANTALLA · se oculta en ' + quedan + ' s' : 'EN PANTALLA AHORA';
+  const sub = $('ocultar-sub');   // solo existe en modo app
+  if (sub) {
+    const uso = v && usos().find(u => u.id === v);
+    sub.textContent = !uso ? 'nada en pantalla' : uso.nombre + (quedan ? ' · ' + quedan + ' s' : '');
+  }
 }
 
 /* barra de progreso del ocultado automático + conexión */
