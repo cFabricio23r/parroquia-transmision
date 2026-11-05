@@ -363,9 +363,16 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   const rs = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; }));
   revisar(rs.length >= 2 && Math.abs(rs[0].y - rs[1].y) < 2 && rs[1].x > rs[0].x, 'modo app: rótulos en dos columnas');
   revisar(rs.every((r) => r.h >= 44), 'modo app: botones de rótulo de 44 px o más');
+  const teclas = await app.$$eval('#hoja-vivo [data-rotulo] .tecla', (ts) => ts.slice(0, 9).map((e, i) => { const r = e.getBoundingClientRect(); return e.textContent === String(i + 1) && r.width >= 20 && r.height >= 20; }));
+  revisar(teclas.length >= 2 && teclas.every(Boolean), 'modo app: cada rótulo muestra su número en un cuadrito');
   await app.click('#hoja-vivo [data-rotulo]');
   await app.waitForTimeout(300);
-  revisar(/ · \d+ s$|^[^·]+$/.test(await app.textContent('#ocultar-sub')) && (await app.textContent('#ocultar-sub')) !== 'nada en pantalla', 'modo app: Ocultar muestra el rótulo en pantalla');
+  const nomPrimero = await app.textContent('#hoja-vivo [data-rotulo] .nom');
+  revisar((await app.textContent('#ocultar-sub')).startsWith(nomPrimero) && (await app.textContent('#ocultar-sub')) !== 'nada en pantalla', 'modo app: Ocultar muestra el nombre del rótulo en pantalla');
+  const altos = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => b.getBoundingClientRect().height));
+  revisar(altos.length >= 2 && Math.abs(altos[0] - altos[1]) < 0.5 && (await app.getAttribute('#hoja-vivo [data-rotulo]', 'aria-pressed')) === 'true', 'modo app: un rótulo pulsado mide lo mismo que uno sin pulsar');
+  const fin6 = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.slice(0, 6).map((b) => b.getBoundingClientRect().bottom));
+  revisar(fin6.every((f) => f <= 318), 'modo app: con un rótulo pulsado, los 6 primeros siguen dentro de 318 px');
   await app.click('#ocultar');
   // El tipo con más rótulos: los 6 primeros botones deben caber en los 318 px de alto.
   const masRotulos = await panel.evaluate(() => ORDEN_TIPOS.map((c) => [c, rotulosDe(normalizarEstado({ tipo: c })).length]).sort((a, b) => b[1] - a[1])[0][0]);
