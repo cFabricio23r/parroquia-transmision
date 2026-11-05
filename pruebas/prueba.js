@@ -299,7 +299,7 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await inicio.waitForTimeout(700);
   revisar((await inicio.textContent('#i-pildora')) === 'HORA SANTA', 'Hora Santa: la píldora dice HORA SANTA');
   revisar((await inicio.$eval('#i-cuenta', (e) => getComputedStyle(e).display)) === 'none', 'Hora Santa: sin cuenta regresiva');
-  revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Hora Santa: sin custodia.png cae a la fachada');
+  revisar((await inicio.evaluate(() => { const v = document.getElementById('virgen'); return v.currentSrc.endsWith('img/custodia.png') && v.complete && v.naturalHeight > 0; })), 'Hora Santa: muestra la custodia (img/custodia.png carga)');
   const [numHS, txtHS] = await esquinaTx(inicio);
   revisar(numHS === '' && txtHS === 'JUEVES\nEUCARÍSTICO', 'Hora Santa: la esquina es solo texto, sin número');
   await inicio.screenshot({ path: path.join(salida, 'inicio_horasanta.png') });
@@ -343,7 +343,7 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await fijar({ tipo: 'novena', imagen: '' });
   await portada.waitForTimeout(800);
   revisar((await portada.textContent('#p-fecha')) === 'DE DICIEMBRE' && (await portada.$eval('#p-aro', (e) => e.hidden)), 'Portada de novena: la portada del 8 de diciembre');
-  await fijar({ tipo: 'novena', imagen: 'custodia' });
+  await fijar({ tipo: 'novena', imagen: 'santo' });
   await inicio.waitForTimeout(900);
   revisar((await inicio.evaluate(() => document.getElementById('virgen').currentSrc)).endsWith('fachada.jpg'), 'Imagen que no existe: cae a la fachada sin repetir la carga');
   await fijar({ tipo: 'novena', imagen: '' });
