@@ -349,6 +349,37 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
   await fijar({ tipo: 'novena', imagen: '' });
   await inicio.waitForTimeout(500);
 
+  console.log('Modo app');
+  const app = await abrir('panel.html?modo=app', 360, 318);
+  await app.waitForTimeout(600);
+  revisar(await app.evaluate(() => document.documentElement.classList.contains('modo-app')), 'modo app: clase modo-app');
+  revisar(!(await app.isVisible('#conexion')), 'modo app: sin fila de conexión');
+  revisar(!(await app.isVisible('#atajos')), 'modo app: sin atajos de teclado');
+  await app.click('#tab-vivo');
+  const caja = (sel) => app.$eval(sel, (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const sig = await caja('#siguiente'); const ocu = await caja('#ocultar');
+  revisar(Math.abs(sig.y - ocu.y) < 4 && ocu.x > sig.x, 'modo app: Ocultar al lado de Siguiente');
+  revisar((await app.textContent('#ocultar-sub')) === 'nada en pantalla', 'modo app: Ocultar dice «nada en pantalla»');
+  const rs = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; }));
+  revisar(rs.length >= 2 && Math.abs(rs[0].y - rs[1].y) < 2 && rs[1].x > rs[0].x, 'modo app: rótulos en dos columnas');
+  revisar(rs.every((r) => r.h >= 44), 'modo app: botones de rótulo de 44 px o más');
+  await app.click('#hoja-vivo [data-rotulo]');
+  await app.waitForTimeout(300);
+  revisar(/ · \d+ s$|^[^·]+$/.test(await app.textContent('#ocultar-sub')) && (await app.textContent('#ocultar-sub')) !== 'nada en pantalla', 'modo app: Ocultar muestra el rótulo en pantalla');
+  await app.click('#ocultar');
+  // El tipo con más rótulos: los 6 primeros botones deben caber en los 318 px de alto.
+  const masRotulos = await panel.evaluate(() => ORDEN_TIPOS.map((c) => [c, rotulosDe(normalizarEstado({ tipo: c })).length]).sort((a, b) => b[1] - a[1])[0][0]);
+  await elegirTipo(masRotulos);
+  await app.reload();
+  await app.waitForTimeout(600);
+  await app.click('#tab-vivo');
+  const sig2 = await caja('#siguiente');
+  const seis = await app.$$eval('#hoja-vivo [data-rotulo]', (bs) => bs.slice(0, 6).map((b) => { const r = b.getBoundingClientRect(); return { y: r.y, fin: r.bottom }; }));
+  revisar(seis.length === 6 && seis.every((r) => r.y >= sig2.y + sig2.h - 1 && r.fin <= 318), 'modo app: con el tipo de más rótulos (' + masRotulos + '), los 6 primeros caben en 318 px, tras Siguiente');
+  revisar(!(await panel.evaluate(() => document.documentElement.classList.contains('modo-app'))), 'panel de OBS sin modo app');
+  revisar(await panel.evaluate(() => !!document.querySelector('.arriba #ocultar')), 'panel de OBS: Ocultar sigue en el encabezado');
+  await app.close();
+
   for (const [n, p] of [['inicio', inicio], ['gracias', gracias], ['avisos', avisos], ['portada', portada], ['inicio_800x600', chica], ['panel', panel]]) {
     await p.screenshot({ path: path.join(salida, n + '.png'), fullPage: n === 'panel' });
   }
