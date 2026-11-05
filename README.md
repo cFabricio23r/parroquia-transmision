@@ -101,5 +101,5 @@ y en el panel clic derecho → **Recargar**.
 - Colores: azul oscuro `#0c3562`, azul rey `#1155a4`, azul medio `#157ec1`, celeste `#3d9be0`, celeste claro `#8cc0ef`, rojo EN VIVO `#dd0300`.
 - Tipografías: **Montserrat** (500–900) y **Great Vibes** (frases en cursiva). Licencia SIL OFL.
 - Imágenes de la Virgen: A «La Colosal» (Murillo) y B (Tiepolo), dominio público (Wikimedia Commons); C, imagen de las pantallas originales de la parroquia.
-- Custodia (Hora Santa): recorte de «Eucharistic Adoration - Monstrance», de PerfectUnityOrg, Wikimedia Commons, licencia CC BY-SA 3.0 (https://commons.wikimedia.org/wiki/File:Eucharistic_Adoration_-_Monstrance.jpg). El recorte `obs/img/custodia.png` se comparte con la misma licencia.
+- Custodia con ángeles (Hora Santa): imagen de la parroquia.
 - Diseño de referencia (Claude Design, privado): https://claude.ai/artifact/PNAgq8yG9VYeJgG8J68jCW
