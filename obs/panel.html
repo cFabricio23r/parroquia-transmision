@@ -357,6 +357,31 @@ if (document.documentElement.classList.contains('modo-app')) {
   $('ocultar').append(sub);
 }
 
+/* Modo app: los rótulos salen si y solo si la escena es Cámara. La app avisa con window.fijarEscenaApp(escena).
+   Es un valor local de este panel (no va al estado compartido) y arranca en 'inicio'. */
+let rotulosBloqueados = () => false;
+let aplicarEscenaApp = () => {};
+if (document.documentElement.classList.contains('modo-app')) {
+  let escenaApp = 'inicio';
+  rotulosBloqueados = () => escenaApp !== 'camara';
+  aplicarEscenaApp = () => {
+    const fuera = rotulosBloqueados();
+    document.documentElement.classList.toggle('fuera-de-camara', fuera);
+    document.querySelectorAll('[data-rotulo], #siguiente').forEach(b => {
+      if (fuera) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+      else { b.removeAttribute('aria-disabled'); if (b.dataset.rotulo !== undefined) b.disabled = false; }   // Siguiente: refrescar() decide su disabled
+    });
+    const sub = document.querySelector('#siguiente .sub');
+    sub.textContent = fuera ? 'Solo en Cámara' : 'Barra espaciadora';
+    sub.style.display = fuera ? 'block' : '';
+  };
+  window.fijarEscenaApp = (escena) => {
+    escenaApp = escena;
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();   // guarda y refresca una sola vez
+    else refrescar();
+  };
+}
+
 /* ---------- guardar ---------- */
 let avisoT, esperaT;
 function guardar() {
@@ -627,6 +652,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
   if (!$('hoja-vivo').classList.contains('activa')) return;
+  if (rotulosBloqueados()) return;   // modo app fuera de Cámara: ni números ni Espacio sacan un rótulo
   if (/^[1-9]$/.test(e.key)) {
     const uso = usos()[+e.key - 1];          // solo si el tipo tiene un rótulo con ese número
     if (uso) { alternar(uso.id); e.preventDefault(); }
@@ -845,6 +871,7 @@ function refrescar() {
   const sig = siguienteUso();
   $('sig-nom').textContent = sig ? 'Siguiente: ' + sig.nombre : 'Sin rótulos';
   $('siguiente').disabled = !sig;
+  aplicarEscenaApp();
   const alAire = lista.find(u => u.id === v);
   $('ahora').classList.toggle('en', !!alAire);
   $('ahora-val').textContent = alAire ? alAire.nombre + ' — ' + (alAire.texto.t || '') : 'Ningún rótulo';
