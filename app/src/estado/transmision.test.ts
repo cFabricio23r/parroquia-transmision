@@ -55,10 +55,25 @@ describe('inicio de la transmisión', () => {
     expect(s.fase).toBe('iniciando');
     expect(s.error).toBeNull();
   });
-  it('cortado en iniciando no pide cortar (nunca hubo transmisión)', () => {
-    const a = reducir(ESTADO_INICIAL, { tipo: 'iniciar' });
-    expect(debeCortar(a, reducir(a, { tipo: 'cortado', mensaje: 'x' }))).toBe(false);
+  it('cortado en iniciando pide cortar una sola vez (el nativo ya arrancó y hay que liberarlo)', () => {
+    const { final, cortes } = cortesEn(ESTADO_INICIAL, [
+      { tipo: 'iniciar' }, { tipo: 'cortado', mensaje: 'x' }, { tipo: 'cortado', mensaje: 'y' }, ...tics(3),
+    ]);
+    expect(cortes).toBe(1);
+    expect(final.fase).toBe('preparando');
+    expect(final.error).toBe('x');
   });
+  it.each([{ tipo: 'terminar_ahora' }, { tipo: 'terminar_con_gracias' }] as Evento[])(
+    '$tipo en iniciando cancela: vuelve a preparando sin error y corta una sola vez', (ev) => {
+      const { final, cortes } = cortesEn(ESTADO_INICIAL, [
+        { tipo: 'iniciar' }, ev, ev, ...tics(3),
+      ]);
+      expect(cortes).toBe(1);
+      expect(final.fase).toBe('preparando');
+      expect(final.error).toBeNull();
+      expect(final.cuentaFinal).toBeNull();
+    },
+  );
 });
 
 describe('tic', () => {

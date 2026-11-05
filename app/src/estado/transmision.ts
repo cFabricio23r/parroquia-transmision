@@ -64,6 +64,7 @@ export function reducir(e: EstadoTransmision, ev: Evento): EstadoTransmision {
       return e.fase === 'en_vivo' ? { ...e, fase: 'reconectando' } : e;
 
     case 'cortado':
+      // Rechazo al iniciar (p. ej. clave): el nativo ya arrancó, debeCortar lo libera.
       if (e.fase === 'iniciando') return { ...e, fase: 'preparando', error: ev.mensaje };
       // Se agotaron los reintentos con la emisión al aire: se vuelve a cero.
       if (alAire(e)) return { ...ESTADO_INICIAL, error: ev.mensaje };
@@ -82,9 +83,12 @@ export function reducir(e: EstadoTransmision, ev: Evento): EstadoTransmision {
       return e;
 
     case 'terminar_con_gracias':
+      // Durante 'iniciando' se cancela el arranque que quedó colgado.
+      if (e.fase === 'iniciando') return { ...e, fase: 'preparando', error: null };
       return alAire(e) ? { ...e, fase: 'terminando', escena: 'gracias', cuentaFinal: CUENTA_GRACIAS } : e;
 
     case 'terminar_ahora':
+      if (e.fase === 'iniciando') return { ...e, fase: 'preparando', error: null };
       return alAire(e) || e.fase === 'terminando' ? terminarYa(e) : e;
 
     case 'seguir':
@@ -102,7 +106,7 @@ export function reducir(e: EstadoTransmision, ev: Evento): EstadoTransmision {
  * true solo en el instante en que hay que parar la transmisión nativa:
  *  - paso a 'terminando' sin cuenta (terminar ahora, o cortado durante la cuenta);
  *  - la cuenta llega a 0;
- *  - se cae la emisión estando al aire (vuelve a 'preparando').
+ *  - se cae la emisión estando al aire, o falla/se cancela el arranque (vuelve a 'preparando').
  * Cada uno ocurre una sola vez, porque después el estado ya no cambia de esa forma.
  */
 export function debeCortar(antes: EstadoTransmision, despues: EstadoTransmision): boolean {
@@ -112,5 +116,6 @@ export function debeCortar(antes: EstadoTransmision, despues: EstadoTransmision)
     }
     return despues.cuentaFinal === 0 && antes.fase === 'terminando' && (antes.cuentaFinal ?? 0) > 0;
   }
-  return despues.fase === 'preparando' && (antes.fase === 'en_vivo' || antes.fase === 'reconectando');
+  return despues.fase === 'preparando'
+    && (antes.fase === 'iniciando' || antes.fase === 'en_vivo' || antes.fase === 'reconectando');
 }
