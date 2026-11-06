@@ -10,6 +10,11 @@ import android.util.Log
 // permite apagarlo, así que se sube la prioridad mínima de log de todo el
 // proceso a WARN: los Log.v/d/i de la app y de las librerías no se escriben.
 // Los nuestros usan Log.w y nunca llevan la URL ni la clave (ver Motor.redactar).
+// Si no se activa, Motor.iniciar() rechaza: no se transmite (falla cerrada).
+//
+// Límite (no verificado, leído de memoria del AOSP): liblog combina este piso con la
+// propiedad log.tag.<TAG>; un `adb shell setprop log.tag.CommandsManager V` podría volver a
+// mostrar el Log.i con la clave. No usar setprop log.tag.* en el celular de la parroquia.
 object RegistroSeguro {
   private const val TAG = "Transmisor"
 

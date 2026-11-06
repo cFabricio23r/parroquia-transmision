@@ -1,4 +1,4 @@
-import { MENSAJES, aEventoEstado, armarUrl } from './eventos';
+import { ErrorTransmisor, MENSAJES, aEventoEstado, armarUrl, traducirError } from './eventos';
 
 // Marca falsa: nunca una clave real en los tests.
 const CLAVE = 'FB-PRUEBA-MARCA-0000';
@@ -26,6 +26,18 @@ describe('armarUrl', () => {
 
   it('conserva la consulta que trae la clave de Facebook', () => {
     expect(armarUrl('rtmps://x.com/rtmp/', CLAVE + '?s_bl=1&a=b')).toBe('rtmps://x.com/rtmp/' + CLAVE + '?s_bl=1&a=b');
+  });
+
+  it('el mensaje de error nunca contiene la clave', () => {
+    let mensaje = '';
+    try {
+      armarUrl('   ', CLAVE);
+    } catch (e) {
+      mensaje = String((e as Error).message) + String(e);
+    }
+    expect(mensaje).not.toBe('');
+    expect(mensaje).not.toContain(CLAVE);
+    expect(mensaje).not.toContain('MARCA');
   });
 
   it('rechaza servidor o clave vacíos', () => {
@@ -88,5 +100,43 @@ describe('aEventoEstado', () => {
 
   it('conexion desconocida se trata como cortado (nunca deja la app colgada)', () => {
     expect(aEventoEstado({ conexion: 'raro', motivo: null, kbps: null }).conexion).toBe('cortado');
+  });
+});
+
+describe('motivos nuevos', () => {
+  it('preparar y sin_respuesta tienen su mensaje', () => {
+    expect(aEventoEstado({ conexion: 'cortado', motivo: 'preparar', kbps: null }).mensaje).toBe(MENSAJES.preparar);
+    expect(aEventoEstado({ conexion: 'cortado', motivo: 'sin_respuesta', kbps: null }).mensaje).toBe(
+      MENSAJES.sinRespuesta,
+    );
+  });
+});
+
+describe('traducirError', () => {
+  const nativo = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+  it('registro inseguro: mensaje fijo en español', () => {
+    const e = traducirError(nativo('ERR_REGISTRO_INSEGURO', 'x'));
+    expect(e).toBeInstanceOf(ErrorTransmisor);
+    expect(e.message).toBe('No se puede transmitir de forma segura en este celular.');
+    expect(e.codigo).toBe('inseguro');
+  });
+
+  it('ocupado y sin preparar', () => {
+    expect(traducirError(nativo('ERR_OCUPADO', 'x')).message).toBe(MENSAJES.ocupado);
+    expect(traducirError(nativo('ERR_SIN_PREPARAR', 'x')).message).toBe(MENSAJES.preparar);
+  });
+
+  it('cualquier otro error: mensaje generico, sin copiar el texto original', () => {
+    const e = traducirError(nativo('ERR_RARO', 'algo con ' + CLAVE));
+    expect(e.message).toBe(MENSAJES.noInicia);
+    expect(e.message).not.toContain(CLAVE);
+    expect(traducirError('texto suelto').message).toBe(MENSAJES.noInicia);
+    expect(traducirError(null).message).toBe(MENSAJES.noInicia);
+  });
+
+  it('un ErrorTransmisor pasa tal cual', () => {
+    const e = new ErrorTransmisor('ocupado', MENSAJES.ocupado);
+    expect(traducirError(e)).toBe(e);
   });
 });

@@ -4,12 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.SurfaceView
 import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.library.rtmp.RtmpStream
 import com.pedro.library.util.FpsListener
+import expo.modules.kotlin.exception.CodedException
 
 // Motor de la transmisión: cámara + micrófono → RTMPS (RootEncoder 2.8.1).
 // Todo corre en el hilo principal: las funciones del módulo usan Queues.MAIN y
@@ -17,16 +20,23 @@ import com.pedro.library.util.FpsListener
 //
 // Reglas:
 //  - la URL completa y la clave nunca se escriben en el log (redactar());
+//  - sin el registro seguro (RegistroSeguro.activo) no se transmite: RootEncoder
+//    escribiría la clave en logcat;
 //  - RootEncoder no reintenta solo (Tarea 1, punto 8): se reintenta desde
-//    onConnectionFailed con reTry(ESPERA_MS) hasta REINTENTOS veces;
+//    onConnectionFailed con reTry(ESPERA_MS), hasta REINTENTOS veces por corte;
 //  - si Facebook rechaza la clave no se reintenta.
 @SuppressLint("StaticFieldLeak")
 object Motor : ConnectChecker {
   private const val TAG = "Transmisor"
 
-  // 24 reintentos cada 5 s ≈ 2 minutos de espera (más lo que tarde cada intento).
+  // Hasta 24 reintentos por corte, cada 5 s. Cada intento puede tardar además hasta el
+  // socketTimeout de RtmpClient (5 s por defecto), así que la espera total va de ~2 a ~4 min.
+  // El cupo se restablece en cada onConnectionSuccess (es por corte, no por transmisión).
   const val REINTENTOS = 24
   const val ESPERA_MS = 5000L
+
+  // Si onDisconnect no llega tras stopStream, se libera igual a los 3 s.
+  private const val MAX_CIERRE_MS = 3000L
 
   private var stream: RtmpStream? = null
   private var superficie: SurfaceView? = null
@@ -42,9 +52,15 @@ object Motor : ConnectChecker {
   // mismo socket (se vio en el celular: «Unknown rtmp message type»). Entre el reTry y el
   // siguiente intento (onConnectionStarted) se ignoran los avisos.
   private var reintentoPendiente = false
+  // stopStream() baja isStreaming en el acto, pero RtmpClient termina de cerrar en otro
+  // hilo; un connect() en esa ventana no hace nada. Hasta onDisconnect, iniciar() rechaza.
+  private var cerrando = false
   private var url: String? = null
   private var clave: String? = null
   private var muestrasFps = 0
+
+  private val principal = Handler(Looper.getMainLooper())
+  private val liberarCierre = Runnable { cerrando = false }
 
   // Lo fija el módulo: manda el evento «onEstado» a JS.
   var alEvento: ((Map<String, Any?>) -> Unit)? = null
@@ -122,9 +138,15 @@ object Motor : ConnectChecker {
   }
 
   fun iniciar(urlCompleta: String, laClave: String) {
-    val s = stream ?: throw IllegalStateException("Falta preparar la vista.")
-    if (!preparado) throw IllegalStateException("Falta preparar la vista.")
-    if (s.isStreaming) return
+    // Falla cerrada: sin el piso WARN, RootEncoder escribiría la clave en logcat.
+    if (!RegistroSeguro.activo) {
+      throw CodedException("ERR_REGISTRO_INSEGURO", "Registro seguro inactivo.", null)
+    }
+    val s = stream
+    if (s == null || !preparado) throw CodedException("ERR_SIN_PREPARAR", "Falta preparar la vista.", null)
+    if (alAire || s.isStreaming || cerrando) {
+      throw CodedException("ERR_OCUPADO", "Hay una transmisión activa o cerrándose.", null)
+    }
     url = urlCompleta
     clave = laClave
     alAire = true
@@ -139,11 +161,11 @@ object Motor : ConnectChecker {
     alAire = false
     conectado = false
     reintentoPendiente = false
-    val s = stream
-    if (s != null && s.isStreaming) s.stopStream()
+    val ok = soltar()
     url = null
     clave = null
     Log.w(TAG, "transmision terminada")
+    if (!ok) emitir("cortado", "preparar", null)
   }
 
   // Corte definitivo: se suelta el stream y se avisa a JS.
@@ -151,23 +173,54 @@ object Motor : ConnectChecker {
     alAire = false
     conectado = false
     reintentoPendiente = false
-    val s = stream
-    if (s != null && s.isStreaming) s.stopStream()
+    val ok = soltar()
     url = null
     clave = null
-    Log.w(TAG, "cortado motivo=$motivo")
-    emitir("cortado", motivo, null)
+    // Si no se pudo volver a preparar, eso es lo que el operador tiene que resolver primero.
+    val final = if (ok) motivo else "preparar"
+    Log.w(TAG, "cortado motivo=$final")
+    emitir("cortado", final, null)
+  }
+
+  /**
+   * Para el stream si está activo. Devuelve false si RootEncoder no pudo volver a preparar
+   * los codificadores (stopStream → prepareEncoders); entonces hay que preparar de nuevo.
+   */
+  private fun soltar(): Boolean {
+    val s = stream ?: return true
+    if (!s.isStreaming) return true
+    cerrando = true
+    principal.removeCallbacks(liberarCierre)
+    principal.postDelayed(liberarCierre, MAX_CIERRE_MS)
+    val ok = s.stopStream()
+    if (!ok) {
+      preparado = false
+      Log.w(TAG, "stopStream no pudo volver a preparar los codificadores")
+    }
+    return ok
   }
 
   private fun emitir(conexion: String, motivo: String?, kbps: Double?) {
     alEvento?.invoke(mapOf("conexion" to conexion, "motivo" to motivo, "kbps" to kbps))
   }
 
-  /** Tapa la URL completa y la clave si aparecen en un texto (motivos de error). */
+  /**
+   * Tapa la URL completa, la clave y sus partes (lo anterior a «?» y cada valor largo de la
+   * consulta, que Facebook agrega a la clave) si aparecen en un texto (motivos de error).
+   */
   fun redactar(texto: String): String {
+    val secretos = mutableListOf<String>()
+    url?.let { secretos += it; secretos += it.substringBefore('?') }
+    clave?.let { c ->
+      secretos += c
+      secretos += c.substringBefore('?')
+      c.substringAfter('?', "").split('&').forEach { par -> secretos += par.substringAfter('=', "") }
+    }
     var r = texto
-    url?.takeIf { it.isNotEmpty() }?.let { r = r.replace(it, "[oculto]") }
-    clave?.takeIf { it.isNotEmpty() }?.let { r = r.replace(it, "[oculto]") }
+    // Los más largos primero; los valores cortos (p. ej. «1») no se tapan para no romper el texto.
+    secretos.filter { it.length >= 6 }.distinct().sortedByDescending { it.length }.forEach {
+      r = r.replace(it, "[oculto]")
+    }
     return r
   }
 
@@ -191,6 +244,9 @@ object Motor : ConnectChecker {
     if (!alAire) return
     conectoAlgunaVez = true
     conectado = true
+    // RtmpClient solo restablece el cupo en disconnect(true) (stopStream), no al reconectar:
+    // sin esto, en una misa larga con varios cortes, el cupo se agotaría sin reintentar.
+    stream?.getStreamClient()?.setReTries(REINTENTOS)
     Log.w(TAG, "conectado")
     emitir("conectado", null, null)
   }
@@ -224,7 +280,11 @@ object Motor : ConnectChecker {
 
   override fun onAuthSuccess() {}
 
-  override fun onDisconnect() {}
+  // Llega cuando RtmpClient terminó de cerrar (disconnect(true), tras stopStream).
+  override fun onDisconnect() {
+    principal.removeCallbacks(liberarCierre)
+    cerrando = false
+  }
 
   override fun onNewBitrate(bitrate: Long) {
     if (alAire && conectado) emitir("conectado", null, bitrate / 1000.0)

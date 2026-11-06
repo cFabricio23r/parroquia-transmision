@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
+  ErrorTransmisor,
   EventoEstado,
   VistaTransmisor,
   addEstadoListener,
@@ -100,9 +101,10 @@ export default function App() {
       }
       setFase('iniciando');
       await iniciar(a.servidor, a.clave);
-    } catch {
+    } catch (e) {
       setFase('lista');
-      setAviso('No se pudo iniciar la transmisión.');
+      // ErrorTransmisor trae un mensaje en español sin datos; otro error, texto genérico.
+      setAviso(e instanceof ErrorTransmisor ? e.message : 'No se pudo iniciar la transmisión.');
     }
   }
 
@@ -188,7 +190,10 @@ export default function App() {
             onPress={() => {
               setEstado(null);
               setFase('iniciando');
-              iniciar(SERVIDOR_FACEBOOK, MARCA_FALSA).catch(() => setFase('lista'));
+              iniciar(SERVIDOR_FACEBOOK, MARCA_FALSA).catch((e) => {
+                setFase('lista');
+                setAviso(e instanceof ErrorTransmisor ? e.message : 'No se pudo iniciar la transmisión.');
+              });
             }}
             style={estilos.boton}
           >
