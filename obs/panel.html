@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panel Parroquia</title>
+<script>
+/* Copia temprana de la línea de modo app (la original sigue al final del body): pone la clase antes del primer
+   pintado, para que la app no vea un instante el estilo gris del dock de OBS. */
+if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
+</script>
 <style>
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-500-normal.woff2) format('woff2');font-weight:500}
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
