@@ -126,7 +126,9 @@ class ServicioTransmision : Service() {
       @Suppress("DEPRECATION")
       Notification.Builder(this)
     }
-    b.setSmallIcon(applicationInfo.icon)
+    // Ícono chico: blanco sobre transparente (res/drawable-*/ic_notificacion.png, generado con
+    // `npm run iconos`). El ícono de la app a color se veía como un cuadro blanco (review M8).
+    b.setSmallIcon(R.drawable.ic_notificacion)
       .setContentTitle("Transmitiendo en vivo")
       .setContentText("La cámara y el micrófono siguen al aire. Toque para volver a la app.")
       .setOngoing(true)

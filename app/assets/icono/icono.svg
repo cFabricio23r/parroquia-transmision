@@ -1,0 +1,16 @@
+<!-- Ícono A «Cruz que transmite» (lienzo «App Android», artboard 7). Fuente del ícono común.
+     Los PNG se generan con `npm run iconos` (scripts/generar-iconos.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c3562"/>
+      <stop offset="1" stop-color="#1f6fc4"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="44" fill="url(#fondo)"/>
+  <rect x="88" y="52" width="16" height="92" rx="4" fill="#ffffff"/>
+  <rect x="64" y="76" width="64" height="16" rx="4" fill="#ffffff"/>
+  <path d="M50 64a52 52 0 0 0 0 64M142 64a52 52 0 0 1 0 64" fill="none" stroke="#bfe0ff" stroke-width="9" stroke-linecap="round"/>
+  <path d="M30 48a76 76 0 0 0 0 96M162 48a76 76 0 0 1 0 96" fill="none" stroke="#bfe0ff" stroke-width="9" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="150" cy="40" r="14" fill="#dd0300" stroke="#ffffff" stroke-width="4"/>
+</svg>

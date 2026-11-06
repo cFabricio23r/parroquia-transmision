@@ -7,6 +7,7 @@ import * as Battery from 'expo-battery';
 import { useFonts } from 'expo-font';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Network from 'expo-network';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, PermissionsAndroid, Platform, StyleSheet, View } from 'react-native';
@@ -46,7 +47,13 @@ import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
 import EnVivo from './src/pantallas/EnVivo';
+import Portada from './src/pantallas/Portada';
+import { ESPERA_MAXIMA_MS, fasePortada } from './src/portada/portada';
 import { SCRIPT_ESCENA, SCRIPT_IR_A_EN_VIVO, SCRIPT_IR_A_PREPARAR } from './src/puente/puente';
+
+// El splash del sistema queda hasta que carguen las fuentes (Tarea 9b, src/portada/portada.ts).
+// Se llama acá, fuera del componente, como pide expo-splash-screen.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const AVISO_ESCENA = 'No se pudo cambiar la escena.';
 const AVISO_CAMARA_LISTA = 'La cámara se volvió a preparar. Ya puede transmitir.';
@@ -114,6 +121,18 @@ export default function App() {
   const [fuentesListas, errorFuentes] = useFonts(FUENTES);
   const listo = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(tienda.suscribir, tienda.obtener);
+
+  // Apertura: splash del sistema, después la portada de React mientras carga el panel (Tarea 9b).
+  const [panelCargado, setPanelCargado] = useState(false);
+  const [esperaVencida, setEsperaVencida] = useState(false);
+  const fase = fasePortada({ fuentesListas: listo, panelCargado, vencida: esperaVencida });
+  useEffect(() => {
+    const t = setTimeout(() => setEsperaVencida(true), ESPERA_MAXIMA_MS);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (fase !== 'nativo') SplashScreen.hideAsync().catch(() => undefined);
+  }, [fase]);
 
   const [enAjustes, setEnAjustes] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
@@ -328,6 +347,7 @@ export default function App() {
   }, [alAire]);
 
   const alCargarPanel = useCallback(() => {
+    setPanelCargado(true);
     panelRef.current?.injectJavaScript(SCRIPT_ESCENA(escenaPanelRef.current));
     if (enAire(tienda.obtener())) panelRef.current?.injectJavaScript(SCRIPT_IR_A_EN_VIVO);
   }, []);
@@ -421,6 +441,7 @@ export default function App() {
         }}
         onCerrar={() => setConfirmar(false)}
       />
+      <Portada visible={fase === 'portada'} />
       <StatusBar hidden />
     </View>
   );

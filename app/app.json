@@ -4,17 +4,17 @@
     "slug": "parroquia-en-vivo",
     "version": "1.0.0",
     "orientation": "landscape",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icono/icono.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0c3562",
+        "foregroundImage": "./assets/icono/frente.png",
+        "backgroundImage": "./assets/icono/fondo.png",
+        "monochromeImage": "./assets/icono/monocromo.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "org.parroquiaarce.envivo",
@@ -29,6 +29,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0c3562",
+          "image": "./assets/portada/logo-blanco.png",
+          "imageWidth": 150
+        }
+      ]
+    ]
   }
 }

@@ -1,0 +1,20 @@
+<!-- Ícono monocromo del launcher (íconos temáticos de Android 13+): el mismo primer plano, todo
+     blanco sobre transparente. Android solo usa la transparencia. El punto rojo se separa de la onda
+     con un hueco, como el borde blanco del original. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <mask id="hueco" maskUnits="userSpaceOnUse" x="0" y="0" width="192" height="192">
+      <rect width="192" height="192" fill="#ffffff"/>
+      <circle cx="150" cy="40" r="17" fill="#000000"/>
+    </mask>
+  </defs>
+  <g transform="translate(20.4 20.4) scale(0.35)">
+    <g mask="url(#hueco)">
+      <rect x="88" y="52" width="16" height="92" rx="4" fill="#ffffff"/>
+      <rect x="64" y="76" width="64" height="16" rx="4" fill="#ffffff"/>
+      <path d="M50 64a52 52 0 0 0 0 64M142 64a52 52 0 0 1 0 64" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+      <path d="M30 48a76 76 0 0 0 0 96M162 48a76 76 0 0 1 0 96" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" opacity="0.55"/>
+    </g>
+    <circle cx="150" cy="40" r="13" fill="#ffffff"/>
+  </g>
+</svg>

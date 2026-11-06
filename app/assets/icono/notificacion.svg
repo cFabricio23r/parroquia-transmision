@@ -1,0 +1,12 @@
+<!-- Ícono chico de la notificación (24 dp, review M8 de la Tarea 9): blanco sobre transparente,
+     como pide Android para la barra de estado. Es la versión chica del ícono A (artboard 7, 48 px):
+     la cruz, las ondas de adentro y el punto, sin las ondas de afuera, que a este tamaño no se leen.
+     El dibujo ocupa 20 dp, con 2 dp de aire alrededor. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g transform="translate(-3.15 -0.73) scale(0.1515)">
+    <rect x="88" y="52" width="16" height="92" rx="4" fill="#ffffff"/>
+    <rect x="64" y="76" width="64" height="16" rx="4" fill="#ffffff"/>
+    <path d="M50 64a52 52 0 0 0 0 64M142 64a52 52 0 0 1 0 64" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="150" cy="40" r="16" fill="#ffffff"/>
+  </g>
+</svg>
