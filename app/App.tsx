@@ -174,10 +174,18 @@ export default function App() {
   const listo = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(tienda.suscribir, tienda.obtener);
 
-  // Apertura: splash del sistema, después la portada de React mientras carga el panel (Tarea 9b).
+  // Apertura: splash del sistema, después la portada animada hasta que termine (o se toque) y el
+  // panel haya cargado (Tareas 9b y 9f, src/portada/portada.ts).
   const [panelCargado, setPanelCargado] = useState(false);
   const [esperaVencida, setEsperaVencida] = useState(false);
-  const fase = fasePortada({ fuentesListas: listo, panelCargado, vencida: esperaVencida });
+  const [animacionLista, setAnimacionLista] = useState(false);
+  const alTerminarPortada = useCallback(() => setAnimacionLista(true), []);
+  const fase = fasePortada({
+    fuentesListas: listo,
+    panelCargado,
+    animacionTerminada: animacionLista,
+    vencida: esperaVencida,
+  });
   useEffect(() => {
     const t = setTimeout(() => setEsperaVencida(true), ESPERA_MAXIMA_MS);
     return () => clearTimeout(t);
@@ -572,7 +580,7 @@ export default function App() {
         }}
         onCerrar={() => setConfirmar(false)}
       />
-      <Portada visible={fase === 'portada'} zonas={zonas} />
+      <Portada visible={fase === 'portada'} zonas={zonas} onTerminada={alTerminarPortada} />
       <StatusBar hidden />
     </View>
   );

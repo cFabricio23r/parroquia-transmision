@@ -43,6 +43,44 @@ describe('íconos', () => {
     expect(maximo).toBeLessThanOrEqual(radioSeguro);
   });
 
+  // Píxel (r, g, b, a) de una imagen de resvg, en coordenadas del dibujo de `lado` unidades.
+  function pixel(img, lado, x, y) {
+    const px = Math.floor((x / lado) * img.ancho);
+    const py = Math.floor((y / lado) * img.alto);
+    const i = (py * img.ancho + px) * 4;
+    return Array.from(img.pixeles.slice(i, i + 4));
+  }
+
+  test('el ícono común (opción 1) lleva el logo incrustado, el punto rojo y el degradado azul', () => {
+    const img = renderizar(svg('icono.svg'), 1024);
+    // La línea central del logo: tiene blanco opaco (el logo se cargó).
+    let blancos = 0;
+    for (let y = 70; y < 150; y++) {
+      const [r, g, b, a] = pixel(img, 220, 110, y);
+      if (a === 255 && r > 250 && g > 250 && b > 250) blancos++;
+    }
+    expect(blancos).toBeGreaterThan(10);
+    // El centro del punto en vivo: #dd0300.
+    expect(pixel(img, 220, 174.9, 45.1)).toEqual([0xdd, 0x03, 0x00, 255]);
+    // El degradado: abajo a la izquierda, lejos del logo y del brillo, es azul.
+    const [r, g, b, a] = pixel(img, 220, 30, 190);
+    expect(a).toBe(255);
+    expect(b).toBeGreaterThan(r + 60);
+    expect(b).toBeGreaterThan(g);
+  });
+
+  test('el primer plano lleva el logo blanco y el punto rojo', () => {
+    const img = renderizar(svg('frente.svg'), 1024);
+    let blancos = 0;
+    let rojos = 0;
+    cadaPixel(img, (_x, _y, r, g, b, a) => {
+      if (a === 255 && r > 250 && g > 250 && b > 250) blancos++;
+      if (a === 255 && r === 0xdd && g === 0x03 && b === 0) rojos++;
+    });
+    expect(blancos).toBeGreaterThan(1000);
+    expect(rojos).toBeGreaterThan(100);
+  });
+
   test('el fondo del ícono adaptativo es opaco en todo el cuadro', () => {
     const img = renderizar(svg('fondo.svg'), 108);
     let transparentes = 0;
