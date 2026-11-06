@@ -68,8 +68,13 @@ object Capa {
   private var inicioMs = 0L
   private var pausada = false
   private var alTerminar: (() -> Unit)? = null
+  // Si la capa se libera a mitad de una transición, se rechaza la promesa (review R1).
+  private var alFallar: ((CodedException) -> Unit)? = null
 
   val creada: Boolean get() = contenedor != null
+
+  /** Copias por segundo de la capa sobre el video (últimos 10 s), o null si no hay filtro. */
+  fun fps(): Double? = filtro?.fps
 
   /** Crea el contenedor y las escenas fijas. Sin efecto si ya existe. */
   fun crear(actividad: Activity) {
@@ -117,7 +122,13 @@ object Capa {
     filtro = null
   }
 
-  /** Suelta la capa. Se puede llamar desde cualquier hilo: el trabajo se hace en el principal (review M4). */
+  /**
+   * Suelta la capa. Se puede llamar desde cualquier hilo: el trabajo se hace en el principal (review M4).
+   *
+   * Solo se llama con el JS destruyéndose (OnDestroy del módulo). Si hay una transición en curso,
+   * su promesa se rechaza con ERR_LIBERADA: la cola de escenas no toca su escena actual al rechazar,
+   * así que nunca cree que se ve una escena que no se ve (review R1 de la Tarea 7).
+   */
   fun liberar() {
     if (Looper.myLooper() == Looper.getMainLooper()) liberarEnPrincipal() else h.post { liberarEnPrincipal() }
   }
@@ -126,8 +137,9 @@ object Capa {
     h.removeCallbacksAndMessages(null)
     filtro?.soltarOyentes()
     filtro = null
-    // La promesa de una transición en curso se resuelve, para que el JS nunca quede esperando.
-    terminarTransicion(resolver = true)
+    // La promesa de una transición en curso se rechaza (ERR_LIBERADA), para que el JS nunca quede
+    // esperando ni crea que la escena cambió (review R1).
+    terminarTransicion(resolver = false)
     // Primero se sacan de la jerarquía y después se destruyen (como en quitarEscena).
     val c = contenedor
     (c?.parent as? ViewGroup)?.removeView(c)
@@ -151,7 +163,7 @@ object Capa {
    * Transición del logo hacia `escena`. Llama a `listo` al terminar (2 s), o enseguida si ya
    * se ve esa escena.
    */
-  fun cambiarEscena(escena: String, listo: () -> Unit) {
+  fun cambiarEscena(escena: String, listo: () -> Unit, fallo: (CodedException) -> Unit) {
     require(escena in URLS) { "Escena desconocida." }
     check(contenedor != null) { "La capa no está creada." }
     // La cola de TS manda una a la vez; si igual llega otra, se rechaza.
@@ -160,6 +172,7 @@ object Capa {
     if (escena !in vistas) agregarEscena(escena)
     destino = escena
     alTerminar = listo
+    alFallar = fallo
     inicioMs = SystemClock.uptimeMillis()
     pausada = false
     transicion?.let {
@@ -207,8 +220,11 @@ object Capa {
     filtro?.continuo = false
     filtro?.pedir()
     val cb = alTerminar
+    val mal = alFallar
     alTerminar = null
+    alFallar = null
     if (resolver) cb?.invoke()
+    else mal?.invoke(CodedException("ERR_LIBERADA", "La capa se liberó durante la transición.", null))
   }
 
   private fun mostrarSolo(escena: String) {

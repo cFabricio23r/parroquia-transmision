@@ -53,6 +53,7 @@ describe('aEventoEstado', () => {
       mbps: 2.5,
       mensaje: null,
       motivo: null,
+      termico: null,
     });
   });
 
@@ -62,6 +63,7 @@ describe('aEventoEstado', () => {
       mbps: null,
       mensaje: null,
       motivo: null,
+      termico: null,
     });
   });
 
@@ -71,6 +73,7 @@ describe('aEventoEstado', () => {
       mbps: null,
       mensaje: MENSAJES.reconectando,
       motivo: 'red',
+      termico: null,
     });
   });
 
@@ -81,7 +84,23 @@ describe('aEventoEstado', () => {
       mbps: null,
       mensaje: 'Facebook no aceptó la clave. Revísela en Ajustes.',
       motivo: 'clave',
+      termico: null,
     });
+  });
+
+  it('pasa el estado térmico del nativo (Tarea 9)', () => {
+    expect(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: null, termico: 3 }).termico).toBe(3);
+    expect(aEventoEstado({ conexion: 'reconectando', motivo: 'red', kbps: null, termico: 2 }).termico).toBe(2);
+    expect(aEventoEstado({ conexion: 'cortado', motivo: 'agotado', kbps: null, termico: 0 }).termico).toBe(0);
+  });
+
+  it('un estado térmico ausente o raro queda en null', () => {
+    expect(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: null }).termico).toBeNull();
+    expect(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: null, termico: -1 }).termico).toBeNull();
+    expect(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: null, termico: 2.5 }).termico).toBeNull();
+    expect(
+      aEventoEstado({ conexion: 'conectado', motivo: null, kbps: null, termico: 'x' as unknown as number }).termico,
+    ).toBeNull();
   });
 
   it('cortado por reintentos agotados', () => {

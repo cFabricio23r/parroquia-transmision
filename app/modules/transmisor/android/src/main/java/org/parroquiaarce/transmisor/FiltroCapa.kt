@@ -81,6 +81,10 @@ class FiltroCapa(private val vista: View) : BaseFilterRender() {
   private var latidos = 0
   private var errores = 0
 
+  /** Copias por segundo de la capa en los últimos 10 s (null hasta el primer informe). Para el registro. */
+  @Volatile var fps: Double? = null
+    private set
+
   // El aviso es de toda la ventana (también la interfaz de RN). Solo se copia si la capa
   // cambió: View.isDirty() es true si la vista (o una hija) se invalidó desde el último dibujo.
   private val alDibujarVentana = ViewTreeObserver.OnDrawListener {
@@ -109,6 +113,7 @@ class FiltroCapa(private val vista: View) : BaseFilterRender() {
 
   private val informe = object : Runnable {
     override fun run() {
+      fps = dibujos / (INFORME_MS / 1000.0)
       Log.w(TAG, "capa: dibujos=$dibujos avisos=$avisos deLaCapa=$avisosCapa latidos=$latidos errores=$errores en 10 s continuo=$continuo")
       dibujos = 0; avisos = 0; avisosCapa = 0; latidos = 0
       h.postDelayed(this, INFORME_MS)

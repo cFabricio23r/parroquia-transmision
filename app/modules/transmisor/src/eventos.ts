@@ -9,6 +9,8 @@ export type EventoEstado = {
   mensaje: string | null;
   /** El motivo del nativo ('clave', 'preparar', 'agotado'…); null si no hay. Para decidir, no para mostrar. */
   motivo: string | null;
+  /** Estado térmico del sistema al momento del evento (Tarea 9); null o ausente si no se sabe. */
+  termico?: number | null;
 };
 
 /** Lo que manda Kotlin en «onEstado». `motivo` solo se usa con 'reconectando' y 'cortado'. */
@@ -16,6 +18,7 @@ export type EventoNativo = {
   conexion: string;
   motivo: string | null;
   kbps: number | null;
+  termico?: number | null;
 };
 
 export const MENSAJES = {
@@ -55,13 +58,18 @@ function aMbps(kbps: number | null): number | null {
   return Math.round(kbps / 100) / 10;
 }
 
+function aTermico(t: unknown): number | null {
+  return typeof t === 'number' && Number.isInteger(t) && t >= 0 ? t : null;
+}
+
 export function aEventoEstado(n: EventoNativo): EventoEstado {
-  if (n.conexion === 'conectado') return { conexion: 'conectado', mbps: aMbps(n.kbps), mensaje: null, motivo: null };
+  const termico = aTermico(n.termico);
+  if (n.conexion === 'conectado') return { conexion: 'conectado', mbps: aMbps(n.kbps), mensaje: null, motivo: null, termico };
   if (n.conexion === 'reconectando') {
-    return { conexion: 'reconectando', mbps: null, mensaje: MENSAJES.reconectando, motivo: n.motivo };
+    return { conexion: 'reconectando', mbps: null, mensaje: MENSAJES.reconectando, motivo: n.motivo, termico };
   }
   const mensaje = (n.motivo !== null && POR_MOTIVO[n.motivo]) || MENSAJES.desconocido;
-  return { conexion: 'cortado', mbps: null, mensaje, motivo: n.motivo };
+  return { conexion: 'cortado', mbps: null, mensaje, motivo: n.motivo, termico };
 }
 
 export type CodigoError = 'inseguro' | 'ocupado' | 'preparar' | 'otro';

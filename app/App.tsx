@@ -3,14 +3,23 @@
 // encima y debajo de la vista previa, así el panel y la cámara no se recargan.
 // Iniciar, cancelar y terminar los maneja el orquestador (src/estado/orquestador.ts, con tests).
 // La clave nunca se muestra ni se registra: solo pasa de Ajustes a iniciar().
+import * as Battery from 'expo-battery';
 import { useFonts } from 'expo-font';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Network from 'expo-network';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { PermissionsAndroid, Platform, StyleSheet, View } from 'react-native';
+import { AppState, PermissionsAndroid, Platform, StyleSheet, View } from 'react-native';
 
 import {
   VistaTransmisor,
+  abrirNoMolestar,
+  abrirRegistro,
   actualizarEstado,
+  anotarRegistro,
+  cerrarRegistro,
+  medir,
+  noMolestarActivo,
   addEstadoListener,
   cambiarEscena,
   iniciar,
@@ -20,7 +29,9 @@ import {
 import BarraSuperior from './src/componentes/BarraSuperior';
 import ColumnaPanel, { type PanelWeb } from './src/componentes/ColumnaPanel';
 import { C, FUENTES, M } from './src/componentes/tema';
-import { leerAjustes, validar } from './src/ajustes/ajustes';
+import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
+import { avisosActivos } from './src/avisos/avisos';
+import { crearRegistrador, type Medida } from './src/registro/registro';
 import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
@@ -35,11 +46,20 @@ const AVISO_CAMARA_LISTA = 'La cámara se volvió a preparar. Ya puede transmiti
 const enAire = (e: EstadoTransmision): boolean =>
   e.fase === 'iniciando' || e.fase === 'en_vivo' || e.fase === 'reconectando' || e.fase === 'terminando';
 
+// Con la pantalla encendida mientras se transmite (Tarea 9).
+const ETIQUETA_DESPIERTA = 'transmision';
+// Cada cuánto se leen el estado térmico y la temperatura para los avisos.
+const MEDIR_AVISOS_MS = 10_000;
+
 async function pedirPermisos(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
+  // Notificaciones (Android 13 o más): para la notificación fija del servicio en primer plano.
+  // Si se niega, la transmisión sigue igual; solo no se ve la notificación.
+  const conAviso = typeof Platform.Version === 'number' && Platform.Version >= 33;
   const r = await PermissionsAndroid.requestMultiple([
     PermissionsAndroid.PERMISSIONS.CAMERA,
     PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    ...(conAviso ? [PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS] : []),
   ]);
   return (
     r[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED &&
@@ -67,6 +87,41 @@ const orq: Orquestador = crearOrquestador({
 });
 const tienda = orq.tienda;
 
+// Lo último que se sabe de la batería y la subida, para el registro de rendimiento.
+// App lo actualiza en cada render; el registrador lo lee cada 30 s. Nunca lleva la clave.
+const ultimo = {
+  bateria: null as number | null,
+  cargando: null as boolean | null,
+  mbps: null as number | null,
+};
+
+const registrador = crearRegistrador({
+  async medir(): Promise<Medida> {
+    const n = await medir();
+    const e = tienda.obtener();
+    const reconectando = e.fase === 'reconectando';
+    // Conectando o terminando: la conexión queda vacía en el registro.
+    const conexion = reconectando ? 'reconectando' : e.fase === 'en_vivo' ? 'conectado' : null;
+    return {
+      hora: new Date(),
+      termico: n.termico,
+      temperatura: n.temperatura,
+      bateria: ultimo.bateria,
+      cargando: ultimo.cargando,
+      fpsCapa: n.fpsCapa,
+      fpsVideo: n.fpsVideo,
+      memoriaMb: n.memoriaMb,
+      conexion,
+      mbps: conexion === 'conectado' ? ultimo.mbps : null,
+      escena: e.escena,
+    };
+  },
+  abrir: abrirRegistro,
+  anotar: anotarRegistro,
+  cerrar: cerrarRegistro,
+  ahora: () => new Date(),
+});
+
 export default function App() {
   const [fuentesListas, errorFuentes] = useFonts(FUENTES);
   const listo = fuentesListas || errorFuentes !== null;
@@ -81,7 +136,17 @@ export default function App() {
   // El error del estado que ya quedó resuelto (la cámara se volvió a preparar sola): no se muestra.
   const [errorSuperado, setErrorSuperado] = useState<string | null>(null);
   const [mbps, setMbps] = useState<number | null>(null);
-  const [mensajeConexion, setMensajeConexion] = useState<string | null>(null);
+  // Para los avisos (Tarea 9).
+  const [bateria, setBateria] = useState<number | null>(null);
+  const [cargando, setCargando] = useState<boolean | null>(null);
+  const [termico, setTermico] = useState<number | null>(null);
+  const [temperatura, setTemperatura] = useState<number | null>(null);
+  const [hayRed, setHayRed] = useState(true);
+  const [noMolestar, setNoMolestar] = useState<boolean | null>(null);
+  const [calidad, setCalidad] = useState<Calidad | undefined>(undefined);
+  ultimo.bateria = bateria;
+  ultimo.cargando = cargando;
+  ultimo.mbps = mbps;
 
   const panelRef = useRef<PanelWeb | null>(null);
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
@@ -107,6 +172,7 @@ export default function App() {
       }
       const a = await leerAjustes();
       setClaveLista(validar(a).ok);
+      setCalidad(a.calidad);
       const firma = `${a.calidad}|${a.microfono}`;
       if (!forzar && firma === preparadaCon.current) {
         setVista('lista');
@@ -141,7 +207,6 @@ export default function App() {
     // Un arranque cierra Ajustes aunque se haya abierto mientras se leían los Ajustes (review M4).
     setEnAjustes(false);
     setMbps(null);
-    setMensajeConexion(null);
     setErrorSuperado(null);
     panelRef.current?.injectJavaScript(SCRIPT_IR_A_EN_VIVO);
   };
@@ -160,11 +225,76 @@ export default function App() {
   useEffect(() => {
     const s = addEstadoListener((e) => {
       setMbps(e.conexion === 'conectado' ? e.mbps : null);
-      setMensajeConexion(e.conexion === 'reconectando' ? e.mensaje : null);
+      if (e.termico !== undefined && e.termico !== null) setTermico(e.termico);
       orq.alEvento(e);
     });
     return () => s.remove();
   }, []);
+
+  // Batería (expo-battery): nivel de 0 a 1 y si está cargando.
+  useEffect(() => {
+    const aCargando = (s: Battery.BatteryState): boolean | null =>
+      s === Battery.BatteryState.CHARGING || s === Battery.BatteryState.FULL
+        ? true
+        : s === Battery.BatteryState.UNPLUGGED
+          ? false
+          : null;
+    Battery.getBatteryLevelAsync().then(setBateria, () => undefined);
+    Battery.getBatteryStateAsync().then((s) => setCargando(aCargando(s)), () => undefined);
+    const n = Battery.addBatteryLevelListener((e) => setBateria(e.batteryLevel));
+    const c = Battery.addBatteryStateListener((e) => setCargando(aCargando(e.batteryState)));
+    return () => {
+      n.remove();
+      c.remove();
+    };
+  }, []);
+
+  // Red (expo-network). Si no se sabe, se supone que hay: el aviso es solo para «sin internet» seguro.
+  useEffect(() => {
+    const aHayRed = (s: Network.NetworkState) =>
+      !(s.isConnected === false || s.type === Network.NetworkStateType.NONE || s.isInternetReachable === false);
+    Network.getNetworkStateAsync().then((s) => setHayRed(aHayRed(s)), () => undefined);
+    const r = Network.addNetworkStateListener((s) => setHayRed(aHayRed(s)));
+    return () => r.remove();
+  }, []);
+
+  // Estado térmico y temperatura de la batería, cada 10 s.
+  useEffect(() => {
+    const leer = () =>
+      medir().then(
+        (m) => {
+          setTermico(m.termico);
+          setTemperatura(m.temperatura);
+        },
+        () => undefined,
+      );
+    void leer();
+    const t = setInterval(leer, MEDIR_AVISOS_MS);
+    return () => clearInterval(t);
+  }, []);
+
+  // No molestar: se revisa al abrir y cada vez que la app vuelve al frente (p. ej. desde los ajustes).
+  useEffect(() => {
+    const revisar = () => noMolestarActivo().then(setNoMolestar, () => setNoMolestar(null));
+    void revisar();
+    const s = AppState.addEventListener('change', (e) => {
+      if (e === 'active') void revisar();
+    });
+    return () => s.remove();
+  }, []);
+
+  // Pantalla encendida mientras la fase no sea preparando ni terminado.
+  const despierta = estado.fase !== 'preparando' && estado.fase !== 'terminado';
+  useEffect(() => {
+    if (despierta) activateKeepAwakeAsync(ETIQUETA_DESPIERTA).catch(() => undefined);
+    else deactivateKeepAwake(ETIQUETA_DESPIERTA).catch(() => undefined);
+  }, [despierta]);
+
+  // Registro de rendimiento: un archivo por transmisión, una línea cada 30 s mientras se está al aire.
+  useEffect(() => {
+    if (alAire) registrador.empezar();
+    else registrador.parar();
+  }, [alAire]);
 
   // Reloj: un tic por segundo (el reducer lo ignora fuera del aire).
   useEffect(() => {
@@ -206,7 +336,16 @@ export default function App() {
 
   const errorVisible = estado.error !== null && estado.error !== errorSuperado ? estado.error : null;
   const mensajeAntes = errorVisible ?? aviso ?? avisoEscena;
-  const mensajeVivo = estado.fase === 'reconectando' ? mensajeConexion : (avisoEscena ?? aviso);
+  // Al reconectar, el aviso «Señal débil» (avisosActivos) ocupa el lugar del mensaje de la conexión.
+  const mensajeVivo = avisoEscena ?? aviso;
+  const avisos = avisosActivos({
+    conexion: estado.fase === 'reconectando' ? 'reconectando' : 'conectado',
+    bateria,
+    temperatura,
+    termico,
+    hayRed,
+    calidad,
+  });
 
   return (
     <View style={estilos.raiz}>
@@ -216,6 +355,8 @@ export default function App() {
           segundos={estado.segundos}
           cuentaFinal={estado.cuentaFinal}
           mbps={mbps}
+          bateria={bateria}
+          temperatura={temperatura}
           ajustesDisponible={!alAire}
           onAjustes={() => setEnAjustes(true)}
           onTerminar={() => setConfirmar(true)}
@@ -229,6 +370,7 @@ export default function App() {
                 fase={estado.fase}
                 escena={estado.escena}
                 mensaje={mensajeVivo}
+                avisos={avisos}
                 onEscena={(escena) => tienda.despachar({ tipo: 'escena', escena })}
               />
             ) : (
@@ -237,6 +379,9 @@ export default function App() {
                 claveLista={claveLista}
                 mensaje={mensajeAntes}
                 terminada={estado.fase === 'terminado'}
+                avisos={avisos}
+                noMolestar={noMolestar}
+                onActivarNoMolestar={() => void abrirNoMolestar().catch(() => undefined)}
                 onIniciar={() => void orq.iniciar()}
                 onAjustes={() => setEnAjustes(true)}
                 onPrepararOtraVez={volverAPreparar}

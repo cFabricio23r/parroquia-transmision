@@ -2,6 +2,8 @@
 // (tira de escenas). La vista previa y el panel los pone App.
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { Aviso } from '../avisos/avisos';
+import Avisos from '../componentes/Avisos';
 import TiraEscenas from '../componentes/TiraEscenas';
 import { C, F, M } from '../componentes/tema';
 import type { Escena, Fase } from '../estado/transmision';
@@ -11,22 +13,25 @@ interface Props {
   escena: Escena;
   /** Mensaje de la conexión (p. ej. «Se cortó la señal. Reconectando…»). */
   mensaje: string | null;
+  /** Señal, batería, calor y red (Tarea 9). */
+  avisos: Aviso[];
   onEscena: (escena: Escena) => void;
 }
 
-export default function EnVivo({ fase, escena, mensaje, onEscena }: Props) {
+export default function EnVivo({ fase, escena, mensaje, avisos, onEscena }: Props) {
   // El reducer solo cambia la escena estando al aire; en el resto la tira queda apagada.
   const tiraActiva = fase === 'en_vivo' || fase === 'reconectando';
   return (
     <View style={estilos.capa} pointerEvents="box-none">
       <View style={estilos.sobreVista} pointerEvents="none">
-        {mensaje ? (
-          <Text style={[estilos.aviso, estilos.avisoAmbar]} accessibilityLiveRegion="polite">
-            {mensaje}
-          </Text>
-        ) : (
-          <View />
-        )}
+        <View style={estilos.arriba}>
+          <Avisos avisos={avisos} />
+          {mensaje ? (
+            <Text style={[estilos.aviso, estilos.avisoAmbar]} accessibilityLiveRegion="polite">
+              {mensaje}
+            </Text>
+          ) : null}
+        </View>
         {escena !== 'camara' ? (
           <Text style={[estilos.aviso, estilos.avisoOscuro]}>Cámara oculta · los rótulos se ven solo en «Cámara»</Text>
         ) : null}
@@ -50,6 +55,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  arriba: { alignSelf: 'stretch', alignItems: 'flex-start', gap: 6 },
   aviso: {
     borderRadius: 8,
     paddingVertical: 7,

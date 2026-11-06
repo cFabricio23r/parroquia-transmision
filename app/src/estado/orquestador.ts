@@ -65,7 +65,10 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       tienda.despachar({ tipo: 'terminado' });
     };
     const espera = setTimeout(() => cerrar(true), ESPERA_TERMINAR_MS);
-    d.terminar()
+    // Dentro de una promesa: si terminar() lanzara de forma síncrona, la excepción no sale de
+    // tienda.despachar antes de avisar a los oyentes (review m3 de la Tarea 8).
+    Promise.resolve()
+      .then(() => d.terminar())
       .catch(() => undefined)
       .then(() => cerrar(false));
   }

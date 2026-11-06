@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Network from 'expo-network';
+import * as Sharing from 'expo-sharing';
+
+import { ultimoRegistro } from '../../modules/transmisor';
 import {
   AJUSTES_INICIALES,
   Ajustes as TipoAjustes,
@@ -80,6 +83,8 @@ export default function Ajustes({ onVolver }: Props) {
   const [carga, setCarga] = useState<EstadoCarga>('cargando');
   const [fallaGuardar, setFallaGuardar] = useState(false);
   const [intento, setIntento] = useState(0);
+  const [compartiendo, setCompartiendo] = useState(false);
+  const [avisoRegistro, setAvisoRegistro] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -130,6 +135,29 @@ export default function Ajustes({ onVolver }: Props) {
     setA(nuevo);
     persistir(nuevo);
     revisar(nuevo);
+  }
+
+  // Registro de rendimiento (Tarea 9): abre la hoja de compartir de Android con el más nuevo.
+  // El archivo solo tiene números, la conexión y la escena: nunca la clave ni el servidor.
+  async function compartirRegistro() {
+    setCompartiendo(true);
+    setAvisoRegistro(null);
+    try {
+      const ruta = await ultimoRegistro();
+      if (!ruta) {
+        setAvisoRegistro('Todavía no hay registros. Se crea uno en cada transmisión.');
+        return;
+      }
+      if (!(await Sharing.isAvailableAsync())) {
+        setAvisoRegistro('Este celular no permite compartir archivos.');
+        return;
+      }
+      await Sharing.shareAsync(`file://${ruta}`, { mimeType: 'text/csv', dialogTitle: 'Compartir registro' });
+    } catch {
+      setAvisoRegistro('No se pudo compartir el registro.');
+    } finally {
+      setCompartiendo(false);
+    }
   }
 
   async function probar() {
@@ -237,6 +265,22 @@ export default function Ajustes({ onVolver }: Props) {
             <View style={{ flex: 1 }} accessibilityLiveRegion="polite">
               {red && <Text style={[estilos.cajaTitulo, { fontSize: 14, color: red.color }]}>{red.texto}</Text>}
               <Text style={estilos.nota}>Solo revisa la red; no sale al aire.</Text>
+            </View>
+          </View>
+          <View style={[estilos.caja, estilos.fila, { alignItems: 'center' }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Compartir registro"
+              accessibilityHint="Abre la hoja de compartir con el registro de la última transmisión"
+              disabled={compartiendo}
+              onPress={compartirRegistro}
+              style={estilos.boton}
+            >
+              <Text style={estilos.botonTexto}>Compartir registro</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} accessibilityLiveRegion="polite">
+              {avisoRegistro && <Text style={estilos.error}>{avisoRegistro}</Text>}
+              <Text style={estilos.nota}>Temperatura, batería y señal de la última transmisión.</Text>
             </View>
           </View>
         </View>

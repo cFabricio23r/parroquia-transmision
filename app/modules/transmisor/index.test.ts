@@ -71,7 +71,7 @@ describe('addEstadoListener', () => {
     const cb = jest.fn();
     api.addEstadoListener(cb);
     emitir({ conexion: 'conectado', motivo: null, kbps: 3000 });
-    expect(cb).toHaveBeenCalledWith({ conexion: 'conectado', mbps: 3, mensaje: null, motivo: null });
+    expect(cb).toHaveBeenCalledWith({ conexion: 'conectado', mbps: 3, mensaje: null, motivo: null, termico: null });
   });
 
   it('remove deja de avisar', () => {

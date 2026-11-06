@@ -1,8 +1,10 @@
 // Pantalla 1 del lienzo: «Antes de iniciar». Va encima de la vista previa y debajo de ella;
 // la vista previa y el panel los pone App, para que no se recarguen al cambiar de pantalla.
-// Los avisos de señal y No molestar llegan en la Tarea 9.
+// Avisos de la Tarea 9: red, batería y calor (avisosActivos) y No molestar con «Activar».
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import type { Aviso } from '../avisos/avisos';
+import Avisos from '../componentes/Avisos';
 import { C, F, M } from '../componentes/tema';
 
 export type EstadoVista = 'sin_permiso' | 'preparando' | 'lista' | 'error';
@@ -14,6 +16,11 @@ interface Props {
   /** Mensaje del último corte o error (en español, sin datos de la clave). */
   mensaje: string | null;
   terminada: boolean;
+  /** Red, batería y calor. */
+  avisos: Aviso[];
+  /** false: No molestar está apagado y se muestra el aviso con «Activar». null o true: no se muestra. */
+  noMolestar: boolean | null;
+  onActivarNoMolestar: () => void;
   onIniciar: () => void;
   onAjustes: () => void;
   onPrepararOtraVez: () => void;
@@ -35,7 +42,23 @@ export default function AntesDeIniciar(p: Props) {
   return (
     <View style={estilos.capa} pointerEvents="box-none">
       <View style={estilos.sobreVista} pointerEvents="box-none">
-        <Text style={estilos.etiqueta}>VISTA PREVIA · NADIE LO VE TODAVÍA</Text>
+        <View style={estilos.arriba} pointerEvents="box-none">
+          <Text style={estilos.etiqueta}>VISTA PREVIA · NADIE LO VE TODAVÍA</Text>
+          <Avisos
+            avisos={p.avisos}
+            conBoton={
+              p.noMolestar === false
+                ? {
+                    titulo: 'Active No molestar',
+                    detalle: 'Así una llamada no corta la transmisión. También: deslice desde arriba y toque «No molestar».',
+                    boton: 'Activar',
+                    etiquetaBoton: 'Abrir los ajustes de No molestar',
+                    onBoton: p.onActivarNoMolestar,
+                  }
+                : null
+            }
+          />
+        </View>
         <View style={estilos.avisos} pointerEvents="box-none">
           {p.terminada ? <Text style={[estilos.aviso, estilos.avisoBien]}>La transmisión terminó.</Text> : null}
           {p.mensaje ? (
@@ -100,6 +123,7 @@ const estilos = StyleSheet.create({
     padding: 10,
     justifyContent: 'space-between',
   },
+  arriba: { gap: 6 },
   etiqueta: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(6, 18, 36, 0.82)',

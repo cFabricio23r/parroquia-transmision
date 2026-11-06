@@ -108,3 +108,37 @@ export function actualizarEstado(json: string): void {
   // Sin capa todavía (antes de prepararVista) el nativo lo guarda igual; un error no corta nada.
   Modulo.actualizarEstado(json).catch(() => undefined);
 }
+
+// --- Tarea 9: avisos, registro de rendimiento y No molestar ---
+
+export type { MedidaNativa } from './src/TransmisorModule';
+
+/** Estado térmico, temperatura de la batería, memoria y fps (para los avisos y el registro). */
+export function medir() {
+  return Modulo.medir();
+}
+
+export function abrirRegistro(nombre: string, encabezado: string): Promise<void> {
+  return Modulo.abrirRegistro(nombre, encabezado);
+}
+
+export function anotarRegistro(linea: string): Promise<void> {
+  return Modulo.anotarRegistro(linea);
+}
+
+export function cerrarRegistro(): Promise<void> {
+  return Modulo.cerrarRegistro();
+}
+
+/** Ruta del registro más nuevo (para compartirlo), o null si todavía no hay. */
+export function ultimoRegistro(): Promise<string | null> {
+  return Modulo.ultimoRegistro();
+}
+
+export function noMolestarActivo(): Promise<boolean | null> {
+  return Modulo.noMolestarActivo();
+}
+
+export function abrirNoMolestar(): Promise<boolean> {
+  return Modulo.abrirNoMolestar();
+}

@@ -55,9 +55,16 @@ object Motor : ConnectChecker {
   // stopStream() baja isStreaming en el acto, pero RtmpClient termina de cerrar en otro
   // hilo; un connect() en esa ventana no hace nada. Hasta onDisconnect, iniciar() rechaza.
   private var cerrando = false
-  private var url: String? = null
-  private var clave: String? = null
+  // @Volatile: Registro (otro hilo) los mira con contieneSecreto().
+  @Volatile private var url: String? = null
+  @Volatile private var clave: String? = null
   private var muestrasFps = 0
+  // Contexto de la app (para el servicio y el estado térmico). Se guarda en prepararVista.
+  private var contexto: Context? = null
+
+  /** Últimos fps que informó RootEncoder (uno por segundo). Para el registro de rendimiento. */
+  @Volatile var fpsVideo: Int? = null
+    private set
 
   private val principal = Handler(Looper.getMainLooper())
   private val liberarCierre = Runnable { cerrando = false }
@@ -71,6 +78,7 @@ object Motor : ConnectChecker {
     s.getStreamClient().setReTries(REINTENTOS)
     s.setFpsListener(object : FpsListener.Callback {
       override fun onFps(fps: Int) {
+        fpsVideo = fps
         // Una línea cada 10 s, para comprobar la vista previa por logcat.
         if (muestrasFps++ % 10 == 0) Log.w(TAG, "fps=$fps")
       }
@@ -80,6 +88,7 @@ object Motor : ConnectChecker {
   }
 
   fun prepararVista(ctx: Context, calidad: String, microfono: String) {
+    contexto = ctx.applicationContext
     val s = obtener(ctx)
     if (s.isStreaming) throw IllegalStateException("No se puede cambiar la calidad durante la transmisión.")
     if (s.isOnPreview) {
@@ -163,6 +172,8 @@ object Motor : ConnectChecker {
     conectado = false
     reintentoPendiente = false
     Log.w(TAG, "iniciando transmision")
+    // Con la app en primer plano y antes de salir al aire (Tarea 1, punto 7).
+    contexto?.let { ServicioTransmision.arrancar(it) }
     s.startStream(urlCompleta)
     // Sin vista previa, startStream arranca el GL: la capa tiene que ir también en el video.
     Capa.asegurarFiltro(s)
@@ -198,6 +209,8 @@ object Motor : ConnectChecker {
    * los codificadores (stopStream → prepareEncoders); entonces hay que preparar de nuevo.
    */
   private fun soltar(): Boolean {
+    // El servicio en primer plano se para siempre que se deja el aire (terminar o corte).
+    contexto?.let { ServicioTransmision.parar(it) }
     val s = stream ?: return true
     if (!s.isStreaming) return true
     cerrando = true
@@ -214,7 +227,8 @@ object Motor : ConnectChecker {
   }
 
   private fun emitir(conexion: String, motivo: String?, kbps: Double?) {
-    alEvento?.invoke(mapOf("conexion" to conexion, "motivo" to motivo, "kbps" to kbps))
+    val termico = contexto?.let { Sistema.termico(it) }
+    alEvento?.invoke(mapOf("conexion" to conexion, "motivo" to motivo, "kbps" to kbps, "termico" to termico))
   }
 
   /**
@@ -236,6 +250,9 @@ object Motor : ConnectChecker {
     }
     return r
   }
+
+  /** true si el texto tiene la URL o la clave de la transmisión en curso (defensa del registro). */
+  fun contieneSecreto(texto: String): Boolean = redactar(texto) != texto
 
   /** Clasifica el motivo de RootEncoder. «clave» y «servidor» no se reintentan. */
   fun clasificar(motivo: String): String = when {

@@ -11,6 +11,10 @@ interface Props {
   segundos: number;
   cuentaFinal: number | null;
   mbps: number | null;
+  /** De 0 a 1 (expo-battery); null o negativo si no se sabe. */
+  bateria?: number | null;
+  /** Temperatura de la batería, °C. */
+  temperatura?: number | null;
   ajustesDisponible: boolean;
   onAjustes: () => void;
   onTerminar: () => void;
@@ -33,6 +37,14 @@ function Pastilla(p: { fondo: string; punto: string; etiqueta: string; detalle?:
       ) : null}
     </View>
   );
+}
+
+// «Batería 78 % · 38 °C», como la pantalla 6 del lienzo. Sin datos, nada.
+function textoBateria(bateria?: number | null, temperatura?: number | null): string | null {
+  const partes: string[] = [];
+  if (typeof bateria === 'number' && Number.isFinite(bateria) && bateria >= 0) partes.push(`Batería ${Math.round(bateria * 100)} %`);
+  if (typeof temperatura === 'number' && Number.isFinite(temperatura)) partes.push(`${Math.round(temperatura)} °C`);
+  return partes.length > 0 ? partes.join(' · ') : null;
 }
 
 export default function BarraSuperior(p: Props) {
@@ -98,6 +110,9 @@ export default function BarraSuperior(p: Props) {
       </View>
       <View style={estilos.relleno} />
       <Text style={estilos.dato}>Subida {formatoMbps(reconectando ? null : p.mbps)}</Text>
+      {textoBateria(p.bateria, p.temperatura) ? (
+        <Text style={estilos.dato}>{textoBateria(p.bateria, p.temperatura)}</Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Terminar la transmisión"

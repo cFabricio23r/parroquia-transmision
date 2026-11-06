@@ -306,6 +306,54 @@ describe('terminar', () => {
     expect(o.tienda.obtener().fase).toBe('terminado');
   });
 
+  it('m2: un terminar() que resuelve tarde, con un iniciar nuevo en el medio, no toca el arranque nuevo', async () => {
+    let soltarTerminar!: () => void;
+    const x = await enVivo({
+      terminar: jest.fn(
+        () =>
+          new Promise<void>((res) => {
+            soltarTerminar = res;
+          }),
+      ),
+    });
+    x.o.terminarAhora();
+    await vaciar();
+    jest.advanceTimersByTime(ESPERA_TERMINAR_MS);
+    expect(x.o.tienda.obtener().fase).toBe('terminado');
+    // Arranque nuevo mientras el terminar() viejo sigue colgado.
+    const fin = x.o.iniciar();
+    await vaciar();
+    expect(x.o.tienda.obtener().fase).toBe('iniciando');
+    const oyente = jest.fn();
+    x.o.tienda.suscribir(oyente);
+    soltarTerminar();
+    await vaciar();
+    expect(oyente).not.toHaveBeenCalled();
+    expect(x.o.tienda.obtener().fase).toBe('iniciando');
+    x.escenas[1].resolver();
+    await vaciar();
+    expect(x.d.iniciar).toHaveBeenCalledTimes(2);
+    x.inicios[1].resolver();
+    await fin;
+    x.o.alEvento({ conexion: 'conectado', mbps: 2, mensaje: null, motivo: null });
+    expect(x.o.tienda.obtener().fase).toBe('en_vivo');
+    expect(x.d.terminar).toHaveBeenCalledTimes(1);
+  });
+
+  it('m3: si terminar() lanza de forma síncrona, el despacho no falla y pasa a terminado', async () => {
+    const { o } = await enVivo({
+      terminar: jest.fn(() => {
+        throw new Error('síncrono');
+      }),
+    });
+    const oyente = jest.fn();
+    o.tienda.suscribir(oyente);
+    expect(() => o.terminarAhora()).not.toThrow();
+    expect(oyente).toHaveBeenCalled();
+    await vaciar();
+    expect(o.tienda.obtener().fase).toBe('terminado');
+  });
+
   it('un corte que vuelve a preparando llama a terminar() pero no despacha terminado', async () => {
     const { o, d } = await enVivo();
     o.alEvento({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.agotado, motivo: 'agotado' });
