@@ -1,6 +1,8 @@
 // API del transmisor (cámara a Facebook por RTMPS).
 import type { Calidad, Microfono } from '../../src/ajustes/ajustes';
 import Modulo from './src/TransmisorModule';
+import type { Escena } from '../../src/estado/transmision';
+import { crearColaEscenas } from './src/escenas';
 import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from './src/eventos';
 
 export { default as VistaTransmisor } from './src/TransmisorView';
@@ -50,8 +52,12 @@ export async function iniciar(servidor: string, clave: string): Promise<void> {
   // La espera se arma antes de llamar al nativo: «conectado» puede llegar antes de que resuelva.
   espera = setTimeout(() => {
     espera = null;
-    Modulo.terminar().catch(() => undefined);
-    avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta });
+    // Se espera a que el nativo termine antes de avisar el corte: los eventos y la respuesta
+    // salen en orden por el hilo principal, así que un «conectado» tardío llega antes y el
+    // «cortado» queda último (review N1).
+    void Modulo.terminar()
+      .catch(() => undefined)
+      .then(() => avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta }));
   }, ESPERA_INICIO_MS);
   try {
     await Modulo.iniciar(url, clave.trim());
@@ -70,4 +76,30 @@ export function addEstadoListener(cb: (e: EventoEstado) => void): { remove(): vo
   asegurarSuscripcion();
   oyentes.add(cb);
   return { remove: () => oyentes.delete(cb) };
+}
+
+// La escena actual la sabe el nativo (Capa.kt): si el JS se recarga, la capa sigue como estaba.
+// Por eso la cola empieza sin escena conocida y el primer pedido siempre va al nativo, que
+// responde enseguida si ya se ve esa escena.
+const cola = crearColaEscenas((escena) => Modulo.cambiarEscena(escena), null);
+
+/**
+ * Cambia la escena de la capa con la transición del logo. Resuelve al terminar la transición.
+ * Si llegan pedidos mientras corre una, se hace solo el último.
+ */
+export function cambiarEscena(escena: Escena): Promise<void> {
+  return cola.pedir(escena);
+}
+
+let ultimoEstado: string | null = null;
+
+/**
+ * Pasa el estado del panel (JSON de parroquia_obs_estado_v1) a las escenas de la capa.
+ * Si es igual al último enviado no hace nada (el puente lo lee cada 300 ms).
+ */
+export function actualizarEstado(json: string): void {
+  if (json === ultimoEstado) return;
+  ultimoEstado = json;
+  // Sin capa todavía (antes de prepararVista) el nativo lo guarda igual; un error no corta nada.
+  Modulo.actualizarEstado(json).catch(() => undefined);
 }

@@ -9,6 +9,8 @@ function cargar() {
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
+    cambiarEscena: jest.fn((_escena: string) => Promise.resolve()),
+    actualizarEstado: jest.fn((_json: string) => Promise.resolve()),
     addListener: jest.fn((_nombre: string, cb: (n: Nativo) => void) => {
       alEvento = cb;
       return { remove: jest.fn() };
@@ -20,6 +22,11 @@ function cargar() {
   const api = require('./index') as typeof import('./index');
   const emitir = (n: Nativo) => alEvento?.(n);
   return { api, modulo, emitir };
+}
+
+// Deja correr las promesas ya resueltas (con temporizadores falsos).
+async function vaciarMicrotareas() {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
 }
 
 beforeEach(() => {
@@ -86,6 +93,7 @@ describe('tiempo máximo de inicio', () => {
     expect(cb).not.toHaveBeenCalled();
     jest.advanceTimersByTime(1);
     expect(modulo.terminar).toHaveBeenCalled();
+    await vaciarMicrotareas();
     expect(cb).toHaveBeenCalledWith({
       conexion: 'cortado',
       mbps: null,
@@ -138,5 +146,85 @@ describe('tiempo máximo de inicio', () => {
     jest.advanceTimersByTime(60_000);
     expect(modulo.terminar).not.toHaveBeenCalled();
     expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe('tiempo máximo de inicio: «conectado» tardío (review N1)', () => {
+  it('un «conectado» que llega mientras se termina queda antes del «cortado»: gana el corte', async () => {
+    const { api, modulo, emitir } = cargar();
+    let soltar: () => void = () => undefined;
+    modulo.terminar.mockImplementationOnce(() => new Promise<void>((r) => (soltar = r)));
+    const vistos: string[] = [];
+    api.addEstadoListener((e) => vistos.push(e.conexion));
+    await api.iniciar('rtmps://x.com/rtmp/', CLAVE);
+    jest.advanceTimersByTime(20_000);
+    // El nativo emitió «conectado» justo antes de procesar terminar().
+    emitir({ conexion: 'conectado', motivo: null, kbps: null });
+    soltar();
+    await vaciarMicrotareas();
+    expect(vistos).toEqual(['conectado', 'cortado']);
+  });
+
+  it('si terminar() falla al vencer la espera, igual se avisa el corte', async () => {
+    const { api, modulo } = cargar();
+    modulo.terminar.mockImplementationOnce(() => Promise.reject(new Error('x')));
+    const cb = jest.fn();
+    api.addEstadoListener(cb);
+    await api.iniciar('rtmps://x.com/rtmp/', CLAVE);
+    jest.advanceTimersByTime(20_000);
+    await vaciarMicrotareas();
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ conexion: 'cortado' }));
+  });
+});
+
+describe('cambiarEscena', () => {
+  it('llama al nativo y resuelve cuando termina la transición', async () => {
+    const { api, modulo } = cargar();
+    await api.cambiarEscena('inicio');
+    expect(modulo.cambiarEscena).toHaveBeenCalledWith('inicio');
+  });
+
+  it('tres pedidos seguidos: el nativo recibe el primero y el último', async () => {
+    const { api, modulo } = cargar();
+    const fines: Array<() => void> = [];
+    modulo.cambiarEscena.mockImplementation(() => new Promise<void>((r) => fines.push(r)));
+    const todos = Promise.all([api.cambiarEscena('inicio'), api.cambiarEscena('portada'), api.cambiarEscena('gracias')]);
+    await vaciarMicrotareas();
+    fines[0]();
+    await vaciarMicrotareas();
+    fines[1]();
+    await todos;
+    expect(modulo.cambiarEscena.mock.calls.map((c) => c[0])).toEqual(['inicio', 'gracias']);
+  });
+
+  it('el primer pedido va siempre al nativo (tras recargar el JS el nativo manda)', async () => {
+    const { api, modulo } = cargar();
+    await api.cambiarEscena('camara');
+    expect(modulo.cambiarEscena).toHaveBeenCalledWith('camara');
+  });
+
+  it('pedir otra vez la escena que ya se ve no llama al nativo', async () => {
+    const { api, modulo } = cargar();
+    await api.cambiarEscena('inicio');
+    await api.cambiarEscena('inicio');
+    expect(modulo.cambiarEscena).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('actualizarEstado', () => {
+  it('pasa el JSON tal cual al nativo (el escape lo hace el nativo con JSONObject.quote)', () => {
+    const { api, modulo } = cargar();
+    const json = JSON.stringify({ tipo: 'horasanta', texto: "comillas ' \" y </script>" });
+    api.actualizarEstado(json);
+    expect(modulo.actualizarEstado).toHaveBeenCalledWith(json);
+  });
+
+  it('el mismo estado dos veces seguidas no vuelve a llamar al nativo', () => {
+    const { api, modulo } = cargar();
+    api.actualizarEstado('{"a":1}');
+    api.actualizarEstado('{"a":1}');
+    api.actualizarEstado('{"a":2}');
+    api.actualizarEstado('{"a":1}');
+    expect(modulo.actualizarEstado.mock.calls.map((c) => c[0])).toEqual(['{"a":1}', '{"a":2}', '{"a":1}']);
   });
 });

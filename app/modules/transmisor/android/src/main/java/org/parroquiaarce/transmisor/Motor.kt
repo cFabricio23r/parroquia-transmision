@@ -82,7 +82,11 @@ object Motor : ConnectChecker {
   fun prepararVista(ctx: Context, calidad: String, microfono: String) {
     val s = obtener(ctx)
     if (s.isStreaming) throw IllegalStateException("No se puede cambiar la calidad durante la transmisión.")
-    if (s.isOnPreview) s.stopPreview()
+    if (s.isOnPreview) {
+      s.stopPreview()
+      // Sin transmisión, stopPreview para el GL y RootEncoder suelta los filtros.
+      Capa.filtroPerdido()
+    }
     // Bitrates dentro de los rangos de Facebook a 30 fps (Live Video API reference):
     // 720p 1500–4000 kbps, 1080p 3000–6000 kbps; audio AAC 128 kbps, keyframe 2 s.
     val (ancho, alto, bitrate) =
@@ -126,7 +130,10 @@ object Motor : ConnectChecker {
     superficie = null
     val s = stream ?: return
     // Durante la transmisión, stopPreview solo suelta la superficie; la cámara sigue.
-    if (s.isOnPreview) s.stopPreview()
+    if (s.isOnPreview) {
+      s.stopPreview()
+      if (!s.isStreaming) Capa.filtroPerdido()
+    }
   }
 
   private fun arrancarVistaSiSePuede() {
@@ -134,6 +141,8 @@ object Motor : ConnectChecker {
     val sv = superficie ?: return
     if (!preparado || s.isOnPreview || !sv.holder.surface.isValid) return
     s.startPreview(sv)
+    // RootEncoder suelta los filtros al parar el GL: se vuelve a poner la capa.
+    Capa.asegurarFiltro(s)
     Log.w(TAG, "vista previa iniciada")
   }
 
@@ -155,6 +164,8 @@ object Motor : ConnectChecker {
     reintentoPendiente = false
     Log.w(TAG, "iniciando transmision")
     s.startStream(urlCompleta)
+    // Sin vista previa, startStream arranca el GL: la capa tiene que ir también en el video.
+    Capa.asegurarFiltro(s)
   }
 
   fun terminar() {
@@ -193,6 +204,8 @@ object Motor : ConnectChecker {
     principal.removeCallbacks(liberarCierre)
     principal.postDelayed(liberarCierre, MAX_CIERRE_MS)
     val ok = s.stopStream()
+    // Sin vista previa, stopStream también para el GL y suelta los filtros.
+    if (!s.isOnPreview) Capa.filtroPerdido()
     if (!ok) {
       preparado = false
       Log.w(TAG, "stopStream no pudo volver a preparar los codificadores")

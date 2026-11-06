@@ -1,20 +1,24 @@
-// PANTALLA DE PRUEBA TEMPORAL (Tarea 6): vista previa + Iniciar/Terminar + Ajustes.
+// PANTALLA DE PRUEBA TEMPORAL (Tareas 6 y 7): vista previa + Iniciar/Terminar + Ajustes,
+// la tira de 5 escenas y un estado de ejemplo de Hora Santa.
 // La reemplaza la pantalla real de transmisión en tareas siguientes.
 // La clave nunca se muestra ni se registra en consola.
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PermissionsAndroid, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PermissionsAndroid, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   ErrorTransmisor,
   EventoEstado,
   VistaTransmisor,
+  actualizarEstado,
   addEstadoListener,
+  cambiarEscena,
   iniciar,
   prepararVista,
   terminar,
 } from './modules/transmisor';
 import { leerAjustes, validar } from './src/ajustes/ajustes';
+import type { Escena } from './src/estado/transmision';
 import Ajustes from './src/pantallas/Ajustes';
 
 const C = {
@@ -28,6 +32,19 @@ const C = {
   verde: '#2fbf7a',
   ambar: '#f0b429',
 };
+
+const ESCENAS: { id: Escena; nombre: string }[] = [
+  { id: 'camara', nombre: 'Cámara' },
+  { id: 'inicio', nombre: 'Inicio' },
+  { id: 'portada', nombre: 'Portada' },
+  { id: 'avisos', nombre: 'Avisos' },
+  { id: 'gracias', nombre: 'Gracias' },
+];
+
+// Estado de ejemplo: Hora Santa con el rótulo «Oración» por 12 s (comun.js completa el resto).
+function estadoHoraSanta(ahora: number): string {
+  return JSON.stringify({ tipo: 'horasanta', rotulo: 'oracion', duracionSeg: 12, rotuloHasta: ahora + 12_000 });
+}
 
 type Fase = 'sin_permiso' | 'preparando' | 'lista' | 'iniciando' | 'al_aire';
 
@@ -54,6 +71,9 @@ export default function App() {
   const [fase, setFase] = useState<Fase>('preparando');
   const [estado, setEstado] = useState<EventoEstado | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // La escena pedida por última vez y si hay una transición corriendo.
+  const [escena, setEscena] = useState<Escena>('camara');
+  const [cambiando, setCambiando] = useState(0);
   const faseRef = useRef(fase);
   faseRef.current = fase;
 
@@ -108,6 +128,14 @@ export default function App() {
     }
   }
 
+  function alEscena(e: Escena) {
+    setEscena(e);
+    setCambiando((n) => n + 1);
+    cambiarEscena(e)
+      .catch(() => setAviso('No se pudo cambiar la escena.'))
+      .finally(() => setCambiando((n) => n - 1));
+  }
+
   async function alTerminar() {
     try {
       await terminar();
@@ -143,7 +171,7 @@ export default function App() {
   return (
     <View style={estilos.raiz}>
       <VistaTransmisor style={estilos.vista} />
-      <View style={estilos.panel}>
+      <ScrollView style={estilos.panel} contentContainerStyle={estilos.panelContenido}>
         <Text style={estilos.titulo}>Prueba de transmisión</Text>
         <View style={estilos.caja} accessibilityLiveRegion="polite">
           <Text style={[estilos.estado, { color: colorConexion }]}>{textoConexion}</Text>
@@ -205,7 +233,34 @@ export default function App() {
             <Text style={estilos.botonTexto}>Reintentar permisos</Text>
           </Pressable>
         ) : null}
-      </View>
+        <Text style={estilos.dato} accessibilityLiveRegion="polite">
+          Escena: {ESCENAS.find((x) => x.id === escena)?.nombre}
+          {cambiando > 0 ? ' · cambiando…' : ''}
+        </Text>
+        <View style={estilos.fila}>
+          {ESCENAS.map((x) => (
+            <Pressable
+              key={x.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Escena ${x.nombre}`}
+              accessibilityState={{ selected: escena === x.id }}
+              disabled={fase === 'sin_permiso' || fase === 'preparando'}
+              onPress={() => alEscena(x.id)}
+              style={[estilos.botonEscena, escena === x.id && estilos.elegida]}
+            >
+              <Text style={estilos.escenaTexto}>{x.nombre}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Estado de ejemplo: Hora Santa con rótulo Oración por 12 segundos"
+          onPress={() => actualizarEstado(estadoHoraSanta(Date.now()))}
+          style={estilos.boton}
+        >
+          <Text style={estilos.botonTexto}>Ejemplo Hora Santa (Oración 12 s)</Text>
+        </Pressable>
+      </ScrollView>
       <StatusBar hidden />
     </View>
   );
@@ -214,7 +269,20 @@ export default function App() {
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: C.fondo, flexDirection: 'row', padding: 12, gap: 12, alignItems: 'center' },
   vista: { width: 448, height: 252, backgroundColor: '#000' },
-  panel: { flex: 1, gap: 10 },
+  panel: { flex: 1, alignSelf: 'stretch' },
+  panelContenido: { gap: 10, paddingVertical: 4 },
+  botonEscena: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 10,
+    backgroundColor: C.boton,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  elegida: { backgroundColor: '#1a3f75', borderColor: '#3d9be0' },
+  escenaTexto: { color: C.texto, fontSize: 13, fontWeight: '800' },
   titulo: { color: C.texto, fontSize: 18, fontWeight: '800' },
   caja: { backgroundColor: C.caja, borderRadius: 12, padding: 12, gap: 4 },
   estado: { fontSize: 20, fontWeight: '900' },
