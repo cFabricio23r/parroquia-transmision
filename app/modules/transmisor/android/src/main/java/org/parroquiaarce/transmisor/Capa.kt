@@ -97,7 +97,12 @@ object Capa {
     val f = filtro
     if (f != null && !f.liberado) return
     val nuevo = FiltroCapa(c)
-    stream.getGlInterface().addFilter(nuevo)
+    // Si la vista previa se rehízo a mitad de una transición, seguir copiando cada cuadro (review M1).
+    nuevo.continuo = destino != null
+    // setFilter y no addFilter: si RootEncoder no llegó a soltar el filtro viejo (su release puede
+    // descartarse si el hilo de GL tarda más de 100 ms), lo reemplaza en vez de dejar dos (review M2).
+    // La capa es el único filtro.
+    stream.getGlInterface().setFilter(nuevo)
     filtro = nuevo
     Log.w(TAG, "capa: filtro agregado")
   }
@@ -112,17 +117,26 @@ object Capa {
     filtro = null
   }
 
+  /** Suelta la capa. Se puede llamar desde cualquier hilo: el trabajo se hace en el principal (review M4). */
   fun liberar() {
+    if (Looper.myLooper() == Looper.getMainLooper()) liberarEnPrincipal() else h.post { liberarEnPrincipal() }
+  }
+
+  private fun liberarEnPrincipal() {
     h.removeCallbacksAndMessages(null)
     filtro?.soltarOyentes()
     filtro = null
+    // La promesa de una transición en curso se resuelve, para que el JS nunca quede esperando.
     terminarTransicion(resolver = true)
+    // Primero se sacan de la jerarquía y después se destruyen (como en quitarEscena).
+    val c = contenedor
+    (c?.parent as? ViewGroup)?.removeView(c)
+    c?.removeAllViews()
     vistas.values.forEach { it.destroy() }
     vistas.clear()
     cargadas.clear()
     transicion?.destroy()
     transicion = null
-    (contenedor?.parent as? ViewGroup)?.removeView(contenedor)
     contenedor = null
     actual = "camara"
   }

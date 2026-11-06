@@ -165,6 +165,21 @@ describe('tiempo máximo de inicio: «conectado» tardío (review N1)', () => {
     expect(vistos).toEqual(['conectado', 'cortado']);
   });
 
+  it('un iniciar() nuevo durante el terminar() del timeout no recibe el «cortado» viejo (review M8)', async () => {
+    const { api, modulo } = cargar();
+    let soltar: () => void = () => undefined;
+    modulo.terminar.mockImplementationOnce(() => new Promise<void>((r) => (soltar = r)));
+    const cb = jest.fn();
+    api.addEstadoListener(cb);
+    await api.iniciar('rtmps://x.com/rtmp/', CLAVE);
+    jest.advanceTimersByTime(20_000);
+    // Antes de que termine el terminar() del timeout, el operador vuelve a iniciar.
+    await api.iniciar('rtmps://x.com/rtmp/', CLAVE);
+    soltar();
+    await vaciarMicrotareas();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
   it('si terminar() falla al vencer la espera, igual se avisa el corte', async () => {
     const { api, modulo } = cargar();
     modulo.terminar.mockImplementationOnce(() => Promise.reject(new Error('x')));

@@ -25,6 +25,11 @@ function opcion(nombre, porDefecto) {
 
 const minutos = Number(opcion('minutos', '30'));
 const cada = Number(opcion('cada', '5'));
+// Con un número inválido, setInterval(…, NaN) llamaría a adb sin parar (review M10).
+if (!(minutos > 0) || !(cada > 0)) {
+  console.error('Uso: node scripts/medir-calor.js --minutos <número > 0> --cada <número > 0> [--salida archivo]');
+  process.exit(1);
+}
 const salida = opcion('salida', `calor-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`);
 
 function adb(...args) {

@@ -15,6 +15,8 @@ export const ESPERA_INICIO_MS = 20_000;
 const oyentes = new Set<(e: EventoEstado) => void>();
 let suscripcion: { remove(): void } | null = null;
 let espera: ReturnType<typeof setTimeout> | null = null;
+// Cuenta los inicios: el «cortado» de un timeout viejo no debe llegar a un inicio nuevo (review M8).
+let intentos = 0;
 
 function avisar(e: EventoEstado) {
   for (const cb of [...oyentes]) cb(e);
@@ -49,6 +51,7 @@ export async function iniciar(servidor: string, clave: string): Promise<void> {
   const url = armarUrl(servidor, clave);
   asegurarSuscripcion();
   cancelarEspera();
+  const intento = ++intentos;
   // La espera se arma antes de llamar al nativo: «conectado» puede llegar antes de que resuelva.
   espera = setTimeout(() => {
     espera = null;
@@ -57,7 +60,9 @@ export async function iniciar(servidor: string, clave: string): Promise<void> {
     // «cortado» queda último (review N1).
     void Modulo.terminar()
       .catch(() => undefined)
-      .then(() => avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta }));
+      .then(() => {
+        if (intento === intentos) avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta });
+      });
   }, ESPERA_INICIO_MS);
   try {
     await Modulo.iniciar(url, clave.trim());

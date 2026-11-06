@@ -26,13 +26,17 @@ export function crearColaEscenas(
   function correr(escena: Escena, esperas: Espera[]) {
     destino = escena;
     enCurso = esperas;
-    ejecutar(escena).then(
-      () => {
-        actual = escena;
-        terminar(null);
-      },
-      (e: unknown) => terminar(e),
-    );
+    // Envuelto en una promesa: si ejecutar lanza de forma síncrona (p. ej. una función nativa
+    // que no existe en un APK viejo), se toma como falla y la cola sigue (review I1).
+    Promise.resolve()
+      .then(() => ejecutar(escena))
+      .then(
+        () => {
+          actual = escena;
+          terminar(null);
+        },
+        (e: unknown) => terminar(e),
+      );
   }
 
   function terminar(error: unknown) {

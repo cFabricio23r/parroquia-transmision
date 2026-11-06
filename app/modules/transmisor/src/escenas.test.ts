@@ -131,4 +131,68 @@ describe('crearColaEscenas', () => {
     await p2;
     expect(cola.actual()).toBe('camara');
   });
+
+  it('si ejecutar lanza de forma síncrona, ese pedido rechaza y la cola sigue (review I1)', async () => {
+    const llamadas: Array<{ escena: string; fin: () => void }> = [];
+    let primera = true;
+    const ejecutar = jest.fn((escena: string) => {
+      if (primera) {
+        primera = false;
+        throw new TypeError('not a function');
+      }
+      return new Promise<void>((fin) => llamadas.push({ escena, fin: () => fin() }));
+    });
+    const cola = crearColaEscenas(ejecutar, 'camara');
+    await expect(cola.pedir('inicio')).rejects.toThrow('not a function');
+    const p2 = cola.pedir('gracias');
+    await vaciar();
+    expect(ejecutar).toHaveBeenLastCalledWith('gracias');
+    llamadas[0].fin();
+    await expect(p2).resolves.toBeUndefined();
+    expect(cola.actual()).toBe('gracias');
+  });
+
+  it('un throw síncrono al encadenar el pendiente no deja esperas colgadas', async () => {
+    const llamadas: Array<() => void> = [];
+    let n = 0;
+    const ejecutar = jest.fn((_escena: string) => {
+      n++;
+      if (n === 2) throw new Error('sync');
+      return new Promise<void>((fin) => llamadas.push(() => fin()));
+    });
+    const cola = crearColaEscenas(ejecutar, 'camara');
+    const p1 = cola.pedir('inicio');
+    const p2 = cola.pedir('gracias');
+    await vaciar();
+    llamadas[0]();
+    await expect(p1).resolves.toBeUndefined();
+    await expect(p2).rejects.toThrow('sync');
+    expect(cola.actual()).toBe('inicio');
+  });
+
+  it('una falla en la transición que absorbió pedidos rechaza a todos', async () => {
+    const { cola, ejecutar, llamadas } = armar();
+    const p1 = cola.pedir('inicio');
+    const p2 = cola.pedir('portada');
+    const p3 = cola.pedir('inicio');
+    await vaciar();
+    llamadas[0].falla(new Error('nativo'));
+    await expect(p1).rejects.toThrow('nativo');
+    await expect(p2).rejects.toThrow('nativo');
+    await expect(p3).rejects.toThrow('nativo');
+    expect(ejecutar).toHaveBeenCalledTimes(1);
+    expect(cola.actual()).toBe('camara');
+  });
+
+  it('una falla con el pendiente igual a la escena actual resuelve el pendiente sin llamar al nativo', async () => {
+    const { cola, ejecutar, llamadas } = armar('camara');
+    const p1 = cola.pedir('inicio');
+    const p2 = cola.pedir('camara');
+    await vaciar();
+    llamadas[0].falla(new Error('nativo'));
+    await expect(p1).rejects.toThrow('nativo');
+    await expect(p2).resolves.toBeUndefined();
+    expect(ejecutar).toHaveBeenCalledTimes(1);
+    expect(cola.actual()).toBe('camara');
+  });
 });
