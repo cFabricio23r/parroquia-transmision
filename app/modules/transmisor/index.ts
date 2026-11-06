@@ -61,7 +61,7 @@ export async function iniciar(servidor: string, clave: string): Promise<void> {
     void Modulo.terminar()
       .catch(() => undefined)
       .then(() => {
-        if (intento === intentos) avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta });
+        if (intento === intentos) avisar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.sinRespuesta, motivo: 'sin_respuesta' });
       });
   }, ESPERA_INICIO_MS);
   try {

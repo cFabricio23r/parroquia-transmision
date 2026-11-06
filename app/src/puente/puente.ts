@@ -26,6 +26,18 @@ true;`;
 export const SCRIPT_IR_A_EN_VIVO =
   "(function () { var b = document.getElementById('tab-vivo'); if (b) b.click(); })(); true;";
 
+/** Al terminar, el panel vuelve a Preparar, listo para la próxima transmisión (spec, pantalla 1). */
+export const SCRIPT_IR_A_PREPARAR =
+  "(function () { var b = document.getElementById('tab-preparar'); if (b) b.click(); })(); true;";
+
+/** Las páginas propias de la app: todo lo demás se bloquea o se ignora. */
+export const ORIGEN_PANEL = 'file:///android_asset/';
+
+/** true si el mensaje viene de una página de la app (defensa extra: no se carga ninguna otra). */
+export function esDelPanel(url: string | undefined): boolean {
+  return typeof url === 'string' && url.startsWith(ORIGEN_PANEL);
+}
+
 const ESCENAS: readonly Escena[] = ['camara', 'inicio', 'portada', 'avisos', 'gracias'];
 
 /** Le dice al panel en qué escena está la app: fuera de Cámara bloquea los rótulos (Tarea 2b). */

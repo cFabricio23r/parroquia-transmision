@@ -71,7 +71,7 @@ describe('addEstadoListener', () => {
     const cb = jest.fn();
     api.addEstadoListener(cb);
     emitir({ conexion: 'conectado', motivo: null, kbps: 3000 });
-    expect(cb).toHaveBeenCalledWith({ conexion: 'conectado', mbps: 3, mensaje: null });
+    expect(cb).toHaveBeenCalledWith({ conexion: 'conectado', mbps: 3, mensaje: null, motivo: null });
   });
 
   it('remove deja de avisar', () => {
@@ -98,6 +98,7 @@ describe('tiempo máximo de inicio', () => {
       conexion: 'cortado',
       mbps: null,
       mensaje: 'Facebook no respondió. Revise internet y vuelva a transmitir.',
+      motivo: 'sin_respuesta',
     });
   });
 

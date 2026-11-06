@@ -17,13 +17,20 @@ interface Props {
   onCancelar: () => void;
 }
 
-function Pastilla({ fondo, punto, texto }: { fondo: string; punto: string; texto: string }) {
+// La etiqueta (EN VIVO, RECONECTANDO…) es una región en vivo: TalkBack anuncia solo los cambios
+// de estado. El detalle (el reloj o la cuenta) cambia cada segundo y queda afuera (review M3).
+function Pastilla(p: { fondo: string; punto: string; etiqueta: string; detalle?: string }) {
   return (
-    <View style={[estilos.pastilla, { backgroundColor: fondo }]}>
-      <View style={[estilos.punto, { backgroundColor: punto }]} />
-      <Text style={estilos.pastillaTexto} numberOfLines={1}>
-        {texto}
+    <View style={[estilos.pastilla, { backgroundColor: p.fondo }]}>
+      <View style={[estilos.punto, { backgroundColor: p.punto }]} />
+      <Text style={estilos.pastillaTexto} numberOfLines={1} accessibilityLiveRegion="polite">
+        {p.etiqueta}
       </Text>
+      {p.detalle ? (
+        <Text style={estilos.pastillaTexto} numberOfLines={1}>
+          {p.detalle}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -34,7 +41,7 @@ export default function BarraSuperior(p: Props) {
   if (p.fase === 'preparando' || p.fase === 'terminado') {
     return (
       <View style={estilos.barra}>
-        <Pastilla fondo={C.boton} punto={C.suave} texto="SIN TRANSMITIR" />
+        <Pastilla fondo={C.boton} punto={C.suave} etiqueta="SIN TRANSMITIR" />
         <Text style={estilos.parroquia} numberOfLines={1}>
           Parroquia Inmaculada Concepción de María
         </Text>
@@ -55,7 +62,7 @@ export default function BarraSuperior(p: Props) {
   if (p.fase === 'iniciando') {
     return (
       <View style={estilos.barra}>
-        <Pastilla fondo={C.boton} punto={C.ambar} texto="CONECTANDO…" />
+        <Pastilla fondo={C.boton} punto={C.ambar} etiqueta="CONECTANDO…" />
         <Text style={estilos.parroquia} numberOfLines={1}>
           Conectando con Facebook
         </Text>
@@ -73,17 +80,18 @@ export default function BarraSuperior(p: Props) {
 
   const reconectando = p.fase === 'reconectando';
   const terminando = p.fase === 'terminando';
-  const textoPastilla = terminando
-    ? p.cuentaFinal !== null && p.cuentaFinal > 0
-      ? `TERMINA EN ${p.cuentaFinal} s`
-      : 'TERMINANDO…'
-    : reconectando
-      ? `RECONECTANDO ${reloj}`
-      : `EN VIVO ${reloj}`;
+  const enCuenta = terminando && p.cuentaFinal !== null && p.cuentaFinal > 0;
+  const etiqueta = terminando ? (enCuenta ? 'TERMINA EN' : 'TERMINANDO…') : reconectando ? 'RECONECTANDO' : 'EN VIVO';
+  const detalle = terminando ? (enCuenta ? `${p.cuentaFinal} s` : undefined) : reloj;
 
   return (
-    <View style={estilos.barra} accessibilityLiveRegion="polite">
-      <Pastilla fondo={reconectando ? C.ambarFondo : C.rojo} punto={reconectando ? C.ambar : '#ffffff'} texto={textoPastilla} />
+    <View style={estilos.barra}>
+      <Pastilla
+        fondo={reconectando ? C.ambarFondo : C.rojo}
+        punto={reconectando ? C.ambar : '#ffffff'}
+        etiqueta={etiqueta}
+        detalle={detalle}
+      />
       <View style={estilos.facebook}>
         <View style={[estilos.puntoChico, { backgroundColor: reconectando ? C.ambar : C.verde }]} />
         <Text style={estilos.facebookTexto}>Facebook</Text>

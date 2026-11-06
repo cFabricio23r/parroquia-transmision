@@ -7,6 +7,8 @@ export type EventoEstado = {
   conexion: Conexion;
   mbps: number | null;
   mensaje: string | null;
+  /** El motivo del nativo ('clave', 'preparar', 'agotado'…); null si no hay. Para decidir, no para mostrar. */
+  motivo: string | null;
 };
 
 /** Lo que manda Kotlin en «onEstado». `motivo` solo se usa con 'reconectando' y 'cortado'. */
@@ -54,10 +56,12 @@ function aMbps(kbps: number | null): number | null {
 }
 
 export function aEventoEstado(n: EventoNativo): EventoEstado {
-  if (n.conexion === 'conectado') return { conexion: 'conectado', mbps: aMbps(n.kbps), mensaje: null };
-  if (n.conexion === 'reconectando') return { conexion: 'reconectando', mbps: null, mensaje: MENSAJES.reconectando };
+  if (n.conexion === 'conectado') return { conexion: 'conectado', mbps: aMbps(n.kbps), mensaje: null, motivo: null };
+  if (n.conexion === 'reconectando') {
+    return { conexion: 'reconectando', mbps: null, mensaje: MENSAJES.reconectando, motivo: n.motivo };
+  }
   const mensaje = (n.motivo !== null && POR_MOTIVO[n.motivo]) || MENSAJES.desconocido;
-  return { conexion: 'cortado', mbps: null, mensaje };
+  return { conexion: 'cortado', mbps: null, mensaje, motivo: n.motivo };
 }
 
 export type CodigoError = 'inseguro' | 'ocupado' | 'preparar' | 'otro';
@@ -88,5 +92,5 @@ export function traducirError(e: unknown): ErrorTransmisor {
 
 /** Corte por «no se pudo volver a preparar la cámara»: la pantalla vuelve a llamar a prepararVista(). */
 export function pideVolverAPreparar(e: EventoEstado): boolean {
-  return e.conexion === 'cortado' && e.mensaje === MENSAJES.preparar;
+  return e.conexion === 'cortado' && e.motivo === 'preparar';
 }

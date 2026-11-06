@@ -52,6 +52,7 @@ describe('aEventoEstado', () => {
       conexion: 'conectado',
       mbps: 2.5,
       mensaje: null,
+      motivo: null,
     });
   });
 
@@ -60,6 +61,7 @@ describe('aEventoEstado', () => {
       conexion: 'conectado',
       mbps: null,
       mensaje: null,
+      motivo: null,
     });
   });
 
@@ -68,12 +70,18 @@ describe('aEventoEstado', () => {
       conexion: 'reconectando',
       mbps: null,
       mensaje: MENSAJES.reconectando,
+      motivo: 'red',
     });
   });
 
   it('cortado por clave → mensaje de clave rechazada', () => {
     const e = aEventoEstado({ conexion: 'cortado', motivo: 'clave', kbps: null });
-    expect(e).toEqual({ conexion: 'cortado', mbps: null, mensaje: 'Facebook no aceptó la clave. Revísela en Ajustes.' });
+    expect(e).toEqual({
+      conexion: 'cortado',
+      mbps: null,
+      mensaje: 'Facebook no aceptó la clave. Revísela en Ajustes.',
+      motivo: 'clave',
+    });
   });
 
   it('cortado por reintentos agotados', () => {
@@ -150,5 +158,16 @@ describe('pideVolverAPreparar (review N3 de la Tarea 6)', () => {
     expect(pideVolverAPreparar(aEventoEstado({ conexion: 'cortado', motivo: null, kbps: null }))).toBe(false);
     expect(pideVolverAPreparar(aEventoEstado({ conexion: 'reconectando', motivo: 'preparar', kbps: null }))).toBe(false);
     expect(pideVolverAPreparar(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: 2500 }))).toBe(false);
+  });
+});
+
+describe('motivo en EventoEstado (review M6 de la Tarea 8)', () => {
+  it('el corte conserva el motivo del nativo', () => {
+    expect(aEventoEstado({ conexion: 'cortado', motivo: 'preparar', kbps: null }).motivo).toBe('preparar');
+    expect(aEventoEstado({ conexion: 'cortado', motivo: null, kbps: null }).motivo).toBeNull();
+  });
+  it('pideVolverAPreparar mira el motivo, no el texto', () => {
+    expect(pideVolverAPreparar({ conexion: 'cortado', mbps: null, mensaje: 'otro texto', motivo: 'preparar' })).toBe(true);
+    expect(pideVolverAPreparar({ conexion: 'cortado', mbps: null, mensaje: MENSAJES.preparar, motivo: null })).toBe(false);
   });
 });

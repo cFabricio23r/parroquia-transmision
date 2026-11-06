@@ -3,6 +3,8 @@ import {
   SCRIPT_IR_A_EN_VIVO,
   SCRIPT_PANEL,
   SCRIPT_ESCENA,
+  SCRIPT_IR_A_PREPARAR,
+  esDelPanel,
   leerMensaje,
 } from './puente';
 
@@ -105,5 +107,32 @@ describe('scripts del panel', () => {
 
   it('una escena desconocida no inyecta nada', () => {
     expect(SCRIPT_ESCENA("x'); alert(1); ('" as never)).not.toContain('fijarEscenaApp');
+  });
+});
+
+describe('volver a Preparar (review M9 de la Tarea 8)', () => {
+  it('toca la pestaña tab-preparar', () => {
+    expect(SCRIPT_IR_A_PREPARAR).toContain('tab-preparar');
+    expect(SCRIPT_IR_A_PREPARAR).toContain('click()');
+    expect(SCRIPT_IR_A_PREPARAR.trim().endsWith('true;')).toBe(true);
+  });
+  it('hace click en el botón con ese id, y no falla si no existe', () => {
+    const click = jest.fn();
+    const documento = { getElementById: (id: string) => (id === 'tab-preparar' ? { click } : null) };
+    new Function('document', SCRIPT_IR_A_PREPARAR)(documento);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(() => new Function('document', SCRIPT_IR_A_PREPARAR)({ getElementById: () => null })).not.toThrow();
+  });
+});
+
+describe('esDelPanel (review M2 de la Tarea 8)', () => {
+  it('acepta mensajes de páginas de la app', () => {
+    expect(esDelPanel('file:///android_asset/obs/panel.html?modo=app')).toBe(true);
+  });
+  it('rechaza cualquier otro origen o la falta de url', () => {
+    expect(esDelPanel('https://example.com/')).toBe(false);
+    expect(esDelPanel('file:///sdcard/panel.html')).toBe(false);
+    expect(esDelPanel('')).toBe(false);
+    expect(esDelPanel(undefined)).toBe(false);
   });
 });
