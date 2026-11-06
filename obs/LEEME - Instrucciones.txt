@@ -41,6 +41,8 @@ IMPORTANTE en cada una:
   Portada 8 de diciembre     pantalla.html?tipo=portada
   Avisos                     pantalla.html?tipo=avisos
   Gracias                    pantalla.html?tipo=gracias
+  Producción (claro)         produccion.html?estilo=claro
+  Producción (azul)          produccion.html?estilo=azul
   Misa (encima de la cámara) rotulos.html
 
   Ejemplo completo: https://parroquia-transmision.vercel.app/pantalla.html?tipo=inicio

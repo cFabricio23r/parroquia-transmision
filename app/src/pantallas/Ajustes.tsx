@@ -3,7 +3,7 @@
 // no Mbps, y no se mide el nivel del micrófono (no se halló cómo leerlo).
 // La clave nunca se registra en consola ni se muestra en claro.
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Network from 'expo-network';
 import * as Sharing from 'expo-sharing';
@@ -13,6 +13,7 @@ import {
   AJUSTES_INICIALES,
   Ajustes as TipoAjustes,
   Calidad,
+  EstiloFinal,
   Microfono,
   guardarAjustes,
   EstadoCarga,
@@ -74,8 +75,16 @@ const MICROFONOS: [Microfono, string][] = [
   ['celular', 'Del celular'],
   ['externo', 'Externo (USB-C)'],
 ];
+// Pantalla final «Producción» (Tarea 9d): A Claro o B Azul (el de por defecto).
+const ESTILOS_FINALES: [EstiloFinal, string][] = [
+  ['claro', 'Claro'],
+  ['azul', 'Azul'],
+];
 
 export default function Ajustes({ onVolver }: Props) {
+  // En vertical (Preparar, Tarea 9c) las dos columnas van una debajo de la otra.
+  const { width, height } = useWindowDimensions();
+  const vertical = height > width;
   const [a, setA] = useState<TipoAjustes>(AJUSTES_INICIALES);
   const [error, setError] = useState<{ campo: 'servidor' | 'clave'; mensaje: string } | null>(null);
   const [red, setRed] = useState<{ texto: string; color: string } | null>(null);
@@ -193,8 +202,8 @@ export default function Ajustes({ onVolver }: Props) {
         </View>
       )}
       {fallaGuardar && <Text style={estilos.error}>No se pudo guardar. Intente de nuevo.</Text>}
-      <ScrollView contentContainerStyle={estilos.cuerpo}>
-        <View style={estilos.columna}>
+      <ScrollView contentContainerStyle={[estilos.cuerpo, vertical && estilos.cuerpoVertical]}>
+        <View style={[estilos.columna, vertical && estilos.columnaVertical]}>
           <Text style={estilos.seccion}>DESTINO</Text>
           <View style={estilos.caja}>
             <Text style={estilos.cajaTitulo}>Facebook Live</Text>
@@ -209,9 +218,15 @@ export default function Ajustes({ onVolver }: Props) {
                 value={a.clave}
                 onChangeText={(t) => cambiar({ clave: t })}
                 onBlur={() => revisar({ ...a, clave: limpiarClave(a.clave) })}
-                style={[estilos.campo, { flexGrow: 1 }]}
+                style={[estilos.campo, estilos.campoAchicable]}
               />
-              <Pressable accessibilityRole="button" disabled={!editable} onPress={pegar} style={estilos.boton}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Pegar la clave"
+                disabled={!editable}
+                onPress={pegar}
+                style={[estilos.boton, estilos.botonFijo]}
+              >
                 <Text style={estilos.botonTexto}>Pegar</Text>
               </Pressable>
             </View>
@@ -237,7 +252,7 @@ export default function Ajustes({ onVolver }: Props) {
           </View>
         </View>
 
-        <View style={estilos.columna}>
+        <View style={[estilos.columna, vertical && estilos.columnaVertical]}>
           <Text style={estilos.seccion}>VIDEO Y AUDIO</Text>
           <View style={estilos.caja}>
             <Text style={estilos.etiqueta}>Calidad</Text>
@@ -250,6 +265,12 @@ export default function Ajustes({ onVolver }: Props) {
             <View accessibilityRole="radiogroup" accessibilityLabel="Micrófono" style={estilos.fila}>
               {MICROFONOS.map(([v, t]) => (
                 <Opcion key={v} etiqueta={t} activa={a.microfono === v} alPulsar={() => editable && cambiar({ microfono: v })} />
+              ))}
+            </View>
+            <Text style={estilos.etiqueta}>Pantalla final</Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Pantalla final" style={estilos.fila}>
+              {ESTILOS_FINALES.map(([v, t]) => (
+                <Opcion key={v} etiqueta={t} activa={a.estiloFinal === v} alPulsar={() => editable && cambiar({ estiloFinal: v })} />
               ))}
             </View>
           </View>
@@ -305,7 +326,10 @@ const estilos = StyleSheet.create({
   titulo: { color: C.texto, fontSize: 20, fontWeight: '800', flex: 1 },
   nota: { color: C.suave, fontSize: 12, fontWeight: '600' },
   cuerpo: { flexDirection: 'row', gap: 12, padding: 12, alignItems: 'flex-start' },
+  cuerpoVertical: { flexDirection: 'column', alignItems: 'stretch' },
   columna: { flex: 1, gap: 10 },
+  // Dentro del ScrollView, en columna, flex: 1 no tiene alto del que crecer: tamaño propio.
+  columnaVertical: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' },
   seccion: { color: C.suave, fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
   caja: { backgroundColor: C.caja, borderWidth: 1, borderColor: C.borde, borderRadius: 12, padding: 12, gap: 8 },
   cajaTitulo: { color: C.texto, fontSize: 16, fontWeight: '800' },
@@ -322,6 +346,10 @@ const estilos = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  // Campo + botón en una fila: el campo se achica y el botón «Pegar» queda entero, sin salirse
+  // del recuadro, en vertical y en horizontal (Tarea 9c).
+  campoAchicable: { flex: 1, minWidth: 0 },
+  botonFijo: { flexShrink: 0, minWidth: 44 },
   boton: { backgroundColor: C.boton, borderRadius: 10, minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   primario: { backgroundColor: C.primario, minHeight: 48, paddingHorizontal: 16 },
   botonTexto: { color: C.texto, fontSize: 13, fontWeight: '800' },

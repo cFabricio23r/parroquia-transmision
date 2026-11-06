@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Producción – Parroquia</title>
+<!--
+  Pantalla final «Producción» (Tarea 9d). Fija: no lee ni escribe el estado del panel, así sirve
+  igual en OBS, en la app y para exportar los PNG (herramientas/exportar-produccion.js).
+  produccion.html?estilo=claro → A · Claro; ?estilo=azul, sin estilo o uno desconocido → B · Azul.
+  Mide 1920×1080 y se escala como las demás pantallas (el mismo cálculo que escalarEscenario de
+  comun.js, copiado acá para no cargar comun.js, que sí lee el estado). Sin internet: fuentes e
+  imágenes de esta carpeta.
+-->
+<style>
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-600-normal.woff2) format('woff2');font-weight:600}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-900-normal.woff2) format('woff2');font-weight:900}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Mont,sans-serif}
+.escenario{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.lamina{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.lamina span,.lamina div{position:relative}
+.halo{position:absolute !important;left:50%;border-radius:50%}
+
+/* ---------- A · Claro ---------- */
+.claro{background:#f4f7fb;color:#0c3562;gap:44px}
+.claro .halo{top:50%;width:1500px;height:1500px;margin:-750px 0 0 -750px;background:radial-gradient(circle,rgba(61,155,224,.16) 0%,rgba(61,155,224,0) 60%)}
+.claro .ceja{font-weight:800;font-size:40px;letter-spacing:10px;color:#26323f}
+.claro .fila{display:flex;align-items:center;gap:48px}
+.claro .fila img{width:340px;display:block}
+.claro .nombres{display:flex;flex-direction:column;gap:10px}
+.claro .grande{font-weight:900;font-size:118px;line-height:.95;letter-spacing:-3px;color:#1155a4}
+.claro .sub{font-weight:700;font-size:34px;letter-spacing:8px;color:#3d6fa8}
+.claro .pie{position:absolute !important;left:0;right:0;bottom:72px;text-align:center;font-weight:600;font-size:26px;letter-spacing:3px;color:#4a5a6c}
+
+/* ---------- B · Azul ---------- */
+.azul{background:linear-gradient(135deg,#0c3562 0%,#1155a4 55%,#3d9be0 100%);color:#fff;gap:40px}
+.azul .halo{top:46%;width:1300px;height:1300px;margin:-650px 0 0 -650px;background:radial-gradient(circle,rgba(255,255,255,.24) 0%,rgba(255,255,255,0) 60%)}
+.azul .ceja{font-weight:700;font-size:36px;letter-spacing:12px;color:#d6e6f8}
+.azul img{position:relative;width:300px;display:block;filter:drop-shadow(0 16px 30px rgba(5,20,50,.4))}
+.azul .nombres{display:flex;flex-direction:column;align-items:center;gap:14px}
+.azul .grande{font-weight:900;font-size:128px;line-height:.95;letter-spacing:-3px}
+.azul .linea{display:flex;align-items:center;gap:24px}
+.azul .raya{width:90px;height:3px;background:#bfe0ff}
+.azul .sub{font-weight:700;font-size:34px;letter-spacing:9px;color:#e6f1fb}
+.azul .banda{position:absolute !important;left:0;right:0;bottom:0;height:96px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;letter-spacing:6px;color:#0c3562}
+</style>
+</head>
+<body>
+<div class="escenario">
+  <section class="lamina claro" id="claro" hidden>
+    <div class="halo" aria-hidden="true"></div>
+    <span class="ceja" data-texto>UNA PRODUCCIÓN DE</span>
+    <div class="fila">
+      <img src="img/logo-color.png" alt="Logo de la Parroquia Inmaculada Concepción de María">
+      <div class="nombres">
+        <span class="grande" data-texto>Comunicaciones</span>
+        <span class="sub" data-texto>PARROQUIA DE CIUDAD ARCE</span>
+      </div>
+    </div>
+    <span class="pie" data-texto>Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad</span>
+  </section>
+
+  <section class="lamina azul" id="azul" hidden>
+    <div class="halo" aria-hidden="true"></div>
+    <span class="ceja" data-texto>UNA PRODUCCIÓN DE</span>
+    <img src="img/logo-blanco.png" alt="Logo de la Parroquia Inmaculada Concepción de María">
+    <div class="nombres">
+      <span class="grande" data-texto>Comunicaciones</span>
+      <div class="linea">
+        <span class="raya" aria-hidden="true"></span>
+        <span class="sub" data-texto>PARROQUIA DE CIUDAD ARCE</span>
+        <span class="raya" aria-hidden="true"></span>
+      </div>
+    </div>
+    <div class="banda" data-texto>INMACULADA CONCEPCIÓN DE MARÍA · LA LIBERTAD</div>
+  </section>
+</div>
+<script>
+(function () {
+  // Solo «claro» elige el Claro; cualquier otra cosa es el Azul.
+  var estilo = 'azul';
+  try { if (new URLSearchParams(location.search).get('estilo') === 'claro') estilo = 'claro'; } catch (e) {}
+  document.body.dataset.estilo = estilo;
+  document.getElementById(estilo).hidden = false;
+  // Lo de la otra lámina no se usa: se saca, para que no lo lea un lector de pantalla.
+  var otra = document.getElementById(estilo === 'claro' ? 'azul' : 'claro');
+  otra.parentNode.removeChild(otra);
+
+  // Escala 1920×1080 para llenar la fuente, centrada (igual que escalarEscenario de comun.js).
+  var el = document.querySelector('.escenario');
+  function ajustar() {
+    var k = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    var x = (window.innerWidth - 1920 * k) / 2, y = (window.innerHeight - 1080 * k) / 2;
+    el.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + k + ')';
+  }
+  ajustar();
+  window.addEventListener('resize', ajustar);
+})();
+</script>
+</body>
+</html>

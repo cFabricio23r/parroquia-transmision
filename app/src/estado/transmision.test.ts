@@ -1,4 +1,5 @@
 import {
+  ESCENAS_VALIDAS,
   ESTADO_INICIAL,
   debeCortar,
   reducir,
@@ -111,6 +112,14 @@ describe('escena', () => {
     expect(reducir(ini, ev)).toBe(ini);
     const ter = reducir(enVivo(), { tipo: 'terminar_con_gracias' });
     expect(reducir(ter, ev)).toBe(ter);
+  });
+  it('Producción es una escena válida y se puede elegir al aire (Tarea 9d)', () => {
+    expect(ESCENAS_VALIDAS).toEqual(['camara', 'inicio', 'portada', 'avisos', 'gracias', 'produccion']);
+    expect(reducir(enVivo(), { tipo: 'escena', escena: 'produccion' }).escena).toBe('produccion');
+  });
+  it('terminar con gracias sigue pasando a Gracias, también desde Producción', () => {
+    const s = reducir(enVivo(), { tipo: 'escena', escena: 'produccion' });
+    expect(reducir(s, { tipo: 'terminar_con_gracias' }).escena).toBe('gracias');
   });
   it('la misma escena devuelve el mismo objeto', () => {
     const s = enVivo();

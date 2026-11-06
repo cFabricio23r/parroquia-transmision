@@ -1,6 +1,7 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import type { Calidad, Microfono } from '../../../src/ajustes/ajustes';
+import type { Calidad, EstiloFinal, Microfono } from '../../../src/ajustes/ajustes';
+import type { Orientacion } from '../../../src/estado/orientacion';
 import type { Escena } from '../../../src/estado/transmision';
 import { TransmisorModuleEvents } from './Transmisor.types';
 
@@ -28,7 +29,15 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   noMolestarActivo(): Promise<boolean | null>;
   /** Abre la pantalla de No molestar del sistema (o los Ajustes). false si no pudo. */
   abrirNoMolestar(): Promise<boolean>;
+  /** Fija la orientación de la pantalla del operador (Tarea 9c). */
+  fijarOrientacion(orientacion: Orientacion): Promise<void>;
+  /** Zonas seguras del momento, en dp (Tarea 9c). */
+  zonasSeguras(): Promise<ZonasSeguras>;
+  /** Estilo de la escena Producción; la recarga si ya está cargada (Tarea 9d). */
+  fijarEstiloFinal(estilo: EstiloFinal): Promise<void>;
 }
+
+export type ZonasSeguras = { top: number; bottom: number; left: number; right: number };
 
 export type MedidaNativa = {
   /** PowerManager.getCurrentThermalStatus(), null antes de Android 10. */

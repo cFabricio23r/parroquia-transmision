@@ -22,7 +22,8 @@ import org.json.JSONObject
  * arriba de todo, la de la transición. Se dibuja sobre el video con FiltroCapa.
  *
  * - Siempre cargadas: «camara» (obs/rotulos.html), «inicio» y la transición.
- * - «portada», «avisos» y «gracias» se cargan al pedirlas y se descargan al salir (calor, Tarea 1).
+ * - «portada», «avisos», «gracias» y «produccion» se cargan al pedirlas y se descargan al salir (calor, Tarea 1).
+ * - «produccion» (Tarea 9d) carga obs/produccion.html con el estilo elegido en Ajustes (claro o azul).
  * - Se ve una sola escena a la vez; las demás quedan INVISIBLE.
  * - El contenedor va dentro de la ventana (debajo del contenido, índice 0) para que las WebViews
  *   dibujen; no se ve en la pantalla del celular, solo en el video.
@@ -50,7 +51,14 @@ object Capa {
     "portada" to BASE + "pantalla.html?tipo=portada",
     "avisos" to BASE + "pantalla.html?tipo=avisos",
     "gracias" to BASE + "pantalla.html?tipo=gracias",
+    "produccion" to BASE + "produccion.html?estilo=azul",
   )
+  // Pantalla final (Tarea 9d): solo estos dos estilos; Azul por defecto.
+  private val URLS_PRODUCCION = mapOf(
+    "claro" to BASE + "produccion.html?estilo=claro",
+    "azul" to BASE + "produccion.html?estilo=azul",
+  )
+  private var estiloProduccion = "azul"
   private val FIJAS = setOf("camara", "inicio")
   private const val URL_TRANSICION = "file:///android_asset/app/transicion.html"
 
@@ -157,6 +165,23 @@ object Capa {
     actual = "camara"
   }
 
+  /**
+   * Elige el estilo de la escena «produccion» (Tarea 9d). Si ya está cargada, se recarga con el
+   * nuevo; si no, se usa la próxima vez que se pida. Un estilo desconocido se rechaza.
+   */
+  fun fijarEstiloProduccion(estilo: String) {
+    require(estilo in URLS_PRODUCCION) { "Estilo desconocido." }
+    if (estilo == estiloProduccion) return
+    estiloProduccion = estilo
+    val w = vistas["produccion"] ?: return
+    cargadas.remove("produccion")
+    w.loadUrl(urlDe("produccion"))
+    Log.w(TAG, "produccion: estilo $estilo")
+  }
+
+  private fun urlDe(nombre: String): String =
+    if (nombre == "produccion") URLS_PRODUCCION.getValue(estiloProduccion) else URLS.getValue(nombre)
+
   /** Guarda el estado y lo escribe en las escenas cargadas. Las que carguen después lo reciben al cargar. */
   fun actualizarEstado(json: String) {
     ultimoEstado = json
@@ -244,7 +269,7 @@ object Capa {
     c.addView(w, indice, FrameLayout.LayoutParams(ANCHO, ALTO))
     vistas[nombre] = w
     cargadas.remove(nombre)
-    w.loadUrl(URLS.getValue(nombre))
+    w.loadUrl(urlDe(nombre))
   }
 
   private fun quitarEscena(nombre: String) {

@@ -1,8 +1,11 @@
 package org.parroquiaarce.transmisor
 
+import android.content.pm.ActivityInfo
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.WindowInsets
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.functions.Queues
@@ -72,6 +75,11 @@ class TransmisorModule : Module() {
       )
     }.runOnQueue(Queues.MAIN)
 
+    // Estilo de la pantalla final «Producción» (Tarea 9d): «claro» o «azul».
+    AsyncFunction("fijarEstiloFinal") { estilo: String ->
+      Capa.fijarEstiloProduccion(estilo)
+    }.runOnQueue(Queues.MAIN)
+
     // Estado del panel (JSON) para las escenas de la capa.
     AsyncFunction("actualizarEstado") { json: String ->
       Capa.actualizarEstado(json)
@@ -127,6 +135,47 @@ class TransmisorModule : Module() {
     AsyncFunction("abrirNoMolestar") {
       val actividad = appContext.currentActivity ?: throw IllegalStateException("Sin actividad.")
       Sistema.abrirNoMolestar(actividad)
+    }.runOnQueue(Queues.MAIN)
+
+    // Orientación de la pantalla del operador (Tarea 9c): «vertical» para Preparar, «horizontal»
+    // para Antes de iniciar y durante toda la transmisión. Fija, sin girar con el sensor.
+    // La actividad no se recrea al girar: el manifiesto trae orientation|screenSize en configChanges
+    // (lo pone la plantilla de Expo), así la vista de la cámara y el WebView del panel siguen.
+    // Sin dependencia nueva: Activity.setRequestedOrientation existe desde la API 1.
+    AsyncFunction("fijarOrientacion") { orientacion: String ->
+      val actividad = appContext.currentActivity ?: throw IllegalStateException("Sin actividad.")
+      val pedida = when (orientacion) {
+        "vertical" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        "horizontal" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        else -> throw IllegalArgumentException("Orientación desconocida.")
+      }
+      if (actividad.requestedOrientation != pedida) actividad.requestedOrientation = pedida
+    }.runOnQueue(Queues.MAIN)
+
+    // Zonas seguras en dp (Tarea 9c): barra de estado, recorte de la cámara y barra de navegación,
+    // para que nada quede tapado. Se usa esto y no react-native-safe-area-context porque su código
+    // C++ generado no compila en esta PC: la ruta pasa de 300 caracteres y el ninja del NDK falla.
+    // WindowInsets.getInsets y Type desde la API 30; antes, systemWindowInset* (deprecado).
+    // Son los valores del momento: al girar, JS los vuelve a pedir.
+    AsyncFunction("zonasSeguras") {
+      val actividad = appContext.currentActivity ?: throw IllegalStateException("Sin actividad.")
+      val vista = actividad.window.decorView
+      val d = vista.resources.displayMetrics.density
+      val ins = vista.rootWindowInsets
+      if (ins == null) {
+        mapOf("top" to 0.0, "bottom" to 0.0, "left" to 0.0, "right" to 0.0)
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val i = ins.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        mapOf("top" to i.top / d.toDouble(), "bottom" to i.bottom / d.toDouble(), "left" to i.left / d.toDouble(), "right" to i.right / d.toDouble())
+      } else {
+        @Suppress("DEPRECATION")
+        mapOf(
+          "top" to ins.systemWindowInsetTop / d.toDouble(),
+          "bottom" to ins.systemWindowInsetBottom / d.toDouble(),
+          "left" to ins.systemWindowInsetLeft / d.toDouble(),
+          "right" to ins.systemWindowInsetRight / d.toDouble(),
+        )
+      }
     }.runOnQueue(Queues.MAIN)
 
     View(TransmisorView::class) {}

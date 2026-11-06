@@ -15,10 +15,13 @@ const DESVANECER_MS = 250;
 interface Props {
   /** false: empieza a desvanecerse y, al terminar, deja de dibujarse. */
   visible: boolean;
+  /** Barra de estado, recorte y navegación, en dp (los lee App). */
+  zonas: { top: number; bottom: number; left: number; right: number };
 }
 
-export default function Portada({ visible }: Props) {
+export default function Portada({ visible, zonas: z }: Props) {
   const { width, height } = useWindowDimensions();
+  // El azul llega hasta los bordes; el logo y los textos, no (Tarea 9c: zonas seguras).
   const opacidad = useRef(new Animated.Value(1)).current;
   const [montada, setMontada] = useState(true);
 
@@ -38,7 +41,11 @@ export default function Portada({ visible }: Props) {
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFill, estilos.fondo, { opacity: opacidad }]}
+      style={[
+        StyleSheet.absoluteFill,
+        estilos.fondo,
+        { opacity: opacidad, paddingTop: z.top, paddingBottom: z.bottom, paddingLeft: z.left, paddingRight: z.right },
+      ]}
       accessible
       accessibilityLabel="Parroquia en vivo. Cargando."
     >
@@ -71,7 +78,7 @@ export default function Portada({ visible }: Props) {
           </View>
         </View>
       </View>
-      <Text style={[estilos.pie, { bottom: baja ? 20 : 56 }]}>
+      <Text style={[estilos.pie, { bottom: (baja ? 20 : 56) + z.bottom, left: z.left, right: z.right }]}>
         Parroquia Inmaculada Concepción de María{'\n'}Ciudad Arce
       </Text>
     </Animated.View>

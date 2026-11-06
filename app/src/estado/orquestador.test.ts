@@ -15,6 +15,7 @@ const AJUSTES: Ajustes = {
   clave: 'FB-PRUEBA-MARCA-0000',
   calidad: '720p',
   microfono: 'celular',
+  estiloFinal: 'azul',
 };
 
 type Pendiente = { resolver: () => void; rechazar: (e: unknown) => void };

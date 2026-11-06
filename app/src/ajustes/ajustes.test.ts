@@ -8,7 +8,7 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 import * as SecureStore from 'expo-secure-store';
-import { AJUSTES_INICIALES, guardarAjustes, leerAjustes, limpiarClave, puedeGuardar, validar, Ajustes } from './ajustes';
+import { AJUSTES_INICIALES, estiloFinalValido, guardarAjustes, leerAjustes, limpiarClave, puedeGuardar, validar, Ajustes } from './ajustes';
 
 const base: Ajustes = { ...AJUSTES_INICIALES, servidor: 'rtmps://ejemplo.invalido:443/rtmp/', clave: 'FB-123-abc' };
 
@@ -54,6 +54,29 @@ describe('validar', () => {
   it('valida la clave antes que el servidor', () => {
     const r = validar({ ...base, clave: '', servidor: '' });
     expect(r).toMatchObject({ ok: false, campo: 'clave' });
+  });
+});
+
+describe('pantalla final (Tarea 9d)', () => {
+  it('por defecto es Azul', () => {
+    expect(AJUSTES_INICIALES.estiloFinal).toBe('azul');
+  });
+  it('guarda y lee el estilo Claro', async () => {
+    await guardarAjustes({ ...base, estiloFinal: 'claro' });
+    expect((await leerAjustes()).estiloFinal).toBe('claro');
+  });
+  it('ajustes viejos, sin el estilo, leen Azul', async () => {
+    almacen['parroquia_ajustes_v1'] = JSON.stringify({ servidor: 'rtmps://x/', clave: 'FB-1', calidad: '720p', microfono: 'celular' });
+    expect((await leerAjustes()).estiloFinal).toBe('azul');
+  });
+  it('un estilo desconocido lee Azul', async () => {
+    almacen['parroquia_ajustes_v1'] = JSON.stringify({ estiloFinal: 'rojo' });
+    expect((await leerAjustes()).estiloFinal).toBe('azul');
+  });
+  it('estiloFinalValido solo deja pasar claro y azul', () => {
+    expect(estiloFinalValido('claro')).toBe('claro');
+    expect(estiloFinalValido('azul')).toBe('azul');
+    for (const x of ['', 'Claro', "claro'); alert(1", null, undefined, 3]) expect(estiloFinalValido(x)).toBe('azul');
   });
 });
 

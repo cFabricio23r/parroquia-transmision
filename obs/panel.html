@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panel Parroquia</title>
+<script>
+/* Copia temprana de la línea de modo app (la original sigue al final del body): pone la clase antes del primer
+   pintado, para que la app no vea un instante el estilo gris del dock de OBS. */
+if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
+</script>
 <style>
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-500-normal.woff2) format('woff2');font-weight:500}
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
@@ -188,6 +193,7 @@ details label{margin-bottom:9px}
 :root:not(.modo-app) body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;padding-bottom:24px}
 :root:not(.modo-app) button{font-weight:600;font-size:12px;border:1px solid transparent;border-radius:4px;min-height:28px;padding:4px 8px}
 :root:not(.modo-app) button:hover{background:var(--hover)}
+:root:not(.modo-app) .pestanas button:hover{color:var(--suave-boton)}
 :root:not(.modo-app) button:disabled{background:var(--apagado);border-color:var(--borde);color:var(--suave)}
 :root:not(.modo-app) :focus-visible{outline:2px solid var(--foco);outline-offset:1px}
 :root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
