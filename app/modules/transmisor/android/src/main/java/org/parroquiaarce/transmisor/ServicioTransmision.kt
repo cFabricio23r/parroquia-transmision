@@ -45,9 +45,14 @@ class ServicioTransmision : Service() {
     @Volatile private var arrancando = false
     // Un parar() que llegó mientras arrancaba: se cumple después de startForeground.
     @Volatile private var pedidoParar = false
+    // Sube en cada arrancar(). Un parar() anota la generación del momento en que se llamó: si cuando
+    // le toca correr en el principal ya hubo otro arrancar(), ese parar() era para el servicio viejo
+    // y no se cumple (review m1 de la 9c). Solo se escribe en el principal (Motor.iniciar).
+    @Volatile private var generacion = 0
 
     fun arrancar(ctx: Context) {
       val i = Intent(ctx, ServicioTransmision::class.java)
+      generacion++
       pedidoParar = false
       arrancando = true
       try {
@@ -73,11 +78,16 @@ class ServicioTransmision : Service() {
      */
     fun parar(ctx: Context) {
       val app = ctx.applicationContext
-      if (Looper.myLooper() == Looper.getMainLooper()) pararEnPrincipal(app)
-      else principal.post { pararEnPrincipal(app) }
+      val gen = generacion
+      if (Looper.myLooper() == Looper.getMainLooper()) pararEnPrincipal(app, gen)
+      else principal.post { pararEnPrincipal(app, gen) }
     }
 
-    private fun pararEnPrincipal(ctx: Context) {
+    private fun pararEnPrincipal(ctx: Context, gen: Int) {
+      if (gen != generacion) {
+        Log.w(TAG, "servicio: parar viejo ignorado (hubo un arranque nuevo)")
+        return
+      }
       if (arrancando) {
         pedidoParar = true
         return

@@ -63,6 +63,10 @@ describe('lineaRegistro', () => {
     );
   });
 
+  it('la escena produccion pasa tal cual (Tarea 9d)', () => {
+    expect(lineaRegistro({ ...MEDIDA, escena: 'produccion' }).endsWith(',produccion')).toBe(true);
+  });
+
   it('nunca contiene la clave ni el servidor, aunque se los pasen por error', () => {
     // Campos de más, y la clave metida donde va texto o números.
     const mala = {

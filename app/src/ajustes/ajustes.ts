@@ -4,11 +4,14 @@ import * as SecureStore from 'expo-secure-store';
 
 export type Calidad = '720p' | '1080p';
 export type Microfono = 'celular' | 'externo';
+/** Estilo de la pantalla final «Producción» (Tarea 9d): A Claro o B Azul. */
+export type EstiloFinal = 'claro' | 'azul';
 export interface Ajustes {
   servidor: string;
   clave: string;
   calidad: Calidad;
   microfono: Microfono;
+  estiloFinal: EstiloFinal;
 }
 
 export const AJUSTES_INICIALES: Ajustes = {
@@ -16,7 +19,13 @@ export const AJUSTES_INICIALES: Ajustes = {
   clave: '',
   calidad: '720p',
   microfono: 'celular',
+  estiloFinal: 'azul',
 };
+
+/** Solo «claro» o «azul»; cualquier otra cosa (o nada, en ajustes viejos) es Azul, el de por defecto. */
+export function estiloFinalValido(x: unknown): EstiloFinal {
+  return x === 'claro' || x === 'azul' ? x : AJUSTES_INICIALES.estiloFinal;
+}
 
 const LLAVE = 'parroquia_ajustes_v1';
 
@@ -63,6 +72,7 @@ export async function leerAjustes(): Promise<Ajustes> {
       calidad: p.calidad === '1080p' || p.calidad === '720p' ? p.calidad : AJUSTES_INICIALES.calidad,
       microfono:
         p.microfono === 'externo' || p.microfono === 'celular' ? p.microfono : AJUSTES_INICIALES.microfono,
+      estiloFinal: estiloFinalValido(p.estiloFinal),
     };
   } catch {
     // Datos ilegibles: se vuelve a los iniciales (sin registrar nada del contenido).

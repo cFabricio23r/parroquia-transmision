@@ -34,3 +34,22 @@ export function listoTrasCambio(listo: boolean, antes: Fase, ahora: Fase): boole
   if (alAire(ahora)) return true;
   return listo;
 }
+
+/** Cuánto se espera a que la ventana gire antes de mostrar la pantalla igual (review m3 de la 9c). */
+export const ESPERA_GIRO_MS = 1500;
+
+/**
+ * Qué pantalla se dibuja, según la ventana real.
+ * - Si la ventana ya tiene la forma pedida, la pantalla pedida.
+ * - Mientras gira (`vencida` false), ninguna: la ventana todavía tiene la forma vieja.
+ * - Si no giró a tiempo (fijarOrientacion falló, o el sistema ignoró el pedido), nunca queda vacía:
+ *   Preparar con la ventana acostada pasa a Antes de iniciar, que es la pantalla acostada. Antes de
+ *   iniciar y al aire se muestran igual aunque la ventana quede parada: así siempre se puede iniciar
+ *   y los controles del vivo nunca desaparecen.
+ */
+export function pantallaVisible(p: Pantalla, ventanaVertical: boolean, vencida: boolean): Pantalla | null {
+  if (ventanaVertical === (orientacionPara(p) === 'vertical')) return p;
+  if (!vencida) return null;
+  if (p === 'preparar') return 'antes';
+  return p;
+}

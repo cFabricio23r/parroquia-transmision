@@ -282,3 +282,34 @@ describe('medirAvisos (review M5)', () => {
     expect(modulo.medirAvisos).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('fijarOrientacion (review m2 de la 9c)', () => {
+  it('con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto', async () => {
+    const { api } = cargar();
+    let r: Promise<void> | undefined;
+    expect(() => {
+      r = api.fijarOrientacion('vertical');
+    }).not.toThrow();
+    await expect(r).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe('fijarEstiloFinal (Tarea 9d)', () => {
+  it('pasa al nativo solo claro o azul', async () => {
+    const { api, modulo } = cargar();
+    const fijar = jest.fn((_e: string) => Promise.resolve());
+    (modulo as Record<string, unknown>).fijarEstiloFinal = fijar;
+    await api.fijarEstiloFinal('claro');
+    await api.fijarEstiloFinal('rojo' as never);
+    expect(fijar.mock.calls.map((c) => c[0])).toEqual(['claro', 'azul']);
+  });
+
+  it('con un dev client viejo rechaza en vez de tirar en el acto', async () => {
+    const { api } = cargar();
+    let r: Promise<void> | undefined;
+    expect(() => {
+      r = api.fijarEstiloFinal('azul');
+    }).not.toThrow();
+    await expect(r).rejects.toBeInstanceOf(TypeError);
+  });
+});

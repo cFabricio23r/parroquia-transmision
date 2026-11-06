@@ -13,3 +13,6 @@ app/modules/transmisor/android/src/main/assets/obs/
 # Salida de Gradle de los módulos locales de la app
 app/modules/*/android/build/
 app/modules/*/android/.cxx/
+
+# PNG y APK exportados (Tarea 9d): no van a git ni a la app
+exportados/

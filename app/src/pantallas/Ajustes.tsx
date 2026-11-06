@@ -13,6 +13,7 @@ import {
   AJUSTES_INICIALES,
   Ajustes as TipoAjustes,
   Calidad,
+  EstiloFinal,
   Microfono,
   guardarAjustes,
   EstadoCarga,
@@ -73,6 +74,11 @@ const CALIDADES: [Calidad, string][] = [
 const MICROFONOS: [Microfono, string][] = [
   ['celular', 'Del celular'],
   ['externo', 'Externo (USB-C)'],
+];
+// Pantalla final «Producción» (Tarea 9d): A Claro o B Azul (el de por defecto).
+const ESTILOS_FINALES: [EstiloFinal, string][] = [
+  ['claro', 'Claro'],
+  ['azul', 'Azul'],
 ];
 
 export default function Ajustes({ onVolver }: Props) {
@@ -259,6 +265,12 @@ export default function Ajustes({ onVolver }: Props) {
             <View accessibilityRole="radiogroup" accessibilityLabel="Micrófono" style={estilos.fila}>
               {MICROFONOS.map(([v, t]) => (
                 <Opcion key={v} etiqueta={t} activa={a.microfono === v} alPulsar={() => editable && cambiar({ microfono: v })} />
+              ))}
+            </View>
+            <Text style={estilos.etiqueta}>Pantalla final</Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Pantalla final" style={estilos.fila}>
+              {ESTILOS_FINALES.map(([v, t]) => (
+                <Opcion key={v} etiqueta={t} activa={a.estiloFinal === v} alPulsar={() => editable && cambiar({ estiloFinal: v })} />
               ))}
             </View>
           </View>

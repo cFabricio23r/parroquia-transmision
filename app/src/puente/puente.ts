@@ -2,7 +2,7 @@
 // El panel guarda su estado en localStorage['parroquia_obs_estado_v1']; la app lo lee cada
 // 300 ms con SCRIPT_PANEL y se lo pasa a la capa con actualizarEstado(json) (decisión 1 del plan).
 // Ese estado nunca lleva la clave: la clave vive solo en Ajustes (expo-secure-store).
-import type { Escena } from '../estado/transmision';
+import { ESCENAS_VALIDAS, type Escena } from '../estado/transmision';
 
 /** Se corre antes de que cargue la página: activa el modo compacto aunque se pierda ?modo=app. */
 export const SCRIPT_ANTES_DE_CARGAR = 'window.modoApp = true; true;';
@@ -38,12 +38,10 @@ export function esDelPanel(url: string | undefined): boolean {
   return typeof url === 'string' && url.startsWith(ORIGEN_PANEL);
 }
 
-const ESCENAS: readonly Escena[] = ['camara', 'inicio', 'portada', 'avisos', 'gracias'];
-
 /** Le dice al panel en qué escena está la app: fuera de Cámara bloquea los rótulos (Tarea 2b). */
 export function SCRIPT_ESCENA(escena: Escena): string {
-  // Solo se inyectan los 5 nombres conocidos: nunca un texto armado con otra cosa.
-  if (!ESCENAS.includes(escena)) return 'true;';
+  // Solo se inyectan los nombres conocidos: nunca un texto armado con otra cosa.
+  if (!ESCENAS_VALIDAS.includes(escena)) return 'true;';
   return `window.fijarEscenaApp && window.fijarEscenaApp('${escena}'); true;`;
 }
 

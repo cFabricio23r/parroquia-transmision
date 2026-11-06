@@ -75,6 +75,11 @@ class TransmisorModule : Module() {
       )
     }.runOnQueue(Queues.MAIN)
 
+    // Estilo de la pantalla final «Producción» (Tarea 9d): «claro» o «azul».
+    AsyncFunction("fijarEstiloFinal") { estilo: String ->
+      Capa.fijarEstiloProduccion(estilo)
+    }.runOnQueue(Queues.MAIN)
+
     // Estado del panel (JSON) para las escenas de la capa.
     AsyncFunction("actualizarEstado") { json: String ->
       Capa.actualizarEstado(json)

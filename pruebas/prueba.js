@@ -496,6 +496,41 @@ const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg)
     await p.screenshot({ path: path.join(salida, n + '.png'), fullPage: n === 'panel' });
   }
 
+  console.log('Producción (pantalla final, Tarea 9d)');
+  {
+    // Estilo según la URL: claro, azul; sin estilo o con uno desconocido, Azul.
+    const casos = [['produccion.html?estilo=claro', 'claro'], ['produccion.html?estilo=azul', 'azul'], ['produccion.html', 'azul'], ['produccion.html?estilo=rojo', 'azul']];
+    const comunes = ['UNA PRODUCCIÓN DE', 'Comunicaciones', 'PARROQUIA DE CIUDAD ARCE'];
+    for (const [archivo, esperado] of casos) {
+      const p = await abrir(archivo, 1920, 1080);
+      await p.waitForTimeout(300);
+      const estilo = await p.evaluate(() => document.body.dataset.estilo);
+      revisar(estilo === esperado, `${archivo} → estilo ${esperado} (salió ${estilo})`);
+      const textos = await p.$$eval('[data-texto]', (es) => es.filter((e) => e.checkVisibility()).map((e) => e.textContent));
+      const propio = esperado === 'claro' ? 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad' : 'INMACULADA CONCEPCIÓN DE MARÍA · LA LIBERTAD';
+      revisar(JSON.stringify(textos) === JSON.stringify([...comunes, propio]), `${archivo}: textos exactos (${JSON.stringify(textos)})`);
+      const logos = await p.$$eval('img', (is) => is.filter((i) => i.checkVisibility()).map((i) => ({ alt: i.alt, src: i.getAttribute('src'), cargo: i.complete && i.naturalWidth > 0 })));
+      revisar(logos.length === 1 && logos[0].alt.trim() !== '' && logos[0].cargo, `${archivo}: un logo visible, cargado y con alt`);
+      revisar(logos[0] && logos[0].src === (esperado === 'claro' ? 'img/logo-color.png' : 'img/logo-blanco.png'), `${archivo}: usa ${logos[0] && logos[0].src}`);
+      revisar(await p.$$eval('img', (is) => is.every((i) => i.alt.trim() !== '')), `${archivo}: todos los logos tienen alt`);
+      const fuente = await p.evaluate(async () => { await document.fonts.ready; return document.fonts.check('900 40px Mont'); });
+      revisar(fuente, `${archivo}: fuente Mont local cargada`);
+      const sinRed = await p.evaluate(() => [...document.querySelectorAll('link[href],script[src],img[src]')].every((e) => !/^(https?:)?\/\//.test(e.getAttribute('href') || e.getAttribute('src'))));
+      revisar(sinRed, `${archivo}: no pide nada a internet`);
+      if (archivo.includes('estilo=' + esperado)) await p.screenshot({ path: path.join(salida, 'produccion-' + esperado + '.png') });
+      await p.close();
+    }
+    // Escala igual que las demás: en 800×600 entra entera y centrada.
+    const antes = await panel.evaluate(() => localStorage.getItem('parroquia_obs_estado_v1'));
+    const pc = await abrir('produccion.html?estilo=azul', 800, 600);
+    await pc.waitForTimeout(500);
+    const r = await pc.$eval('.escenario', (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+    revisar(Math.abs(r.w - 800) < 1 && Math.abs(r.h - 450) < 1 && Math.abs(r.x) < 1 && Math.abs(r.y - 75) < 1, `produccion en 800×600 escala a 800×450 centrada (${JSON.stringify(r)})`);
+    revisar(antes === (await panel.evaluate(() => localStorage.getItem('parroquia_obs_estado_v1'))), 'produccion no cambia el estado del panel');
+    revisar(await pc.evaluate(() => typeof leerEstado === 'undefined'),'produccion no carga comun.js (no lee el estado)');
+    await pc.close();
+  }
+
   console.log('Errores de JavaScript');
   revisar(errores.length === 0, errores.length ? errores.join('\n') : 'ninguno');
   await b.close();

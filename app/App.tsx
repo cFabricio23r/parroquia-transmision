@@ -28,6 +28,7 @@ import {
   noMolestarActivo,
   addEstadoListener,
   cambiarEscena,
+  fijarEstiloFinal,
   fijarOrientacion,
   zonasSeguras,
   type ZonasSeguras,
@@ -48,7 +49,7 @@ import {
   type UltimoDePantalla,
 } from './src/registro/registro';
 import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
-import { listoTrasCambio, orientacionPara, pantallaPara } from './src/estado/orientacion';
+import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './src/estado/orientacion';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
 import Ajustes from './src/pantallas/Ajustes';
@@ -248,6 +249,16 @@ export default function App() {
   const lugares = armarLugares(ventana.width, ventana.height, zonas);
   // Mientras gira, la ventana todavía tiene la forma vieja: las pantallas se ponen al terminar.
   const formaLista = lugares.vertical === (orientacion === 'vertical');
+  // Si la ventana no gira en 1,5 s (fijarOrientacion falló o el sistema no hizo caso), la pantalla se
+  // muestra igual, según la forma real de la ventana, en vez de quedar vacía (review m3 de la 9c).
+  // Se anota para qué orientación venció la espera: un pedido nuevo vuelve a esperar.
+  const [giroVencidoPara, setGiroVencidoPara] = useState<string | null>(null);
+  useEffect(() => {
+    if (formaLista) return;
+    const t = setTimeout(() => setGiroVencidoPara(orientacion), ESPERA_GIRO_MS);
+    return () => clearTimeout(t);
+  }, [formaLista, orientacion]);
+  const visible = pantallaVisible(pantallaActual, lugares.vertical, giroVencidoPara === orientacion);
 
   const panelRef = useRef<PanelWeb | null>(null);
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
@@ -258,7 +269,7 @@ export default function App() {
   // En Preparar la capa muestra la escena elegida en la tira, solo para verla. En Antes de iniciar
   // muestra Cámara (para encuadrar). En los dos el panel cree estar en Inicio, así no queda ningún
   // rótulo encendido. Al aire, las dos siguen la escena del estado.
-  const escenaCapa: Escena = alAire ? estado.escena : pantallaActual === 'preparar' ? escenaPrevia : 'camara';
+  const escenaCapa: Escena = alAire ? estado.escena : (visible ?? pantallaActual) === 'preparar' ? escenaPrevia : 'camara';
   const escenaPanel: Escena = alAire ? estado.escena : 'inicio';
   const escenaPanelRef = useRef(escenaPanel);
   escenaPanelRef.current = escenaPanel;
@@ -273,6 +284,8 @@ export default function App() {
         return false;
       }
       const a = await leerAjustes();
+      // Estilo de la escena Producción (Tarea 9d). Si ya está cargada, el nativo la recarga.
+      fijarEstiloFinal(a.estiloFinal).catch(() => undefined);
       setClaveLista(validar(a).ok);
       setCalidad(a.calidad);
       const firma = `${a.calidad}|${a.microfono}`;
@@ -483,7 +496,7 @@ export default function App() {
             onCancelar={orq.cancelar}
           />
         </View>
-        {!formaLista ? null : pantallaActual === 'preparar' ? (
+        {visible === null ? null : visible === 'preparar' ? (
           <PrepararVertical
             vista={vista}
             mensaje={mensajeAntes}
@@ -497,7 +510,7 @@ export default function App() {
           />
         ) : (
           <View style={[estilos.zona, lugares.capa]} pointerEvents="box-none">
-            {alAire ? (
+            {visible === 'aire' ? (
               <EnVivo
                 fase={estado.fase}
                 escena={estado.escena}

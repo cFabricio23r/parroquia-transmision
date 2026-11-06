@@ -5,7 +5,7 @@
 // escena). Ningún texto que llegue de afuera pasa a la línea, así que ni la clave ni la URL del
 // servidor pueden terminar en el archivo, aunque se las pasen por error.
 import type { Conexion } from '../../modules/transmisor/src/eventos';
-import type { Escena, Fase } from '../estado/transmision';
+import { ESCENAS_VALIDAS, type Escena, type Fase } from '../estado/transmision';
 
 /** Una muestra cada 30 s. */
 export const CADA_MS = 30_000;
@@ -32,7 +32,7 @@ export const ENCABEZADO_REGISTRO =
   'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena';
 
 const CONEXIONES: readonly string[] = ['conectado', 'reconectando', 'cortado'];
-const ESCENAS: readonly string[] = ['camara', 'inicio', 'portada', 'avisos', 'gracias'];
+const ESCENAS: readonly string[] = ESCENAS_VALIDAS;
 
 const dos = (n: number) => String(n).padStart(2, '0');
 

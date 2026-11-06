@@ -10,6 +10,8 @@ export const ESCENAS: { id: Escena; nombre: string }[] = [
   { id: 'portada', nombre: 'Portada' },
   { id: 'avisos', nombre: 'Avisos' },
   { id: 'gracias', nombre: 'Gracias' },
+  // Pantalla final (Tarea 9d): solo sale cuando se toca; al terminar se sigue pasando a Gracias.
+  { id: 'produccion', nombre: 'Producción' },
 ];
 
 /** Orden de la tira en Preparar (vertical). Es el mismo que En vivo, para que los botones no cambien de
@@ -42,7 +44,8 @@ export default function TiraEscenas({ escena, desactivada, onElegir, escenas = E
             onPress={() => onElegir(x.id)}
             style={[estilos.boton, elegida && estilos.elegida, desactivada && estilos.apagado]}
           >
-            <Text style={estilos.texto} numberOfLines={1}>
+            {/* Con seis botones, «Producción» no entra a 14 en vertical: se achica hasta 75 % (Tarea 9d). */}
+            <Text style={estilos.texto} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {x.nombre}
             </Text>
           </Pressable>
@@ -62,6 +65,7 @@ const estilos = StyleSheet.create({
     backgroundColor: C.boton,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
   },
   elegida: { borderColor: C.seleccion, backgroundColor: C.seleccionFondo },
   texto: { fontFamily: F.extra, fontSize: 14, color: C.texto },

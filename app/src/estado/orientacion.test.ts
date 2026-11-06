@@ -1,4 +1,4 @@
-import { listoTrasCambio, orientacionPara, pantallaPara } from './orientacion';
+import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './orientacion';
 import type { Fase } from './transmision';
 
 const AL_AIRE: Fase[] = ['iniciando', 'en_vivo', 'reconectando', 'terminando'];
@@ -72,5 +72,41 @@ describe('listoTrasCambio', () => {
       const o = orientacionPara(pantallaPara(fases[i], listo));
       expect(o).toBe(fases[i] === 'terminado' ? 'vertical' : 'horizontal');
     }
+  });
+});
+
+describe('pantallaVisible (review m3 de la 9c)', () => {
+  it('si la ventana ya tiene la forma pedida, se muestra la pantalla pedida', () => {
+    expect(pantallaVisible('preparar', true, false)).toBe('preparar');
+    expect(pantallaVisible('antes', false, false)).toBe('antes');
+    expect(pantallaVisible('aire', false, false)).toBe('aire');
+  });
+
+  it('mientras gira (antes del tope), no se muestra nada', () => {
+    expect(pantallaVisible('preparar', false, false)).toBeNull();
+    expect(pantallaVisible('antes', true, false)).toBeNull();
+    expect(pantallaVisible('aire', true, false)).toBeNull();
+  });
+
+  it('si no giró a tiempo, nunca queda vacía', () => {
+    for (const p of ['preparar', 'antes', 'aire'] as const) {
+      for (const v of [true, false]) expect(pantallaVisible(p, v, true)).not.toBeNull();
+    }
+  });
+
+  it('Preparar con la ventana acostada pasa a Antes de iniciar (la que va acostada)', () => {
+    expect(pantallaVisible('preparar', false, true)).toBe('antes');
+  });
+
+  it('al aire siempre se ven los controles del vivo, aunque la ventana quede parada', () => {
+    expect(pantallaVisible('aire', true, true)).toBe('aire');
+  });
+
+  it('Antes de iniciar con la ventana parada se muestra igual: si no, no se podría iniciar', () => {
+    expect(pantallaVisible('antes', true, true)).toBe('antes');
+  });
+
+  it('el tope de espera es de 1,5 s', () => {
+    expect(ESPERA_GIRO_MS).toBe(1500);
   });
 });
