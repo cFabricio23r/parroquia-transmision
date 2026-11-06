@@ -1,5 +1,7 @@
 import {
   CADA_MS,
+  accionRegistro,
+  medidaDesde,
   ENCABEZADO_REGISTRO,
   crearRegistrador,
   lineaRegistro,
@@ -249,5 +251,67 @@ describe('crearRegistrador', () => {
       'registro-20261106-140000.csv',
       'registro-20261106-140001.csv',
     ]);
+  });
+});
+
+describe('medidaDesde (review M10)', () => {
+  const NATIVA = { termico: 1, temperatura: 38.4, memoriaMb: 500, fpsVideo: 30, fpsCapa: 29.5 };
+  const ULTIMO = { bateria: 0.6, cargando: true, mbps: 2.4 };
+  const AHORA = new Date(2026, 10, 6, 12, 0, 0);
+
+  it('en_vivo: conectado, con los Mbps y la escena', () => {
+    expect(medidaDesde({ fase: 'en_vivo', escena: 'camara' }, NATIVA, ULTIMO, AHORA)).toEqual({
+      hora: AHORA,
+      termico: 1,
+      temperatura: 38.4,
+      bateria: 0.6,
+      cargando: true,
+      fpsCapa: 29.5,
+      fpsVideo: 30,
+      memoriaMb: 500,
+      conexion: 'conectado',
+      mbps: 2.4,
+      escena: 'camara',
+    });
+  });
+
+  it('iniciando: la conexión y los Mbps quedan vacíos', () => {
+    const m = medidaDesde({ fase: 'iniciando', escena: 'inicio' }, NATIVA, ULTIMO, AHORA);
+    expect(m.conexion).toBeNull();
+    expect(m.mbps).toBeNull();
+  });
+
+  it('reconectando: reconectando y sin Mbps', () => {
+    const m = medidaDesde({ fase: 'reconectando', escena: 'inicio' }, NATIVA, ULTIMO, AHORA);
+    expect(m.conexion).toBe('reconectando');
+    expect(m.mbps).toBeNull();
+  });
+
+  it('terminando: conexión vacía y sin Mbps', () => {
+    const m = medidaDesde({ fase: 'terminando', escena: 'gracias' }, NATIVA, ULTIMO, AHORA);
+    expect(m.conexion).toBeNull();
+    expect(m.mbps).toBeNull();
+    expect(m.escena).toBe('gracias');
+  });
+
+  it('sin memoria del nativo queda null', () => {
+    expect(medidaDesde({ fase: 'en_vivo', escena: 'camara' }, { ...NATIVA, memoriaMb: null }, ULTIMO, AHORA).memoriaMb).toBeNull();
+  });
+});
+
+describe('accionRegistro (review M2)', () => {
+  it('el archivo se abre recién en en_vivo: un arranque que falla no deja archivo', () => {
+    expect(accionRegistro('en_vivo')).toBe('empezar');
+    expect(accionRegistro('iniciando')).toBeNull();
+  });
+
+  it('reconectando y terminando siguen con lo que haya', () => {
+    expect(accionRegistro('reconectando')).toBeNull();
+    expect(accionRegistro('terminando')).toBeNull();
+  });
+
+  it('fuera del aire se para', () => {
+    expect(accionRegistro('preparando')).toBe('parar');
+    expect(accionRegistro('terminado')).toBe('parar');
   });
 });

@@ -5,7 +5,7 @@
 // escena). Ningún texto que llegue de afuera pasa a la línea, así que ni la clave ni la URL del
 // servidor pueden terminar en el archivo, aunque se las pasen por error.
 import type { Conexion } from '../../modules/transmisor/src/eventos';
-import type { Escena } from '../estado/transmision';
+import type { Escena, Fase } from '../estado/transmision';
 
 /** Una muestra cada 30 s. */
 export const CADA_MS = 30_000;
@@ -146,4 +146,53 @@ export function crearRegistrador(d: DepsRegistrador, cadaMs: number = CADA_MS): 
       encolar(() => d.cerrar());
     },
   };
+}
+
+/** Lo que manda el nativo en medir() (ver modules/transmisor/src/TransmisorModule.ts). */
+export type MedidaDelNativo = {
+  termico: number | null;
+  temperatura: number | null;
+  memoriaMb: number | null;
+  fpsVideo: number | null;
+  fpsCapa: number | null;
+};
+
+/** Lo último que sabe la pantalla de la batería y la subida. */
+export type UltimoDePantalla = { bateria: number | null; cargando: boolean | null; mbps: number | null };
+
+/**
+ * Arma la muestra del registro (review M10). La conexión sale de la fase: «conectado» solo en
+ * en_vivo (con los Mbps), «reconectando» sin Mbps, y vacía al conectar o al terminar.
+ */
+export function medidaDesde(
+  estado: { fase: Fase; escena: Escena },
+  n: MedidaDelNativo,
+  u: UltimoDePantalla,
+  ahora: Date,
+): Medida {
+  const conexion: Conexion | null =
+    estado.fase === 'reconectando' ? 'reconectando' : estado.fase === 'en_vivo' ? 'conectado' : null;
+  return {
+    hora: ahora,
+    termico: n.termico,
+    temperatura: n.temperatura,
+    bateria: u.bateria,
+    cargando: u.cargando,
+    fpsCapa: n.fpsCapa,
+    fpsVideo: n.fpsVideo,
+    memoriaMb: n.memoriaMb,
+    conexion,
+    mbps: conexion === 'conectado' ? u.mbps : null,
+    escena: estado.escena,
+  };
+}
+
+/**
+ * Qué hacer con el registro en cada fase (review M2). El archivo se abre recién en en_vivo, así
+ * un arranque que falla no deja un archivo vacío que tape el de la misa.
+ */
+export function accionRegistro(fase: Fase): 'empezar' | 'parar' | null {
+  if (fase === 'en_vivo') return 'empezar';
+  if (fase === 'preparando' || fase === 'terminado') return 'parar';
+  return null;
 }

@@ -76,6 +76,10 @@ object Capa {
   /** Copias por segundo de la capa sobre el video (últimos 10 s), o null si no hay filtro. */
   fun fps(): Double? = filtro?.fps
 
+  fun olvidarFps() {
+    filtro?.olvidarFps()
+  }
+
   /** Crea el contenedor y las escenas fijas. Sin efecto si ya existe. */
   fun crear(actividad: Activity) {
     if (contenedor != null) return

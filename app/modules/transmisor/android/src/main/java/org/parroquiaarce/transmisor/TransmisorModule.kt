@@ -2,6 +2,7 @@ package org.parroquiaarce.transmisor
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.functions.Queues
@@ -16,24 +17,30 @@ class TransmisorModule : Module() {
     Name("Transmisor")
 
     // Cambios de conexión: { conexion, motivo, kbps, termico }.
-    Events("onEstado")
+    Events("onEstado", "onServicio")
 
     OnCreate {
       // Antes de cualquier conexión: RootEncoder escribe la clave con Log.i.
       RegistroSeguro.activar()
       Motor.alEvento = { cuerpo -> sendEvent("onEstado", cuerpo) }
+      Motor.alServicio = { ok -> sendEvent("onServicio", mapOf("ok" to ok)) }
     }
 
     // Todo en el hilo principal, como el resto de Motor y Capa (review de la Tarea 7). El hilo
     // de OnDestroy no está verificado: si ya es el principal se hace en el acto.
     OnDestroy {
+      // Los callbacks se sueltan en el acto: el runtime de JS se libera enseguida y un evento
+      // posterior no debe llegarle (review M3 de la Tarea 9).
+      Motor.alEvento = null
+      Motor.alServicio = null
+      val enPrincipal = Looper.myLooper() == Looper.getMainLooper()
+      Log.w("Transmisor", "destroy en principal=$enPrincipal")
       val soltar = Runnable {
-        Motor.alEvento = null
         Motor.terminar()
         Capa.liberar()
         Registro.cerrar()
       }
-      if (Looper.myLooper() == Looper.getMainLooper()) soltar.run() else Handler(Looper.getMainLooper()).post(soltar)
+      if (enPrincipal) soltar.run() else Handler(Looper.getMainLooper()).post(soltar)
     }
 
     AsyncFunction("version") {
@@ -80,6 +87,15 @@ class TransmisorModule : Module() {
         "memoriaMb" to Sistema.memoriaMb(),
         "fpsVideo" to Motor.fpsVideo,
         "fpsCapa" to Capa.fps(),
+      )
+    }
+
+    // Solo lo que usan los avisos (cada 10 s): sin Debug.getPss, que es lento (review M5).
+    AsyncFunction("medirAvisos") {
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      mapOf(
+        "termico" to Sistema.termico(ctx),
+        "temperatura" to Sistema.temperaturaBateria(ctx),
       )
     }
 

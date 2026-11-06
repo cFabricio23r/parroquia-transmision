@@ -51,9 +51,22 @@ object Registro {
     archivo = null
   }
 
-  /** Ruta absoluta del registro más nuevo, o null si no hay. */
+  /**
+   * Ruta absoluta del registro más nuevo que tenga al menos una muestra, o null si no hay.
+   * Uno que solo tiene el encabezado se saltea (review M2 de la Tarea 9).
+   */
   fun ultimo(ctx: Context): String? =
-    carpeta(ctx).listFiles()?.filter { NOMBRE.matches(it.name) }?.maxByOrNull { it.name }?.absolutePath
+    carpeta(ctx).listFiles()
+      ?.filter { NOMBRE.matches(it.name) && tieneMuestras(it) }
+      ?.maxByOrNull { it.name }
+      ?.absolutePath
+
+  private fun tieneMuestras(f: File): Boolean =
+    try {
+      f.bufferedReader().useLines { lineas -> lineas.take(2).count() >= 2 }
+    } catch (e: Exception) {
+      false
+    }
 
   private fun podar(c: File) {
     val todos = c.listFiles()?.filter { NOMBRE.matches(it.name) } ?: return

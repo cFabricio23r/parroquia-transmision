@@ -85,6 +85,11 @@ class FiltroCapa(private val vista: View) : BaseFilterRender() {
   @Volatile var fps: Double? = null
     private set
 
+  /** Entre transmisiones: hasta el próximo informe no hay dato (review M7). Desde cualquier hilo. */
+  fun olvidarFps() {
+    fps = null
+  }
+
   // El aviso es de toda la ventana (también la interfaz de RN). Solo se copia si la capa
   // cambió: View.isDirty() es true si la vista (o una hija) se invalidó desde el último dibujo.
   private val alDibujarVentana = ViewTreeObserver.OnDrawListener {

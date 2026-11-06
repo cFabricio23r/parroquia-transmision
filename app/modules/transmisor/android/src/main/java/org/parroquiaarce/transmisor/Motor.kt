@@ -69,8 +69,18 @@ object Motor : ConnectChecker {
   private val principal = Handler(Looper.getMainLooper())
   private val liberarCierre = Runnable { cerrando = false }
 
-  // Lo fija el módulo: manda el evento «onEstado» a JS.
-  var alEvento: ((Map<String, Any?>) -> Unit)? = null
+  // Lo fija el módulo: manda el evento «onEstado» a JS. @Volatile: OnDestroy lo borra desde su
+  // hilo, en el acto (review M3 de la Tarea 9).
+  @Volatile var alEvento: ((Map<String, Any?>) -> Unit)? = null
+
+  // Lo fija el módulo: manda «onServicio» a JS ({ ok }) cuando el servicio arranca o falla (review M4).
+  @Volatile var alServicio: ((Boolean) -> Unit)? = null
+
+  /** Lo llama ServicioTransmision: si no pudo quedar en primer plano, JS muestra un aviso. */
+  fun servicioArranco(ok: Boolean) {
+    if (!ok) Log.w(TAG, "servicio en primer plano no disponible")
+    alServicio?.invoke(ok)
+  }
 
   private fun obtener(ctx: Context): RtmpStream {
     stream?.let { return it }
@@ -171,6 +181,8 @@ object Motor : ConnectChecker {
     conectoAlgunaVez = false
     conectado = false
     reintentoPendiente = false
+    // Los fps de la transmisión anterior no pasan a la primera muestra de esta (review M7).
+    olvidarFps()
     Log.w(TAG, "iniciando transmision")
     // Con la app en primer plano y antes de salir al aire (Tarea 1, punto 7).
     contexto?.let { ServicioTransmision.arrancar(it) }
@@ -211,6 +223,7 @@ object Motor : ConnectChecker {
   private fun soltar(): Boolean {
     // El servicio en primer plano se para siempre que se deja el aire (terminar o corte).
     contexto?.let { ServicioTransmision.parar(it) }
+    olvidarFps()
     val s = stream ?: return true
     if (!s.isStreaming) return true
     cerrando = true
@@ -249,6 +262,11 @@ object Motor : ConnectChecker {
       r = r.replace(it, "[oculto]")
     }
     return r
+  }
+
+  private fun olvidarFps() {
+    fpsVideo = null
+    Capa.olvidarFps()
   }
 
   /** true si el texto tiene la URL o la clave de la transmisión en curso (defensa del registro). */

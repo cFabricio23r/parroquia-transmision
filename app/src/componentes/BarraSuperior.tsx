@@ -91,6 +91,7 @@ export default function BarraSuperior(p: Props) {
   }
 
   const reconectando = p.fase === 'reconectando';
+  const bateria = textoBateria(p.bateria, p.temperatura);
   const terminando = p.fase === 'terminando';
   const enCuenta = terminando && p.cuentaFinal !== null && p.cuentaFinal > 0;
   const etiqueta = terminando ? (enCuenta ? 'TERMINA EN' : 'TERMINANDO…') : reconectando ? 'RECONECTANDO' : 'EN VIVO';
@@ -110,9 +111,7 @@ export default function BarraSuperior(p: Props) {
       </View>
       <View style={estilos.relleno} />
       <Text style={estilos.dato}>Subida {formatoMbps(reconectando ? null : p.mbps)}</Text>
-      {textoBateria(p.bateria, p.temperatura) ? (
-        <Text style={estilos.dato}>{textoBateria(p.bateria, p.temperatura)}</Text>
-      ) : null}
+      {bateria ? <Text style={estilos.dato}>{bateria}</Text> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Terminar la transmisión"

@@ -18,7 +18,9 @@ import {
   actualizarEstado,
   anotarRegistro,
   cerrarRegistro,
+  addServicioListener,
   medir,
+  medirAvisos,
   noMolestarActivo,
   addEstadoListener,
   cambiarEscena,
@@ -30,8 +32,14 @@ import BarraSuperior from './src/componentes/BarraSuperior';
 import ColumnaPanel, { type PanelWeb } from './src/componentes/ColumnaPanel';
 import { C, FUENTES, M } from './src/componentes/tema';
 import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
-import { avisosActivos } from './src/avisos/avisos';
-import { crearRegistrador, type Medida } from './src/registro/registro';
+import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
+import {
+  accionRegistro,
+  crearRegistrador,
+  medidaDesde,
+  type Medida,
+  type UltimoDePantalla,
+} from './src/registro/registro';
 import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
@@ -89,32 +97,12 @@ const tienda = orq.tienda;
 
 // Lo último que se sabe de la batería y la subida, para el registro de rendimiento.
 // App lo actualiza en cada render; el registrador lo lee cada 30 s. Nunca lleva la clave.
-const ultimo = {
-  bateria: null as number | null,
-  cargando: null as boolean | null,
-  mbps: null as number | null,
-};
+const ultimo: UltimoDePantalla = { bateria: null, cargando: null, mbps: null };
 
 const registrador = crearRegistrador({
+  // El armado de la muestra está en registro.ts, con tests (review M10).
   async medir(): Promise<Medida> {
-    const n = await medir();
-    const e = tienda.obtener();
-    const reconectando = e.fase === 'reconectando';
-    // Conectando o terminando: la conexión queda vacía en el registro.
-    const conexion = reconectando ? 'reconectando' : e.fase === 'en_vivo' ? 'conectado' : null;
-    return {
-      hora: new Date(),
-      termico: n.termico,
-      temperatura: n.temperatura,
-      bateria: ultimo.bateria,
-      cargando: ultimo.cargando,
-      fpsCapa: n.fpsCapa,
-      fpsVideo: n.fpsVideo,
-      memoriaMb: n.memoriaMb,
-      conexion,
-      mbps: conexion === 'conectado' ? ultimo.mbps : null,
-      escena: e.escena,
-    };
+    return medidaDesde(tienda.obtener(), await medir(), ultimo, new Date());
   },
   abrir: abrirRegistro,
   anotar: anotarRegistro,
@@ -144,9 +132,13 @@ export default function App() {
   const [hayRed, setHayRed] = useState(true);
   const [noMolestar, setNoMolestar] = useState<boolean | null>(null);
   const [calidad, setCalidad] = useState<Calidad | undefined>(undefined);
-  ultimo.bateria = bateria;
-  ultimo.cargando = cargando;
-  ultimo.mbps = mbps;
+  // Si el servicio en primer plano no arrancó (review M4): se muestra hasta el próximo arranque.
+  const [avisoServicio, setAvisoServicio] = useState<string | null>(null);
+  useEffect(() => {
+    ultimo.bateria = bateria;
+    ultimo.cargando = cargando;
+    ultimo.mbps = mbps;
+  }, [bateria, cargando, mbps]);
 
   const panelRef = useRef<PanelWeb | null>(null);
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
@@ -208,6 +200,7 @@ export default function App() {
     setEnAjustes(false);
     setMbps(null);
     setErrorSuperado(null);
+    setAvisoServicio(null);
     panelRef.current?.injectJavaScript(SCRIPT_IR_A_EN_VIVO);
   };
   pantalla.abrirAjustes = () => {
@@ -261,7 +254,7 @@ export default function App() {
   // Estado térmico y temperatura de la batería, cada 10 s.
   useEffect(() => {
     const leer = () =>
-      medir().then(
+      medirAvisos().then(
         (m) => {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
@@ -292,9 +285,16 @@ export default function App() {
 
   // Registro de rendimiento: un archivo por transmisión, una línea cada 30 s mientras se está al aire.
   useEffect(() => {
-    if (alAire) registrador.empezar();
-    else registrador.parar();
-  }, [alAire]);
+    // El archivo se abre recién en en_vivo: un arranque fallido no deja archivo (review M2).
+    const accion = accionRegistro(estado.fase);
+    if (accion === 'empezar') registrador.empezar();
+    else if (accion === 'parar') registrador.parar();
+  }, [estado.fase]);
+
+  useEffect(() => {
+    const s = addServicioListener(setAvisoServicio);
+    return () => s.remove();
+  }, []);
 
   // Reloj: un tic por segundo (el reducer lo ignora fuera del aire).
   useEffect(() => {
@@ -337,9 +337,9 @@ export default function App() {
   const errorVisible = estado.error !== null && estado.error !== errorSuperado ? estado.error : null;
   const mensajeAntes = errorVisible ?? aviso ?? avisoEscena;
   // Al reconectar, el aviso «Señal débil» (avisosActivos) ocupa el lugar del mensaje de la conexión.
-  const mensajeVivo = avisoEscena ?? aviso;
+  const mensajeVivo = avisoServicio ?? avisoEscena ?? aviso;
   const avisos = avisosActivos({
-    conexion: estado.fase === 'reconectando' ? 'reconectando' : 'conectado',
+    conexion: conexionParaAvisos(estado.fase),
     bateria,
     temperatura,
     termico,

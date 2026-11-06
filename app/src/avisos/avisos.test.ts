@@ -1,4 +1,4 @@
-import { avisosActivos, type EntradaAvisos } from './avisos';
+import { avisosActivos, conexionParaAvisos, type EntradaAvisos } from './avisos';
 
 // Todo bien: conectado, batería llena, fresco y con red.
 const BIEN: EntradaAvisos = { conexion: 'conectado', bateria: 0.8, temperatura: 30, termico: 0, hayRed: true };
@@ -107,5 +107,14 @@ describe('avisosActivos', () => {
 
   it('bateria negativa (expo-battery da -1 si no la conoce) no da aviso', () => {
     expect(ids({ bateria: -1 })).toEqual([]);
+  });
+});
+
+describe('conexionParaAvisos (review M10)', () => {
+  it('solo reconectando da senal; el resto cuenta como conectado', () => {
+    expect(conexionParaAvisos('reconectando')).toBe('reconectando');
+    for (const f of ['preparando', 'iniciando', 'en_vivo', 'terminando', 'terminado'] as const) {
+      expect(conexionParaAvisos(f)).toBe('conectado');
+    }
   });
 });

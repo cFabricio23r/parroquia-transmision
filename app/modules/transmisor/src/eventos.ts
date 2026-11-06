@@ -33,6 +33,7 @@ export const MENSAJES = {
   ocupado: 'La transmisión anterior todavía se está cerrando. Espere unos segundos y vuelva a intentar.',
   noInicia: 'No se pudo iniciar la transmisión.',
   desconocido: 'Se cortó la transmisión. Vuelva a transmitir.',
+  servicio: 'No se pudo mantener la transmisión en segundo plano. No salga de la app.',
 } as const;
 
 const POR_MOTIVO: Record<string, string> = {

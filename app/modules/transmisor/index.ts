@@ -4,6 +4,7 @@ import Modulo from './src/TransmisorModule';
 import type { Escena } from '../../src/estado/transmision';
 import { crearColaEscenas } from './src/escenas';
 import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from './src/eventos';
+export { MENSAJES } from './src/eventos';
 
 export { default as VistaTransmisor } from './src/TransmisorView';
 export type { Conexion, EventoEstado } from './src/eventos';
@@ -116,6 +117,29 @@ export type { MedidaNativa } from './src/TransmisorModule';
 /** Estado térmico, temperatura de la batería, memoria y fps (para los avisos y el registro). */
 export function medir() {
   return Modulo.medir();
+}
+
+/** Lo que usan los avisos (cada 10 s): sin la memoria, que es lenta de leer (review M5). */
+export function medirAvisos(): Promise<{ termico: number | null; temperatura: number | null }> {
+  return Modulo.medirAvisos();
+}
+
+/**
+ * Avisa con un mensaje en español si el servicio en primer plano no pudo arrancar: la transmisión
+ * sigue, pero se congela si la app pasa a segundo plano (review M4).
+ */
+const oyentesServicio = new Set<(mensaje: string) => void>();
+let suscripcionServicio: { remove(): void } | null = null;
+
+export function addServicioListener(cb: (mensaje: string) => void): { remove(): void } {
+  if (!suscripcionServicio) {
+    suscripcionServicio = Modulo.addListener('onServicio', (n) => {
+      if (n.ok) return;
+      for (const f of [...oyentesServicio]) f(MENSAJES.servicio);
+    });
+  }
+  oyentesServicio.add(cb);
+  return { remove: () => oyentesServicio.delete(cb) };
 }
 
 export function abrirRegistro(nombre: string, encabezado: string): Promise<void> {

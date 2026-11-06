@@ -5,14 +5,17 @@ const CLAVE = 'FB-PRUEBA-MARCA-1111';
 
 function cargar() {
   let alEvento: ((n: Nativo) => void) | null = null;
+  let alServicio: ((n: { ok: boolean }) => void) | null = null;
   const modulo = {
+    medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40 })),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
     cambiarEscena: jest.fn((_escena: string) => Promise.resolve()),
     actualizarEstado: jest.fn((_json: string) => Promise.resolve()),
-    addListener: jest.fn((_nombre: string, cb: (n: Nativo) => void) => {
-      alEvento = cb;
+    addListener: jest.fn((nombre: string, cb: (n: never) => void) => {
+      if (nombre === 'onServicio') alServicio = cb as (n: { ok: boolean }) => void;
+      else alEvento = cb as (n: Nativo) => void;
       return { remove: jest.fn() };
     }),
   };
@@ -21,7 +24,8 @@ function cargar() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const api = require('./index') as typeof import('./index');
   const emitir = (n: Nativo) => alEvento?.(n);
-  return { api, modulo, emitir };
+  const emitirServicio = (n: { ok: boolean }) => alServicio?.(n);
+  return { api, modulo, emitir, emitirServicio };
 }
 
 // Deja correr las promesas ya resueltas (con temporizadores falsos).
@@ -242,5 +246,39 @@ describe('actualizarEstado', () => {
     api.actualizarEstado('{"a":2}');
     api.actualizarEstado('{"a":1}');
     expect(modulo.actualizarEstado.mock.calls.map((c) => c[0])).toEqual(['{"a":1}', '{"a":2}', '{"a":1}']);
+  });
+});
+
+describe('servicio en primer plano (review M4)', () => {
+  it('si el servicio no arrancó, avisa con un mensaje en español', () => {
+    const { api, emitirServicio } = cargar();
+    const cb = jest.fn();
+    api.addServicioListener(cb);
+    emitirServicio({ ok: false });
+    expect(cb).toHaveBeenCalledWith('No se pudo mantener la transmisión en segundo plano. No salga de la app.');
+  });
+
+  it('si arrancó bien no avisa nada', () => {
+    const { api, emitirServicio } = cargar();
+    const cb = jest.fn();
+    api.addServicioListener(cb);
+    emitirServicio({ ok: true });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('remove deja de avisar', () => {
+    const { api, emitirServicio } = cargar();
+    const cb = jest.fn();
+    api.addServicioListener(cb).remove();
+    emitirServicio({ ok: false });
+    expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe('medirAvisos (review M5)', () => {
+  it('usa la medición liviana del nativo, sin la memoria', async () => {
+    const { api, modulo } = cargar();
+    await expect(api.medirAvisos()).resolves.toEqual({ termico: 2, temperatura: 40 });
+    expect(modulo.medirAvisos).toHaveBeenCalledTimes(1);
   });
 });

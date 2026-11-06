@@ -19,6 +19,11 @@ import android.util.Log
  *
  * - Se arranca en Motor.iniciar(), con la app en primer plano y antes de startStream.
  * - Se para cuando la transmisión termina o se corta del todo (Motor.soltar).
+ * - startForeground se llama siempre primero en onStartCommand. Si el pedido de parar llega antes
+ *   (un arranque que falla en el acto), se anota en `pedidoParar` y el servicio se para solo
+ *   después de startForeground: así Android no tira «startForegroundService() did not then call
+ *   startForeground()» (review M1 de la Tarea 9; esa regla del sistema no se verificó en el AOSP).
+ * - Si startForeground falla, se avisa a JS (Motor.servicioArranco(false)) y no se hace stopSelf.
  * - La notificación es fija mientras se transmite y vuelve a la app al tocarla.
  *
  * APIs comprobadas en api-versions.xml: startForeground(int, Notification, int) desde 29;
@@ -34,17 +39,30 @@ class ServicioTransmision : Service() {
     @Volatile var activo = false
       private set
 
+    // Entre startForegroundService y el onStartCommand que llama a startForeground.
+    @Volatile private var arrancando = false
+    // Un parar() que llegó mientras arrancaba: se cumple después de startForeground.
+    @Volatile private var pedidoParar = false
+
     fun arrancar(ctx: Context) {
       val i = Intent(ctx, ServicioTransmision::class.java)
+      pedidoParar = false
+      arrancando = true
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i) else ctx.startService(i)
       } catch (e: Exception) {
+        arrancando = false
         // Sin el servicio la transmisión sigue, pero se corta al pasar a segundo plano.
         Log.w(TAG, "servicio: no se pudo arrancar (${e.javaClass.simpleName})")
+        Motor.servicioArranco(false)
       }
     }
 
     fun parar(ctx: Context) {
+      if (arrancando) {
+        pedidoParar = true
+        return
+      }
       ctx.stopService(Intent(ctx, ServicioTransmision::class.java))
     }
   }
@@ -65,8 +83,18 @@ class ServicioTransmision : Service() {
       }
       activo = true
       Log.w(TAG, "servicio en primer plano activo")
+      Motor.servicioArranco(true)
     } catch (e: Exception) {
+      // Sin stopSelf: un stop sin startForeground es justo lo que el sistema castiga. El servicio
+      // queda sin primer plano hasta que Motor lo pare al terminar. No verificado en el celular.
       Log.w(TAG, "servicio: startForeground fallo (${e.javaClass.simpleName})")
+      Motor.servicioArranco(false)
+    }
+    arrancando = false
+    // Solo después de un startForeground que salió bien. Si falló, el servicio queda sin hacer nada
+    // hasta el próximo parar() (al terminar la próxima transmisión).
+    if (pedidoParar && activo) {
+      pedidoParar = false
       stopSelf()
     }
     // Si el sistema mata el proceso no se vuelve a crear solo: la transmisión ya no existe.
@@ -82,7 +110,8 @@ class ServicioTransmision : Service() {
 
   private fun notificacion(): Notification {
     val abrir = packageManager.getLaunchIntentForPackage(packageName)?.let {
-      it.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+      // addFlags: conserva los flags que pone getLaunchIntentForPackage (review M9).
+      it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
     val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -2,6 +2,7 @@
 // Las reglas son las del plan; el calor se ajustó con la medición de la Tarea 1.
 import type { Calidad } from '../ajustes/ajustes';
 import type { Conexion } from '../../modules/transmisor/src/eventos';
+import type { Fase } from '../estado/transmision';
 
 export type Aviso = {
   id: 'senal' | 'bateria' | 'calor' | 'sin_red';
@@ -64,4 +65,9 @@ export function avisosActivos(e: EntradaAvisos): Aviso[] {
     r.push({ id: 'calor', nivel: 'ambar', titulo: 'El celular está caliente', detalle: 'Sáquelo del sol o quítele la funda.' });
   }
   return r;
+}
+
+/** La conexión para los avisos: solo «reconectando» da el aviso de señal (review M10). */
+export function conexionParaAvisos(fase: Fase): Conexion {
+  return fase === 'reconectando' ? 'reconectando' : 'conectado';
 }
