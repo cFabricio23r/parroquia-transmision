@@ -1,5 +1,5 @@
 // Tira de escenas debajo de la vista previa (pantallas 2 y 3 del lienzo).
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { Escena } from '../estado/transmision';
 import { C, F, M } from './tema';
@@ -12,22 +12,31 @@ export const ESCENAS: { id: Escena; nombre: string }[] = [
   { id: 'gracias', nombre: 'Gracias' },
 ];
 
+/** Orden de la tira en Preparar (vertical). Es el mismo que En vivo, para que los botones no cambien de
+ *  lugar entre las dos pantallas (decisión del 2026-11-06; el plan de la 9c ponía Cámara primero). */
+export const ESCENAS_PREPARAR: { id: Escena; nombre: string }[] = ESCENAS;
+
 interface Props {
   escena: Escena;
   desactivada: boolean;
   onElegir: (escena: Escena) => void;
+  /** Por defecto, el orden de En vivo. */
+  escenas?: { id: Escena; nombre: string }[];
+  estilo?: StyleProp<ViewStyle>;
+  /** Etiqueta para lectores de pantalla, delante del nombre (por defecto «Escena»). */
+  prefijo?: string;
 }
 
-export default function TiraEscenas({ escena, desactivada, onElegir }: Props) {
+export default function TiraEscenas({ escena, desactivada, onElegir, escenas = ESCENAS, estilo, prefijo = 'Escena' }: Props) {
   return (
-    <View style={estilos.tira}>
-      {ESCENAS.map((x) => {
+    <View style={[estilos.tira, estilo]}>
+      {escenas.map((x) => {
         const elegida = escena === x.id;
         return (
           <Pressable
             key={x.id}
             accessibilityRole="button"
-            accessibilityLabel={`Escena ${x.nombre}`}
+            accessibilityLabel={`${prefijo} ${x.nombre}`}
             accessibilityState={{ selected: elegida, disabled: desactivada }}
             disabled={desactivada}
             onPress={() => onElegir(x.id)}

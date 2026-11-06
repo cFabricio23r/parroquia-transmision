@@ -1,8 +1,10 @@
-// Columna derecha: el panel 2.0 de obs/ en modo compacto, dentro de un WebView de 360 dp.
+// El panel 2.0 de obs/ en modo compacto, dentro de un WebView: columna de 360 dp a la derecha
+// en horizontal, o debajo de la tira en Preparar (vertical). El tamaño lo da App con `estilo`:
+// el WebView es siempre el mismo y no se recarga al girar (Tarea 9c).
 // Solo carga archivos de la app (ORIGEN_PANEL, file:///android_asset/); cualquier otra dirección se bloquea.
 // El panel nunca recibe la clave: solo su propio estado (parroquia_obs_estado_v1).
 import { useState, type RefObject } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { ORIGEN_PANEL, SCRIPT_ANTES_DE_CARGAR, SCRIPT_PANEL, esDelPanel, leerMensaje } from '../puente/puente';
@@ -19,9 +21,11 @@ interface Props {
   onEstado: (json: string) => void;
   /** La página terminó de cargar (también después de una recarga). */
   onCargado: () => void;
+  /** Lugar y tamaño de la columna (cambia al girar; el WebView sigue montado). */
+  estilo?: StyleProp<ViewStyle>;
 }
 
-export default function ColumnaPanel({ webviewRef, onEstado, onCargado }: Props) {
+export default function ColumnaPanel({ webviewRef, onEstado, onCargado, estilo }: Props) {
   // Cada vez que se cae el proceso de la página se monta un WebView nuevo: una WebView cuyo
   // proceso murió no se puede volver a usar (review M1). El estado del panel queda en localStorage.
   const [montaje, setMontaje] = useState(0);
@@ -34,7 +38,7 @@ export default function ColumnaPanel({ webviewRef, onEstado, onCargado }: Props)
   }
 
   return (
-    <View style={estilos.columna}>
+    <View style={[estilos.columna, estilo]}>
       <WebView
         key={montaje}
         ref={webviewRef}

@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 
 /*
@@ -58,7 +60,24 @@ class ServicioTransmision : Service() {
       }
     }
 
+    private val principal = Handler(Looper.getMainLooper())
+
+    /*
+     * parar() se puede llamar desde el hilo de RootEncoder (un corte que llega por ConnectChecker
+     * termina en Motor.soltar). onStartCommand corre en el hilo principal y lee y escribe
+     * `arrancando` y `pedidoParar`: si los dos corren a la vez, el pedido de parar se puede perder
+     * entre la lectura de `arrancando` y su puesta en false, y el servicio queda prendido sin
+     * transmisión (review N1 de la Tarea 9). Por eso el trabajo se hace siempre en el principal.
+     * Desde el principal se hace en el acto, no con post: así un terminar() seguido de un iniciar()
+     * no para el servicio nuevo con un parar() que llegó tarde.
+     */
     fun parar(ctx: Context) {
+      val app = ctx.applicationContext
+      if (Looper.myLooper() == Looper.getMainLooper()) pararEnPrincipal(app)
+      else principal.post { pararEnPrincipal(app) }
+    }
+
+    private fun pararEnPrincipal(ctx: Context) {
       if (arrancando) {
         pedidoParar = true
         return

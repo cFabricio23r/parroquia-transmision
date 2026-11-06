@@ -3,7 +3,7 @@
     "name": "Parroquia en vivo",
     "slug": "parroquia-en-vivo",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "portrait",
     "icon": "./assets/icono/icono.png",
     "userInterfaceStyle": "light",
     "ios": {

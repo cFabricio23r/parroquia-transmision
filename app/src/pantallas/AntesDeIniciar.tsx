@@ -1,6 +1,7 @@
 // Pantalla 1 del lienzo: «Antes de iniciar». Va encima de la vista previa y debajo de ella;
 // la vista previa y el panel los pone App, para que no se recarguen al cambiar de pantalla.
 // Avisos de la Tarea 9: red, batería y calor (avisosActivos) y No molestar con «Activar».
+// Tarea 9c: se llega con «Listo» desde Preparar (vertical); «‹ Volver a preparar» vuelve a vertical.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Aviso } from '../avisos/avisos';
@@ -24,6 +25,8 @@ interface Props {
   onIniciar: () => void;
   onAjustes: () => void;
   onPrepararOtraVez: () => void;
+  /** Vuelve a Preparar, en vertical (Tarea 9c). */
+  onVolverAPreparar: () => void;
 }
 
 export default function AntesDeIniciar(p: Props) {
@@ -43,7 +46,18 @@ export default function AntesDeIniciar(p: Props) {
     <View style={estilos.capa} pointerEvents="box-none">
       <View style={estilos.sobreVista} pointerEvents="box-none">
         <View style={estilos.arriba} pointerEvents="box-none">
-          <Text style={estilos.etiqueta}>VISTA PREVIA · NADIE LO VE TODAVÍA</Text>
+          <View style={estilos.filaArriba} pointerEvents="box-none">
+            <Text style={estilos.etiqueta}>VISTA PREVIA · NADIE LO VE TODAVÍA</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Volver a preparar"
+              accessibilityHint="Pasa la pantalla a vertical, con el panel y la tira de escenas"
+              onPress={p.onVolverAPreparar}
+              style={estilos.volver}
+            >
+              <Text style={estilos.volverTexto}>‹ Volver a preparar</Text>
+            </Pressable>
+          </View>
           <Avisos
             avisos={p.avisos}
             conBoton={
@@ -124,6 +138,17 @@ const estilos = StyleSheet.create({
     justifyContent: 'space-between',
   },
   arriba: { gap: 6 },
+  filaArriba: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  volver: {
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: C.sobreVista,
+    borderWidth: 1,
+    borderColor: C.borde,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  volverTexto: { fontFamily: F.extra, fontSize: 13, color: C.texto },
   etiqueta: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(6, 18, 36, 0.82)',

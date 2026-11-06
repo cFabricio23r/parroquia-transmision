@@ -1,6 +1,7 @@
 // API del transmisor (cámara a Facebook por RTMPS).
 import type { Calidad, Microfono } from '../../src/ajustes/ajustes';
 import Modulo from './src/TransmisorModule';
+import type { Orientacion } from '../../src/estado/orientacion';
 import type { Escena } from '../../src/estado/transmision';
 import { crearColaEscenas } from './src/escenas';
 import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from './src/eventos';
@@ -165,4 +166,19 @@ export function noMolestarActivo(): Promise<boolean | null> {
 
 export function abrirNoMolestar(): Promise<boolean> {
   return Modulo.abrirNoMolestar();
+}
+
+// --- Tarea 9c: orientación ---
+
+/** Vertical para Preparar; horizontal para Antes de iniciar y al aire. Queda fija hasta el próximo pedido. */
+export function fijarOrientacion(orientacion: Orientacion): Promise<void> {
+  return Modulo.fijarOrientacion(orientacion);
+}
+
+export type { ZonasSeguras } from './src/TransmisorModule';
+
+/** Barra de estado, recorte de la cámara y barra de navegación, en dp. Cambian al girar. */
+export function zonasSeguras() {
+  // Dentro de una promesa: con un APK viejo, sin la función nativa, rechaza en vez de tirar en el render.
+  return Promise.resolve().then(() => Modulo.zonasSeguras());
 }
