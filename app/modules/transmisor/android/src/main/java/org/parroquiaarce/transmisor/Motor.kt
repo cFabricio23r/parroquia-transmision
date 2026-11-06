@@ -9,7 +9,9 @@ import android.os.Looper
 import android.util.Log
 import android.view.SurfaceView
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.sources.OrientationForced
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.rtmp.RtmpStream
 import com.pedro.library.util.FpsListener
 import expo.modules.kotlin.exception.CodedException
@@ -141,7 +143,21 @@ object Motor : ConnectChecker {
 
   fun superficieCambio(ancho: Int, alto: Int) {
     val s = stream ?: return
+    // Al girar la pantalla la superficie cambia de tamaño: es el momento de seguir la rotación.
+    seguirPantalla(s)
     if (s.isOnPreview) s.getGlInterface().setPreviewResolution(ancho, alto)
+  }
+
+  /**
+   * RootEncoder fija la rotación de la cámara con la rotación que tiene la pantalla en el momento
+   * de prepareVideo (OrientationForced.NONE → CameraHelper.getCameraOrientation) y no la vuelve a
+   * mirar sola. Desde la Tarea 9c se prepara en vertical y después se gira a horizontal: sin esto
+   * la imagen queda en la rotación vertical. forceOrientation(NONE) vuelve a leer la rotación
+   * actual (leído en el bytecode de RootEncoder 2.8.1, GlStreamInterface.forceOrientation).
+   */
+  private fun seguirPantalla(s: RtmpStream) {
+    s.getGlInterface().forceOrientation(OrientationForced.NONE)
+    contexto?.let { Log.w(TAG, "rotacion de pantalla para la camara=${CameraHelper.getCameraOrientation(it)}") }
   }
 
   fun superficieFuera(sv: SurfaceView) {
@@ -160,6 +176,7 @@ object Motor : ConnectChecker {
     val sv = superficie ?: return
     if (!preparado || s.isOnPreview || !sv.holder.surface.isValid) return
     s.startPreview(sv)
+    seguirPantalla(s)
     // RootEncoder suelta los filtros al parar el GL: se vuelve a poner la capa.
     Capa.asegurarFiltro(s)
     Log.w(TAG, "vista previa iniciada")
@@ -186,6 +203,8 @@ object Motor : ConnectChecker {
     Log.w(TAG, "iniciando transmision")
     // Con la app en primer plano y antes de salir al aire (Tarea 1, punto 7).
     contexto?.let { ServicioTransmision.arrancar(it) }
+    // Ya en horizontal: la imagen que sale al aire sigue la rotación actual de la pantalla.
+    seguirPantalla(s)
     s.startStream(urlCompleta)
     // Sin vista previa, startStream arranca el GL: la capa tiene que ir también en el video.
     Capa.asegurarFiltro(s)
