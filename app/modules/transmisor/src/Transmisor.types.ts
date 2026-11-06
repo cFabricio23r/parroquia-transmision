@@ -1,8 +1,8 @@
 // Tipos del módulo Transmisor.
-export type EventoEstado = {
-  estado: string;
-};
+import type { EventoNativo } from './eventos';
+
+export type { Conexion, EventoEstado, EventoNativo } from './eventos';
 
 export type TransmisorModuleEvents = {
-  onEstado: (evento: EventoEstado) => void;
+  onEstado: (evento: EventoNativo) => void;
 };
