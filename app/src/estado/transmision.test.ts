@@ -352,3 +352,29 @@ describe('debeCortar', () => {
     expect(debeCortar(s, reducir(s, { tipo: 'tic' }))).toBe(false);
   });
 });
+
+describe('volver a transmitir después de terminar (Tarea 8)', () => {
+  it('iniciar desde terminado arranca de cero: iniciando, escena inicio, sin tiempo ni error', () => {
+    const t = aplicar(enVivo(), ...tics(5), { tipo: 'terminar_con_gracias' }, ...tics(10), { tipo: 'terminado' });
+    expect(t.fase).toBe('terminado');
+    const s = reducir(t, { tipo: 'iniciar' });
+    expect(s).toEqual({ ...ESTADO_INICIAL, fase: 'iniciando' });
+    expect(debeCortar(t, s)).toBe(false);
+  });
+});
+
+describe('cortado en preparando (review N2 de la Tarea 6)', () => {
+  it('se ignora: mismo objeto y sin corte', () => {
+    expect(reducir(ESTADO_INICIAL, { tipo: 'cortado', mensaje: 'x' })).toBe(ESTADO_INICIAL);
+  });
+  it('un segundo cortado después del primero no corta dos veces', () => {
+    const { final, cortes } = cortesEn(enVivo(), [
+      { tipo: 'cortado', mensaje: 'Facebook no respondió.' },
+      { tipo: 'cortado', mensaje: 'No se pudo volver a preparar la cámara.' },
+    ]);
+    expect(cortes).toBe(1);
+    expect(final.fase).toBe('preparando');
+    // Queda el primer mensaje: el segundo se ignora entero.
+    expect(final.error).toBe('Facebook no respondió.');
+  });
+});

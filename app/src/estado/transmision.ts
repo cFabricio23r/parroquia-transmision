@@ -53,7 +53,10 @@ const terminarYa = (e: EstadoTransmision): EstadoTransmision =>
 export function reducir(e: EstadoTransmision, ev: Evento): EstadoTransmision {
   switch (ev.tipo) {
     case 'iniciar':
-      return e.fase === 'preparando' ? { ...e, fase: 'iniciando', error: null } : e;
+      if (e.fase === 'preparando') return { ...e, fase: 'iniciando', error: null };
+      // Otra transmisión después de terminar: arranca de cero (Tarea 8).
+      if (e.fase === 'terminado') return { ...ESTADO_INICIAL, fase: 'iniciando' };
+      return e;
 
     case 'conectado':
       // Desde 'reconectando' vuelve sin tocar segundos.

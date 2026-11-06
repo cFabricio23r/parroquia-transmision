@@ -7,7 +7,7 @@ import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from '
 
 export { default as VistaTransmisor } from './src/TransmisorView';
 export type { Conexion, EventoEstado } from './src/eventos';
-export { ErrorTransmisor } from './src/eventos';
+export { ErrorTransmisor, pideVolverAPreparar } from './src/eventos';
 
 /** Si en este tiempo no llega «conectado» ni un corte, se da el inicio por fallido. */
 export const ESPERA_INICIO_MS = 20_000;

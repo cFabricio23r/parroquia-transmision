@@ -1,4 +1,4 @@
-import { ErrorTransmisor, MENSAJES, aEventoEstado, armarUrl, traducirError } from './eventos';
+import { ErrorTransmisor, MENSAJES, aEventoEstado, armarUrl, pideVolverAPreparar, traducirError } from './eventos';
 
 // Marca falsa: nunca una clave real en los tests.
 const CLAVE = 'FB-PRUEBA-MARCA-0000';
@@ -138,5 +138,17 @@ describe('traducirError', () => {
   it('un ErrorTransmisor pasa tal cual', () => {
     const e = new ErrorTransmisor('ocupado', MENSAJES.ocupado);
     expect(traducirError(e)).toBe(e);
+  });
+});
+
+describe('pideVolverAPreparar (review N3 de la Tarea 6)', () => {
+  it('es true con el corte de tipo preparar', () => {
+    expect(pideVolverAPreparar(aEventoEstado({ conexion: 'cortado', motivo: 'preparar', kbps: null }))).toBe(true);
+  });
+  it('es false con cualquier otro evento', () => {
+    expect(pideVolverAPreparar(aEventoEstado({ conexion: 'cortado', motivo: 'clave', kbps: null }))).toBe(false);
+    expect(pideVolverAPreparar(aEventoEstado({ conexion: 'cortado', motivo: null, kbps: null }))).toBe(false);
+    expect(pideVolverAPreparar(aEventoEstado({ conexion: 'reconectando', motivo: 'preparar', kbps: null }))).toBe(false);
+    expect(pideVolverAPreparar(aEventoEstado({ conexion: 'conectado', motivo: null, kbps: 2500 }))).toBe(false);
   });
 });

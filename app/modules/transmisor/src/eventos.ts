@@ -85,3 +85,8 @@ export function traducirError(e: unknown): ErrorTransmisor {
   const par = typeof code === 'string' ? POR_CODIGO[code] : undefined;
   return par ? new ErrorTransmisor(par[0], par[1]) : new ErrorTransmisor('otro', MENSAJES.noInicia);
 }
+
+/** Corte por «no se pudo volver a preparar la cámara»: la pantalla vuelve a llamar a prepararVista(). */
+export function pideVolverAPreparar(e: EventoEstado): boolean {
+  return e.conexion === 'cortado' && e.mensaje === MENSAJES.preparar;
+}
