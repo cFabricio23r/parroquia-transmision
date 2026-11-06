@@ -1,0 +1,38 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'org.parroquiaarce.transmisor'
+version = '0.1.0'
+
+repositories {
+  google()
+  mavenCentral()
+  // RootEncoder se publica en jitpack.
+  maven { url 'https://jitpack.io' }
+}
+
+android {
+  namespace "org.parroquiaarce.transmisor"
+  if (rootProject.ext.has('ndkVersion')) {
+    ndkVersion rootProject.ext.ndkVersion
+  }
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  // Biblioteca nativa mínima para bajar el nivel del log del proceso (ver RegistroSeguro.kt).
+  externalNativeBuild {
+    cmake {
+      path "src/main/cpp/CMakeLists.txt"
+    }
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation 'com.github.pedroSG94.RootEncoder:library:2.8.1'
+}

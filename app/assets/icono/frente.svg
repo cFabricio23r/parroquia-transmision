@@ -1,0 +1,12 @@
+<!-- Primer plano del ícono adaptativo (108 dp). El dibujo de 192 del ícono A se achica a 0,35 y se
+     centra: la cruz, las ondas y el punto rojo quedan dentro de la zona segura, un círculo de 66 dp
+     de diámetro en el centro (el punto rojo, el más lejano, llega a ~32,8 dp del centro). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <g transform="translate(20.4 20.4) scale(0.35)">
+    <rect x="88" y="52" width="16" height="92" rx="4" fill="#ffffff"/>
+    <rect x="64" y="76" width="64" height="16" rx="4" fill="#ffffff"/>
+    <path d="M50 64a52 52 0 0 0 0 64M142 64a52 52 0 0 1 0 64" fill="none" stroke="#bfe0ff" stroke-width="9" stroke-linecap="round"/>
+    <path d="M30 48a76 76 0 0 0 0 96M162 48a76 76 0 0 1 0 96" fill="none" stroke="#bfe0ff" stroke-width="9" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="150" cy="40" r="14" fill="#dd0300" stroke="#ffffff" stroke-width="4"/>
+  </g>
+</svg>

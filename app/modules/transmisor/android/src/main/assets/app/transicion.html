@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Transición</title>
+<!-- Página propia de la app (no de obs/): la transición del logo sobre la capa de 1920×1080.
+     Capa.kt llama a reproducir(); si la escena nueva tarda en cargar, pausar() deja el logo
+     tapando la pantalla y seguir() lo deja terminar. -->
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  video { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; object-fit: fill; background: transparent; }
+</style>
+</head>
+<body>
+<video id="v" src="../obs/transiciones/Transicion_2000ms_Logo.webm" muted playsinline preload="auto"></video>
+<script>
+  const v = document.getElementById('v');
+  // Desde el principio. Devuelve true si el video está listo para reproducir.
+  function reproducir() {
+    try { v.pause(); v.currentTime = 0; } catch (e) {}
+    const p = v.play();
+    if (p && p.catch) p.catch(() => {});
+    return v.readyState >= 2;
+  }
+  function pausar() { v.pause(); }
+  function seguir() { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+</script>
+</body>
+</html>

@@ -175,6 +175,132 @@ details label{margin-bottom:9px}
 .estado-guardadas.error{color:var(--ambar)}
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
+
+/* ---------- dock de OBS: gris y compacto (Tarea 9e) ----------
+   Es el estilo por defecto: todo va bajo :root:not(.modo-app), así la app Android (.modo-app) queda igual.
+   Colores del tema por defecto de OBS 33 (Yami «Default», data/obs-studio/themes/Yami.obt):
+   grey7 #1D1F26 bg_window · grey6 #272A33 bg_base · grey4 #3C404D button_bg, input_bg y border_color ·
+   grey3 #464B59 button_bg_hover · grey1 #5B6273 input_border · blue3 #284CB8 primary · blue2 #476BD7 primary_light ·
+   blue1 #718CDC highlight_color · white1 #FFFFFF text · white4 #B4B4B4 · white3 #D2D2D2 · red3 #C01C37 · red4 #A1172E ·
+   green1/2/3/4/6 · yellow1 #EABC48 · yellow6 #493709.
+   Texto atenuado: white4 sobre fondos grey6/grey7 y white3 dentro de botones (white5, text_muted de OBS, no llega a 4,5:1). */
+:root:not(.modo-app){--fondo:#1D1F26;--caja:#272A33;--caja2:#3C404D;--elegido:#284CB8;--borde:#3C404D;--campo:#1D1F26;--texto:#FFFFFF;--suave:#B4B4B4;--suave-boton:#D2D2D2;--acento:#476BD7;--rey:#476BD7;--rojo:#C01C37;--verde:#37D247;--verde-borde:#25A231;--verde-fondo:#0F4313;--verde-texto:#59D966;--ambar:#EABC48;--ambar-fondo:#493709;--apagado:#272A33;--foco:#718CDC;--hover:#464B59;--campo-borde:#5B6273}
+:root:not(.modo-app) body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;padding-bottom:24px}
+:root:not(.modo-app) button{font-weight:600;font-size:12px;border:1px solid transparent;border-radius:4px;min-height:28px;padding:4px 8px}
+:root:not(.modo-app) button:hover{background:var(--hover)}
+:root:not(.modo-app) button:disabled{background:var(--apagado);border-color:var(--borde);color:var(--suave)}
+:root:not(.modo-app) :focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
+:root:not(.modo-app) :is(input,textarea,select):focus{background:var(--fondo);border-color:var(--elegido)}
+:root:not(.modo-app) :is(input,textarea)::placeholder{color:var(--suave);opacity:1}
+:root:not(.modo-app) input.falta{border:2px solid var(--ambar)}
+:root:not(.modo-app) label{gap:3px;font-weight:600;font-size:11px}
+:root:not(.modo-app) .ayuda{font-size:11px;font-weight:400;line-height:1.4}
+/* arriba */
+:root:not(.modo-app) .arriba{padding:6px 8px 0;gap:6px}
+:root:not(.modo-app) .linea1{gap:4px 6px}
+:root:not(.modo-app) .conexion{gap:5px;font-size:11px;font-weight:400}
+:root:not(.modo-app) .punto{width:7px;height:7px}
+:root:not(.modo-app) .pildora{font-size:11px;font-weight:400;color:var(--suave);background:transparent;border-radius:0;padding:0}
+:root:not(.modo-app) .ahora{gap:6px;border-radius:4px;padding:5px 6px 5px 8px}
+:root:not(.modo-app) .ahora .info{gap:1px}
+:root:not(.modo-app) .ahora .tit{font-size:11px;font-weight:600;letter-spacing:0}
+:root:not(.modo-app) .ahora .val{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .ahora.en{border:1px solid var(--verde-borde)}
+:root:not(.modo-app) .ahora button{min-width:0;min-height:26px;padding:0 10px}
+:root:not(.modo-app) .ahora button:not(:disabled){background:var(--rojo);min-height:26px}
+:root:not(.modo-app) .ahora button:not(:disabled):hover{background:#A1172E}
+:root:not(.modo-app) .progreso{height:3px}
+:root:not(.modo-app) .pestanas button{border-radius:4px 4px 0 0;font-size:12px;font-weight:400;min-height:26px;padding:2px 4px}
+:root:not(.modo-app) .pestanas button[aria-selected=true]{font-weight:600;box-shadow:inset 0 -2px 0 var(--acento)}
+/* hojas */
+:root:not(.modo-app) .hoja{padding:8px;gap:8px}
+:root:not(.modo-app) .vista{gap:8px}
+:root:not(.modo-app) .seccion{border-radius:4px;padding:8px;gap:6px}
+:root:not(.modo-app) .seccion h3{font-size:11px;letter-spacing:0;font-weight:600;text-transform:none}
+:root:not(.modo-app) .subtitulo{font-weight:600;font-size:11px}
+:root:not(.modo-app) .fila{grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:6px}
+:root:not(.modo-app) .tipos{gap:4px}
+:root:not(.modo-app) .tipos button{min-height:34px;padding:4px 6px;gap:1px;border-radius:4px}
+:root:not(.modo-app) .tipos .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .tipos .sub{font-weight:400;font-size:11px;color:var(--suave-boton)}
+:root:not(.modo-app) .tipos button[aria-pressed=true]{border-color:var(--acento)}
+:root:not(.modo-app) [aria-pressed=true] .sub{color:var(--texto)}
+:root:not(.modo-app) .primario{font-size:12.5px;min-height:32px;border-radius:4px}
+:root:not(.modo-app) .primario:hover,:root:not(.modo-app) .siguiente:hover,:root:not(.modo-app) .guardada .acciones .cargar:hover{background:var(--elegido)}
+:root:not(.modo-app) .tipo-actual{gap:6px;border:1px solid var(--acento);border-radius:4px;padding:6px 8px}
+:root:not(.modo-app) .tipo-actual .info{gap:1px}
+:root:not(.modo-app) .tipo-actual .tit{font-size:11px;font-weight:600;letter-spacing:0;color:var(--suave-boton)}
+:root:not(.modo-app) .tipo-actual .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .tipo-actual .ayuda{color:var(--suave-boton)}
+:root:not(.modo-app) .revision{border-radius:4px;padding:6px 8px;gap:0}
+:root:not(.modo-app) .revision.faltan{border:1px solid var(--ambar)}
+:root:not(.modo-app) .revision.listo{border:1px solid var(--verde-borde)}
+:root:not(.modo-app) .revision .tit{font-weight:600;font-size:12px}
+:root:not(.modo-app) .revision a{font-weight:400;font-size:12px;min-height:24px}
+:root:not(.modo-app) .uso{gap:6px;padding-top:8px}
+:root:not(.modo-app) .uso .nombre{font-weight:600;font-size:12px}
+:root:not(.modo-app) .uso .nombre .n{width:18px;height:18px;border-radius:3px;margin-right:5px}
+:root:not(.modo-app) .dia{gap:6px}
+:root:not(.modo-app) .dia button{width:34px;font-size:16px;padding:0}
+:root:not(.modo-app) .dia .num{font-weight:600;font-size:13px;border-radius:4px;padding:5px 0}
+:root:not(.modo-app) .opciones{gap:4px}
+:root:not(.modo-app) #imagenes{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+:root:not(.modo-app) #duracion{grid-template-columns:repeat(auto-fit,minmax(56px,1fr))}
+:root:not(.modo-app) .opciones.tres{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
+:root:not(.modo-app) .opciones button{background:var(--caja2);border-color:transparent;font-weight:600;font-size:11px;padding:3px 4px}
+:root:not(.modo-app) .opciones button[aria-pressed=true]{border-color:var(--acento);background:var(--elegido)}
+:root:not(.modo-app) .opciones button[aria-pressed=true]::before{position:static;font-size:11px;margin-right:2px;color:var(--texto)}
+:root:not(.modo-app) .opciones .sub{font-weight:400;font-size:11px;color:var(--suave-boton)}
+:root:not(.modo-app) .segmento button{font-size:12px;padding:4px 2px}
+/* en vivo */
+:root:not(.modo-app) .siguiente{font-size:12.5px;min-height:34px}
+:root:not(.modo-app) .siguiente .sub{display:inline;font-weight:400;font-size:11px;color:var(--texto);margin:0 0 0 6px}
+:root:not(.modo-app) .rotulos{gap:4px}
+:root:not(.modo-app) .rot{border-radius:4px;min-height:34px;padding:4px 6px;grid-template-columns:18px minmax(0,1fr) auto;gap:7px}
+:root:not(.modo-app) .rot .tecla{width:18px;height:18px;border-radius:3px;font-weight:700;font-size:11px;color:var(--suave)}
+:root:not(.modo-app) .rot .txt{gap:0}
+:root:not(.modo-app) .rot .nom{font-weight:600;font-size:12.5px;line-height:1.25}
+/* el texto del rótulo se ve entero: en un dock angosto pasa a una segunda línea en vez de cortarse */
+:root:not(.modo-app) .rot .prev{font-weight:400;font-size:11px;line-height:1.25;color:var(--suave-boton);white-space:normal;overflow:visible;overflow-wrap:anywhere}
+:root:not(.modo-app) .rot .prev.falta{color:var(--ambar)}
+:root:not(.modo-app) .rot .est{font-size:11px;font-weight:600;letter-spacing:0;color:var(--suave-boton)}
+:root:not(.modo-app) .rot[aria-pressed=true]{border-color:var(--acento);background:var(--elegido)}
+:root:not(.modo-app) .rot[aria-pressed=true] :is(.prev,.prev.falta,.est){color:var(--texto)}
+:root:not(.modo-app) .interruptor{gap:8px;padding:2px 0;font-weight:400;font-size:12.5px;min-height:26px}
+:root:not(.modo-app) .interruptor:hover{background:transparent}
+:root:not(.modo-app) .interruptor .lado{gap:6px;font-size:11px}
+:root:not(.modo-app) .perilla{width:30px;height:16px;border-radius:8px;background:var(--caja2)}
+:root:not(.modo-app) .perilla::after{top:2px;left:2px;width:12px;height:12px}
+:root:not(.modo-app) .interruptor[aria-checked=true] .perilla{background:var(--acento)}
+:root:not(.modo-app) .interruptor[aria-checked=true] .perilla::after{left:16px}
+/* plegables y guardadas */
+:root:not(.modo-app) details{border-radius:4px;padding:2px 8px}
+:root:not(.modo-app) summary{font-weight:600;font-size:12.5px;min-height:28px}
+:root:not(.modo-app) details[open]>summary{margin-bottom:6px}
+:root:not(.modo-app) details details{margin-bottom:6px}
+:root:not(.modo-app) details details :is(input,textarea){background:var(--caja)}
+:root:not(.modo-app) details label{margin-bottom:6px}
+:root:not(.modo-app) .secundario{border:1px solid var(--campo-borde);font-weight:600}
+:root:not(.modo-app) .aviso{grid-template-columns:18px minmax(0,1fr);gap:6px;margin-bottom:8px}
+:root:not(.modo-app) .aviso .n{width:18px;height:18px;border-radius:3px;background:var(--caja2);font-weight:700;font-size:11px;margin-top:5px}
+:root:not(.modo-app) .aviso .campos{gap:4px}
+:root:not(.modo-app) .guardada{padding-top:8px;gap:6px}
+:root:not(.modo-app) .guardada .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .guardada .meta{font-size:11px}
+:root:not(.modo-app) .guardada .acciones{gap:4px}
+:root:not(.modo-app) .guardada .acciones button{font-size:12px;padding:4px}
+/* pruebas/prueba.js exige 44 px en los botones de la lista de guardadas: se dejan en 44 hasta que se decida otra cosa */
+:root:not(.modo-app) #lista-guardadas button{min-height:44px}
+:root:not(.modo-app) .guardada .acciones .cargar{font-size:12px}
+:root:not(.modo-app) .guardada .acciones .borrar{border-color:var(--campo-borde);color:var(--texto)}
+:root:not(.modo-app) .rapida{gap:6px}
+:root:not(.modo-app) .rapida .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .rapida button{min-width:64px}
+:root:not(.modo-app) .enlace{color:var(--texto);text-decoration:underline;font-size:12px;font-weight:400}
+:root:not(.modo-app) .enlace:hover{background:transparent;text-decoration-thickness:2px}
+:root:not(.modo-app) .estado-guardadas{font-size:11px;font-weight:600}
+:root:not(.modo-app) .guardado{background:#1E8528;font-weight:600;padding:4px 8px;border-radius:4px;font-size:11px}
 </style>
 </head>
 <body>
@@ -355,6 +481,39 @@ if (document.documentElement.classList.contains('modo-app')) {
   const sub = nuevo('span', 'sub', 'nada en pantalla');
   sub.id = 'ocultar-sub';
   $('ocultar').append(sub);
+}
+
+/* Modo app: los rótulos salen si y solo si la escena es Cámara. La app avisa con window.fijarEscenaApp(escena).
+   Es un valor local de este panel (no va al estado compartido) y arranca en 'inicio'. */
+let rotulosBloqueados = () => false;
+let aplicarEscenaApp = () => {};
+let ocultarFueraDeCamara = () => {};
+if (document.documentElement.classList.contains('modo-app')) {
+  let escenaApp = 'inicio';
+  rotulosBloqueados = () => escenaApp !== 'camara';
+  aplicarEscenaApp = () => {
+    const fuera = rotulosBloqueados();
+    document.documentElement.classList.toggle('fuera-de-camara', fuera);
+    document.querySelectorAll('[data-rotulo], #siguiente').forEach(b => {
+      if (fuera) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+      else { b.removeAttribute('aria-disabled'); if (b.dataset.rotulo !== undefined) b.disabled = false; }   // Siguiente: refrescar() decide su disabled
+    });
+    const sub = document.querySelector('#siguiente .sub');
+    sub.textContent = fuera ? 'Solo en Cámara' : 'Barra espaciadora';
+    sub.style.display = fuera ? 'block' : '';
+  };
+  /* Fuera de Cámara no se queda ningún rótulo: ni el guardado antes de cargar ni el que escriba otro cliente
+     (llega por escucharEstado, que pone el estado nuevo en `s` y refresca). Solo mira `s`, nunca relee el
+     almacenamiento: ocultar() deja s.rotulo en 'ninguno' antes de guardar, así que aunque la escritura falle
+     (cupo lleno) la pasada siguiente no vuelve a entrar y el panel sigue trabajando en memoria. */
+  ocultarFueraDeCamara = () => {
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();
+  };
+  window.fijarEscenaApp = (escena) => {
+    escenaApp = escena;
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();   // guarda y refresca una sola vez
+    else refrescar();
+  };
 }
 
 /* ---------- guardar ---------- */
@@ -627,6 +786,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
   if (!$('hoja-vivo').classList.contains('activa')) return;
+  if (rotulosBloqueados()) return;   // modo app fuera de Cámara: ni números ni Espacio sacan un rótulo
   if (/^[1-9]$/.test(e.key)) {
     const uso = usos()[+e.key - 1];          // solo si el tipo tiene un rótulo con ese número
     if (uso) { alternar(uso.id); e.preventDefault(); }
@@ -845,6 +1005,7 @@ function refrescar() {
   const sig = siguienteUso();
   $('sig-nom').textContent = sig ? 'Siguiente: ' + sig.nombre : 'Sin rótulos';
   $('siguiente').disabled = !sig;
+  aplicarEscenaApp();
   const alAire = lista.find(u => u.id === v);
   $('ahora').classList.toggle('en', !!alAire);
   $('ahora-val').textContent = alAire ? alAire.nombre + ' — ' + (alAire.texto.t || '') : 'Ningún rótulo';
@@ -866,6 +1027,7 @@ function refrescar() {
   });
   $('frase').placeholder = base.franja || '';
   $('barraTexto').placeholder = tituloCelebracion(s);
+  ocultarFueraDeCamara();   // al final: ocultar() vuelve a refrescar con el estado ya limpio
 }
 
 /* «EN PANTALLA · se oculta en 9 s» */

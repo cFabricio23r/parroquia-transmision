@@ -1,0 +1,43 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo-google-fonts/montserrat": "0.4.2",
+    "expo": "~58.0.23",
+    "expo-battery": "~58.0.3",
+    "expo-clipboard": "~58.0.4",
+    "expo-font": "~58.0.11",
+    "expo-keep-awake": "~58.0.3",
+    "expo-network": "~58.0.4",
+    "expo-secure-store": "~58.0.2",
+    "expo-sharing": "~58.0.22",
+    "expo-splash-screen": "~58.0.13",
+    "expo-status-bar": "~58.0.4",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-webview": "14.0.1"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "@types/jest": "30.0.0",
+    "@types/react": "~19.3.0",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.14",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "copiar-obs": "node scripts/copiar-obs.js",
+    "preandroid": "node scripts/copiar-obs.js",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "iconos": "node scripts/generar-iconos.js"
+  },
+  "private": true,
+  "jest": {
+    "preset": "jest-expo"
+  }
+}
