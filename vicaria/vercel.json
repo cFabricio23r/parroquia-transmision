@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/:slug/:pagina(panel|pantalla|rotulos|produccion).html", "destination": "/:pagina.html" },
+    { "source": "/:slug/:script(parroquia|tipos|comun|guardadas).js", "destination": "/:script.js" },
+    { "source": "/:slug/estilos.css", "destination": "/estilos.css" },
+    { "source": "/:slug/fuentes/:archivo", "destination": "/fuentes/:archivo" },
+    { "source": "/:slug/img/:archivo", "destination": "/img/:archivo" }
+  ],
+  "headers": [
+    {
+      "source": "/:slug/config.json",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ]
+}

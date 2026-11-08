@@ -1,0 +1,21 @@
+{
+  "esquema": 1,
+  "version": 1,
+  "publicado": "2026-11-07T12:00:00Z",
+  "slug": "ciudad-arce",
+  "nombre": "Parroquia Inmaculada Concepción de María",
+  "nombreCorto": "Inmaculada Concepción",
+  "lugar": "Ciudad Arce",
+  "colores": { "principal": "#1155a4", "oscuro": "#0c3562" },
+  "logos": {
+    "blanco": { "src": "medios/logo-blanco.png", "alt": "Logo de la Parroquia Inmaculada Concepción de María, en blanco" },
+    "color": { "src": "medios/logo-color.png", "alt": "Logo de la Parroquia Inmaculada Concepción de María, a color" }
+  },
+  "fachada": { "src": "medios/fachada.jpg", "alt": "Fachada del templo de la Parroquia Inmaculada Concepción de María, en Ciudad Arce" },
+  "patrono": {
+    "nombre": "Inmaculada Concepción de María",
+    "corto": "Inmaculada",
+    "imagen": { "src": "medios/patrono.png", "alt": "Imagen de la Inmaculada Concepción de María" }
+  },
+  "fiesta": { "dia": 8, "mes": 12, "lema": "TODA HERMOSA ERES, MARÍA" }
+}

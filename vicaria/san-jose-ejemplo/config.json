@@ -1,0 +1,15 @@
+{
+  "esquema": 1,
+  "version": 1,
+  "publicado": "2026-11-07T12:00:00Z",
+  "slug": "san-jose-ejemplo",
+  "nombre": "Parroquia San José (ejemplo)",
+  "lugar": "Ciudad de ejemplo",
+  "colores": { "principal": "#8a1c2b", "oscuro": "#4b0f18" },
+  "logos": {
+    "blanco": { "src": "medios/logo-blanco.svg", "alt": "Logo de ejemplo de la Parroquia San José, en blanco" }
+  },
+  "fachada": { "src": "medios/fachada.svg", "alt": "Dibujo de ejemplo de la fachada de un templo" },
+  "patrono": { "nombre": "San José", "corto": "San José" },
+  "fiesta": { "dia": 19, "mes": 3 }
+}

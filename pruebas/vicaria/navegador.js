@@ -1,0 +1,533 @@
+/*
+  Pruebas en el navegador de vicaria/ (Playwright), contra herramientas/servidor-vicaria.js,
+  que aplica vicaria/vercel.json. Guarda capturas en pruebas/capturas/vicaria/.
+
+  Uso:  npm run prueba:vicaria:navegador
+
+  Notas:
+  - «Sin red» se simula de dos formas: con route() que aborta config.json (la página sí carga) y con
+    context.setOffline(true) más una llamada a cargarParroquia() en una página ya abierta. Recargar
+    la página entera sin red no sirve: el servidor local no tiene caché y la página misma no cargaría.
+  - «Actualiza en vivo» usa page.clock: vigilarParroquia() sigue con su intervalo de producción
+    (60000 ms) y la prueba adelanta el reloj, sin tocar el código de la página.
+*/
+const { chromium } = require('playwright');
+const fs = require('node:fs');
+const path = require('node:path');
+const { crearServidor } = require('../../herramientas/servidor-vicaria');
+
+const CAPTURAS = path.join(__dirname, '..', 'capturas', 'vicaria');
+const RAIZ = path.join(__dirname, '..', '..', 'vicaria');
+fs.mkdirSync(path.join(CAPTURAS, 'comparacion'), { recursive: true });
+
+const CA = 'ciudad-arce';
+const SJ = 'san-jose-ejemplo';
+const configDe = (slug) => JSON.parse(fs.readFileSync(path.join(RAIZ, slug, 'config.json'), 'utf8'));
+const CONFIG = { [CA]: configDe(CA), [SJ]: configDe(SJ) };
+
+let fallos = 0;
+const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg); if (!cond) fallos++; };
+const igual = (real, esperado, msg) => revisar(real === esperado, msg + (real === esperado ? '' : ' (era ' + JSON.stringify(real) + ', se esperaba ' + JSON.stringify(esperado) + ')'));
+
+let base;
+let errores = [];
+
+/* Abre una página con el visor indicado; anota los errores de JavaScript (los 404 de recursos que la prueba provoca no cuentan). */
+async function abrir(ctx, ruta, ancho = 1920, alto = 1080, antes) {
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => errores.push(ruta + ': ' + e.message));
+  p.on('console', (m) => {
+    if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errores.push(ruta + ' (consola): ' + m.text());
+  });
+  await p.setViewportSize({ width: ancho, height: alto });
+  if (antes) await antes(p);
+  await p.goto(base + ruta);
+  return p;
+}
+
+const nuevoContexto = () => browser.newContext();
+let browser;
+
+/* Elige un tipo desde Preparar, como lo haría el voluntario. */
+async function elegirTipo(panel, clave) {
+  await panel.click('[data-hoja="preparar"]');
+  await panel.click('#cambiar-tipo');
+  await panel.click(`[data-tipo="${clave}"]`);
+  await panel.click('#continuar');
+}
+
+const texto = (p, sel) => p.textContent(sel);
+
+/* ¿El <img> se ve de verdad? (no oculto y con píxeles) */
+const imagenVisible = (p, sel) => p.evaluate((s) => {
+  const i = document.querySelector(s);
+  if (!i) return false;
+  for (let n = i; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+  }
+  return i.complete && i.naturalWidth > 0;
+}, sel);
+
+/* Imágenes visibles que no cargaron (ícono de imagen rota). */
+const imagenesRotas = (p) => p.evaluate(() => [...document.images].filter((i) => {
+  for (let n = i; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+  }
+  return !(i.complete && i.naturalWidth > 0);
+}).map((i) => i.getAttribute('src')));
+
+const reyDe = (p) => p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--rey').trim());
+const claves = (p) => p.evaluate(() => Object.keys(localStorage));
+
+const rutaConfig = '**/config.json';
+const servirConfig = (cuerpo) => (r) => r.fulfill({ status: 200, contentType: 'application/json', body: typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo) });
+
+async function captura(p, nombre) {
+  await p.screenshot({ path: path.join(CAPTURAS, nombre + '.png') });
+}
+
+/* ---------- Casos ---------- */
+
+async function casoCarga() {
+  console.log('Carga');
+  const ctx = await nuevoContexto();
+  const inicio = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await inicio.waitForSelector('#marca-logo:not([hidden])');
+  await inicio.waitForTimeout(900);
+  revisar((await inicio.innerText('body')).includes('Inmaculada'), 'Ciudad Arce: la pantalla de inicio muestra «Inmaculada»');
+  revisar(await imagenVisible(inicio, '#marca-logo'), 'Ciudad Arce: el logo se ve');
+  igual(await inicio.getAttribute('#marca-logo', 'alt'), CONFIG[CA].logos.blanco.alt, 'Ciudad Arce: el logo lleva su alt');
+  igual(await reyDe(inicio), '#1155a4', 'Ciudad Arce: --rey es el principal de su configuración');
+  await captura(inicio, `${CA}_inicio`);
+
+  // San José: portada patronal. El tipo se elige en su panel (el estado es de su parroquia).
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250);
+  const portada = await abrir(ctx, `/${SJ}/pantalla.html?tipo=portada`);
+  await panel.waitForTimeout(600);
+  await elegirTipo(panel, 'patronal');
+  await portada.waitForTimeout(900);
+  igual((await texto(portada, '#p-caja-num')).trim(), '19', 'San José: la portada patronal muestra el día 19');
+  igual((await texto(portada, '#p-caja-mes')).trim(), 'MAR', 'San José: la portada patronal muestra MAR');
+  revisar((await texto(portada, '#p-titulo')).includes('San José'), 'San José: la portada nombra al patrono');
+  igual((await texto(portada, '#p-cursiva')).trim(), 'en honor a', 'San José: la portada dice «en honor a» San José (sin «la»)');
+  igual(await reyDe(portada), '#8a1c2b', 'San José: --rey es #8a1c2b');
+  const fondo = await portada.evaluate(() => getComputedStyle(document.getElementById('lienzo')).backgroundImage);
+  revisar(fondo.includes('rgb(75, 15, 24)') && fondo.includes('rgb(138, 28, 43)'), 'San José: el fondo usa #4b0f18 y #8a1c2b (' + fondo.slice(0, 90) + '…)');
+  revisar((await portada.innerText('body')).trim() !== '' && !(await portada.innerText('body')).includes('Inmaculada'), 'San José: ningún texto de Ciudad Arce');
+  await captura(portada, `${SJ}_portada`);
+  await ctx.close();
+}
+
+async function casoNoSeCruzan() {
+  console.log('Dos parroquias no se cruzan');
+  const ctx = await nuevoContexto();
+  const panelCA = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  const panelSJ = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250);
+  const pantCA = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  const pantSJ = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`);
+  await panelSJ.waitForTimeout(1200);
+  const antesCA = await texto(pantCA, '#i-pildora');
+  const antesSJ = await texto(pantSJ, '#i-pildora');
+  await elegirTipo(panelSJ, 'patronal');
+  await pantSJ.waitForTimeout(900);
+  const despuesCA = await texto(pantCA, '#i-pildora');
+  const despuesSJ = await texto(pantSJ, '#i-pildora');
+  igual(despuesCA, antesCA, 'cambiar el tipo en el panel de San José no cambia la pantalla de Ciudad Arce («' + despuesCA + '»)');
+  revisar(despuesSJ !== antesSJ, 'la pantalla de San José sí cambia («' + antesSJ + '» → «' + despuesSJ + '»)');
+  revisar(/PATRONAL/i.test(despuesSJ), 'la pantalla de San José dice fiesta patronal');
+
+  await elegirTipo(panelCA, 'dominical');
+  await pantCA.waitForTimeout(900);
+  igual(await texto(pantSJ, '#i-pildora'), despuesSJ, 'y al revés: el panel de Ciudad Arce no mueve a San José');
+  revisar((await texto(pantCA, '#i-pildora')) !== antesCA, 'la pantalla de Ciudad Arce sí cambia');
+
+  const ks = await claves(panelCA);
+  revisar(ks.length > 0 && ks.every((k) => k.startsWith('pev_')), 'localStorage: todas las claves empiezan con pev_ (' + ks.join(', ') + ')');
+  revisar(!ks.some((k) => k.startsWith('parroquia_')), 'localStorage: ninguna clave parroquia_');
+  revisar(ks.includes(`pev_${CA}_estado_v1`) && ks.includes(`pev_${SJ}_estado_v1`), 'cada parroquia guarda su propio estado');
+  const estadoCA = await panelCA.evaluate((k) => JSON.parse(localStorage.getItem(k)).tipo, `pev_${CA}_estado_v1`);
+  const estadoSJ = await panelCA.evaluate((k) => JSON.parse(localStorage.getItem(k)).tipo, `pev_${SJ}_estado_v1`);
+  revisar(estadoCA === 'dominical' && estadoSJ === 'patronal', 'estados guardados por separado (' + estadoCA + ' / ' + estadoSJ + ')');
+  const copias = ks.filter((k) => k.endsWith('_config_v1'));
+  revisar(copias.length === 2, 'una copia de configuración por parroquia (' + copias.join(', ') + ')');
+  await ctx.close();
+}
+
+async function casoSinLema() {
+  console.log('Sin lema no hay franja');
+  const ctx = await nuevoContexto();
+  const sj = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`);
+  const ca = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await sj.waitForTimeout(1100);
+  igual(await texto(sj, '#frase'), '', 'San José: la franja no tiene texto');
+  igual(await sj.evaluate(() => getComputedStyle(document.getElementById('frase').parentNode).visibility), 'hidden', 'San José: la frase de la franja está oculta');
+  const cuerpo = await sj.innerText('body');
+  revisar(!/[«»]/.test(cuerpo), 'San José: ninguna comilla «» suelta en la pantalla');
+  revisar(!(await sj.evaluate(() => document.querySelector('.franja .frase').innerText.includes('✦') && getComputedStyle(document.querySelector('.franja .frase')).visibility !== 'hidden')), 'San José: tampoco los ✦ de la franja');
+  await captura(sj, `${SJ}_inicio`);
+  igual((await texto(ca, '#frase')).trim(), '«TODA HERMOSA ERES, MARÍA»', 'Ciudad Arce: la franja trae su lema');
+  await ctx.close();
+}
+
+async function casoSinRedConCopia() {
+  console.log('Sin red, con copia guardada');
+  const ctx = await nuevoContexto();
+  const AVISO = /^Usando la configuración guardada del \d{1,2} de [a-záéíóú]+ de \d{4}$/;
+  // 1) recargar con config.json caído
+  let panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  let pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await pant.waitForSelector('#marca-logo:not([hidden])');
+  await panel.waitForTimeout(800);
+  igual(await panel.isHidden('#aviso-config'), true, 'con red no hay aviso de configuración');
+  await ctx.route(rutaConfig, (r) => r.abort());
+  await panel.reload();
+  await pant.reload();
+  await panel.waitForSelector('#aviso-config:not([hidden])');
+  const aviso = (await texto(panel, '#aviso-config')).trim();
+  revisar(AVISO.test(aviso), 'el panel avisa: «' + aviso + '»');
+  await pant.waitForTimeout(900);
+  revisar(await imagenVisible(pant, '#marca-logo'), 'la pantalla mantiene el logo (recargada sin config.json)');
+  igual(await reyDe(pant), '#1155a4', 'la pantalla mantiene los colores');
+  await captura(pant, `${CA}_inicio_sin-red`);
+  await ctx.unroute(rutaConfig);
+
+  // 2) la red se corta con las páginas abiertas: la vuelta siguiente avisa y no borra nada
+  panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await pant.waitForSelector('#marca-logo:not([hidden])');
+  await panel.waitForTimeout(800);
+  await ctx.setOffline(true);
+  await panel.evaluate(() => cargarParroquia());
+  await pant.evaluate(() => cargarParroquia());
+  await panel.waitForSelector('#aviso-config:not([hidden])');
+  revisar(AVISO.test((await texto(panel, '#aviso-config')).trim()), 'context.setOffline: el panel avisa que usa la copia guardada');
+  revisar(await imagenVisible(pant, '#marca-logo'), 'context.setOffline: la pantalla mantiene el logo');
+  await ctx.setOffline(false);
+  await panel.evaluate(() => cargarParroquia());
+  await panel.waitForSelector('#aviso-config', { state: 'hidden' });
+  revisar(true, 'al volver la red el aviso desaparece solo');
+  await ctx.close();
+}
+
+async function casoPrimeraVezSinRed() {
+  console.log('Primera vez sin red');
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, (r) => r.abort());
+  const panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  const pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await panel.waitForSelector('#aviso-config:not([hidden])');
+  igual((await texto(panel, '#aviso-config')).trim(), 'Sin conexión y sin configuración guardada: se muestran pantallas neutras.', 'el panel avisa de las pantallas neutras');
+  await pant.waitForTimeout(900);
+  revisar(!(await imagenVisible(pant, '#marca-logo')) && !(await imagenVisible(pant, '#fachada')), 'la pantalla neutra no muestra logo ni fachada');
+  revisar((await imagenesRotas(pant)).length === 0, 'y no queda ninguna imagen rota');
+  revisar(!(await pant.innerText('body')).includes('Inmaculada'), 'la pantalla neutra no nombra a ninguna parroquia');
+  igual(await reyDe(pant), '#1155a4', 'la pantalla neutra usa la paleta neutra');
+  revisar(!(await claves(pant)).some((k) => k.endsWith('_config_v1')), 'la neutra nunca se guarda como copia');
+  await captura(pant, `${CA}_neutra`);
+  await captura(panel, `${CA}_panel_neutra`);
+  await ctx.close();
+}
+
+async function casoConfigDanada() {
+  console.log('Configuración dañada');
+  const ctx = await nuevoContexto();
+  // con copia
+  const p0 = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await p0.waitForSelector('#marca-logo:not([hidden])');
+  await ctx.route(rutaConfig, servirConfig('{'));
+  const panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  const pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await panel.waitForSelector('#aviso-config:not([hidden])');
+  igual((await texto(panel, '#aviso-config')).trim(), 'La configuración del servidor está dañada: se usa la guardada.', 'con copia: el panel avisa que la configuración está dañada');
+  await pant.waitForTimeout(900);
+  revisar(await imagenVisible(pant, '#marca-logo'), 'con copia: la pantalla sigue con la copia (logo)');
+  igual(await reyDe(pant), '#1155a4', 'con copia: los colores son los de la copia');
+  await ctx.unroute(rutaConfig);
+  await ctx.close();
+
+  // sin copia
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(rutaConfig, servirConfig('{'));
+  const panel2 = await abrir(ctx2, `/${CA}/panel.html`, 360, 1250);
+  await panel2.waitForSelector('#aviso-config:not([hidden])');
+  igual((await texto(panel2, '#aviso-config')).trim(), 'La configuración del servidor está dañada: se muestran pantallas neutras.', 'sin copia: el panel avisa de las pantallas neutras');
+  revisar(!(await claves(panel2)).some((k) => k.endsWith('_config_v1')), 'sin copia: lo dañado no se guarda');
+  await ctx2.close();
+
+  // JSON válido pero que no pasa la validación (sin alt en el logo)
+  const ctx3 = await nuevoContexto();
+  const mala = JSON.parse(JSON.stringify(CONFIG[CA]));
+  delete mala.logos.blanco.alt;
+  await ctx3.route(rutaConfig, servirConfig(mala));
+  const panel3 = await abrir(ctx3, `/${CA}/panel.html`, 360, 1250);
+  await panel3.waitForSelector('#aviso-config:not([hidden])');
+  revisar(/dañada/.test(await texto(panel3, '#aviso-config')), 'una configuración sin alt en el logo cuenta como dañada');
+  await ctx3.close();
+}
+
+async function casoDireccionesRaras() {
+  console.log('Direcciones raras');
+  const ctx = await nuevoContexto();
+  for (const ruta of [`/Ciudad-Arce/pantalla.html`, `/no-existe/pantalla.html`, `/no-existe/panel.html`, `/no-existe/rotulos.html`, `/no-existe/produccion.html`]) {
+    const p = await abrir(ctx, ruta, ruta.includes('panel') ? 360 : 1920, ruta.includes('panel') ? 800 : 1080);
+    await p.waitForSelector('#no-existe', { state: 'visible' });
+    igual((await texto(p, '#no-existe')).trim(), 'Esta parroquia no existe, revisa el link', ruta + ': «Esta parroquia no existe, revisa el link»');
+    const cuerpo = await p.innerText('body');
+    revisar(!/Inmaculada|San José/.test(cuerpo), ruta + ': sin datos de ninguna parroquia');
+    revisar((await claves(p)).filter((k) => !k.startsWith('pev_')).length === 0, ruta + ': sin claves ajenas a pev_');
+    if (ruta === '/no-existe/pantalla.html') await captura(p, 'no-existe_pantalla');
+    if (ruta === '/no-existe/panel.html') await captura(p, 'no-existe_panel');
+  }
+  // mayúsculas: ni siquiera se pide config.json ni se guarda copia
+  const mayus = await abrir(ctx, '/Ciudad-Arce/pantalla.html');
+  await mayus.waitForTimeout(500);
+  revisar((await claves(mayus)).length === 0 || !(await claves(mayus)).some((k) => k.endsWith('_config_v1')), '/Ciudad-Arce/: no guarda ninguna copia');
+
+  const raiz = await ctx.request.get(base + `/${CA}/`);
+  igual(raiz.status(), 404, `/${CA}/ sin archivo: 404 del servidor`);
+  revisar(!/Inmaculada|San José|Ciudad Arce/.test(await raiz.text()), `/${CA}/: el 404 no trae datos de ninguna parroquia`);
+  igual((await ctx.request.get(base + '/Ciudad-Arce/config.json')).status(), 404, '/Ciudad-Arce/config.json: 404 (mayúsculas no valen)');
+  igual((await ctx.request.get(base + '/')).status(), 404, '/: 404');
+  igual((await ctx.request.get(base + `/${CA}/vercel.json`)).status(), 404, `/${CA}/vercel.json: 404 (no es una ruta publicada)`);
+  const cfg = await ctx.request.get(base + `/${CA}/config.json`);
+  igual(cfg.headers()['cache-control'], 'public, max-age=0, must-revalidate', 'config.json trae Cache-Control must-revalidate (de vercel.json)');
+  await ctx.close();
+}
+
+async function casoActualizaEnVivo() {
+  console.log('Actualiza en vivo');
+  const ctx = await nuevoContexto();
+  const v2 = Object.assign({}, CONFIG[CA], { version: 2, publicado: '2026-11-08T12:00:00Z', colores: { principal: '#7a3b12', oscuro: '#4a2008' } });
+  let sirve = null;   // null: el archivo real; un objeto: esa configuración
+  await ctx.route(rutaConfig, (r) => (sirve ? servirConfig(sirve)(r) : r.continue()));
+  const pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1920, 1080, (p) => p.clock.install());
+  await pant.waitForSelector('#marca-logo:not([hidden])');
+  await pant.evaluate(() => { window.__sinRecargar = 1; });
+  igual(await reyDe(pant), '#1155a4', 'antes: color azul');
+  sirve = v2;
+  await pant.clock.runFor(61000);   // un tic de vigilarParroquia(60000)
+  await pant.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--rey').trim() === '#7a3b12', null, { timeout: 5000 }).catch(() => {});
+  igual(await reyDe(pant), '#7a3b12', 'después de un tic: el color cambió');
+  igual(await pant.evaluate(() => window.__sinRecargar), 1, 'sin recargar la página');
+  igual(await pant.evaluate((k) => JSON.parse(localStorage.getItem(k)).version, `pev_${CA}_config_v1`), 2, 'la copia guardada pasó a la versión 2');
+  await captura(pant, `${CA}_inicio_v2`);
+  await ctx.close();
+}
+
+async function casoImagenRota() {
+  console.log('Imagen rota');
+  const ctx = await nuevoContexto();
+  await ctx.route('**/medios/patrono.png', (r) => r.abort());
+  const pant = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);   // novena: imagen del patrono
+  await pant.waitForTimeout(1500);
+  const src = await pant.getAttribute('#virgen', 'src');
+  igual(src, 'medios/fachada.jpg', 'cae a la fachada (src: ' + src + ')');
+  revisar(await imagenVisible(pant, '#virgen'), 'la fachada se ve');
+  igual(await pant.getAttribute('#virgen', 'alt'), CONFIG[CA].fachada.alt, 'con el alt de la fachada');
+  igual((await imagenesRotas(pant)).length, 0, 'ninguna imagen rota a la vista');
+  await captura(pant, `${CA}_inicio_patrono-roto`);
+
+  // si falla también la fachada: se oculta y queda el degradado
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(/medios\/(patrono\.png|fachada\.jpg)$/, (r) => r.abort());
+  const pant2 = await abrir(ctx2, `/${CA}/pantalla.html?tipo=inicio`);
+  await pant2.waitForTimeout(1500);
+  igual((await imagenesRotas(pant2)).length, 0, 'sin patrono ni fachada: tampoco hay ícono roto');
+  await captura(pant2, `${CA}_inicio_sin-imagenes`);
+  await ctx.close();
+  await ctx2.close();
+}
+
+async function casoRecursosComunes() {
+  console.log('Recursos comunes (fuentes e imágenes de la raíz, vía vercel.json)');
+  const ctx = await nuevoContexto();
+  for (const slug of [CA, SJ]) {
+    const panel = await abrir(ctx, `/${slug}/panel.html`, 360, 1250);
+    const pant = await abrir(ctx, `/${slug}/pantalla.html?tipo=inicio`);
+    const mal = [];
+    pant.on('response', (r) => { if (r.status() >= 400) mal.push(r.status() + ' ' + new URL(r.url()).pathname); });
+    await panel.waitForTimeout(500);
+    for (const [tipo, archivo] of [['horasanta', 'img/custodia.png'], ['otros', 'img/santo.png']]) {
+      await elegirTipo(panel, tipo);
+      await pant.waitForTimeout(1000);
+      igual(await pant.getAttribute('#virgen', 'src'), archivo, `${slug}: ${tipo} pide ${archivo}`);
+      revisar(await imagenVisible(pant, '#virgen'), `${slug}: ${archivo} carga y se ve`);
+    }
+    await pant.reload();
+    await pant.waitForTimeout(1000);
+    const fuentes = await pant.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).join(','); });
+    revisar(/Mont/.test(fuentes) && /Vibes/.test(fuentes), `${slug}: las fuentes locales cargan (${fuentes})`);
+    revisar(mal.length === 0, `${slug}: ningún recurso responde 4xx/5xx (${mal.join(', ') || 'ninguno'})`);
+  }
+  await ctx.close();
+}
+
+/* Capturas de cada pantalla (1920×1080 y 800×600) y medidas de «marca» y «barra». */
+async function casoCapturasYMedidas() {
+  console.log('Capturas y medidas');
+  const medidas = {};
+  for (const slug of [CA, SJ]) {
+    const ctx = await nuevoContexto();
+    const panel = await abrir(ctx, `/${slug}/panel.html`, 360, 1250);
+    const inicio = await abrir(ctx, `/${slug}/pantalla.html?tipo=inicio`);
+    const gracias = await abrir(ctx, `/${slug}/pantalla.html?tipo=gracias`);
+    const avisos = await abrir(ctx, `/${slug}/pantalla.html?tipo=avisos`);
+    const portada = await abrir(ctx, `/${slug}/pantalla.html?tipo=portada`);
+    const rotulos = await abrir(ctx, `/${slug}/rotulos.html`);
+    const chica = await abrir(ctx, `/${slug}/pantalla.html?tipo=inicio`, 800, 600);
+    const prod = await abrir(ctx, `/${slug}/produccion.html`, 1280, 800);
+    await panel.waitForTimeout(1500);
+    await elegirTipo(panel, 'patronal');
+    await panel.waitForTimeout(1200);
+    const errPag = await Promise.all([inicio, gracias, avisos, portada, rotulos, chica, prod].map((p) => imagenesRotas(p)));
+    revisar(errPag.every((r) => r.length === 0), slug + ': ninguna pantalla tiene imágenes rotas');
+    await captura(panel, `${slug}_panel`);
+    await captura(inicio, `${slug}_inicio_patronal`);
+    await captura(gracias, `${slug}_gracias`);
+    await captura(avisos, `${slug}_avisos`);
+    await captura(portada, `${slug}_portada`);
+    await captura(rotulos, `${slug}_rotulos`);
+    await captura(chica, `${slug}_inicio_800x600`);
+    await captura(prod, `${slug}_produccion`);
+
+    // «marca»: nombre · lugar en una línea; ¿cabe?
+    medidas[slug] = {};
+    for (const [nombre, p] of [['inicio', inicio], ['chica', chica]]) {
+      medidas[slug]['marca_' + nombre] = await p.evaluate(() => {
+        const m = document.getElementById('marca').getBoundingClientRect();
+        const t = document.getElementById('t-marca');
+        const r = t.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(t).fontSize) * 1.25;
+        return { ancho: Math.round(m.width), derecha: Math.round(m.right), lineas: Math.round(r.height / lh), texto: t.textContent, ventana: innerWidth };
+      });
+    }
+    // «barra»: con tipo que usa {parroquia} (semana, evento) y con el patronal
+    for (const tipo of ['semana', 'evento', 'patronal']) {
+      await elegirTipo(panel, tipo);
+      await rotulos.waitForTimeout(1400);
+      medidas[slug]['barra_' + tipo] = await rotulos.evaluate(() => {
+        const b = document.getElementById('barra').getBoundingClientRect();
+        const l = document.getElementById('logo').getBoundingClientRect();
+        return { izquierda: Math.round(b.left), ancho: Math.round(b.width), derecha: Math.round(b.right), texto: document.getElementById('barra-y').textContent, tocaLogo: b.left < l.right && b.top < l.bottom };
+      });
+      if (tipo === 'semana') await captura(rotulos, `${slug}_rotulos_barra_semana`);
+      if (tipo === 'evento') await captura(rotulos, `${slug}_rotulos_barra_evento`);
+    }
+    await ctx.close();
+  }
+  console.log(JSON.stringify(medidas, null, 2));
+  for (const slug of [CA, SJ]) {
+    for (const k of ['marca_inicio', 'marca_chica']) {
+      const m = medidas[slug][k];
+      revisar(m.derecha <= m.ventana, `${slug}: ${k} cabe en pantalla (borde derecho ${m.derecha} de ${m.ventana}; ${m.lineas} línea(s))`);
+    }
+    for (const k of ['barra_semana', 'barra_evento', 'barra_patronal']) {
+      const b = medidas[slug][k];
+      revisar(b.izquierda >= 0 && b.derecha <= 1920, `${slug}: ${k} no se sale de la pantalla (x ${b.izquierda}–${b.derecha}, ancho ${b.ancho})`);
+    }
+  }
+  return medidas;
+}
+
+/* ---------- Comparación Ciudad Arce vicaria/ vs obs/ ---------- */
+
+const urlObs = (archivo) => 'file://' + path.join(__dirname, '..', '..', 'obs', archivo).replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:');
+const CONGELAR = '*,*::before,*::after{animation:none!important;transition:none!important}#chispas{display:none!important}';
+
+async function tomar(ctx, url, estado, claveEstado, ancho, alto, sel) {
+  const p = await ctx.newPage();
+  await p.setViewportSize({ width: ancho, height: alto });
+  if (estado) await p.addInitScript(([k, v]) => localStorage.setItem(k, v), [claveEstado, JSON.stringify(estado)]);
+  await p.goto(url);
+  await p.waitForTimeout(1800);
+  await p.addStyleTag({ content: CONGELAR });
+  await p.waitForTimeout(300);
+  const png = await p.screenshot();
+  await p.close();
+  return png;
+}
+
+/* Compara dos PNG con un canvas: porcentaje de píxeles distintos (>16 por canal) y caja que los contiene. */
+async function diferencia(aux, a, b) {
+  return aux.evaluate(async ([x, y]) => {
+    const cargar = (b64) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + b64; });
+    const [ia, ib] = await Promise.all([cargar(x), cargar(y)]);
+    const datos = (i) => { const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const g = c.getContext('2d'); g.drawImage(i, 0, 0); return g.getImageData(0, 0, i.width, i.height); };
+    const da = datos(ia), db = datos(ib);
+    let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let k = 0; k < da.data.length; k += 4) {
+      if (Math.abs(da.data[k] - db.data[k]) > 16 || Math.abs(da.data[k + 1] - db.data[k + 1]) > 16 || Math.abs(da.data[k + 2] - db.data[k + 2]) > 16) {
+        n++;
+        const px = (k / 4) % da.width, py = Math.floor(k / 4 / da.width);
+        if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      }
+    }
+    return { pct: +(100 * n / (da.width * da.height)).toFixed(2), caja: n ? [x0, y0, x1, y1] : null };
+  }, [a.toString('base64'), b.toString('base64')]);
+}
+
+async function comparacion() {
+  console.log('Comparación Ciudad Arce: vicaria/ vs obs/');
+  const aux = await (await nuevoContexto()).newPage();
+  const casos = [
+    ['inicio_novena', 'pantalla.html?tipo=inicio', { tipo: 'novena' }, 1920, 1080],
+    ['inicio_dominical', 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, 1920, 1080],
+    ['inicio_patronal', 'pantalla.html?tipo=inicio', { tipo: 'patronal' }, 1920, 1080],
+    ['portada_patronal', 'pantalla.html?tipo=portada', { tipo: 'patronal' }, 1920, 1080],
+    ['gracias_novena', 'pantalla.html?tipo=gracias', { tipo: 'novena' }, 1920, 1080],
+    ['avisos', 'pantalla.html?tipo=avisos', { tipo: 'novena' }, 1920, 1080],
+    ['rotulos_semana', 'rotulos.html', { tipo: 'semana' }, 1920, 1080],
+    ['rotulos_novena', 'rotulos.html', { tipo: 'novena' }, 1920, 1080],
+    ['inicio_800x600', 'pantalla.html?tipo=inicio', { tipo: 'novena' }, 800, 600]
+  ];
+  const resultados = {};
+  for (const [nombre, pagina, estado, w, h] of casos) {
+    const ctxO = await nuevoContexto();
+    const ctxV = await nuevoContexto();
+    const pngO = await tomar(ctxO, urlObs(pagina), estado, 'parroquia_obs_estado_v1', w, h);
+    const pngV = await tomar(ctxV, base + '/' + CA + '/' + pagina, estado, `pev_${CA}_estado_v1`, w, h);
+    fs.writeFileSync(path.join(CAPTURAS, 'comparacion', nombre + '_obs.png'), pngO);
+    fs.writeFileSync(path.join(CAPTURAS, 'comparacion', nombre + '_vicaria.png'), pngV);
+    const d = await diferencia(aux, pngO, pngV);
+    resultados[nombre] = d;
+    console.log(`  ${nombre}: ${d.pct}% de píxeles distintos` + (d.caja ? ' · caja ' + d.caja.join(',') : ''));
+    await ctxO.close();
+    await ctxV.close();
+  }
+  return resultados;
+}
+
+/* ---------- Programa ---------- */
+
+(async () => {
+  const servidor = crearServidor();
+  await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
+  base = 'http://localhost:' + servidor.address().port;
+  browser = await chromium.launch();
+  try {
+    await casoCarga();
+    await casoNoSeCruzan();
+    await casoSinLema();
+    await casoSinRedConCopia();
+    await casoPrimeraVezSinRed();
+    await casoConfigDanada();
+    await casoDireccionesRaras();
+    await casoActualizaEnVivo();
+    await casoImagenRota();
+    await casoRecursosComunes();
+    await casoCapturasYMedidas();
+    if (!process.argv.includes('--sin-comparacion')) await comparacion();
+  } catch (e) {
+    console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
+    fallos++;
+  }
+  console.log('\nErrores de JavaScript en las páginas: ' + errores.length);
+  for (const e of errores) console.log('  ✘ ' + e);
+  fallos += errores.length;
+  await browser.close();
+  servidor.close();
+  console.log(fallos ? '\n' + fallos + ' fallo(s)' : '\nTodo bien');
+  process.exit(fallos ? 1 : 0);
+})();

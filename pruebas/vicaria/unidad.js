@@ -239,7 +239,7 @@ grupo('tipos', () => {
    Con la configuración de Ciudad Arce. Cambian a propósito (ahora salen de la configuración): marca,
    portada_titulo, portada_sub y capa_logo; y, por pasar a huecos (Tarea 4), la cursiva de «otros» y de la
    novena («de la Inmaculada Concepción» -> «de {patrono}», sin «la» para que sirva a San José) y la ceja de
-   la patronal («DE LA INMACULADA» -> «DE {patrono}»); el resto es idéntico. */
+   la patronal («DE LA INMACULADA» -> «DE {patrono}»), y (Tarea 7) portada_cursiva («en honor a la» -> «en honor a»); el resto es idéntico. */
 grupo('textos heredados', () => {
   let c;
   try {
@@ -254,7 +254,7 @@ grupo('textos heredados', () => {
     marca: 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad',
     inicio_titulo: 'En breve\ncomenzamos',
     portada_ceja: 'FIESTAS PATRONALES ' + anio,
-    portada_cursiva: 'en honor a la',
+    portada_cursiva: 'en honor a',   // obs/ decía «en honor a la» (Tarea 7: sin «la», para que sirva a San José)
     portada_titulo: 'Inmaculada Concepción de María',
     portada_fecha: 'DE DICIEMBRE',
     portada_sub: 'Solemnidad de nuestro patrono',
@@ -803,6 +803,7 @@ grupo('comun por parroquia', () => {
     const t = c.textosBase(c.normalizarEstado({ tipo: 'novena', santo: 'San José', diasManual: '5' }));
     assert.ok(t.portada_titulo.includes('San José'), t.portada_titulo);
     assert.equal(t.portada_fecha, 'DE MARZO');
+    assert.equal(t.portada_cursiva, 'en honor a');   // sin «la»: «en honor a la San José» no se dice
     assert.equal(t.portada_sub, 'Solemnidad de nuestro patrono');
     assert.equal(t.marca, 'Parroquia San José · Santa Tecla, La Libertad');
     assert.equal(t.capa_logo, 'Parroquia San José');
@@ -1327,6 +1328,73 @@ grupo('cargar parroquia', () => {
       assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_DANADA);
     });
   }
+});
+
+/* ---------- Parroquias de ejemplo y servidor local (Tarea 7) ---------- */
+
+grupo('parroquias de ejemplo', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const RAIZ = path.join(__dirname, '..', '..', 'vicaria');
+  const leerConfig = (slug) => JSON.parse(fs.readFileSync(path.join(RAIZ, slug, 'config.json'), 'utf8'));
+
+  for (const slug of ['ciudad-arce', 'san-jose-ejemplo']) {
+    prueba(slug + '/config.json es válido (con el slug de su carpeta)', () => {
+      const config = leerConfig(slug);
+      const c = cargar(['parroquia.js'], {}, { location: { pathname: '/' + slug + '/panel.html' } });
+      const r = c.validarConfig(config);
+      assert.deepEqual(Array.from(r.errores), []);
+      assert.equal(r.ok, true);
+      assert.equal(config.slug, slug);
+    });
+    prueba(slug + ': todas las imágenes de la configuración existen en medios/', () => {
+      const config = leerConfig(slug);
+      const imgs = [config.logos.blanco, config.logos.color, config.fachada, config.patrono.imagen].filter(Boolean);
+      for (const img of imgs) assert.ok(fs.statSync(path.join(RAIZ, slug, img.src)).isFile(), img.src);
+    });
+  }
+  prueba('San José de ejemplo: colores, fiesta 19/3, patrono, sin imagen de patrono y sin lema', () => {
+    const c = leerConfig('san-jose-ejemplo');
+    assert.deepEqual(c.colores, { principal: '#8a1c2b', oscuro: '#4b0f18' });
+    assert.deepEqual([c.fiesta.dia, c.fiesta.mes], [19, 3]);
+    assert.equal(c.patrono.nombre, 'San José');
+    assert.equal(c.nombre, 'Parroquia San José (ejemplo)');
+    assert.equal(c.patrono.imagen, undefined);
+    assert.equal(c.fiesta.lema, undefined);
+  });
+  prueba('Ciudad Arce conserva los textos de obs/: lema, fiesta 8/12 y colores de estilos.css', () => {
+    const c = leerConfig('ciudad-arce');
+    assert.equal(c.fiesta.lema, 'TODA HERMOSA ERES, MARÍA');
+    assert.deepEqual([c.fiesta.dia, c.fiesta.mes], [8, 12]);
+    assert.deepEqual(c.colores, { principal: '#1155a4', oscuro: '#0c3562' });
+  });
+});
+
+grupo('servidor-vicaria: patrones de vercel.json', () => {
+  const { compilarPatron, emparejar } = require('../../herramientas/servidor-vicaria');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const reglas = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vicaria', 'vercel.json'), 'utf8'));
+
+  prueba(':nombre(a|b) acepta solo esas opciones y deja el punto literal', () => {
+    const p = compilarPatron('/:slug/:pagina(panel|pantalla).html');
+    assert.deepEqual(emparejar(p, '/ciudad-arce/panel.html'), { slug: 'ciudad-arce', pagina: 'panel' });
+    assert.equal(emparejar(p, '/ciudad-arce/otra.html'), null);
+    assert.equal(emparejar(p, '/ciudad-arce/panelXhtml'), null);
+    assert.equal(emparejar(p, '/a/b/panel.html'), null);
+  });
+  prueba('un patrón que el servidor no entiende se rechaza en vez de ignorarse', () => {
+    assert.throws(() => compilarPatron('/:slug/(panel).html'), /no soportado/);
+    assert.throws(() => compilarPatron('/:slug/:archivo*'), /no soportado/);
+  });
+  prueba('todos los source de vercel.json se pueden compilar', () => {
+    for (const r of reglas.rewrites.concat(reglas.headers)) compilarPatron(r.source);
+  });
+  prueba('config.json lleva Cache-Control must-revalidate', () => {
+    const h = reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/ciudad-arce/config.json'));
+    assert.ok(h);
+    assert.deepEqual(h.headers, [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }]);
+  });
 });
 
 /* ---------- Resultado ---------- */
