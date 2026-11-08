@@ -581,7 +581,7 @@ function verEleccion(si) {
    llega después de cargar la página, así que se vuelven a armar al cambiar (sin duplicar) solo si la lista cambió. */
 let firmaTipos = null;
 function armarTipos() {
-  const lista = ordenTipos().map(clave => { const tipo = tipoDe({ tipo: clave }); return [clave, tipo.nombre, rellenar(tipo.descripcion || '', s)]; });
+  const lista = ordenTipos().map(clave => { const tipo = tipoDe({ tipo: clave }); return [clave, tipo.nombre, rellenar(tipo.descripcion || '', {})]; });   // sin la transmisión: solo se llenan los huecos de la parroquia
   const firma = JSON.stringify(lista);
   if (firma === firmaTipos) return;
   firmaTipos = firma;

@@ -159,10 +159,10 @@ function pintar(s) {
   if (v.dataset.pedida !== src) {
     v.dataset.pedida = src; v.dataset.fallo = '';
     if (src) v.setAttribute('src', src); else v.removeAttribute('src');
-    v.alt = im.alt;
     clasificarImagen(v);
     v.classList.remove('virgen-entra'); void v.offsetWidth; v.classList.add('virgen-entra');
   }
+  if (v.getAttribute('src') === src || !src) v.alt = im.alt;   // el alt se refresca en cada pintada (no si la imagen cayó a la fachada)
   // la portada de evento lleva el logo grande en su lugar; sin imagen (elección «ninguna» incluida) o con la imagen rota no se muestra nada
   v.hidden = esPortadaEvento || !v.getAttribute('src') || v.dataset.fallo === '1';
   $('p-aro').hidden = !esPortadaEvento;

@@ -67,7 +67,7 @@ function guardarTransmision(nombre, s) {
   CAMPOS_DE_AIRE.forEach((c) => { delete datos[c]; });
   const lista = leerGuardadas();
   const ahora = Date.now();
-  const tipo = TIPOS[datos.tipo] ? datos.tipo : 'dominical';
+  const tipo = ordenTipos().includes(datos.tipo) ? datos.tipo : 'dominical';
   const previa = lista.find((g) => mismoNombre(g.nombre, nombre));
   const guardada = { id: previa ? previa.id : idNuevo(lista), nombre, tipo, guardadaEn: ahora, usadaEn: ahora, datos };
   return escribirGuardadas(previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada)) ? guardada : null;
@@ -81,7 +81,6 @@ function cargarTransmision(id, actual) {
   const guardada = lista.find((g) => g.id === id);
   if (!guardada) return null;
   const estado = copiaProfunda(normalizarEstado(guardada.datos));
-  if (!TIPOS[estado.tipo]) estado.tipo = 'dominical';
   estado.rotulo = 'ninguno';
   estado.rotuloHasta = 0;
   guardada.usadaEn = Date.now();

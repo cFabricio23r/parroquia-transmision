@@ -333,6 +333,8 @@ function tipoDe(s) {
   const apagados = PARROQUIA.tipos && Array.isArray(PARROQUIA.tipos.apagados) ? PARROQUIA.tipos.apagados : [];
   const propio = _propios().find((t) => t.clave === clave);
   if (propio) return _tipoPropio(propio);
+  // Vale cualquier clave de TIPOS no apagada, no solo las de ORDEN_TIPOS: una prueba de la 1a inyecta un tipo
+  // en TIPOS (navidad) y espera que tipoDe/diasFaltan lo usen.
   if (hay(clave) && !apagados.includes(clave)) return TIPOS[clave];
   const primero = orden[0];
   const p = _propios().find((t) => t.clave === primero);

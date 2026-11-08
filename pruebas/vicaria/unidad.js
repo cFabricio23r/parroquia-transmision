@@ -609,6 +609,14 @@ grupo('guardadas', () => {
     assert.equal(lista.length, 1);
     assert.equal(lista[0].datos.celebrante, 'Ana');
   });
+  prueba('una transmisión con un tipo propio se guarda y se carga con ese tipo', () => {
+    const cfg = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cfg.tipos = { propios: [{ clave: 'hora-misionera', nombre: 'Hora misionera' }] };
+    const c = cargarCon(['tipos.js', 'comun.js', 'guardadas.js'], {}, cfg);
+    const g = c.guardarTransmision('Misionera', { ...c.PREDETERMINADO, tipo: 'hora-misionera' });
+    assert.equal(g.tipo, 'hora-misionera');
+    assert.equal(c.cargarTransmision(g.id).tipo, 'hora-misionera');
+  });
   prueba('un nombre vacío no se guarda', () => {
     const c = nuevo();
     assert.equal(c.guardarTransmision('   ', c.PREDETERMINADO), null);
@@ -2006,6 +2014,13 @@ grupo('tipos propios y apagados', () => {
     assert.equal(y.normalizarEstado({}).tipo, 'semana');   // el tipo por defecto (novena) está apagado
     assert.equal(y.normalizarEstado({ tipo: 'inexistente' }).tipo, 'semana');
     assert.equal(y.tipoDe(null), y.TIPOS.semana);
+  });
+  prueba('con la configuración neutra (aún no llega) normalizarEstado no reescribe el tipo, pero tipoDe sigue válido', () => {
+    const n = cargarCon(['tipos.js', 'comun.js'], {}, null);
+    assert.equal(n.ESTADO_CONFIG.origen, 'neutra');
+    const e = n.normalizarEstado({ tipo: 'hora-misionera' });
+    assert.equal(e.tipo, 'hora-misionera');
+    assert.equal(n.tipoDe(e), n.TIPOS.dominical);
   });
   prueba('un tipo propio guardado se conserva cuando la configuración lo trae', () => {
     const x = cargarTipos((cfg) => { cfg.tipos = { propios: [{ clave: 'adoracion', nombre: 'Adoración' }] }; });

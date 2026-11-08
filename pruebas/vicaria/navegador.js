@@ -695,7 +695,7 @@ async function casoTiposPropios() {
   v1.galeria = [g2];
   v1.tipos = { apagados: ['horasanta'], propios: [propio] };
   const v2 = Object.assign(JSON.parse(JSON.stringify(v1)), { version: 2, publicado: '2026-11-08T12:00:00Z' });
-  v2.galeria = [g2, g3];
+  v2.galeria = [Object.assign({}, g2, { alt: 'Alt actualizado de la primera imagen' }), g3];   // mismo src, otro alt
   v2.tipos.propios = [propio, { clave: 'silencio', nombre: 'Hora de silencio' }];
   const v3 = Object.assign(JSON.parse(JSON.stringify(v1)), { version: 3, publicado: '2026-11-08T13:00:00Z' });
   v3.tipos = { apagados: ['horasanta'] };   // el propio se borró de la configuración
@@ -744,6 +744,8 @@ async function casoTiposPropios() {
   igual(tipos.length, 12, 'tras el cambio de configuración: 12 tipos, sin repetir (' + tipos.join(', ') + ')');
   igual(new Set(tipos).size, tipos.length, 'ningún tipo repetido');
   igual((await imgsDe(panel)).join(','), ',patrono,fachada,logo,custodia,santo,galeria:galeria-a,galeria:galeria-b', 'la galería se suma una vez cada imagen');
+  await pant.waitForTimeout(1500);
+  igual(await pant.getAttribute('#virgen', 'alt'), 'Alt actualizado de la primera imagen', 'el alt de la imagen se refresca aunque el src sea el mismo');
   igual(await tipoGuardado(), 'hora-misionera', 'el tipo elegido se conserva');
   igual(await panel.getAttribute('[data-tipo="hora-misionera"]', 'aria-pressed'), 'true', 'y sigue marcado');
 
