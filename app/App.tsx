@@ -208,6 +208,7 @@ export default function App() {
   const [cargando, setCargando] = useState<boolean | null>(null);
   const [termico, setTermico] = useState<number | null>(null);
   const [temperatura, setTemperatura] = useState<number | null>(null);
+  const [fpsVideo, setFpsVideo] = useState<number | null>(null);
   const [hayRed, setHayRed] = useState(true);
   const [noMolestar, setNoMolestar] = useState<boolean | null>(null);
   const [calidad, setCalidad] = useState<Calidad | undefined>(undefined);
@@ -382,13 +383,14 @@ export default function App() {
     return () => r.remove();
   }, []);
 
-  // Estado térmico y temperatura de la batería, cada 10 s.
+  // Estado térmico, temperatura de la batería y fps del video, cada 10 s.
   useEffect(() => {
     const leer = () =>
       medirAvisos().then(
         (m) => {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
+          setFpsVideo(m.fpsVideo ?? null);
         },
         () => undefined,
       );
@@ -498,6 +500,7 @@ export default function App() {
             mbps={mbps}
             bateria={bateria}
             temperatura={temperatura}
+            fps={fpsVideo}
             ajustesDisponible={!alAire}
             onAjustes={() => setEnAjustes(true)}
             onTerminar={() => setConfirmar(true)}

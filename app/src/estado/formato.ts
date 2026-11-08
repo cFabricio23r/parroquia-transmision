@@ -23,3 +23,17 @@ export function formatoDuracion(segundos: number): string {
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
+
+// Por debajo de esto el video se nota entrecortado: el número de la barra se pinta ámbar.
+const FPS_BAJO = 25;
+
+/** Cuadros por segundo del video que sale, para la barra superior. */
+export function formatoFps(fps: number | null): string {
+  if (fps === null || !Number.isFinite(fps)) return '— fps';
+  return `${Math.round(fps)} fps`;
+}
+
+/** true si los fps se conocen y están por debajo de 25. */
+export function fpsBajo(fps: number | null): boolean {
+  return fps !== null && Number.isFinite(fps) && fps < FPS_BAJO;
+}

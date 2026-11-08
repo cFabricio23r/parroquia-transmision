@@ -99,11 +99,13 @@ class TransmisorModule : Module() {
     }
 
     // Solo lo que usan los avisos (cada 10 s): sin Debug.getPss, que es lento (review M5).
+    // También los fps del video, para la barra superior (prueba del 2026-11-07).
     AsyncFunction("medirAvisos") {
       val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
       mapOf(
         "termico" to Sistema.termico(ctx),
         "temperatura" to Sistema.temperaturaBateria(ctx),
+        "fpsVideo" to Motor.fpsVideo,
       )
     }
 

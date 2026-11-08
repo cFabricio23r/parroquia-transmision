@@ -3,7 +3,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Fase } from '../estado/transmision';
-import { formatoMbps, formatoReloj } from '../estado/formato';
+import { formatoFps, formatoMbps, formatoReloj, fpsBajo } from '../estado/formato';
 import { C, F, M } from './tema';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   bateria?: number | null;
   /** Temperatura de la batería, °C. */
   temperatura?: number | null;
+  /** Cuadros por segundo del video que sale; null si no se sabe. */
+  fps?: number | null;
   ajustesDisponible: boolean;
   onAjustes: () => void;
   onTerminar: () => void;
@@ -111,6 +113,7 @@ export default function BarraSuperior(p: Props) {
       </View>
       <View style={estilos.relleno} />
       <Text style={estilos.dato}>Subida {formatoMbps(reconectando ? null : p.mbps)}</Text>
+      <Text style={[estilos.dato, !reconectando && fpsBajo(p.fps ?? null) && { color: C.ambar }]}>{formatoFps(reconectando ? null : (p.fps ?? null))}</Text>
       {bateria ? <Text style={estilos.dato}>{bateria}</Text> : null}
       <Pressable
         accessibilityRole="button"
