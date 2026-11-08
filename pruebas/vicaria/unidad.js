@@ -2,24 +2,41 @@
    Para agregar un grupo: grupo('nombre', () => { prueba('qué comprueba', () => { ... }); });
    Los grupos van antes del bloque «Resultado». */
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 const { cargar } = require('./cargar');
 
 let fallos = 0;
 let total = 0;
+let cola = Promise.resolve(); // pruebas asíncronas: se esperan una tras otra, en orden
 
 function grupo(nombre, definir) {
   console.log('\n' + nombre);
   definir();
 }
 
+function _aprobada(descripcion) {
+  console.log('  ✓ ' + descripcion);
+}
+
+function _fallida(descripcion, e) {
+  fallos++;
+  console.log('  ✗ ' + descripcion + '\n      ' + String(e && e.message).split('\n').join('\n      '));
+}
+
+/* fn puede ser asíncrona (devolver una promesa): el resultado final espera a que termine. */
 function prueba(descripcion, fn) {
   total++;
+  let r;
   try {
-    fn();
-    console.log('  ✓ ' + descripcion);
+    r = fn();
   } catch (e) {
-    fallos++;
-    console.log('  ✗ ' + descripcion + '\n      ' + String(e.message).split('\n').join('\n      '));
+    _fallida(descripcion, e);
+    return;
+  }
+  if (r && typeof r.then === 'function') {
+    cola = cola.then(() => r).then(() => _aprobada(descripcion), (e) => _fallida(descripcion, e));
+  } else {
+    _aprobada(descripcion);
   }
 }
 
@@ -704,6 +721,243 @@ grupo('parroquia', () => {
   });
 });
 
+grupo('cargar parroquia', () => {
+  const CIUDAD_ARCE = {
+    esquema: 1, version: 1, publicado: '2026-11-07T12:00:00Z', slug: 'ciudad-arce',
+    nombre: 'Parroquia Inmaculada Concepción de María', lugar: 'Ciudad Arce, La Libertad',
+    colores: { principal: '#1155a4', oscuro: '#0c3562' },
+    logos: { blanco: { src: 'medios/logo-blanco.png', alt: 'Logo de la parroquia' } },
+    fachada: { src: 'medios/fachada.jpg', alt: 'Fachada del templo' },
+    patrono: { nombre: 'Inmaculada Concepción de María', corto: 'Inmaculada' },
+    fiesta: { dia: 8, mes: 12 }
+  };
+  const version = (n, extra) => Object.assign({}, CIUDAD_ARCE, { version: n }, extra || {});
+  const CLAVE = 'pev_ciudad-arce_config_v1';
+  const AVISO_COPIA = 'Usando la configuración guardada del 7 de noviembre de 2026';
+  const AVISO_SIN_RED = 'Sin conexión y sin configuración guardada: se muestran pantallas neutras.';
+  const AVISO_DANADA = 'La configuración del servidor está dañada: se usa la guardada.';
+
+  // Respuesta falsa de fetch. cuerpo: objeto (JSON válido) o texto (JSON roto).
+  const respuesta = (estado, cuerpo) => ({
+    ok: estado >= 200 && estado < 300,
+    status: estado,
+    json: () => Promise.resolve().then(() => (typeof cuerpo === 'string' ? JSON.parse(cuerpo) : cuerpo))
+  });
+  // Servidor falso: cada llamada a fetch toma el siguiente paso (el último se repite). Anota los pedidos.
+  const SIN_RED = new Error('sin red');
+  const servidor = (...pasos) => {
+    const f = (url, opciones) => {
+      f.pedidos.push({ url, opciones });
+      const paso = pasos[Math.min(f.pedidos.length - 1, pasos.length - 1)];
+      return paso instanceof Error ? Promise.reject(paso) : Promise.resolve(paso);
+    };
+    f.pedidos = [];
+    return f;
+  };
+  const nueva = (almacen, fetchFalso, ruta = '/ciudad-arce/panel.html') =>
+    cargar(['parroquia.js'], almacen, { location: { pathname: ruta }, fetch: fetchFalso });
+  // PARROQUIA, ESTADO_CONFIG y PARROQUIA_NO_EXISTE son enlaces `let` de un script clásico que se reasignan:
+  // se leen en vivo dentro del contexto (la copia que hace cargar() es solo una foto del arranque).
+  const leer = (c, nombre) => vm.runInContext(nombre, c);
+
+  prueba('sin copia y sin red: configuración neutra, origen neutra y aviso', async () => {
+    const c = nueva({}, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'neutra');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_SIN_RED);
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), false);
+  });
+  prueba('con copia y sin red: usa la copia y el aviso lleva la fecha de publicación', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'PARROQUIA').nombre, CIUDAD_ARCE.nombre);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'copia');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_COPIA);
+  });
+  prueba('al cargar el script, una copia válida ya es la configuración en uso (antes de pedir nada)', () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(SIN_RED));
+    assert.equal(leer(c, 'PARROQUIA').nombre, CIUDAD_ARCE.nombre);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'copia');
+    const d = nueva({}, servidor(SIN_RED));
+    assert.equal(leer(d, 'PARROQUIA'), d.CONFIG_NEUTRA);
+    assert.equal(leer(d, 'ESTADO_CONFIG').origen, 'neutra');
+  });
+  prueba('pide config.json relativo a la página y sin caché', async () => {
+    const f = servidor(respuesta(200, CIUDAD_ARCE));
+    await nueva({}, f).cargarParroquia();
+    assert.equal(f.pedidos.length, 1);
+    assert.equal(f.pedidos[0].url, 'config.json');
+    assert.equal(f.pedidos[0].opciones.cache, 'no-store');
+  });
+  prueba('el servidor responde una configuración válida: origen servidor, guardada, sin aviso', async () => {
+    const c = nueva({}, servidor(respuesta(200, CIUDAD_ARCE)));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'servidor');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, '');
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), false);
+    assert.equal(JSON.parse(c.__almacen[CLAVE]).version, 1);
+  });
+  prueba('JSON roto del servidor: sigue la copia con el aviso de configuración dañada', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(respuesta(200, '{roto')));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'copia');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_DANADA);
+    assert.equal(JSON.parse(c.__almacen[CLAVE]).version, 1);
+  });
+  prueba('esquema 2 del servidor: sigue la copia y no la pisa', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(respuesta(200, version(5, { esquema: 2 }))));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_DANADA);
+    assert.equal(JSON.parse(c.__almacen[CLAVE]).version, 1);
+  });
+  prueba('configuración dañada del servidor y sin copia: pantallas neutras, nada guardado', async () => {
+    const c = nueva({}, servidor(respuesta(200, version(1, { esquema: 2 }))));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'neutra');
+    assert.ok(leer(c, 'ESTADO_CONFIG').aviso.includes('dañada'));
+    assert.ok(!(CLAVE in c.__almacen));
+  });
+  prueba('versión nueva: el oyente se llama una vez con la 2; repetir la 2 no avisa de nuevo', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(respuesta(200, version(2))));
+    const avisos = [];
+    c.alCambiarParroquia((cfg) => avisos.push(cfg.version));
+    await c.cargarParroquia();
+    assert.deepEqual(avisos, [2]);
+    assert.equal(leer(c, 'PARROQUIA').version, 2);
+    assert.equal(JSON.parse(c.__almacen[CLAVE]).version, 2);
+    await c.cargarParroquia();
+    assert.deepEqual(avisos, [2]);
+  });
+  prueba('el oyente recibe la configuración nueva como argumento', async () => {
+    const c = nueva({}, servidor(respuesta(200, CIUDAD_ARCE)));
+    let recibida = null;
+    c.alCambiarParroquia((cfg) => { recibida = cfg; });
+    await c.cargarParroquia();
+    assert.equal(recibida, leer(c, 'PARROQUIA'));
+  });
+  prueba('un oyente que falla no impide avisar a los demás ni a cargarParroquia', async () => {
+    const c = nueva({}, servidor(respuesta(200, CIUDAD_ARCE)));
+    let segundo = 0;
+    c.alCambiarParroquia(() => { throw new Error('oyente roto'); });
+    c.alCambiarParroquia(() => { segundo++; });
+    await c.cargarParroquia();
+    assert.equal(segundo, 1);
+  });
+  prueba('también se avisa cuando cambia PARROQUIA_NO_EXISTE o el estado, y no si todo sigue igual', async () => {
+    const c = nueva({}, servidor(SIN_RED, respuesta(404, {}), respuesta(404, {})));
+    let n = 0;
+    c.alCambiarParroquia(() => { n++; });
+    await c.cargarParroquia(); // neutra, sin red: el aviso pasa de vacío a «Sin conexión…»
+    assert.equal(n, 1);
+    await c.cargarParroquia(); // 404 sin copia: NO_EXISTE pasa a true
+    assert.equal(n, 2);
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), true);
+    await c.cargarParroquia(); // otro 404 igual: nada cambia
+    assert.equal(n, 2);
+  });
+  prueba('una copia guardada de otra parroquia (pev_otra_config_v1) se ignora', async () => {
+    const c = nueva({ pev_otra_config_v1: JSON.stringify(Object.assign({}, CIUDAD_ARCE, { slug: 'otra' })) }, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'neutra');
+  });
+  prueba('una copia con otro slug dentro (guardada en la clave de este) se ignora', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(Object.assign({}, CIUDAD_ARCE, { slug: 'otra' })) }, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'neutra');
+  });
+  prueba('una copia ilegible se ignora', () => {
+    const c = nueva({ [CLAVE]: 'no-es-json' }, servidor(SIN_RED));
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+  });
+  prueba('404 sin copia: PARROQUIA_NO_EXISTE es true y se muestra la neutra', async () => {
+    const c = nueva({}, servidor(respuesta(404, {})));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), true);
+    assert.equal(leer(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'neutra');
+  });
+  prueba('404 con copia: PARROQUIA_NO_EXISTE es false, sigue la copia y el aviso lo explica', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(respuesta(404, {})));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), false);
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'copia');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso,
+      'El link de esta parroquia ya no está en el servidor. Se usa la configuración guardada del 7 de noviembre de 2026.');
+  });
+  prueba('un error del servidor (500) se trata como falta de red, no como «no existe»', async () => {
+    const c = nueva({}, servidor(respuesta(500, {})));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), false);
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_SIN_RED);
+  });
+  prueba('si el servidor vuelve a responder bien, el aviso se limpia y NO_EXISTE vuelve a false', async () => {
+    const c = nueva({}, servidor(respuesta(404, {}), respuesta(200, CIUDAD_ARCE)));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), true);
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), false);
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, '');
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'servidor');
+  });
+  prueba('slug inválido: PARROQUIA_NO_EXISTE es true desde el arranque y no se pide nada', async () => {
+    const f = servidor(respuesta(200, CIUDAD_ARCE));
+    const c = nueva({}, f, '/panel.html');
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), true);
+    await c.cargarParroquia();
+    assert.equal(f.pedidos.length, 0);
+    assert.equal(leer(c, 'PARROQUIA_NO_EXISTE'), true);
+  });
+  prueba('la configuración neutra nunca se guarda ni cuenta como copia', async () => {
+    const c = nueva({}, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.ok(!(CLAVE in c.__almacen));
+    const d = nueva({ [CLAVE]: JSON.stringify(c.CONFIG_NEUTRA) }, servidor(SIN_RED));
+    await d.cargarParroquia();
+    assert.equal(leer(d, 'ESTADO_CONFIG').origen, 'neutra');
+    assert.equal(leer(d, 'ESTADO_CONFIG').aviso, AVISO_SIN_RED);
+  });
+  prueba('si el navegador no deja guardar, la configuración del servidor se usa igual', async () => {
+    const c = nueva({}, servidor(respuesta(200, CIUDAD_ARCE)));
+    c.localStorage.setItem = () => { throw new Error('cuota'); };
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'PARROQUIA').version, 1);
+    assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'servidor');
+  });
+  prueba('la fecha del aviso sale de publicado, en español', async () => {
+    const c = nueva({ [CLAVE]: JSON.stringify(version(1, { publicado: '2026-01-31T12:00:00Z' })) }, servidor(SIN_RED));
+    await c.cargarParroquia();
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, 'Usando la configuración guardada del 31 de enero de 2026');
+  });
+  prueba('vigilarParroquia carga ya y vuelve a cargar cada ms (60000 por defecto)', async () => {
+    const f = servidor(respuesta(200, CIUDAD_ARCE));
+    const tics = [];
+    const c = cargar(['parroquia.js'], {}, {
+      location: { pathname: '/ciudad-arce/panel.html' }, fetch: f,
+      setInterval: (fn, ms) => { tics.push({ fn, ms }); return 1; }
+    });
+    c.vigilarParroquia();
+    assert.equal(f.pedidos.length, 1);
+    assert.equal(tics.length, 1);
+    assert.equal(tics[0].ms, 60000);
+    tics[0].fn();
+    assert.equal(f.pedidos.length, 2);
+    c.vigilarParroquia(5000);
+    assert.equal(tics[1].ms, 5000);
+    await c.cargarParroquia(); // deja terminar los pedidos pendientes
+  });
+});
+
 /* ---------- Resultado ---------- */
-console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
-process.exit(fallos ? 1 : 0);
+cola.then(() => {
+  console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
+  process.exit(fallos ? 1 : 0);
+});

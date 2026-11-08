@@ -167,3 +167,130 @@ const CONFIG_NEUTRA = {
   nombre: '',
   colores: { principal: '#1155a4', oscuro: '#0c3562' }
 };
+
+/* ---------- Cargar, guardar la copia y avisar ---------- */
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/* '2026-11-07T12:00:00Z' -> '7 de noviembre de 2026' (hora local de la página). Texto vacío si no es una fecha. */
+function _fechaLarga(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear();
+}
+
+/* La copia guardada de ESTA parroquia, o null si no hay, está rota, es de otra parroquia o es la neutra.
+   La clave lleva el slug y validarConfig exige que el slug de dentro coincida: dos candados contra datos ajenos. */
+function _leerCopia() {
+  if (SLUG === null) return null;
+  try {
+    const c = JSON.parse(localStorage.getItem(claveDe('config_v1')));
+    return c && c.version >= 1 && validarConfig(c).ok ? c : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function _guardarCopia(c) {
+  try {
+    localStorage.setItem(claveDe('config_v1'), JSON.stringify(c));
+  } catch (e) {
+    /* sin almacenamiento la configuración se usa igual, solo que no queda de respaldo */
+  }
+}
+
+/* La configuración en uso. Al cargar el script: la copia guardada válida de este slug, o la neutra. */
+let PARROQUIA = _leerCopia() || CONFIG_NEUTRA;
+
+/* origen: 'servidor' | 'copia' | 'neutra'. fecha: «7 de noviembre de 2026» o null. aviso: texto para el panel ('' si todo bien). */
+let ESTADO_CONFIG = PARROQUIA === CONFIG_NEUTRA
+  ? { origen: 'neutra', fecha: null, aviso: '' }
+  : { origen: 'copia', fecha: _fechaLarga(PARROQUIA.publicado), aviso: '' };
+
+/* true si el slug es inválido, o si el servidor respondió 404 y no hay copia guardada. */
+let PARROQUIA_NO_EXISTE = SLUG === null;
+
+const _oyentesParroquia = [];
+
+function alCambiarParroquia(cb) {
+  _oyentesParroquia.push(cb);
+}
+
+function _avisarParroquia() {
+  for (const cb of _oyentesParroquia.slice()) {
+    try {
+      cb(PARROQUIA);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
+/* Estado derivado de lo que hay en PARROQUIA (copia o neutra) con un aviso dado. */
+function _estadoSinServidor(aviso) {
+  return PARROQUIA === CONFIG_NEUTRA
+    ? { origen: 'neutra', fecha: null, aviso: aviso.neutra }
+    : { origen: 'copia', fecha: _fechaLarga(PARROQUIA.publicado), aviso: aviso.copia(_fechaLarga(PARROQUIA.publicado)) };
+}
+
+const _AVISOS = {
+  sinRed: {
+    neutra: 'Sin conexión y sin configuración guardada: se muestran pantallas neutras.',
+    copia: (f) => 'Usando la configuración guardada del ' + f
+  },
+  danada: {
+    neutra: 'La configuración del servidor está dañada: se muestran pantallas neutras.',
+    copia: () => 'La configuración del servidor está dañada: se usa la guardada.'
+  },
+  noExiste: {
+    neutra: '',
+    copia: (f) => 'El link de esta parroquia ya no está en el servidor. Se usa la configuración guardada del ' + f + '.'
+  }
+};
+
+/* Pide config.json (relativo a la página: /<slug>/config.json). Nunca rechaza: cualquier fallo deja lo que había.
+   Avisa a los oyentes si cambia la versión, PARROQUIA_NO_EXISTE o ESTADO_CONFIG; si nada cambió, no avisa. */
+async function cargarParroquia() {
+  if (SLUG === null) return;
+  const antes = JSON.stringify([PARROQUIA.version, PARROQUIA_NO_EXISTE, ESTADO_CONFIG]);
+
+  let noExiste = false;
+  let estado;
+  try {
+    const res = await fetch('config.json', { cache: 'no-store' });
+    if (res.status === 404) {
+      noExiste = PARROQUIA === CONFIG_NEUTRA;
+      estado = _estadoSinServidor(_AVISOS.noExiste);
+    } else if (!res.ok) {
+      estado = _estadoSinServidor(_AVISOS.sinRed);
+    } else {
+      let c = null;
+      try {
+        c = await res.json();
+      } catch (e) {
+        c = null;
+      }
+      if (c === null || !validarConfig(c).ok) {
+        estado = _estadoSinServidor(_AVISOS.danada);
+      } else {
+        if (c.version !== PARROQUIA.version) {
+          _guardarCopia(c);
+          PARROQUIA = c;
+        }
+        estado = { origen: 'servidor', fecha: _fechaLarga(c.publicado), aviso: '' };
+      }
+    }
+  } catch (e) {
+    estado = _estadoSinServidor(_AVISOS.sinRed);
+  }
+
+  PARROQUIA_NO_EXISTE = noExiste;
+  ESTADO_CONFIG = estado;
+  if (JSON.stringify([PARROQUIA.version, PARROQUIA_NO_EXISTE, ESTADO_CONFIG]) !== antes) _avisarParroquia();
+}
+
+/* Carga ahora y vuelve a revisar cada `ms` (60 s: un cambio llega a OBS en uno o dos minutos). */
+function vigilarParroquia(ms = 60000) {
+  cargarParroquia();
+  setInterval(cargarParroquia, ms);
+}
