@@ -147,13 +147,14 @@ function pintar(s) {
   if (PARROQUIA_NO_EXISTE) return;
   const tipo = tipoDe(s);
   const efectiva = vistaDe(s);
-  // Los ajustes, el fondo y los textos son de la pantalla de la URL (`vista`), aunque la portada pinte la vista de Inicio.
-  const T = (clave) => textoDe(s, vista, clave);
+  // Ajustes, fondo y textos son los de la vista que se pinta de verdad: si la portada pinta Inicio, los del bloque `inicio`.
+  const T = (clave) => textoDe(s, efectiva, clave);
+  aplicarAjustes(efectiva);
   const esPortadaEvento = efectiva === 'portada' && tipo.portada === 'evento';
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
   const v = $('virgen');
-  const im = imagenDeVista(s, vista);
+  const im = imagenDeVista(s, efectiva);
   const src = im.src;
   if (v.dataset.pedida !== src) {
     v.dataset.pedida = src; v.dataset.fallo = '';
@@ -289,7 +290,7 @@ function pintar(s) {
    sin validar). El color va en la variable --fondo-vista y solo si pasa RE_HEX. Una pantalla «como viene» no
    recibe ninguna clase. Si la imagen de fondo falla, se oculta y queda el degradado. */
 const CLASES_AJUSTE = ['fondo-color', 'fondo-imagen', 'dist-derecha', 'dist-centro'].concat(ELEMENTOS_OCULTABLES.map((e) => 'oculto-' + e));
-function aplicarAjustes() {
+function aplicarAjustes(vista) {
   const esc = $('escenario');
   const a = ajustesDe(vista);
   esc.classList.remove(...CLASES_AJUSTE);
@@ -318,7 +319,6 @@ function aplicarParroquia(c) {
   ponerImagen($('aro-logo'), c.logos && c.logos.blanco);
   ponerImagen($('a-logo'), c.logos && c.logos.color);
   ponerImagen($('h-logo'), c.logos && c.logos.color);
-  aplicarAjustes();
   pintar(leerEstado());   // la firma de pintar no incluye la versión: sin cambios reales no se reanima la entrada
 }
 aplicarParroquia(PARROQUIA);

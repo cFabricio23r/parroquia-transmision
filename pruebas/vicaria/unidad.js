@@ -1810,8 +1810,12 @@ grupo('pantallas', () => {
     const x = cargarPantallas((cfg) => { cfg.avisos = [{ texto: 'Fijo', orden: 1 }]; });
     const s = x.normalizarEstado({ avisos: [{ a: 'Panel 1', f: 'det' }, { a: '', f: 'suelto' }, { a: '  ', f: '' }, { a: 'Panel 2', f: '' }] });
     const r = x.avisosPara(s, dia(2026, 11, 15));
-    assert.deepEqual(arr(r, (e) => e.a), ['Fijo', 'Panel 1', 'Panel 2']);
+    assert.deepEqual(arr(r, (e) => e.a), ['Fijo', 'Panel 1', '', 'Panel 2'], 'la fila con solo detalle se ve, como en la 1a');
     assert.equal(r[1].f, 'det');
+  });
+  prueba('aviso del panel con solo detalle se ve, como en la 1a', () => {
+    const s = c.normalizarEstado({ avisos: [{ a: '', f: 'Solo detalle' }, { a: '  ', f: '  ' }] });
+    assert.deepEqual(arr(c.avisosPara(s, dia(2026, 11, 15)), plano), [{ a: '', f: 'Solo detalle' }]);
   });
   prueba('sin avisos fijos, avisosPara = los del panel no vacíos', () => {
     const s = c.normalizarEstado({ avisos: [{ a: 'Uno', f: 'x' }, { a: '', f: '' }] });

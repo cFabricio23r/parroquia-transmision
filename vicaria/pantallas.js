@@ -89,7 +89,7 @@ function _vigente(a, hoy) {
 }
 
 /* Filas de la pantalla de avisos [{a, f}]: primero los fijos vigentes (por `orden`, y a igual orden por
-   posición; sin `orden` van al final), después los del panel que no estén vacíos. Máximo 6. */
+   posición; sin `orden` van al final), después los del panel con texto o detalle (como en la 1a). Máximo 6. */
 function avisosPara(s, hoy = new Date()) {
   const fijos = (Array.isArray(PARROQUIA.avisos) ? PARROQUIA.avisos : [])
     .map((a, i) => ({ a, i }))
@@ -101,8 +101,8 @@ function avisosPara(s, hoy = new Date()) {
     })
     .map((x) => ({ a: x.a.texto, f: typeof x.a.detalle === 'string' ? x.a.detalle : '' }));
   const delPanel = (s && Array.isArray(s.avisos) ? s.avisos : [])
-    .filter((x) => x && typeof x.a === 'string' && x.a.trim() !== '')
-    .map((x) => ({ a: x.a, f: typeof x.f === 'string' ? x.f : '' }));
+    .map((x) => (x && typeof x === 'object' ? { a: typeof x.a === 'string' ? x.a : '', f: typeof x.f === 'string' ? x.f : '' } : null))
+    .filter((x) => x && (x.a.trim() !== '' || x.f.trim() !== ''));
   return fijos.concat(delPanel).slice(0, MAX_FILAS_AVISOS);
 }
 

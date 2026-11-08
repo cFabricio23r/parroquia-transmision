@@ -531,6 +531,25 @@ async function casoPersonalizada() {
   await ctx2.close();
 }
 
+async function casoPortadaCaeAInicio() {
+  console.log('1b · Portada que pinta Inicio usa los ajustes de Inicio');
+  const ctx = await nuevoContexto();
+  const cfg = conBloques((c) => {
+    c.pantallas = {
+      inicio: { modo: 'personalizada', fondo: { tipo: 'color', color: '#7a3b12' }, ocultar: ['chispas'], textos: { inicio_titulo: 'Titulo de inicio' } },
+      portada: { modo: 'personalizada', fondo: { tipo: 'color', color: '#4a2008' }, textos: { inicio_titulo: 'Titulo de portada' } }
+    };
+  });
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=portada`, 1920, 1080, estadoCA({ tipo: 'dominical' }));
+  await p.waitForTimeout(1200);
+  revisar(await visibleEl(p, '#v-inicio') && !(await visibleEl(p, '#v-portada')), 'dominical no tiene portada: se pinta Inicio');
+  igual(await p.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--fondo-vista')), '#7a3b12', 'el fondo es el del bloque inicio');
+  igual((await texto(p, '#i-titulo')).trim(), 'Titulo de inicio', 'el texto es el del bloque inicio');
+  revisar(!(await visibleEl(p, '#chispas')), 'lo oculto es lo del bloque inicio');
+  await ctx.close();
+}
+
 async function casoHorarios() {
   console.log('1b · Horarios y redes');
   const ctx = await nuevoContexto();
@@ -707,6 +726,7 @@ async function comparacion() {
     await casoCapturasYMedidas();
     await casoComoViene();
     await casoPersonalizada();
+    await casoPortadaCaeAInicio();
     await casoHorarios();
     await casoAvisosFijos();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
