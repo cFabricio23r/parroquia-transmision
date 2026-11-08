@@ -1436,6 +1436,12 @@ grupo('servidor-vicaria: patrones de vercel.json', () => {
   prueba('todos los source de vercel.json se pueden compilar', () => {
     for (const r of reglas.rewrites.concat(reglas.headers)) compilarPatron(r.source);
   });
+  prueba('pantallas.js se sirve desde la raíz como los demás scripts', () => {
+    const r = reglas.rewrites.find((x) => emparejar(compilarPatron(x.source), '/ciudad-arce/pantallas.js'));
+    assert.ok(r, 'falta la regla de pantallas.js');
+    const m = emparejar(compilarPatron(r.source), '/ciudad-arce/pantallas.js');
+    assert.equal(r.destination.replace(':script', m.script), '/pantallas.js');
+  });
   prueba('config.json lleva Cache-Control must-revalidate', () => {
     const h = reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/ciudad-arce/config.json'));
     assert.ok(h);
@@ -1597,6 +1603,248 @@ grupo('config 1b', () => {
       const r = cargar(['parroquia.js'], {}, { location: { pathname: '/' + slug + '/panel.html' } }).validarConfig(cfg);
       assert.deepEqual(Array.from(r.errores), [], slug);
     }
+  });
+});
+
+grupo('pantallas', () => {
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const GAL = [
+    { id: 'patrono-2', src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono' },
+    { id: 'fondo-fiesta', src: 'medios/fondo-fiesta.webp', alt: 'Fondo de la fiesta' }
+  ];
+  const cargarPantallas = (cambios) => {
+    const cfg = base();
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const VISTAS = ['inicio', 'portada', 'gracias', 'avisos', 'horarios'];
+  let c;
+  try {
+    c = cargarPantallas();
+  } catch (e) {
+    prueba('se puede cargar pantallas.js', () => { throw e; });
+    return;
+  }
+  // Para configuraciones que validarConfig rechazaría (referencias a la galería que ya no existen): se ponen después de cargar.
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const dia = (a, m, d) => new Date(a, m - 1, d);
+  const arr = (x, f) => Array.from(x, f);
+  const plano = (o) => Object.assign({}, o);
+
+  prueba('sin bloques nuevos, ajustesDe de las 5 vistas da los valores de hoy', () => {
+    for (const v of VISTAS) {
+      const a = c.ajustesDe(v);
+      assert.equal(a.personalizada, false, v);
+      assert.equal(a.fondo.tipo, 'degradado', v);
+      assert.equal(a.imagen, 'automatica', v);
+      assert.equal(a.distribucion, 'izquierda', v);
+      assert.deepEqual(arr(a.ocultar), [], v);
+      assert.deepEqual(Object.keys(a.textos), [], v);
+    }
+  });
+  prueba('sin bloques nuevos, textoDe = tx e imagenDeVista = la de hoy', () => {
+    const s = c.normalizarEstado({ tipo: 'novena', novenaDia: 3 });
+    for (const k of Object.keys(c.textosBase(s))) assert.equal(c.textoDe(s, 'inicio', k), c.tx(s, k), k);
+    const im = c.imagenDeVista(s, 'inicio');
+    assert.equal(im.src, c.imagenDe(s));
+    assert.equal(im.alt, c.altDe(s));
+    assert.equal(im.clase, c.claseDeImagen(im.src));
+  });
+  prueba('modo como-viene con otros campos: se ignoran', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.galeria = GAL;
+      cfg.pantallas = { inicio: { modo: 'como-viene', fondo: { tipo: 'color', color: '#112233' }, imagen: 'ninguna', distribucion: 'derecha', ocultar: ['marca'], textos: { marca: 'Otro' } } };
+    });
+    const a = x.ajustesDe('inicio');
+    assert.equal(a.personalizada, false);
+    assert.equal(a.fondo.tipo, 'degradado');
+    assert.equal(a.imagen, 'automatica');
+    assert.equal(a.distribucion, 'izquierda');
+    assert.deepEqual(arr(a.ocultar), []);
+    assert.equal(x.visible('inicio', 'marca'), true);
+    const s = x.normalizarEstado({});
+    assert.equal(x.textoDe(s, 'inicio', 'marca'), x.tx(s, 'marca'));
+  });
+  prueba('modo ausente también cuenta como «como viene»', () => {
+    const x = cargarPantallas((cfg) => { cfg.pantallas = { inicio: { distribucion: 'centro' } }; });
+    assert.equal(x.ajustesDe('inicio').personalizada, false);
+    assert.equal(x.ajustesDe('inicio').distribucion, 'izquierda');
+  });
+  prueba('personalizada: usa lo escrito y completa el resto con los valores de hoy', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.pantallas = { gracias: { modo: 'personalizada', distribucion: 'derecha', ocultar: ['chispas', 'rayos'] } };
+    });
+    const a = x.ajustesDe('gracias');
+    assert.equal(a.personalizada, true);
+    assert.equal(a.distribucion, 'derecha');
+    assert.deepEqual(arr(a.ocultar), ['chispas', 'rayos']);
+    assert.equal(a.imagen, 'automatica');
+    assert.equal(a.fondo.tipo, 'degradado');
+    assert.equal(x.visible('gracias', 'chispas'), false);
+    assert.equal(x.visible('gracias', 'marca'), true);
+    assert.equal(x.visible('inicio', 'chispas'), true, 'otra vista no se afecta');
+  });
+  prueba('fondoDe: color, imagen de galería y respaldo a degradado', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.galeria = GAL;
+      cfg.pantallas = {
+        inicio: { modo: 'personalizada', fondo: { tipo: 'color', color: '#223344' } },
+        portada: { modo: 'personalizada', fondo: { tipo: 'imagen', imagen: 'fondo-fiesta' } }
+      };
+    });
+    const roto = base();
+    roto.pantallas = { gracias: { modo: 'personalizada', fondo: { tipo: 'imagen', imagen: 'no-existe' } } };
+    const y = cargarPantallas();
+    forzar(y, roto);
+    assert.equal(y.fondoDe('gracias').tipo, 'degradado', 'galería que ya no existe');
+    assert.deepEqual(plano(x.fondoDe('inicio')), { tipo: 'color', color: '#223344' });
+    assert.deepEqual(plano(x.fondoDe('portada')), { tipo: 'imagen', src: 'medios/fondo-fiesta.webp', alt: 'Fondo de la fiesta' });
+    assert.equal(x.fondoDe('avisos').tipo, 'degradado');
+  });
+  prueba('textoDe respeta la precedencia de 3 niveles', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.pantallas = { inicio: { modo: 'personalizada', textos: { inicio_titulo: 'De la config', marca: 'Marca config' } } };
+    });
+    const s0 = x.normalizarEstado({});
+    assert.equal(x.textoDe(s0, 'inicio', 'inicio_titulo'), 'De la config');
+    assert.equal(x.textoDe(s0, 'inicio', 'inicio_ceja'), x.textosBase(s0).inicio_ceja, 'sin config: lo automático');
+    const s1 = x.normalizarEstado({ textos: { inicio_titulo: '  Del panel  ' } });
+    assert.equal(x.textoDe(s1, 'inicio', 'inicio_titulo'), 'Del panel');
+    const s2 = x.normalizarEstado({ textos: { inicio_titulo: '   ' } });
+    assert.equal(x.textoDe(s2, 'inicio', 'inicio_titulo'), 'De la config', 'un texto del panel en blanco no gana');
+    assert.equal(x.textoDe(s0, 'portada', 'marca'), x.tx(s0, 'marca'), 'otra vista no usa los textos de inicio');
+  });
+  prueba('{patrono} en un texto de la configuración se rellena', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.pantallas = { portada: { modo: 'personalizada', textos: { portada_sub: 'Fiesta de {patrono}, el {fiesta}' } } };
+    });
+    assert.equal(x.textoDe(x.normalizarEstado({}), 'portada', 'portada_sub'), 'Fiesta de Inmaculada Concepción de María, el 8 de diciembre');
+  });
+  prueba('imagenDeVista: ninguna, galeria:x, clave fija y automática', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.galeria = GAL;
+      cfg.pantallas = {
+        inicio: { modo: 'personalizada', imagen: 'ninguna' },
+        portada: { modo: 'personalizada', imagen: 'galeria:patrono-2' },
+        gracias: { modo: 'personalizada', imagen: 'fachada' }
+      };
+    });
+    const s = x.normalizarEstado({ tipo: 'novena' });
+    const ninguna = x.imagenDeVista(s, 'inicio');
+    assert.equal(ninguna.src, '');
+    assert.equal(ninguna.alt, '');
+    const gal = x.imagenDeVista(s, 'portada');
+    assert.equal(gal.src, 'medios/patrono-2.jpg');
+    assert.equal(gal.alt, 'Segunda imagen del patrono');
+    assert.equal(gal.clase, 'a');
+    const fac = x.imagenDeVista(s, 'gracias');
+    assert.equal(fac.src, 'medios/fachada.jpg');
+    assert.equal(fac.clase, 'foto');
+    // galería que ya no existe: cae a la automática, sin error
+    const roto = base();
+    roto.pantallas = { avisos: { modo: 'personalizada', imagen: 'galeria:borrada' } };
+    forzar(x, roto);
+    assert.equal(x.imagenDeVista(s, 'avisos').src, x.imagenDe(s));
+    // automática = la de hoy
+    const auto = x.imagenDeVista(s, 'horarios');
+    assert.equal(auto.src, x.imagenDe(s));
+    assert.equal(auto.alt, x.altDe(s));
+  });
+  prueba('imagenGaleria: la encuentra o da null', () => {
+    const x = cargarPantallas((cfg) => { cfg.galeria = GAL; });
+    assert.deepEqual(plano(x.imagenGaleria('patrono-2')), { src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono' });
+    assert.equal(x.imagenGaleria('nada'), null);
+    assert.equal(c.imagenGaleria('patrono-2'), null, 'sin galería');
+  });
+  prueba('el título nunca se oculta', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.pantallas = {};
+      for (const v of VISTAS) cfg.pantallas[v] = { modo: 'personalizada', imagen: 'ninguna', ocultar: ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina'] };
+    });
+    for (const v of VISTAS) {
+      assert.ok(!arr(x.ajustesDe(v).ocultar).includes('titulo'), v);
+      assert.equal(x.visible(v, 'titulo'), true, v);
+    }
+    // aunque llegue una configuración sin validar con 'titulo' en ocultar
+    const y = cargarPantallas((cfg) => { cfg.pantallas = { inicio: { modo: 'personalizada', ocultar: ['titulo', 'marca'] } }; });
+    assert.equal(y.visible('inicio', 'titulo'), true);
+    assert.ok(!arr(y.ajustesDe('inicio').ocultar).includes('titulo'));
+  });
+
+  const AVISOS = [
+    { texto: 'Vigente', detalle: 'Sáb 30', desde: '2026-11-01', hasta: '2026-11-30', orden: 1 },
+    { texto: 'Vencido', hasta: '2026-11-14', orden: 2 },
+    { texto: 'Futuro', desde: '2026-11-16', orden: 3 },
+    { texto: 'Último día', hasta: '2026-11-15', orden: 4 },
+    { texto: 'Primer día', desde: '2026-11-15', orden: 5 },
+    { texto: 'Siempre' }
+  ];
+  const sinPanel = () => c.normalizarEstado({});
+  prueba('avisos vigentes: desde/hasta son inclusivos, en hora local', () => {
+    const x = cargarPantallas((cfg) => { cfg.avisos = AVISOS; });
+    assert.deepEqual(arr(x.avisosPara(sinPanel(), dia(2026, 11, 15)), (r) => r.a), ['Vigente', 'Último día', 'Primer día', 'Siempre']);
+    assert.deepEqual(arr(x.avisosPara(sinPanel(), dia(2026, 11, 14)), (r) => r.a), ['Vigente', 'Vencido', 'Último día', 'Siempre']);
+    assert.deepEqual(arr(x.avisosPara(sinPanel(), dia(2026, 11, 16)), (r) => r.a), ['Vigente', 'Futuro', 'Primer día', 'Siempre']);
+  });
+  prueba('avisos: la hora del día no cambia la vigencia', () => {
+    const x = cargarPantallas((cfg) => { cfg.avisos = AVISOS; });
+    const nombres = (h) => arr(x.avisosPara(sinPanel(), h), (r) => r.a);
+    const tarde = nombres(new Date(2026, 10, 15, 23, 59, 59));
+    assert.deepEqual(tarde, nombres(new Date(2026, 10, 15, 0, 0, 1)));
+    assert.ok(tarde.includes('Último día'));
+  });
+  prueba('avisos fijos: forma {a, f}, detalle ausente = vacío', () => {
+    const x = cargarPantallas((cfg) => { cfg.avisos = AVISOS; });
+    const r = x.avisosPara(sinPanel(), dia(2026, 11, 15));
+    assert.deepEqual(plano(r[0]), { a: 'Vigente', f: 'Sáb 30' });
+    assert.deepEqual(plano(r[3]), { a: 'Siempre', f: '' });
+  });
+  prueba('avisos: orden por «orden» y, a igual orden, por posición', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.avisos = [{ texto: 'C', orden: 2 }, { texto: 'A1', orden: 1 }, { texto: 'B', orden: 2 }, { texto: 'A2', orden: 1 }];
+    });
+    assert.deepEqual(arr(x.avisosPara(sinPanel(), dia(2026, 11, 15)), (r) => r.a), ['A1', 'A2', 'C', 'B']);
+  });
+  prueba('avisos: los del panel van después de los fijos y los vacíos no cuentan', () => {
+    const x = cargarPantallas((cfg) => { cfg.avisos = [{ texto: 'Fijo', orden: 1 }]; });
+    const s = x.normalizarEstado({ avisos: [{ a: 'Panel 1', f: 'det' }, { a: '', f: 'suelto' }, { a: '  ', f: '' }, { a: 'Panel 2', f: '' }] });
+    const r = x.avisosPara(s, dia(2026, 11, 15));
+    assert.deepEqual(arr(r, (e) => e.a), ['Fijo', 'Panel 1', 'Panel 2']);
+    assert.equal(r[1].f, 'det');
+  });
+  prueba('sin avisos fijos, avisosPara = los del panel no vacíos', () => {
+    const s = c.normalizarEstado({ avisos: [{ a: 'Uno', f: 'x' }, { a: '', f: '' }] });
+    assert.deepEqual(arr(c.avisosPara(s, dia(2026, 11, 15)), (e) => e.a), ['Uno']);
+  });
+  prueba('tope de 6 filas: 5 fijos + 4 del panel dan 6, los 5 fijos primero', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.avisos = [1, 2, 3, 4, 5].map((n) => ({ texto: 'Fijo ' + n, orden: n }));
+    });
+    const s = x.normalizarEstado({ avisos: [1, 2, 3, 4].map((n) => ({ a: 'Panel ' + n, f: '' })) });
+    const r = arr(x.avisosPara(s, dia(2026, 11, 15)), (e) => e.a);
+    assert.equal(r.length, 6);
+    assert.deepEqual(r, ['Fijo 1', 'Fijo 2', 'Fijo 3', 'Fijo 4', 'Fijo 5', 'Panel 1']);
+  });
+  prueba('horariosPara y redesPara: leen la configuración en uso', () => {
+    assert.deepEqual(arr(c.horariosPara()), []);
+    assert.deepEqual(arr(c.redesPara()), []);
+    const x = cargarPantallas((cfg) => {
+      cfg.horarios = [{ dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' }, { dia: 'Lunes', hora: '6:00 p. m.' }];
+      cfg.redes = [{ red: 'facebook', url: 'https://facebook.com/x', texto: '/ParroquiaCiudadArce' }];
+    });
+    assert.deepEqual(arr(x.horariosPara(), plano), [
+      { dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' },
+      { dia: 'Lunes', hora: '6:00 p. m.', nota: '' }
+    ]);
+    assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'facebook', texto: '/ParroquiaCiudadArce' }]);
+  });
+  prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
+    const x = cargarPantallas();
+    assert.equal(x.ajustesDe('inicio').personalizada, false);
+    const nueva = base();
+    nueva.pantallas = { inicio: { modo: 'personalizada', distribucion: 'centro' } };
+    vm.runInContext('PARROQUIA = ' + JSON.stringify(nueva) + ';', x);
+    assert.equal(x.ajustesDe('inicio').distribucion, 'centro');
   });
 });
 
