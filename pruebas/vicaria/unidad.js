@@ -40,12 +40,49 @@ function prueba(descripcion, fn) {
   }
 }
 
+
+/* ---------- Configuraciones de prueba y carga con parroquia ---------- */
+
+/* Las configuraciones viven aquí (San José todavía no tiene archivo de ejemplo: lo crea la Tarea 7). */
+const CONFIG_CIUDAD_ARCE = {
+  esquema: 1, version: 1, publicado: '2026-11-07T12:00:00Z', slug: 'ciudad-arce',
+  nombre: 'Parroquia Inmaculada Concepción de María', nombreCorto: 'Inmaculada Concepción',
+  lugar: 'Ciudad Arce, La Libertad',
+  colores: { principal: '#1155a4', oscuro: '#0c3562' },
+  logos: { blanco: { src: 'medios/logo-blanco.png', alt: 'Logo blanco de la Parroquia Inmaculada Concepción de María' } },
+  fachada: { src: 'medios/fachada.jpg', alt: 'Fachada del templo parroquial de Ciudad Arce' },
+  patrono: {
+    nombre: 'Inmaculada Concepción de María', corto: 'Inmaculada',
+    imagen: { src: 'medios/patrono.png', alt: 'Imagen de la Inmaculada Concepción' }
+  },
+  fiesta: { dia: 8, mes: 12 }
+};
+const CONFIG_SAN_JOSE = {
+  esquema: 1, version: 1, publicado: '2026-11-07T12:00:00Z', slug: 'san-jose',
+  nombre: 'Parroquia San José', lugar: 'Santa Tecla, La Libertad',
+  colores: { principal: '#7a3b12', oscuro: '#4a2008' },
+  logos: { blanco: { src: 'medios/logo-blanco.png', alt: 'Logo blanco de la Parroquia San José' } },
+  fachada: { src: 'medios/fachada.jpg', alt: 'Fachada del templo de San José' },
+  patrono: { nombre: 'San José', corto: 'San José' },
+  fiesta: { dia: 19, mes: 3 }
+};
+const conFiesta = (base, dia, mes) => Object.assign({}, base, { fiesta: { dia, mes } });
+
+/* cargarCon(archivos, almacen, config): carga parroquia.js primero y luego `archivos`, con la página en
+   /<slug>/panel.html y `config` guardada como copia válida. Sin config (null): parroquia sin configuración (neutra). */
+function cargarCon(archivos, almacen = {}, config = CONFIG_CIUDAD_ARCE, extras = {}) {
+  const slug = config ? config.slug : 'ciudad-arce';
+  const datos = Object.assign({}, almacen);
+  if (config) datos['pev_' + slug + '_config_v1'] = JSON.stringify(config);
+  return cargar(['parroquia.js'].concat(archivos), datos, Object.assign({ location: { pathname: '/' + slug + '/panel.html' } }, extras));
+}
+
 /* ---------- Grupos ---------- */
 
 grupo('tipos', () => {
   let c;
   try {
-    c = cargar(['tipos.js']);
+    c = cargarCon(['tipos.js']);
   } catch (e) {
     prueba('se puede cargar obs/tipos.js', () => { throw e; });
     return;
@@ -115,11 +152,13 @@ grupo('tipos', () => {
   });
 });
 
-/* Textos que las 5 transmisiones heredadas ya mostraban antes de leerlos del catálogo: no deben cambiar. */
+/* Textos que las 5 transmisiones heredadas ya mostraban antes de leerlos del catálogo: no deben cambiar.
+   Con la configuración de Ciudad Arce. Cambian a propósito (ahora salen de la configuración): marca,
+   portada_titulo, portada_sub y capa_logo; el resto es idéntico. */
 grupo('textos heredados', () => {
   let c;
   try {
-    c = cargar(['tipos.js', 'comun.js']);
+    c = cargarCon(['tipos.js', 'comun.js']);
   } catch (e) {
     prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
     return;
@@ -127,18 +166,18 @@ grupo('textos heredados', () => {
   const hoy = new Date();
   const anio = hoy.getFullYear() + (hoy.getMonth() === 11 && hoy.getDate() > 8 ? 1 : 0);
   const comunes = {
-    marca: 'Parroquia Inmaculada\nConcepción de María · Ciudad Arce',
+    marca: 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad',
     inicio_titulo: 'En breve\ncomenzamos',
     portada_ceja: 'FIESTAS PATRONALES ' + anio,
     portada_cursiva: 'en honor a la',
-    portada_titulo: 'Inmaculada\nConcepción\nde María',
+    portada_titulo: 'Inmaculada Concepción de María',
     portada_fecha: 'DE DICIEMBRE',
-    portada_sub: 'Solemnidad de nuestra Patrona',
+    portada_sub: 'Solemnidad de nuestro patrono',
     gracias_titulo: '¡Gracias por\nacompañarnos!',
     gracias_cursiva: 'Nos vemos en la próxima\ntransmisión',
     avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     avisos_titulo: 'Avisos',
-    capa_logo: 'Parroquia Inmaculada\nConcepción de María',
+    capa_logo: 'Parroquia Inmaculada Concepción de María',
     k_lectura1: 'PRIMERA LECTURA',
     k_salmo: 'SALMO RESPONSORIAL',
     k_lectura2: 'SEGUNDA LECTURA',
@@ -180,8 +219,8 @@ grupo('textos heredados', () => {
 grupo('estado', () => {
   let c;
   try {
-    c = cargar(['tipos.js', 'comun.js'], {
-      parroquia_obs_estado_v1: '{"tipo":"novena","virgen":"c","rotulo":"celebrante"}'
+    c = cargarCon(['tipos.js', 'comun.js'], {
+      'pev_ciudad-arce_estado_v1': '{"tipo":"novena","virgen":"c","rotulo":"celebrante"}'
     });
   } catch (e) {
     prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
@@ -190,17 +229,17 @@ grupo('estado', () => {
 
   prueba('leerEstado migra virgen y celebrante al formato nuevo', () => {
     const s = c.leerEstado();
-    assert.equal(s.imagen, 'virgen-c');
+    assert.equal(s.imagen, 'patrono');
     assert.equal(s.rotulo, 'persona');
     assert.equal(s.tipo, 'novena');
     assert.ok(!('virgen' in s));
   });
   prueba('leerEstado migra mostrarCuenta:false a cuenta:false', () => {
-    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"mostrarCuenta":false}' });
+    const m = cargarCon(['tipos.js', 'comun.js'], { 'pev_ciudad-arce_estado_v1': '{"mostrarCuenta":false}' });
     assert.equal(m.leerEstado().cuenta, false);
   });
   prueba('leerEstado sin nada guardado devuelve los valores nuevos por defecto', () => {
-    const m = cargar(['tipos.js', 'comun.js']);
+    const m = cargarCon(['tipos.js', 'comun.js']);
     const s = m.leerEstado();
     assert.equal(s.cuenta, null);
     assert.equal(s.imagen, '');
@@ -208,7 +247,7 @@ grupo('estado', () => {
     for (const k of ['sector', 'fecha', 'lugar', 'evento', 'esquina', 'esquinaTexto']) assert.equal(s[k], '', k);
   });
   prueba('mostrarCuenta:false se migra una sola vez (ida y vuelta por guardar)', () => {
-    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"mostrarCuenta":false,"cuenta":null}' });
+    const m = cargarCon(['tipos.js', 'comun.js'], { 'pev_ciudad-arce_estado_v1': '{"mostrarCuenta":false,"cuenta":null}' });
     let s = m.leerEstado();
     assert.equal(s.cuenta, false);
     m.guardarEstado(s);
@@ -217,11 +256,11 @@ grupo('estado', () => {
     m.guardarEstado(s);
     assert.equal(m.leerEstado().cuenta, null);
   });
-  prueba('imagenDe del logo apunta a logo-blanco.png', () => {
-    assert.equal(c.imagenDe({ tipo: 'evento', imagen: '' }), 'img/logo-blanco.png');
+  prueba('imagenDe del logo apunta al logo blanco de la configuración', () => {
+    assert.equal(c.imagenDe({ tipo: 'evento', imagen: '' }), 'medios/logo-blanco.png');
   });
   prueba('la frase antigua por defecto se migra a vacío y cada tipo muestra su franja', () => {
-    const m = cargar(['tipos.js', 'comun.js'], { parroquia_obs_estado_v1: '{"tipo":"novena","frase":"«TODA HERMOSA ERES, MARÍA»"}' });
+    const m = cargarCon(['tipos.js', 'comun.js'], { 'pev_ciudad-arce_estado_v1': '{"tipo":"novena","frase":"«TODA HERMOSA ERES, MARÍA»"}' });
     const s = m.leerEstado();
     assert.equal(s.frase, '');
     assert.equal(m.tx(s, 'franja'), '«TODA HERMOSA ERES, MARÍA»');
@@ -233,9 +272,10 @@ grupo('estado', () => {
   });
   prueba('imagenDe usa la imagen del tipo y respeta la elegida', () => {
     assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
-    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'img/virgen-a.png');
-    assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'virgen-b' }), 'img/virgen-b.png');
-    assert.equal(c.imagenDe({ tipo: 'semana', imagen: 'fachada' }), 'img/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'medios/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'patrono' }), 'medios/patrono.png');
+    assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'virgen-b' }), 'medios/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: 'fachada' }), 'medios/fachada.jpg');
   });
   prueba('esquinaDe: fecha del sector, leída como fecha local', () => {
     assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'patronalsector', fecha: '2026-11-27' })),
@@ -320,7 +360,7 @@ grupo('estado', () => {
 grupo('rotulos', () => {
   let c;
   try {
-    c = cargar(['tipos.js', 'comun.js']);
+    c = cargarCon(['tipos.js', 'comun.js']);
   } catch (e) {
     prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
     return;
@@ -448,7 +488,7 @@ grupo('rotulos', () => {
 
 grupo('guardadas', () => {
   const KEY = 'parroquia_obs_guardadas_v1';
-  const nuevo = (almacen) => cargar(['tipos.js', 'comun.js', 'guardadas.js'], almacen);
+  const nuevo = (almacen) => cargarCon(['tipos.js', 'comun.js', 'guardadas.js'], almacen);
 
   prueba('si lo guardado no es JSON, leerGuardadas() es []', () => {
     assert.deepEqual(Array.from(nuevo({ [KEY]: 'no-es-json' }).leerGuardadas()), []);
@@ -486,10 +526,10 @@ grupo('guardadas', () => {
     const g = c.guardarTransmision('Vieja', { ...c.PREDETERMINADO, tipo: 'viejo' });
     assert.equal(c.cargarTransmision(g.id).tipo, 'dominical');
   });
-  prueba('cargar migra un estado viejo (virgen b -> imagen virgen-b) y completa los campos que faltan', () => {
+  prueba('cargar migra un estado viejo (virgen b -> imagen patrono) y completa los campos que faltan', () => {
     const c = nuevo({ [KEY]: JSON.stringify([{ id: 'x', nombre: 'Antigua', tipo: 'novena', guardadaEn: 1, usadaEn: 1, datos: { tipo: 'novena', virgen: 'b' } }]) });
     const e = c.cargarTransmision('x');
-    assert.equal(e.imagen, 'virgen-b');
+    assert.equal(e.imagen, 'patrono');
     assert.ok(!('virgen' in e));
     assert.equal(e.avisos.length, 4);
   });
@@ -579,6 +619,147 @@ grupo('guardadas', () => {
   prueba('las entradas rotas de la lista se ignoran', () => {
     const c = nuevo({ [KEY]: JSON.stringify([null, 5, { id: 'ok', nombre: 'Ok', datos: {} }, { nombre: 'sin id', datos: {} }]) });
     assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['ok']);
+  });
+});
+
+grupo('comun por parroquia', () => {
+  const COMUN = ['tipos.js', 'comun.js'];
+  const leerVivo = (c, nombre) => vm.runInContext(nombre, c);
+
+  prueba('estado: con SLUG san-jose se guarda en pev_san-jose_estado_v1 y nunca en parroquia_obs_estado_v1', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(leerVivo(c, 'SLUG'), 'san-jose');
+    assert.equal(c.CLAVE, 'pev_san-jose_estado_v1');
+    assert.equal(c.CLAVE_LATIDO, 'pev_san-jose_latido_v1');
+    c.guardarEstado(c.leerEstado());
+    assert.ok('pev_san-jose_estado_v1' in c.__almacen);
+    assert.ok(!('parroquia_obs_estado_v1' in c.__almacen));
+    assert.ok(!Object.keys(c.__almacen).some((k) => k.startsWith('parroquia_')));
+  });
+  prueba('estado: el canal lleva el slug (pev_san-jose_canal)', () => {
+    const nombres = [];
+    class Canal { constructor(n) { nombres.push(n); this.onmessage = null; } postMessage() {} close() {} }
+    cargarCon(COMUN, {}, CONFIG_SAN_JOSE, { BroadcastChannel: Canal });
+    assert.deepEqual(nombres, ['pev_san-jose_canal']);
+  });
+  prueba('estado: dos parroquias no comparten el estado guardado', () => {
+    const a = cargarCon(COMUN, { 'pev_ciudad-arce_estado_v1': '{"santo":"Ana"}' }, CONFIG_CIUDAD_ARCE);
+    const b = cargarCon(COMUN, { 'pev_ciudad-arce_estado_v1': '{"santo":"Ana"}' }, CONFIG_SAN_JOSE);
+    assert.equal(a.leerEstado().santo, 'Ana');
+    assert.equal(b.leerEstado().santo, 'San José');
+  });
+  prueba('estado: parroquia vacía se rellena con nombre · lugar de la configuración', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.PREDETERMINADO.parroquia, '');
+    assert.equal(c.leerEstado().parroquia, 'Parroquia San José · Santa Tecla, La Libertad');
+    assert.equal(c.normalizarEstado({ parroquia: 'Otra' }).parroquia, 'Otra');
+  });
+  prueba('estado: imagen virgen-a|b|c se migra a patrono', () => {
+    const c = cargarCon(COMUN);
+    for (const v of ['virgen-a', 'virgen-b', 'virgen-c']) assert.equal(c.normalizarEstado({ imagen: v }).imagen, 'patrono', v);
+    assert.equal(c.normalizarEstado({ imagen: 'santo' }).imagen, 'santo');
+  });
+
+  const hoy = (a, m, d) => new Date(a, m - 1, d);
+  prueba('fiesta: fiestaMMDD sale de la configuración', () => {
+    assert.equal(cargarCon(COMUN, {}, CONFIG_CIUDAD_ARCE).fiestaMMDD(), '12-08');
+    assert.equal(cargarCon(COMUN, {}, CONFIG_SAN_JOSE).fiestaMMDD(), '03-19');
+    assert.equal(cargarCon(COMUN, {}, conFiesta(CONFIG_SAN_JOSE, 29, 2)).fiestaMMDD(), '02-29');
+  });
+  prueba('fiesta: diasHasta con 8/12 -> 0 el mismo día, 364 al día siguiente', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.diasHasta('12-08', hoy(2026, 12, 8)), 0);
+    assert.equal(c.diasHasta('12-08', hoy(2026, 12, 9)), 364);
+  });
+  prueba('fiesta: diasHasta con 6/1 desde el 31/12 -> 6', () => {
+    assert.equal(cargarCon(COMUN).diasHasta('01-06', hoy(2026, 12, 31)), 6);
+  });
+  prueba('fiesta: un 29 de febrero en un año sin bisiesto cuenta hasta el 1 de marzo', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.diasHasta('02-29', hoy(2027, 2, 27)), 2);
+    assert.equal(c.diasHasta('02-29', hoy(2027, 3, 1)), 0);
+    // pasado el 1 de marzo de 2027 la próxima ocurrencia es el 29 de febrero de 2028
+    assert.equal(c.diasHasta('02-29', hoy(2027, 3, 2)), 364);
+  });
+  prueba('fiesta: un 29 de febrero en año bisiesto cae el 29', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.diasHasta('02-29', hoy(2028, 2, 27)), 2);
+    assert.equal(c.diasHasta('02-29', hoy(2028, 2, 29)), 0);
+  });
+  prueba('fiesta: la cuenta del tipo cuenta hasta la fiesta de la parroquia', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '' }, hoy(2027, 3, 10)), 9);
+    assert.equal(cargarCon(COMUN).diasFaltan({ tipo: 'novena', diasManual: '' }, hoy(2026, 11, 8)), 30);
+  });
+  prueba('fiesta: esquinaDe fiesta con 19/3 -> 19 DE MARZO', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ esquina: 'fiesta' })), { num: '19', txt: 'DE\nMARZO' });
+    assert.deepEqual(Object.assign({}, c.esquinaDe({ tipo: 'novena' })), { num: '19', txt: 'DE\nMARZO' });
+  });
+
+  prueba('textos: con San José, portada_titulo dice San José y los textos de comun.js no nombran a otra parroquia', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    const t = c.textosBase(c.normalizarEstado({ tipo: 'novena', santo: 'San José', diasManual: '5' }));
+    assert.ok(t.portada_titulo.includes('San José'), t.portada_titulo);
+    assert.equal(t.portada_fecha, 'DE MARZO');
+    assert.equal(t.portada_sub, 'Solemnidad de nuestro patrono');
+    assert.equal(t.marca, 'Parroquia San José · Santa Tecla, La Libertad');
+    assert.equal(t.capa_logo, 'Parroquia San José');
+    assert.equal(t.avisos_sub, 'PARROQUIA SAN JOSÉ');
+    for (const k of ['marca', 'portada_titulo', 'portada_fecha', 'portada_sub', 'avisos_sub', 'capa_logo']) {
+      assert.ok(!/Inmaculada|Ciudad Arce|DICIEMBRE/i.test(t[k]), k + ': ' + t[k]);
+    }
+  });
+  prueba('textos: con la configuración de Ciudad Arce salen los textos de siempre', () => {
+    const c = cargarCon(COMUN);
+    const t = c.textosBase(c.normalizarEstado({ tipo: 'novena', diasManual: '5' }));
+    assert.equal(t.portada_titulo, 'Inmaculada Concepción de María');
+    assert.equal(t.portada_fecha, 'DE DICIEMBRE');
+    assert.equal(t.avisos_sub, 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA');
+  });
+
+  prueba('imágenes: patrono sin patrono.imagen usa la fachada (ruta y alt)', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.imagenDe({ imagen: 'patrono' }), 'medios/fachada.jpg');
+    assert.equal(c.altDe({ imagen: 'patrono' }), 'Fachada del templo de San José');
+  });
+  prueba('imágenes: patrono con imagen, fachada y logo', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.imagenDe({ imagen: 'patrono' }), 'medios/patrono.png');
+    assert.equal(c.altDe({ imagen: 'patrono' }), 'Imagen de la Inmaculada Concepción');
+    assert.equal(c.imagenDe({ imagen: 'fachada' }), 'medios/fachada.jpg');
+    assert.equal(c.imagenDe({ imagen: 'logo' }), 'medios/logo-blanco.png');
+    assert.equal(c.altDe({ imagen: 'logo' }), 'Logo blanco de la Parroquia Inmaculada Concepción de María');
+  });
+  prueba('imágenes: custodia y santo son comunes, en img/', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.imagenDe({ imagen: 'custodia' }), 'img/custodia.png');
+    assert.equal(c.imagenDe({ imagen: 'santo' }), 'img/santo.png');
+  });
+  prueba('imágenes: una clave desconocida (virgen-b) cae en la fachada', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.imagenDe({ imagen: 'virgen-b' }), 'medios/fachada.jpg');
+    assert.equal(c.altDe({ imagen: 'virgen-b' }), 'Fachada del templo de San José');
+  });
+  prueba('imágenes: con la configuración neutra no hay ruta ni alt', () => {
+    const c = cargarCon(COMUN, {}, null);
+    assert.equal(leerVivo(c, 'PARROQUIA'), c.CONFIG_NEUTRA);
+    for (const k of ['patrono', 'fachada', 'logo', 'virgen-b']) {
+      assert.equal(c.imagenDe({ imagen: k }), '', k);
+      assert.equal(c.altDe({ imagen: k }), '', k);
+    }
+    assert.equal(c.imagenDe({ imagen: 'custodia' }), 'img/custodia.png');
+  });
+  prueba('imágenes: sin imagen elegida se usa la del tipo', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
+    assert.equal(c.imagenDe({ tipo: 'evento', imagen: '' }), 'medios/logo-blanco.png');
+  });
+  prueba('PARROQUIA es un enlace vivo: imagenDe y fiestaMMDD siguen a la configuración nueva', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    vm.runInContext('PARROQUIA = ' + JSON.stringify(CONFIG_CIUDAD_ARCE), c);
+    assert.equal(c.imagenDe({ imagen: 'patrono' }), 'medios/patrono.png');
+    assert.equal(c.fiestaMMDD(), '12-08');
   });
 });
 

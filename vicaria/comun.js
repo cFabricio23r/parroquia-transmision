@@ -1,10 +1,11 @@
-/* Parroquia Inmaculada Concepción de María · Ciudad Arce
-   Estado compartido entre el panel (dock) y las fuentes de navegador de OBS.
+/* Estado compartido entre el panel (dock) y las fuentes de navegador de OBS.
    Todo funciona dentro de OBS: se comparte por localStorage y BroadcastChannel,
-   sin websockets ni internet. */
+   sin websockets ni internet.
+   Necesita parroquia.js cargado antes (PARROQUIA, claveDe): las claves llevan el slug de la parroquia
+   y los textos, la fiesta y las imágenes salen de su configuración. */
 
-const CLAVE = 'parroquia_obs_estado_v1';
-const CLAVE_LATIDO = 'parroquia_obs_latido_v1';
+const CLAVE = claveDe('estado_v1');
+const CLAVE_LATIDO = claveDe('latido_v1');
 
 const PREDETERMINADO = {
   tipo: 'novena',            // una clave de TIPOS (obs/tipos.js)
@@ -17,12 +18,12 @@ const PREDETERMINADO = {
   evento: '',
   mostrarCuenta: true,       // solo se conserva para migrarlo a `cuenta`
   cuenta: null,              // null = la del tipo; true / false = forzada
-  diasManual: '',            // vacío = se calcula solo hasta el 8 de diciembre
+  diasManual: '',            // vacío = se calcula solo hasta la fiesta patronal
   frase: '',                 // vacío = la franja del tipo; escrita, reemplaza a la del tipo
   imagen: '',                // vacío = la del tipo (clave de imagen: virgen-a, santo, custodia…)
   esquina: '',               // vacío = la del tipo (hoy | fecha | fiesta | texto)
   esquinaTexto: '',
-  parroquia: 'Parroquia Inmaculada Concepción de María · Ciudad Arce',
+  parroquia: '',             // vacío = «nombre · lugar» de la configuración de la parroquia
 
   celebranteRol: 'CELEBRANTE',
   celebrante: 'Pbro. Héctor Cruz',
@@ -60,6 +61,9 @@ function normalizarEstado(guardado) {
   ['textos', 'avisos', 'rotulosTexto'].forEach((c) => { if (s[c] && typeof s[c] === 'object') s[c] = JSON.parse(JSON.stringify(s[c])); });
   if (['a', 'b', 'c'].includes(guardado.virgen)) s.imagen = 'virgen-' + guardado.virgen;
   delete s.virgen;
+  // Las tres imágenes de la Virgen de Ciudad Arce pasan a ser «la del patrono» de la parroquia.
+  if (['virgen-a', 'virgen-b', 'virgen-c'].includes(s.imagen)) s.imagen = 'patrono';
+  if (typeof s.parroquia !== 'string' || s.parroquia.trim() === '') s.parroquia = _nombreYLugar();
   if (s.rotulo === 'celebrante') s.rotulo = 'persona';
   // mostrarCuenta:false se migra una sola vez: después queda en true para no volver a forzar cuenta:false.
   if (guardado.mostrarCuenta === false) {
@@ -84,7 +88,7 @@ function leerEstado() {
 }
 
 let canal = null;
-try { canal = new BroadcastChannel('parroquia_obs'); } catch (e) { canal = null; }
+try { canal = new BroadcastChannel(claveDe('canal')); } catch (e) { canal = null; }
 
 let ultimoPropio = null;   // lo último que esta misma página guardó (no se vuelve a leer)
 
@@ -129,7 +133,16 @@ function latir(nombre) {
 const _DIAS_SEMANA = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
 const _MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-/* Días hasta la próxima ocurrencia de 'MM-DD' (el mismo día cuenta como 0). */
+/* 'MM-DD' de la fiesta patronal de la parroquia ('' si la configuración no la tiene). Un 29 de febrero
+   se busca como '02-29' y diasHasta lo resuelve. */
+function fiestaMMDD() {
+  const f = PARROQUIA.fiesta;
+  if (!f || !f.mes || !f.dia) return '';
+  return (f.mes < 10 ? '0' : '') + f.mes + '-' + (f.dia < 10 ? '0' : '') + f.dia;
+}
+
+/* Días hasta la próxima ocurrencia de 'MM-DD' (el mismo día cuenta como 0).
+   Un '02-29' en un año sin 29 de febrero cuenta hasta el 1 de marzo (así lo normaliza Date). */
 function diasHasta(mmdd, hoy = new Date()) {
   const [m, d] = String(mmdd).split('-').map(Number);
   const h0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -145,7 +158,9 @@ function cuentaDe(s) {
 
 function diasFaltan(s, hoy = new Date()) {
   if (s && String(s.diasManual == null ? '' : s.diasManual).trim() !== '') return parseInt(s.diasManual, 10) || 0;
-  return diasHasta(cuentaDe(s).hasta, hoy);
+  // Toda cuenta regresiva va a la fiesta patronal de la parroquia (el `hasta` de tipos.js ya no se usa).
+  const fiesta = fiestaMMDD();
+  return fiesta ? diasHasta(fiesta, hoy) : 0;
 }
 
 function cuentaVisible(s, hoy = new Date()) {
@@ -171,7 +186,10 @@ function fechaLocal(texto) {
 function esquinaDe(s, hoy = new Date()) {
   const tipo = tipoDe(s);
   const modo = s.esquina || tipo.esquina;
-  if (modo === 'fiesta') return { num: '8', txt: 'DE\nDICIEMBRE' };
+  if (modo === 'fiesta') {
+    const f = PARROQUIA.fiesta;
+    return f ? { num: String(f.dia), txt: 'DE\n' + _MESES[f.mes - 1] } : { num: '', txt: '' };
+  }
   if (modo === 'texto') return { num: '', txt: rellenar(s.esquinaTexto || tipo.esquinaTexto, s) };
   if (modo === 'fecha') {
     const f = fechaLocal(s.fecha) || hoy;
@@ -190,10 +208,13 @@ function tituloCelebracion(s) {
    se escribe algo, eso reemplaza al automático. Salto de línea = Enter. */
 function textosBase(s) {
   const tipo = tipoDe(s);
+  const nombre = PARROQUIA.nombre || '';
+  const patrono = PARROQUIA.patrono && PARROQUIA.patrono.nombre ? PARROQUIA.patrono.nombre : '';
+  const mesFiesta = PARROQUIA.fiesta ? _MESES[PARROQUIA.fiesta.mes - 1] : '';
   const d = diasFaltan(s);
   const frase = typeof s.frase === 'string' ? s.frase.trim() : '';
   return {
-    marca: 'Parroquia Inmaculada\nConcepción de María · Ciudad Arce',
+    marca: _nombreYLugar(),
     inicio_pildora: tituloCelebracion(s),
     inicio_ceja: rellenar(tipo.ceja, s).toUpperCase(),
     inicio_titulo: tipo.tituloInicio || 'En breve\ncomenzamos',
@@ -201,16 +222,16 @@ function textosBase(s) {
     inicio_cuenta: tipo.cuenta || s.cuenta === true ? (d === 1 ? 'día ' : 'días ') + cuentaDe(s).texto : '',
     portada_ceja: 'FIESTAS PATRONALES ' + rellenar('{anio}', s),
     portada_cursiva: 'en honor a la',
-    portada_titulo: 'Inmaculada\nConcepción\nde María',
-    portada_fecha: 'DE DICIEMBRE',
-    portada_sub: 'Solemnidad de nuestra Patrona',
+    portada_titulo: patrono,
+    portada_fecha: 'DE ' + mesFiesta,
+    portada_sub: 'Solemnidad de nuestro patrono',
     gracias_pildora: tituloCelebracion(s),
     gracias_titulo: '¡Gracias por\nacompañarnos!',
     gracias_cursiva: rellenar(tipo.graciasCursiva, s),
     gracias_ceja: rellenar(tipo.graciasPie, s).toUpperCase(),
-    avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    avisos_sub: nombre.toUpperCase(),
     avisos_titulo: 'Avisos',
-    capa_logo: 'Parroquia Inmaculada\nConcepción de María',
+    capa_logo: nombre,
     barra_y: rellenar(tipo.barra, s),
     franja: frase || rellenar(tipo.franja, s),
     k_lectura1: 'PRIMERA LECTURA',
@@ -227,12 +248,39 @@ function tx(s, clave) {
   return propio || textosBase(s)[clave] || '';
 }
 
-/* Ruta de la imagen de la transmisión: la elegida en el panel o la del tipo. */
-function imagenDe(s) {
+/* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene). */
+function _nombreYLugar() {
+  return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(' · ');
+}
+
+/* Imagen de la configuración { src, alt }, o null si esa parroquia no la tiene. */
+function _imagenConfig(img) {
+  return img && typeof img.src === 'string' && img.src !== '' ? img : null;
+}
+
+/* La imagen de la transmisión: { src, alt }. La clave es la elegida en el panel o la del tipo.
+   'patrono' -> imagen del patrono, o la fachada si no hay; 'fachada'; 'logo' -> logo blanco;
+   'custodia' y 'santo' son comunes (img/); cualquier otra clave -> la fachada.
+   Sin imágenes en la configuración (neutra) -> { src: '', alt: '' }. */
+function _imagenElegida(s) {
   const clave = s.imagen || tipoDe(s).imagen;
-  if (clave === 'fachada') return 'img/fachada.jpg';
-  if (clave === 'logo') return 'img/logo-blanco.png';
-  return 'img/' + clave + '.png';
+  if (clave === 'custodia') return { src: 'img/custodia.png', alt: 'Custodia con el Santísimo' };
+  if (clave === 'santo') return { src: 'img/santo.png', alt: 'Imagen del santo' };
+  let img = null;
+  if (clave === 'logo') img = _imagenConfig(PARROQUIA.logos && PARROQUIA.logos.blanco);
+  else if (clave === 'patrono') img = _imagenConfig(PARROQUIA.patrono && PARROQUIA.patrono.imagen);
+  if (!img && clave !== 'logo') img = _imagenConfig(PARROQUIA.fachada);
+  return img ? { src: img.src, alt: typeof img.alt === 'string' ? img.alt : '' } : { src: '', alt: '' };
+}
+
+/* Ruta de la imagen de la transmisión ('' si la parroquia no tiene esa imagen). */
+function imagenDe(s) {
+  return _imagenElegida(s).src;
+}
+
+/* Texto alternativo de la imagen que devuelve imagenDe. */
+function altDe(s) {
+  return _imagenElegida(s).alt;
 }
 
 /* Escala el escenario de 1920×1080 al tamaño real de la fuente de navegador. */
