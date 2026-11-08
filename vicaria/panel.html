@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panel Parroquia</title>
+<title>Panel de rótulos</title>
 <script>
 /* Copia temprana de la línea de modo app (la original sigue al final del body): pone la clase antes del primer
    pintado, para que la app no vea un instante el estilo gris del dock de OBS. */
@@ -49,6 +49,15 @@ label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;
 .pestanas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
 .pestanas button{border:0;border-radius:10px 10px 0 0;background:transparent;color:var(--suave);font-size:13px}
 .pestanas button[aria-selected=true]{background:var(--caja);color:var(--texto);box-shadow:inset 0 -3px 0 var(--acento)}
+
+.parroquia-nombre{margin:0;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* aviso de configuración: warning-surface / warning-ink del design system; el dock de OBS (oscuro) usa la pareja oscura */
+.aviso-config{margin:0;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;line-height:1.4;background:#fff4d6;color:#6b4f00}
+:root:not(.modo-app) .aviso-config{background:#3a2c08;color:#ffe2a0}
+/* link de una parroquia que no existe: no se muestra el panel ni se puede emitir nada */
+.no-existe-panel{display:none;margin:12px;padding:16px;border-radius:12px;background:var(--caja);border:2px solid var(--ambar);color:var(--texto);font-weight:800;font-size:16px;line-height:1.3;text-align:center}
+.sin-parroquia .no-existe-panel{display:block}
+.sin-parroquia .arriba,.sin-parroquia .hoja,.sin-parroquia .guardado{display:none!important}
 
 /* ---------- hojas ---------- */
 .hoja{padding:12px;display:none;flex-direction:column;gap:12px}
@@ -311,7 +320,10 @@ details label{margin-bottom:9px}
 </head>
 <body>
 
+<div class="no-existe-panel" id="no-existe" role="alert">Esta parroquia no existe, revisa el link</div>
+
 <div class="arriba">
+  <p class="parroquia-nombre" id="nombre-parroquia"></p>
   <div class="linea1">
     <span class="conexion"><span class="punto" id="punto"></span><span id="conexion">Buscando pantallas…</span></span>
     <span class="pildora" id="transmision"></span>
@@ -324,6 +336,7 @@ details label{margin-bottom:9px}
     </div>
     <button type="button" id="ocultar" aria-keyshortcuts="Escape" title="Ocultar (Esc)">Ocultar</button>
   </div>
+  <p class="aviso-config" id="aviso-config" role="status" hidden></p>
   <div class="pestanas" role="tablist">
     <button type="button" role="tab" id="tab-preparar" data-hoja="preparar" aria-controls="hoja-preparar" aria-selected="true">Preparar</button>
     <button type="button" role="tab" id="tab-vivo" data-hoja="vivo" aria-controls="hoja-vivo" aria-selected="false">En vivo</button>
@@ -393,7 +406,7 @@ details label{margin-bottom:9px}
           <option value=""></option>
           <option value="hoy">Fecha de hoy</option>
           <option value="fecha">Fecha de la transmisión</option>
-          <option value="fiesta">8 de diciembre</option>
+          <option value="fiesta"></option>
           <option value="texto">Texto libre</option>
         </select></label>
       <label id="caja-esquinaTexto">Texto de la esquina<textarea id="esquinaTexto" rows="2"></textarea></label>
@@ -464,6 +477,7 @@ details label{margin-bottom:9px}
 
 <div class="guardado" id="guardado" role="status">Guardado ✓</div>
 
+<script src="parroquia.js"></script>
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script src="guardadas.js"></script>
@@ -526,6 +540,7 @@ if (document.documentElement.classList.contains('modo-app')) {
 let avisoT, esperaT;
 function guardar() {
   clearTimeout(esperaT);
+  if (PARROQUIA_NO_EXISTE) return;   // link de una parroquia que no existe: no se emite nada
   guardarEstado(s); refrescar();
   $('guardado').classList.add('si'); clearTimeout(avisoT); avisoT = setTimeout(() => $('guardado').classList.remove('si'), 800);
 }
@@ -537,12 +552,12 @@ function abrir(h) {
   if (!HOJAS.includes(h)) h = 'preparar';   // un nombre viejo guardado (avisos, textos…) abre Preparar
   document.querySelectorAll('[data-hoja]').forEach(b => b.setAttribute('aria-selected', b.dataset.hoja === h ? 'true' : 'false'));
   document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
-  try { localStorage.setItem('parroquia_panel_hoja', h); } catch (e) {}
+  try { localStorage.setItem(claveDe('panel_hoja'), h); } catch (e) {}
 }
 // Con el mouse (detail > 0) la pestaña suelta el foco: así Espacio queda para «siguiente» y no la vuelve a apretar.
 document.querySelectorAll('[data-hoja]').forEach(b => b.addEventListener('click', (e) => { abrir(b.dataset.hoja); if (e.detail > 0) b.blur(); }));
 let hojaGuardada = null;
-try { hojaGuardada = localStorage.getItem('parroquia_panel_hoja'); } catch (e) {}
+try { hojaGuardada = localStorage.getItem(claveDe('panel_hoja')); } catch (e) {}
 abrir(hojaGuardada);
 
 /* ---------- fecha corta para la píldora («jue 5 nov») ---------- */
@@ -676,7 +691,7 @@ function pintarCampos() {
 }
 
 /* ---------- pantallas: imagen, esquina, cuenta ---------- */
-const IMAGENES = [['', 'Automática'], ['virgen-a', 'Virgen A'], ['virgen-b', 'Virgen B'], ['virgen-c', 'Virgen C'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
+const IMAGENES = [['', 'Automática'], ['patrono', 'Patrono'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
 const nombreImagen = (k) => (IMAGENES.find(x => x[0] === k) || [k, k])[1];
 IMAGENES.forEach(([clave, nombre]) => {
   const b = nuevo('button', '', nombre); b.type = 'button'; b.dataset.imagen = clave;
@@ -689,7 +704,7 @@ $('esquinaTexto').addEventListener('input', () => { s.esquinaTexto = $('esquinaT
 const CUENTA = { auto: null, si: true, no: false };
 document.querySelectorAll('[data-cuenta]').forEach(b => b.addEventListener('click', () => { s.cuenta = CUENTA[b.dataset.cuenta]; guardar(); }));
 function modoEsquina(m) {
-  if (m === 'fiesta') return '8 de diciembre';
+  if (m === 'fiesta') return rellenar('{fiesta}') || 'fiesta patronal';
   if (m === 'fecha') return 'fecha de la transmisión';
   if (m === 'texto') return 'texto';
   return 'fecha de hoy';
@@ -717,7 +732,7 @@ $('limpiar-avisos').addEventListener('click', () => { s.avisos = [{a:'',f:''},{a
 /* ---------- todos los textos ---------- */
 const ESQUEMA = [
   ['Pantalla de inicio', [['inicio_pildora','Etiqueta blanca'],['inicio_ceja','Texto pequeño'],['inicio_titulo','Título',1],['inicio_cursiva','Frase en cursiva',1],['inicio_cuenta','Texto de la cuenta regresiva',1]]],
-  ['Portada 8 de diciembre', [['portada_ceja','Texto pequeño'],['portada_cursiva','Frase en cursiva'],['portada_titulo','Título',1],['portada_fecha','Fecha'],['portada_sub','Texto bajo la fecha']]],
+  ['Portada de la fiesta patronal', [['portada_ceja','Texto pequeño'],['portada_cursiva','Frase en cursiva'],['portada_titulo','Título',1],['portada_fecha','Fecha'],['portada_sub','Texto bajo la fecha']]],
   ['Gracias por acompañarnos', [['gracias_pildora','Etiqueta blanca'],['gracias_titulo','Título',1],['gracias_cursiva','Frase en cursiva',1],['gracias_ceja','Texto final']]],
   ['Avisos', [['avisos_sub','Texto pequeño'],['avisos_titulo','Título']]],
   ['Logo y barra', [['marca','Nombre junto al logo (pantallas)',1],['capa_logo','Nombre junto al logo (cámara)',1],['barra_y','Segunda parte de la barra']]],
@@ -787,6 +802,7 @@ function esControl(el) {
   return !!el.closest('button, a, summary, [role=switch], [role=tab]');
 }
 document.addEventListener('keydown', (e) => {
+  if (PARROQUIA_NO_EXISTE) return;
   const t = e.target;
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -980,6 +996,7 @@ function refrescar() {
   /* pantallas */
   document.querySelectorAll('[data-imagen]').forEach(b => b.setAttribute('aria-pressed', (s.imagen || '') === b.dataset.imagen ? 'true' : 'false'));
   document.querySelector('[data-imagen=""] .sub').textContent = nombreImagen(tipo.imagen);
+  $('esquina').querySelector('option[value="fiesta"]').textContent = rellenar('{fiesta}') || 'Fiesta patronal';
   const opAuto = $('esquina').querySelector('option[value=""]');
   opAuto.textContent = 'Automática · ' + (tipo.esquina === 'texto' ? rellenar(tipo.esquinaTexto, s).replace(/\n/g, ' ') : modoEsquina(tipo.esquina));
   if (document.activeElement !== $('esquina')) $('esquina').value = s.esquina || '';
@@ -1065,8 +1082,25 @@ setInterval(() => {
   $('conexion').textContent = vivos ? 'Conectado con ' + vivos + (vivos === 1 ? ' pantalla' : ' pantallas') : 'Sin pantallas conectadas';
 }, 250);
 
+/* La configuración de la parroquia manda: nombre en la cabecera, aviso de configuración, la opción «fiesta» de la
+   esquina y el aviso de «no existe». Se aplica al cargar y cada vez que cambia (copia, servidor o 404). */
+function aplicarParroquia(c) {
+  document.documentElement.classList.toggle('sin-parroquia', PARROQUIA_NO_EXISTE);
+  const nombre = c.nombreCorto || c.nombre || '';
+  $('nombre-parroquia').textContent = nombre;
+  $('nombre-parroquia').hidden = !nombre;
+  document.title = nombre ? 'Panel de rótulos · ' + nombre : 'Panel de rótulos';
+  const aviso = PARROQUIA_NO_EXISTE ? '' : ESTADO_CONFIG.aviso;
+  $('aviso-config').textContent = aviso;
+  $('aviso-config').hidden = aviso === '';
+  if (!PARROQUIA_NO_EXISTE) llenar();   // refresca lo que sale de la configuración (textos con {fiesta}, etc.)
+}
+
 escucharEstado((nuevoEstado) => { s = nuevoEstado; llenar(); });
 llenar();
+aplicarParroquia(PARROQUIA);
+alCambiarParroquia(aplicarParroquia);
+vigilarParroquia();
 pintarGuardadas();
 </script>
 </body>

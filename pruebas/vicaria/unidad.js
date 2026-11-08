@@ -573,7 +573,7 @@ grupo('rotulos', () => {
 });
 
 grupo('guardadas', () => {
-  const KEY = 'parroquia_obs_guardadas_v1';
+  const KEY = 'pev_ciudad-arce_guardadas_v1';
   const nuevo = (almacen) => cargarCon(['tipos.js', 'comun.js', 'guardadas.js'], almacen);
 
   prueba('si lo guardado no es JSON, leerGuardadas() es []', () => {
@@ -691,16 +691,25 @@ grupo('guardadas', () => {
   prueba('si lo guardado es ilegible, el texto original se copia al respaldo antes de escribir', () => {
     const c = nuevo({ [KEY]: 'no-es-json' });
     assert.ok(c.guardarTransmision('A', c.PREDETERMINADO));
-    assert.equal(c.__almacen[KEY + '_respaldo'], 'no-es-json');
+    assert.equal(c.__almacen['pev_ciudad-arce_guardadas_v1_respaldo'], 'no-es-json');
     assert.equal(c.leerGuardadas().length, 1);
     const d = nuevo({ [KEY]: '{"a":1}' });
     d.guardarTransmision('A', d.PREDETERMINADO);
-    assert.equal(d.__almacen[KEY + '_respaldo'], '{"a":1}');
+    assert.equal(d.__almacen['pev_ciudad-arce_guardadas_v1_respaldo'], '{"a":1}');
+  });
+  prueba('las guardadas son por parroquia: la copia de otra parroquia no se ve ni se toca', () => {
+    const otra = JSON.stringify([{ id: 'x', nombre: 'Ajena', tipo: 'novena', guardadaEn: 1, usadaEn: 1, datos: {} }]);
+    const c = nuevo({ 'pev_san-jose_guardadas_v1': otra });
+    assert.deepEqual(Array.from(c.leerGuardadas()), []);
+    c.guardarTransmision('Mía', c.PREDETERMINADO);
+    assert.equal(c.__almacen['pev_san-jose_guardadas_v1'], otra);
+    assert.equal(JSON.parse(c.__almacen[KEY]).length, 1);
+    assert.ok(!('parroquia_obs_guardadas_v1' in c.__almacen));
   });
   prueba('sin lo guardado ilegible no se crea respaldo', () => {
     const c = nuevo();
     c.guardarTransmision('A', c.PREDETERMINADO);
-    assert.ok(!(KEY + '_respaldo' in c.__almacen));
+    assert.ok(!('pev_ciudad-arce_guardadas_v1_respaldo' in c.__almacen));
   });
   prueba('las entradas rotas de la lista se ignoran', () => {
     const c = nuevo({ [KEY]: JSON.stringify([null, 5, { id: 'ok', nombre: 'Ok', datos: {} }, { nombre: 'sin id', datos: {} }]) });

@@ -1,17 +1,17 @@
 /* Transmisiones guardadas: el panel guarda el estado de una transmisión con un nombre
    (por ejemplo «Hora Santa jueves») para cargarla otra semana. Se carga solo en panel.html,
-   después de tipos.js y comun.js.
+   después de parroquia.js, tipos.js y comun.js.
    Cada Guardada = { id, nombre, tipo, guardadaEn, usadaEn, datos }.
    `datos` es una copia del estado SIN el rótulo al aire (rotulo, rotuloHasta, rotuloDesde):
    cargar una transmisión nunca deja un rótulo en pantalla. */
 
-const CLAVE_GUARDADAS = 'parroquia_obs_guardadas_v1';
+const CLAVE_GUARDADAS = claveDe('guardadas_v1');   // pev_<slug>_guardadas_v1: cada parroquia tiene las suyas
 const CAMPOS_DE_AIRE = ['rotulo', 'rotuloHasta', 'rotuloDesde'];
 
 const copiaProfunda = (x) => JSON.parse(JSON.stringify(x));
 const mismoNombre = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
-const CLAVE_RESPALDO = 'parroquia_obs_guardadas_v1_respaldo';
+const CLAVE_RESPALDO = claveDe('guardadas_v1_respaldo');
 const esGuardadaValida = (g) => !!g && typeof g === 'object' && typeof g.id === 'string' && typeof g.nombre === 'string' && !!g.datos && typeof g.datos === 'object';
 
 /* Lo que hay guardado, sin filtrar: { items, crudo }. `items` es la lista tal cual está (puede traer entradas
