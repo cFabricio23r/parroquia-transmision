@@ -221,7 +221,7 @@ function textosBase(s) {
     inicio_cursiva: rellenar(tipo.cursiva, s),
     inicio_cuenta: tipo.cuenta || s.cuenta === true ? (d === 1 ? 'día ' : 'días ') + cuentaDe(s).texto : '',
     portada_ceja: 'FIESTAS PATRONALES ' + rellenar('{anio}', s),
-    portada_cursiva: 'en honor a la',
+    portada_cursiva: 'en honor a',
     portada_titulo: patrono,
     portada_fecha: mesFiesta ? 'DE ' + mesFiesta : '',
     portada_sub: 'Solemnidad de nuestro patrono',
