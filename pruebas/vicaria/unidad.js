@@ -780,6 +780,7 @@ grupo('cargar parroquia', () => {
     const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(SIN_RED));
     assert.equal(leer(c, 'PARROQUIA').nombre, CIUDAD_ARCE.nombre);
     assert.equal(leer(c, 'ESTADO_CONFIG').origen, 'copia');
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_COPIA);
     const d = nueva({}, servidor(SIN_RED));
     assert.equal(leer(d, 'PARROQUIA'), d.CONFIG_NEUTRA);
     assert.equal(leer(d, 'ESTADO_CONFIG').origen, 'neutra');
@@ -948,12 +949,61 @@ grupo('cargar parroquia', () => {
     assert.equal(f.pedidos.length, 1);
     assert.equal(tics.length, 1);
     assert.equal(tics[0].ms, 60000);
+    tics[0].fn(); // el primer pedido sigue en vuelo: este tic se salta
+    assert.equal(f.pedidos.length, 1);
+    await c.cargarParroquia(); // deja terminar el pedido en vuelo
     tics[0].fn();
     assert.equal(f.pedidos.length, 2);
+    await c.cargarParroquia();
     c.vigilarParroquia(5000);
     assert.equal(tics[1].ms, 5000);
-    await c.cargarParroquia(); // deja terminar los pedidos pendientes
+    await c.cargarParroquia();
   });
+  prueba('dos cargarParroquia() a la vez hacen un solo pedido y devuelven la misma promesa', async () => {
+    const f = servidor(respuesta(200, CIUDAD_ARCE));
+    const c = nueva({}, f);
+    const a = c.cargarParroquia();
+    const b = c.cargarParroquia();
+    assert.equal(a, b);
+    await Promise.all([a, b]);
+    assert.equal(f.pedidos.length, 1);
+    await c.cargarParroquia(); // ya terminó: un pedido nuevo sí se hace
+    assert.equal(f.pedidos.length, 2);
+  });
+  prueba('un pedido que nunca responde termina como sin red al vencer el plazo de 20 s', async () => {
+    const plazos = [];
+    const colgado = (url, opciones) => new Promise((_, rechazar) => {
+      opciones.signal.addEventListener('abort', () => rechazar(new Error('abortado')));
+    });
+    const c = cargar(['parroquia.js'], { [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, {
+      location: { pathname: '/ciudad-arce/panel.html' }, fetch: colgado, AbortController,
+      setTimeout: (fn, ms) => { plazos.push({ fn, ms }); return plazos.length; }, clearTimeout() {}
+    });
+    const p = c.cargarParroquia();
+    assert.equal(plazos.length, 1);
+    assert.equal(plazos[0].ms, 20000);
+    plazos[0].fn(); // vence el plazo
+    await p;
+    assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_COPIA);
+    // la vuelta siguiente no queda bloqueada
+    const q = c.cargarParroquia();
+    assert.equal(plazos.length, 2);
+    plazos[1].fn();
+    await q;
+  });
+  prueba('sin AbortController se pide igual, sin señal', async () => {
+    const f = servidor(respuesta(200, CIUDAD_ARCE));
+    await nueva({}, f).cargarParroquia();
+    assert.equal(f.pedidos.length, 1);
+    assert.equal(f.pedidos[0].opciones.signal, undefined);
+  });
+  for (const [nombre, cuerpo] of [['un número', 5], ['null', null], ['una lista', []], ['un texto', 'hola']]) {
+    prueba('JSON que no es un objeto (' + nombre + '): configuración dañada, no «sin conexión»', async () => {
+      const c = nueva({ [CLAVE]: JSON.stringify(CIUDAD_ARCE) }, servidor(respuesta(200, JSON.stringify(cuerpo))));
+      await c.cargarParroquia();
+      assert.equal(leer(c, 'ESTADO_CONFIG').aviso, AVISO_DANADA);
+    });
+  }
 });
 
 /* ---------- Resultado ---------- */

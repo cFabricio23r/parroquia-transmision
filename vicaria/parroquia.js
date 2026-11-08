@@ -199,13 +199,18 @@ function _guardarCopia(c) {
   }
 }
 
+/* Aviso de que se usa la copia guardada (sin red o sin respuesta). Ya vale desde el arranque. */
+function _avisoCopia(fecha) {
+  return 'Usando la configuración guardada del ' + fecha;
+}
+
 /* La configuración en uso. Al cargar el script: la copia guardada válida de este slug, o la neutra. */
 let PARROQUIA = _leerCopia() || CONFIG_NEUTRA;
 
 /* origen: 'servidor' | 'copia' | 'neutra'. fecha: «7 de noviembre de 2026» o null. aviso: texto para el panel ('' si todo bien). */
 let ESTADO_CONFIG = PARROQUIA === CONFIG_NEUTRA
   ? { origen: 'neutra', fecha: null, aviso: '' }
-  : { origen: 'copia', fecha: _fechaLarga(PARROQUIA.publicado), aviso: '' };
+  : { origen: 'copia', fecha: _fechaLarga(PARROQUIA.publicado), aviso: _avisoCopia(_fechaLarga(PARROQUIA.publicado)) };
 
 /* true si el slug es inválido, o si el servidor respondió 404 y no hay copia guardada. */
 let PARROQUIA_NO_EXISTE = SLUG === null;
@@ -236,7 +241,7 @@ function _estadoSinServidor(aviso) {
 const _AVISOS = {
   sinRed: {
     neutra: 'Sin conexión y sin configuración guardada: se muestran pantallas neutras.',
-    copia: (f) => 'Usando la configuración guardada del ' + f
+    copia: _avisoCopia
   },
   danada: {
     neutra: 'La configuración del servidor está dañada: se muestran pantallas neutras.',
@@ -248,16 +253,29 @@ const _AVISOS = {
   }
 };
 
+/* Si el servidor no responde en este tiempo, se cuenta como «sin red» y la vuelta siguiente puede intentar de nuevo. */
+const PLAZO_PEDIDO_MS = 20000;
+
+let _pedidoEnVuelo = null;
+
 /* Pide config.json (relativo a la página: /<slug>/config.json). Nunca rechaza: cualquier fallo deja lo que había.
    Avisa a los oyentes si cambia la versión, PARROQUIA_NO_EXISTE o ESTADO_CONFIG; si nada cambió, no avisa. */
-async function cargarParroquia() {
+async function _cargarParroquia() {
   if (SLUG === null) return;
   const antes = JSON.stringify([PARROQUIA.version, PARROQUIA_NO_EXISTE, ESTADO_CONFIG]);
 
   let noExiste = false;
   let estado;
+  let ctl = null;
+  let plazo = null;
   try {
-    const res = await fetch('config.json', { cache: 'no-store' });
+    const opciones = { cache: 'no-store' };
+    if (typeof AbortController === 'function') {
+      ctl = new AbortController();
+      opciones.signal = ctl.signal;
+      plazo = setTimeout(() => ctl.abort(), PLAZO_PEDIDO_MS);
+    }
+    const res = await fetch('config.json', opciones);
     if (res.status === 404) {
       noExiste = PARROQUIA === CONFIG_NEUTRA;
       estado = _estadoSinServidor(_AVISOS.noExiste);
@@ -282,11 +300,21 @@ async function cargarParroquia() {
     }
   } catch (e) {
     estado = _estadoSinServidor(_AVISOS.sinRed);
+  } finally {
+    if (plazo !== null) clearTimeout(plazo);
   }
 
   PARROQUIA_NO_EXISTE = noExiste;
   ESTADO_CONFIG = estado;
   if (JSON.stringify([PARROQUIA.version, PARROQUIA_NO_EXISTE, ESTADO_CONFIG]) !== antes) _avisarParroquia();
+}
+
+/* Un solo pedido a la vez: si hay uno en vuelo se devuelve esa misma promesa (así los tics de vigilarParroquia se saltan). */
+function cargarParroquia() {
+  if (_pedidoEnVuelo === null) {
+    _pedidoEnVuelo = _cargarParroquia().finally(() => { _pedidoEnVuelo = null; });
+  }
+  return _pedidoEnVuelo;
 }
 
 /* Carga ahora y vuelve a revisar cada `ms` (60 s: un cambio llega a OBS en uno o dos minutos). */
