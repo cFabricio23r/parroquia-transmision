@@ -135,7 +135,7 @@ grupo('tipos', () => {
       ['evangelio', 'lectura1', 'lectura2', 'libre', 'lugar', 'oracion', 'persona', 'rosario', 'salmo', 'santisimo']);
   });
   prueba('se conservan los valores fijos del brief', () => {
-    assert.equal(TIPOS.patronalsector.cursiva, 'Oh María sin pecado concebida,\nrogad por nosotros que recurrimos a vos');
+    assert.equal(TIPOS.patronalsector.cursiva, 'Ruega por nosotros, {santo}');
     assert.equal(TIPOS.horasanta.esquinaTexto, 'JUEVES\nEUCARÍSTICO');
     assert.equal(TIPOS.procesion.tituloInicio, 'En breve\nsalimos');
     assert.equal(TIPOS.procesion.salida, true);
@@ -190,12 +190,12 @@ grupo('tipos', () => {
       }
     }
   });
-  prueba('con San José ningún texto de ningún tipo nombra Inmaculada, Ciudad Arce ni diciembre', () => {
+  prueba('con San José ningún texto de ningún tipo nombra Inmaculada, Ciudad Arce, diciembre, María ni «Patrona»', () => {
     const sj = conTipos(CONFIG_SAN_JOSE);
     for (const k of sj.ORDEN_TIPOS) {
       for (const t of textosDe(sj.TIPOS[k])) {
         const r = sj.rellenar(t, { tipo: k, santo: 'San Juan', sector: 'S8', lugar: 'L', evento: 'E', prenovenaDia: 1, novenaDia: 1 });
-        assert.ok(!/Inmaculada|Ciudad Arce|diciembre/i.test(r), k + ': ' + r);
+        assert.ok(!/Inmaculada|Ciudad Arce|diciembre|\bMar[ií]a\b|\bPatrona\b/i.test(r), k + ': ' + r);
       }
     }
   });
@@ -272,9 +272,9 @@ grupo('textos heredados', () => {
   };
   const cuenta = 'días para nuestra\nFiesta Patronal';
   const esperado = {
-    dominical: { titulo: 'SANTA MISA DOMINICAL', ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES', cursiva: '¡Ya se acerca la fiesta\nde nuestra Patrona!', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
+    dominical: { titulo: 'SANTA MISA DOMINICAL', ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES', cursiva: '¡Ya se acerca\nnuestra fiesta patronal!', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
     otros: { titulo: 'MISA EN HONOR A SAN JOSÉ', ceja: 'CAMINO A NUESTRA FIESTA PATRONAL', cursiva: 'rumbo a la fiesta de\nInmaculada Concepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
-    prenovena: { titulo: 'PRENOVENA · DÍA 2', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'preparándonos para celebrar\na nuestra Patrona', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
+    prenovena: { titulo: 'PRENOVENA · DÍA 2', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'preparándonos para celebrar\nnuestra fiesta patronal', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
     novena: { titulo: 'NOVENA · DÍA 3', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'en honor a\nInmaculada Concepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
     // La cuenta de la patronal nunca se muestra, así que su texto no forma parte de lo heredado.
     patronal: { titulo: 'SANTA MISA PATRONAL', ceja: 'SOLEMNIDAD DE INMACULADA CONCEPCIÓN DE MARÍA', cursiva: '¡Felices Fiestas Patronales!', pie: '¡FELICES FIESTAS PATRONALES!', barra: '¡Felices Fiestas Patronales!', cuenta: undefined }
