@@ -67,7 +67,7 @@ function guardarTransmision(nombre, s) {
   CAMPOS_DE_AIRE.forEach((c) => { delete datos[c]; });
   const lista = leerGuardadas();
   const ahora = Date.now();
-  const tipo = ordenTipos().includes(datos.tipo) ? datos.tipo : 'dominical';
+  const tipo = (typeof ordenTipos === 'function' ? ordenTipos() : ['dominical']).includes(datos.tipo) ? datos.tipo : 'dominical';
   const previa = lista.find((g) => mismoNombre(g.nombre, nombre));
   const guardada = { id: previa ? previa.id : idNuevo(lista), nombre, tipo, guardadaEn: ahora, usadaEn: ahora, datos };
   return escribirGuardadas(previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada)) ? guardada : null;

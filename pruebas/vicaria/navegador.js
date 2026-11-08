@@ -23,6 +23,7 @@ fs.mkdirSync(path.join(CAPTURAS, '1b'), { recursive: true });
 
 const CA = 'ciudad-arce';
 const SJ = 'san-jose-ejemplo';
+const HOST = '127.0.0.1';   // el servidor escucha solo en IPv4: «localhost» pasaría primero por ::1
 const configDe = (slug) => JSON.parse(fs.readFileSync(path.join(RAIZ, slug, 'config.json'), 'utf8'));
 const CONFIG = { [CA]: configDe(CA), [SJ]: configDe(SJ) };
 
@@ -39,6 +40,11 @@ async function abrir(ctx, ruta, ancho = 1920, alto = 1080, antes) {
   p.on('pageerror', (e) => errores.push(ruta + ': ' + e.message));
   p.on('console', (m) => {
     if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errores.push(ruta + ' (consola): ' + m.text());
+  });
+  // Un script o una hoja de la página que no se pudo pedir deja errores sueltos («ordenTipos is not defined»):
+  // se anota la causa. Las imágenes y config.json que la prueba aborta a propósito no cuentan; ERR_ABORTED es navegar a otra página.
+  p.on('requestfailed', (q) => {
+    if (/\.(js|css|html)(\?|$)/.test(q.url()) && !/ERR_ABORTED/.test(q.failure().errorText)) errores.push(ruta + ': no se pudo cargar ' + q.url() + ' (' + q.failure().errorText + ')');
   });
   await p.setViewportSize({ width: ancho, height: alto });
   if (antes) await antes(p);
@@ -895,7 +901,7 @@ async function comparacion() {
 (async () => {
   const servidor = crearServidor();
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
-  base = 'http://localhost:' + servidor.address().port;
+  base = 'http://' + HOST + ':' + servidor.address().port;
   browser = await chromium.launch();
   try {
     await casoCarga();

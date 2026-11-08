@@ -2,14 +2,14 @@
 
 Esta guía es para quien escribe el `config.json` **a mano**, hasta que exista el editor. Cada parroquia tiene su carpeta (`vicaria/<slug>/`) con su `config.json` y su carpeta `medios/` (logos, fachada, fotos). El ejemplo completo está en `vicaria/san-jose-ejemplo/config.json`: copiarlo y cambiar los datos es la forma más segura de empezar.
 
-Esta guía **no se publica**: Vercel no la sirve (`/<slug>/LEEME-config.md` da 404).
+Esta guía no es parte de las pantallas: está en el repositorio solo como guía para quien edita el archivo.
 
 ## Reglas de oro
 
 1. **Todo lo de la segunda parte es opcional.** Si un bloque no está, la pantalla se ve «como viene» (igual que antes). La parroquia de Ciudad Arce no tiene ninguno y por eso se ve exactamente como siempre.
 2. **Si el archivo tiene un error, no se usa.** Las pantallas siguen con la última configuración buena que ya tenían guardada (o con pantallas neutras si nunca tuvieron una). Se ve el error en español en el panel. Antes de publicar, abra el panel de la parroquia y revise que no avise de errores.
 3. **Después de cambiar algo, suba el número de `version`** (ver «Cómo publicar un cambio»). Sin una `version` nueva, las pantallas que ya tienen una copia guardada **no se enteran** del cambio.
-4. **Todo texto es texto plano.** No se usa HTML. Un texto largo se corta a 200 caracteres como máximo (se rechaza si se pasa).
+4. **Todo texto es texto plano.** No se usa HTML. Los textos de los bloques opcionales (segunda parte) admiten hasta 200 caracteres: si uno se pasa, **se rechaza el archivo** (no se corta). Sin límite de largo: `nombre`, `nombreCorto`, `lugar`, `patrono.nombre`, `patrono.corto`, `fiesta.lema` y los `alt` de `logos`, `fachada` y `patrono.imagen`.
 5. **Toda imagen lleva `alt`** (la descripción para quien no ve la imagen). Es obligatorio.
 6. **Rutas de imagen:** solo `medios/nombre.ext` (sin subcarpetas) y con extensión `png`, `jpg`, `jpeg`, `webp` o `svg`. No se aceptan `http://`, `https://`, `//`, `..` ni `\`. El nombre solo puede llevar letras, números, punto, guion y guion bajo.
 7. **Colores:** siempre `#rrggbb` (por ejemplo `#8a1c2b`). Todo color sobre el que va texto blanco debe tener contraste de al menos 4.5 a 1 con el blanco; si es muy claro, se rechaza.
@@ -60,7 +60,7 @@ Los cambios sin una `version` nueva **no llegan** a las pantallas que ya tienen 
 | `esquema` | Versión del formato | Siempre `1`. |
 | `version` | Número de publicación | Entero desde 1. Se sube en cada cambio. |
 | `publicado` | Fecha de publicación | Fecha y hora válidas (ISO). |
-| `slug` | Nombre de la carpeta y del link | Debe ser igual al de la carpeta y al de la dirección de la página. |
+| `slug` | Nombre de la carpeta y del link | De 2 a 40 caracteres, con la forma `^[a-z0-9]+(-[a-z0-9]+)*$` (minúsculas, números y guiones sueltos). Debe ser igual al de la carpeta y al de la dirección de la página. |
 | `nombre` | Nombre completo | Texto, no vacío. |
 | `nombreCorto` | Nombre corto | Opcional; si está, no puede estar vacío. |
 | `lugar` | Ciudad o población | Texto, no vacío. |
@@ -106,6 +106,8 @@ El panel ofrece cada imagen de la galería como opción de imagen, con su `alt` 
 
 Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos` y `horarios` (esta última se abre con `?tipo=horarios`). Solo se escribe la que se quiere cambiar.
 
+> El ejemplo de abajo usa `galeria:taller`: funciona solo si el archivo también tiene la imagen `taller` en `galeria` (ver el ejemplo de `galeria` de arriba). Si no, el archivo se rechaza.
+
 ```json
 "pantallas": {
   "inicio": {
@@ -123,7 +125,7 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos` y `horarios` (esta
 | Campo | Valores y límites |
 |---|---|
 | `modo` | `como-viene` (por defecto: la pantalla se ve como siempre y **el resto del bloque no se aplica**) o `personalizada`. |
-| `fondo.tipo` | `degradado` (el de siempre), `color` o `imagen`. |
+| `fondo.tipo` | **Obligatorio siempre que haya `fondo`**: `degradado` (el de siempre), `color` o `imagen`. Un `fondo` sin `tipo` rechaza el archivo con «El tipo de fondo (pantallas.inicio.fondo.tipo) debe ser uno de: degradado, color, imagen.» |
 | `fondo.color` | `#rrggbb` con contraste con blanco de 4.5 o más. Obligatorio si el tipo es `color`. |
 | `fondo.imagen` | `id` de una imagen de la `galeria`. Obligatorio si el tipo es `imagen`. |
 | `imagen` | La imagen grande de la pantalla: `automatica` (la de siempre, según la transmisión), `patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna`, o `galeria:<id>` con un `id` existente. |
@@ -131,7 +133,7 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos` y `horarios` (esta
 | `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`. **El título nunca se oculta**: la pantalla no queda en blanco. |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
 
-Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo.
+Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo. Igual con `fondo.color` y `fondo.imagen`: se validan siempre que estén escritos, aunque `fondo.tipo` sea otro (un `color` mal escrito o una `imagen` que no está en la galería rechaza el archivo aunque el tipo sea `degradado`).
 
 Si una imagen de la galería ya no existe, la pantalla usa la automática (o el degradado, en un fondo). Una imagen que no carga se oculta sin dejar el ícono roto.
 
@@ -165,6 +167,8 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 
 ### `tipos`: tipos de transmisión
 
+> El ejemplo usa `galeria:taller`: necesita la imagen `taller` en `galeria` (ver el ejemplo de `galeria`). Si no está, el archivo se rechaza.
+
 ```json
 "tipos": {
   "apagados": ["procesion"],
@@ -196,7 +200,7 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 | `esquina` | Qué va en la esquina: `hoy` (por defecto), `fecha`, `fiesta` o `texto` (el de `esquinaTexto`). |
 | `rotulos` | Hasta 10 rótulos del panel, elegidos entre: `persona`, `lectura1`, `lectura2`, `salmo`, `evangelio`, `rosario`, `santisimo`, `lugar`, `oracion`, `libre`. |
 
-Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = el nombre de la parroquia; `cursiva` en blanco; `franja` = el lema de la fiesta entre comillas; `imagen` = `patrono`; `esquina` = `hoy`. Un tipo propio no tiene cuenta regresiva ni portada. Si un tipo propio se borra de la configuración y alguien lo tenía elegido, el panel y la pantalla pasan al primer tipo disponible, sin error.
+Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = `{parroquia}` (nombre de la parroquia y su lugar, «nombre · lugar»); `cursiva` en blanco; `franja` = el lema de la fiesta entre comillas; `imagen` = `patrono`; `esquina` = `hoy`. Un tipo propio no tiene cuenta regresiva ni portada. Si un tipo propio se borra de la configuración y alguien lo tenía elegido, el panel y la pantalla pasan al primer tipo disponible, sin error.
 
 ### `horarios`: horarios de misa (hasta 12)
 

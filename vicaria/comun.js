@@ -75,7 +75,7 @@ function normalizarEstado(guardado) {
   // Un tipo que la parroquia ya no ofrece (apagado, o un propio que se borró) pasa al primero disponible.
   // Mientras la configuración real no llega (origen 'neutra') no se reescribe: un propio guardado se perdería;
   // tipoDe ya cae al primero disponible en memoria, así que las pantallas siguen válidas.
-  const disponibles = ordenTipos();
+  const disponibles = typeof ordenTipos === 'function' ? ordenTipos() : [];   // sin tipos.js (no cargó) no se reescribe nada
   if (ESTADO_CONFIG.origen !== 'neutra' && !disponibles.includes(s.tipo) && disponibles.length) s.tipo = disponibles[0];
   if (!Array.isArray(s.avisos)) s.avisos = PREDETERMINADO.avisos;
   while (s.avisos.length < 4) s.avisos.push({ a: '', f: '' });
