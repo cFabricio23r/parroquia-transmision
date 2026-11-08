@@ -158,9 +158,9 @@ function cuentaDe(s) {
 
 function diasFaltan(s, hoy = new Date()) {
   if (s && String(s.diasManual == null ? '' : s.diasManual).trim() !== '') return parseInt(s.diasManual, 10) || 0;
-  // Toda cuenta regresiva va a la fiesta patronal de la parroquia (el `hasta` de tipos.js ya no se usa).
-  const fiesta = fiestaMMDD();
-  return fiesta ? diasHasta(fiesta, hoy) : 0;
+  // La cuenta va al `hasta` de su tipo (en tipos.js es la fiesta patronal de la parroquia, evaluada al usarse).
+  const hasta = cuentaDe(s || {}).hasta || fiestaMMDD();
+  return hasta ? diasHasta(hasta, hoy) : 0;
 }
 
 function cuentaVisible(s, hoy = new Date()) {

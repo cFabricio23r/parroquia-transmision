@@ -55,7 +55,7 @@ const CONFIG_CIUDAD_ARCE = {
     nombre: 'Inmaculada Concepción de María', corto: 'Inmaculada',
     imagen: { src: 'medios/patrono.png', alt: 'Imagen de la Inmaculada Concepción' }
   },
-  fiesta: { dia: 8, mes: 12 }
+  fiesta: { dia: 8, mes: 12, lema: 'TODA HERMOSA ERES, MARÍA' }
 };
 const CONFIG_SAN_JOSE = {
   esquema: 1, version: 1, publicado: '2026-11-07T12:00:00Z', slug: 'san-jose',
@@ -82,9 +82,9 @@ function cargarCon(archivos, almacen = {}, config = CONFIG_CIUDAD_ARCE, extras =
 grupo('tipos', () => {
   let c;
   try {
-    c = cargarCon(['tipos.js']);
+    c = cargarCon(['tipos.js', 'comun.js']);
   } catch (e) {
-    prueba('se puede cargar obs/tipos.js', () => { throw e; });
+    prueba('se pueden cargar tipos.js y comun.js', () => { throw e; });
     return;
   }
   const { TIPOS, ORDEN_TIPOS, ROTULOS, tipoDe, rellenar } = c;
@@ -150,11 +150,96 @@ grupo('tipos', () => {
       'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos'];
     for (const k of ORDEN_TIPOS) for (const f of campos) assert.ok(f in TIPOS[k], k + '.' + f);
   });
+
+  /* ---------- Huecos de la parroquia (Tarea 4) ---------- */
+  const textosDe = (obj, acc = []) => {
+    if (typeof obj === 'string') acc.push(obj);
+    else if (Array.isArray(obj)) obj.forEach((x) => textosDe(x, acc));
+    else if (obj && typeof obj === 'object') Object.keys(obj).forEach((k) => textosDe(obj[k], acc));
+    return acc;
+  };
+  const conTipos = (config) => cargarCon(['tipos.js', 'comun.js'], {}, config);
+  const dia = (a, m, d) => new Date(a, m - 1, d);
+
+  prueba('rellenar {fiesta}: «8 de diciembre» en Ciudad Arce y «19 de marzo» en San José', () => {
+    assert.equal(rellenar('{fiesta}', {}), '8 de diciembre');
+    assert.equal(conTipos(CONFIG_SAN_JOSE).rellenar('{fiesta}', {}), '19 de marzo');
+  });
+  prueba('rellenar {fiestaMayus}, {patrono}, {patronoCorto}, {parroquia} y {lema}', () => {
+    assert.equal(rellenar('{fiestaMayus}', {}), '8 DE DICIEMBRE');
+    assert.equal(rellenar('{patrono}', {}), 'Inmaculada Concepción de María');
+    assert.equal(rellenar('{patronoCorto}', {}), 'Inmaculada');
+    assert.equal(rellenar('{parroquia}', {}), 'Parroquia Inmaculada Concepción de María');
+    assert.equal(rellenar('{lema}', {}), 'TODA HERMOSA ERES, MARÍA');
+  });
+  prueba('rellenar: un hueco de la parroquia vacío da vacío y uno de la transmisión sigue dando [santo]', () => {
+    const sj = conTipos(CONFIG_SAN_JOSE);
+    assert.equal(sj.rellenar('a{lema}b', {}), 'ab');
+    assert.equal(sj.rellenar('{santo}', { santo: '' }), '[santo]');
+    const neutra = conTipos(null);
+    for (const h of ['fiesta', 'fiestaMayus', 'patrono', 'patronoCorto', 'parroquia', 'lema']) {
+      assert.equal(neutra.rellenar('{' + h + '}', {}), '', h);
+    }
+  });
+  prueba('sin fiesta.lema ningún texto de ningún tipo trae [lema], «» ni llaves', () => {
+    const sj = conTipos(CONFIG_SAN_JOSE);
+    for (const k of sj.ORDEN_TIPOS) {
+      for (const t of textosDe(sj.TIPOS[k])) {
+        const r = sj.rellenar(t, {});
+        assert.ok(!/\[lema\]|«\s*»|[{}]/.test(r), k + ': ' + r);
+      }
+    }
+  });
+  prueba('con San José ningún texto de ningún tipo nombra Inmaculada, Ciudad Arce ni diciembre', () => {
+    const sj = conTipos(CONFIG_SAN_JOSE);
+    for (const k of sj.ORDEN_TIPOS) {
+      for (const t of textosDe(sj.TIPOS[k])) {
+        const r = sj.rellenar(t, { tipo: k, santo: 'San Juan', sector: 'S8', lugar: 'L', evento: 'E', prenovenaDia: 1, novenaDia: 1 });
+        assert.ok(!/Inmaculada|Ciudad Arce|diciembre/i.test(r), k + ': ' + r);
+      }
+    }
+  });
+  prueba('con Ciudad Arce los textos fijos de antes salen de los huecos', () => {
+    assert.equal(rellenar(TIPOS.dominical.barra, {}), 'Camino al 8 de diciembre');
+    assert.equal(rellenar(TIPOS.dominical.graciasPie, {}), 'CAMINO AL 8 DE DICIEMBRE');
+    assert.equal(rellenar(TIPOS.semana.franja, {}), '«TODA HERMOSA ERES, MARÍA»');
+    assert.equal(rellenar(TIPOS.patronal.ceja, {}).toUpperCase(), 'SOLEMNIDAD DE INMACULADA CONCEPCIÓN DE MARÍA');
+  });
+  prueba('{anio} usa la fiesta de la parroquia: si este año ya pasó, el siguiente', () => {
+    const r = conTipos(conFiesta(CONFIG_SAN_JOSE, 6, 1));
+    assert.equal(r.rellenar('{anio}', {}, dia(2026, 12, 31)), '2027');
+    assert.equal(r.rellenar('{anio}', {}, dia(2026, 1, 5)), '2026');
+    assert.equal(r.rellenar('{anio}', {}, dia(2026, 1, 6)), '2026');
+    assert.equal(r.rellenar('{anio}', {}, dia(2026, 1, 7)), '2027');
+  });
+  prueba('las cuentas cuentan hasta la fiesta de la parroquia, evaluada al usarse', () => {
+    const sj = conTipos(CONFIG_SAN_JOSE);
+    for (const k of ['dominical', 'otros', 'prenovena', 'novena']) assert.equal(sj.TIPOS[k].cuenta.hasta, '03-19', k);
+    assert.equal(TIPOS.novena.cuenta.hasta, '12-08');
+    vm.runInContext('PARROQUIA = ' + JSON.stringify(CONFIG_SAN_JOSE), c);   // la configuración llega después de cargar tipos.js
+    assert.equal(TIPOS.novena.cuenta.hasta, '03-19');
+  });
+  prueba('la ventana de la cuenta dominical sale de fiesta.cuentaDesdeDias (60 por defecto)', () => {
+    assert.equal(conTipos(CONFIG_CIUDAD_ARCE).TIPOS.dominical.cuenta.desdeDias, 60);
+    const f = Object.assign({}, CONFIG_CIUDAD_ARCE, { fiesta: { dia: 8, mes: 12, cuentaDesdeDias: 30 } });
+    assert.equal(conTipos(f).TIPOS.dominical.cuenta.desdeDias, 30);
+  });
+  prueba('las 11 claves de ORDEN_TIPOS siguen y las 5 de la fiesta existen', () => {
+    assert.deepEqual(Array.from(ORDEN_TIPOS), ['dominical', 'semana', 'horasanta', 'sector', 'patronalsector',
+      'procesion', 'otros', 'prenovena', 'novena', 'patronal', 'evento']);
+    for (const k of ['dominical', 'otros', 'prenovena', 'novena', 'patronal']) assert.ok(TIPOS[k], k);
+  });
+  prueba('ningún tipo usa las imágenes virgen-*: la del patrono es «patrono»', () => {
+    for (const k of ORDEN_TIPOS) assert.ok(!/^virgen-/.test(TIPOS[k].imagen), k);
+    for (const k of ['dominical', 'semana', 'prenovena', 'novena', 'patronal']) assert.equal(TIPOS[k].imagen, 'patrono', k);
+  });
 });
 
 /* Textos que las 5 transmisiones heredadas ya mostraban antes de leerlos del catálogo: no deben cambiar.
    Con la configuración de Ciudad Arce. Cambian a propósito (ahora salen de la configuración): marca,
-   portada_titulo, portada_sub y capa_logo; el resto es idéntico. */
+   portada_titulo, portada_sub y capa_logo; y, por pasar a huecos (Tarea 4), la cursiva de «otros» y de la
+   novena («de la Inmaculada Concepción» -> «de {patrono}», sin «la» para que sirva a San José) y la ceja de
+   la patronal («DE LA INMACULADA» -> «DE {patrono}»); el resto es idéntico. */
 grupo('textos heredados', () => {
   let c;
   try {
@@ -188,11 +273,11 @@ grupo('textos heredados', () => {
   const cuenta = 'días para nuestra\nFiesta Patronal';
   const esperado = {
     dominical: { titulo: 'SANTA MISA DOMINICAL', ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES', cursiva: '¡Ya se acerca la fiesta\nde nuestra Patrona!', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
-    otros: { titulo: 'MISA EN HONOR A SAN JOSÉ', ceja: 'CAMINO A NUESTRA FIESTA PATRONAL', cursiva: 'rumbo a la fiesta de la\nInmaculada Concepción', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
+    otros: { titulo: 'MISA EN HONOR A SAN JOSÉ', ceja: 'CAMINO A NUESTRA FIESTA PATRONAL', cursiva: 'rumbo a la fiesta de\nInmaculada Concepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Camino al 8 de diciembre', cuenta },
     prenovena: { titulo: 'PRENOVENA · DÍA 2', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'preparándonos para celebrar\na nuestra Patrona', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
-    novena: { titulo: 'NOVENA · DÍA 3', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'en honor a la Inmaculada\nConcepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
+    novena: { titulo: 'NOVENA · DÍA 3', ceja: 'FIESTAS PATRONALES ' + anio, cursiva: 'en honor a\nInmaculada Concepción de María', pie: 'CAMINO AL 8 DE DICIEMBRE', barra: 'Fiestas Patronales ' + anio, cuenta },
     // La cuenta de la patronal nunca se muestra, así que su texto no forma parte de lo heredado.
-    patronal: { titulo: 'SANTA MISA PATRONAL', ceja: 'SOLEMNIDAD DE LA INMACULADA CONCEPCIÓN', cursiva: '¡Felices Fiestas Patronales!', pie: '¡FELICES FIESTAS PATRONALES!', barra: '¡Felices Fiestas Patronales!', cuenta: undefined }
+    patronal: { titulo: 'SANTA MISA PATRONAL', ceja: 'SOLEMNIDAD DE INMACULADA CONCEPCIÓN DE MARÍA', cursiva: '¡Felices Fiestas Patronales!', pie: '¡FELICES FIESTAS PATRONALES!', barra: '¡Felices Fiestas Patronales!', cuenta: undefined }
   };
   for (const tipo of Object.keys(esperado)) {
     const e = esperado[tipo];
@@ -272,7 +357,8 @@ grupo('estado', () => {
   });
   prueba('imagenDe usa la imagen del tipo y respeta la elegida', () => {
     assert.equal(c.imagenDe({ tipo: 'horasanta', imagen: '' }), 'img/custodia.png');
-    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'medios/fachada.jpg');
+    assert.equal(c.imagenDe({ tipo: 'semana', imagen: '' }), 'medios/patrono.png');   // el tipo usa «patrono»
+    assert.equal(c.imagenDe({ tipo: 'sector', imagen: '' }), 'medios/fachada.jpg');
     assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'patrono' }), 'medios/patrono.png');
     assert.equal(c.imagenDe({ tipo: 'novena', imagen: 'virgen-b' }), 'medios/fachada.jpg');
     assert.equal(c.imagenDe({ tipo: 'semana', imagen: 'fachada' }), 'medios/fachada.jpg');
@@ -690,6 +776,12 @@ grupo('comun por parroquia', () => {
     const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
     assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '' }, hoy(2027, 3, 10)), 9);
     assert.equal(cargarCon(COMUN).diasFaltan({ tipo: 'novena', diasManual: '' }, hoy(2026, 11, 8)), 30);
+  });
+  prueba('fiesta: un tipo con su propio hasta cuenta hasta esa fecha', () => {
+    const c = cargarCon(COMUN);
+    c.TIPOS.navidad = Object.assign({}, c.TIPOS.novena, { cuenta: { hasta: '12-25', texto: 'para Navidad' } });
+    assert.equal(c.diasFaltan({ tipo: 'navidad', diasManual: '' }, hoy(2026, 11, 8)), 47);
+    assert.equal(c.diasFaltan({ tipo: 'novena', diasManual: '' }, hoy(2026, 11, 8)), 30);
   });
   prueba('fiesta: esquinaDe fiesta con 19/3 -> 19 DE MARZO', () => {
     const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);

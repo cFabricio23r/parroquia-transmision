@@ -1,10 +1,12 @@
-/* Parroquia Inmaculada Concepción de María · Ciudad Arce
-   Catálogo de tipos de transmisión y de rótulos.
-   Todo valor de contenido (títulos, frases, orden de rótulos, umbral de días) vive SOLO aquí:
-   corregirlo es cambiar una línea. Script clásico (sin módulos); se carga antes de comun.js.
+/* Catálogo de tipos de transmisión y de rótulos, igual para todas las parroquias.
+   Todo valor de contenido (títulos, frases, orden de rótulos) vive SOLO aquí: corregirlo es cambiar una
+   línea. Lo propio de cada parroquia (fiesta, patrono, nombre, lema) entra por huecos: {fiesta},
+   {fiestaMayus}, {patrono}, {patronoCorto}, {parroquia} y {lema}, que salen de su configuración.
+   Script clásico (sin módulos); se carga antes de comun.js, cuyas fiestaMMDD y _MESES usa al ser
+   llamado (no al cargar).
 
    Pendiente de confirmar (según la especificación): el orden de los rótulos de la Hora Santa y de la
-   procesión, y los 60 días (desdeDias) de la misa dominical. */
+   procesión. */
 
 /* Bases de rótulo: diseño y ceja por defecto. Cada tipo las usa con `rotulos` (un «uso» por entrada). */
 const ROTULOS = {
@@ -35,25 +37,30 @@ const _MISA_COMPLETA = [
 /* Misa completa más el Santo Rosario (prenovena, novena y fiesta patronal). Lista nueva: no muta _MISA_COMPLETA. */
 const _MISA_CON_ROSARIO = [..._MISA_COMPLETA, { id: 'rosario', base: 'rosario', nombre: 'Santo Rosario' }];
 
-const _CUENTA_FIESTA = { hasta: '12-08', texto: 'para nuestra\nFiesta Patronal' };
-const _FRANJA = '«TODA HERMOSA ERES, MARÍA»';
+/* `hasta` es un getter: la configuración de la parroquia llega después de cargar este archivo. */
+const _CUENTA_FIESTA = { get hasta() { return fiestaMMDD(); }, texto: 'para nuestra\nFiesta Patronal' };
+const _FRANJA = '«{lema}»';
 const _GRACIAS_CURSIVA = 'Nos vemos en la próxima\ntransmisión';
 
 const TIPOS = {
   dominical: {
     nombre: 'Misa dominical',
-    descripcion: 'Misa del domingo. La cuenta al 8 de diciembre aparece 60 días antes.',
+    descripcion: 'Misa del domingo. La cuenta al {fiesta} aparece cuando se acerca la fiesta.',
     titulo: 'SANTA MISA DOMINICAL',
     ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES',
     cursiva: '¡Ya se acerca la fiesta\nde nuestra Patrona!',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'CAMINO AL 8 DE DICIEMBRE',
-    barra: 'Camino al 8 de diciembre',
-    imagen: 'virgen-a',
+    graciasPie: 'CAMINO AL {fiestaMayus}',
+    barra: 'Camino al {fiesta}',
+    imagen: 'patrono',
     esquina: 'hoy',
     esquinaTexto: '',
-    cuenta: { hasta: '12-08', texto: 'para nuestra\nFiesta Patronal', desdeDias: 60 },
+    cuenta: {
+      get hasta() { return fiestaMMDD(); },
+      texto: 'para nuestra\nFiesta Patronal',
+      get desdeDias() { return (PARROQUIA.fiesta && PARROQUIA.fiesta.cuentaDesdeDias) || 60; }
+    },
     rotulos: _MISA_COMPLETA,
     datos: []
   },
@@ -61,13 +68,13 @@ const TIPOS = {
     nombre: 'Misa entre semana',
     descripcion: 'Misa del miércoles o del sábado.',
     titulo: 'SANTA MISA',
-    ceja: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    ceja: '{parroquia}',
     cursiva: 'Ven, Señor Jesús',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
-    barra: 'Parroquia Inmaculada Concepción',
-    imagen: 'virgen-a',
+    graciasPie: '{parroquia}',
+    barra: '{parroquia}',
+    imagen: 'patrono',
     esquina: 'hoy',
     esquinaTexto: '',
     cuenta: false,
@@ -106,7 +113,7 @@ const TIPOS = {
     nombre: 'Misa en sector',
     descripcion: 'Misa celebrada en un sector o comunidad.',
     titulo: 'SANTA MISA · {sector}',
-    ceja: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    ceja: '{parroquia}',
     cursiva: 'Iglesia en salida,\ncomunidad en camino',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
@@ -168,14 +175,14 @@ const TIPOS = {
   },
   otros: {
     nombre: 'Misa de otro santo',
-    descripcion: 'Misa en honor a un santo. Lleva la cuenta al 8 de diciembre.',
+    descripcion: 'Misa en honor a un santo. Lleva la cuenta al {fiesta}.',
     titulo: 'MISA EN HONOR A {santo}',
     ceja: 'CAMINO A NUESTRA FIESTA PATRONAL',
-    cursiva: 'rumbo a la fiesta de la\nInmaculada Concepción',
+    cursiva: 'rumbo a la fiesta de\n{patrono}',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'CAMINO AL 8 DE DICIEMBRE',
-    barra: 'Camino al 8 de diciembre',
+    graciasPie: 'CAMINO AL {fiestaMayus}',
+    barra: 'Camino al {fiesta}',
     imagen: 'santo',
     esquina: 'hoy',
     esquinaTexto: '',
@@ -191,9 +198,9 @@ const TIPOS = {
     cursiva: 'preparándonos para celebrar\na nuestra Patrona',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'CAMINO AL 8 DE DICIEMBRE',
+    graciasPie: 'CAMINO AL {fiestaMayus}',
     barra: 'Fiestas Patronales {anio}',
-    imagen: 'virgen-a',
+    imagen: 'patrono',
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
@@ -206,12 +213,12 @@ const TIPOS = {
     descripcion: 'Los nueve días antes de la fiesta patronal.',
     titulo: 'NOVENA · DÍA {dia}',
     ceja: 'FIESTAS PATRONALES {anio}',
-    cursiva: 'en honor a la Inmaculada\nConcepción de María',
+    cursiva: 'en honor a\n{patrono}',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'CAMINO AL 8 DE DICIEMBRE',
+    graciasPie: 'CAMINO AL {fiestaMayus}',
     barra: 'Fiestas Patronales {anio}',
-    imagen: 'virgen-a',
+    imagen: 'patrono',
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: _CUENTA_FIESTA,
@@ -221,15 +228,15 @@ const TIPOS = {
   },
   patronal: {
     nombre: 'Fiesta patronal',
-    descripcion: 'Misa del 8 de diciembre.',
+    descripcion: 'Misa del {fiesta}.',
     titulo: 'SANTA MISA PATRONAL',
-    ceja: 'SOLEMNIDAD DE LA INMACULADA CONCEPCIÓN',
+    ceja: 'SOLEMNIDAD DE {patrono}',
     cursiva: '¡Felices Fiestas Patronales!',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
     graciasPie: '¡FELICES FIESTAS PATRONALES!',
     barra: '¡Felices Fiestas Patronales!',
-    imagen: 'virgen-a',
+    imagen: 'patrono',
     esquina: 'fiesta',
     esquinaTexto: '',
     cuenta: false,
@@ -241,12 +248,12 @@ const TIPOS = {
     nombre: 'Evento especial',
     descripcion: 'Cualquier otro evento de la parroquia.',
     titulo: '{evento}',
-    ceja: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    ceja: '{parroquia}',
     cursiva: 'Te esperamos\ncon alegría',
     franja: _FRANJA,
     graciasCursiva: _GRACIAS_CURSIVA,
-    graciasPie: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
-    barra: 'Parroquia Inmaculada Concepción',
+    graciasPie: '{parroquia}',
+    barra: '{parroquia}',
     imagen: 'logo',
     esquina: 'texto',
     esquinaTexto: '{evento}',
@@ -273,26 +280,50 @@ function tipoDe(s) {
   return (s && Object.prototype.hasOwnProperty.call(TIPOS, s.tipo)) ? TIPOS[s.tipo] : TIPOS.dominical;
 }
 
-/* Reemplaza {dia}, {santo}, {sector}, {lugar}, {evento} y {anio}. Dato vacío = [santo], [sector]…
-   Nunca deja una llave sin reemplazar. */
-function rellenar(plantilla, s) {
+/* Reemplaza los huecos de una plantilla.
+   De la transmisión: {dia}, {santo}, {sector}, {lugar} y {evento}; vacío = [santo], [sector]…
+   De la parroquia (salen de su configuración): {fiesta} («8 de diciembre»), {fiestaMayus}, {patrono},
+   {patronoCorto}, {parroquia}, {lema} y {anio} (el de la próxima fiesta: si este año ya pasó, el siguiente);
+   si la parroquia no lo tiene, el hueco queda en blanco, sin corchetes. Unas comillas latinas que
+   quedan vacías («{lema}» sin lema) también se quitan. Nunca deja una llave sin reemplazar.
+   `hoy` solo se pasa en las pruebas. */
+function rellenar(plantilla, s, hoy = new Date()) {
   s = s || {};
-  const hoy = new Date();
-  const pasoLaFiesta = hoy.getMonth() === 11 && hoy.getDate() > 8;   // ya pasó el 8 de diciembre
+  const f = PARROQUIA.fiesta;
+  const patrono = PARROQUIA.patrono || {};
+  const texto = (v) => (typeof v === 'string' ? v.trim() : '');
+  const fiesta = f && f.dia && f.mes ? f.dia + ' de ' + _MESES[f.mes - 1].toLowerCase() : '';
   const valores = {
     dia: s.tipo === 'prenovena' ? s.prenovenaDia : s.novenaDia,
     santo: s.santo,
     sector: s.sector,
     lugar: s.lugar,
-    evento: s.evento,
-    anio: hoy.getFullYear() + (pasoLaFiesta ? 1 : 0)
+    evento: s.evento
+  };
+  const deParroquia = {
+    fiesta,
+    fiestaMayus: fiesta.toUpperCase(),
+    patrono: texto(patrono.nombre),
+    patronoCorto: texto(patrono.corto) || texto(patrono.nombre),
+    parroquia: texto(PARROQUIA.nombre),
+    lema: f ? texto(f.lema) : '',
+    anio: _anioDeLaFiesta(hoy)
   };
   return String(plantilla == null ? '' : plantilla).replace(/\{(\w+)\}/g, (llave, clave) => {
+    if (clave in deParroquia) return String(deParroquia[clave]);
     if (!(clave in valores)) return '[' + clave + ']';
     const v = valores[clave];
-    const texto = v === undefined || v === null ? '' : String(v).trim();
-    return texto || '[' + clave + ']';
-  });
+    const t = v === undefined || v === null ? '' : String(v).trim();
+    return t || '[' + clave + ']';
+  }).replace(/«\s*»/g, '');
+}
+
+/* Año de la próxima fiesta patronal: el de hoy, o el siguiente si ya pasó (el mismo día aún cuenta). */
+function _anioDeLaFiesta(hoy) {
+  const [m, d] = fiestaMMDD().split('-').map(Number);
+  if (!m) return hoy.getFullYear();
+  const h0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return hoy.getFullYear() + (h0 > new Date(hoy.getFullYear(), m - 1, d) ? 1 : 0);
 }
 
 /* Rótulos de la transmisión, en el orden del tipo. Cada uno trae su texto ya resuelto:
