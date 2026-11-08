@@ -231,6 +231,7 @@ function textosBase(s) {
     gracias_ceja: rellenar(tipo.graciasPie, s).toUpperCase(),
     avisos_sub: nombre.toUpperCase(),
     avisos_titulo: 'Avisos',
+    horarios_titulo: 'Horarios de misa',
     capa_logo: nombre,
     barra_y: rellenar(tipo.barra, s),
     franja: frase || rellenar(tipo.franja, s),

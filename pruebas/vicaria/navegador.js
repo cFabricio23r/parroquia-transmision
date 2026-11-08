@@ -19,6 +19,7 @@ const { crearServidor } = require('../../herramientas/servidor-vicaria');
 const CAPTURAS = path.join(__dirname, '..', 'capturas', 'vicaria');
 const RAIZ = path.join(__dirname, '..', '..', 'vicaria');
 fs.mkdirSync(path.join(CAPTURAS, 'comparacion'), { recursive: true });
+fs.mkdirSync(path.join(CAPTURAS, '1b'), { recursive: true });
 
 const CA = 'ciudad-arce';
 const SJ = 'san-jose-ejemplo';
@@ -431,6 +432,192 @@ async function casoCapturasYMedidas() {
   return medidas;
 }
 
+/* ---------- Etapa 1b: personalización por pantalla ---------- */
+
+const conBloques = (cambios) => { const c = JSON.parse(JSON.stringify(CONFIG[CA])); cambios(c); return c; };
+const estadoCA = (estado) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${CA}_estado_v1`, JSON.stringify(estado)]);
+const clasesNuevas = (p) => p.evaluate(() => [...document.getElementById('escenario').classList].filter((c) => /^(fondo-|dist-|oculto-)/.test(c)));
+const visibleEl = (p, sel) => p.evaluate((s) => {
+  const e = document.querySelector(s);
+  if (!e) return false;
+  for (let n = e; n; n = n.parentElement) { const cs = getComputedStyle(n); if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false; }
+  return true;
+}, sel);
+
+async function casoComoViene() {
+  console.log('1b · Como viene (Ciudad Arce sin bloques nuevos)');
+  const ctx = await nuevoContexto();
+  // [vista, tipo del estado, [id del elemento, clave de texto]]
+  const vistas = [
+    ['inicio', 'novena', [['i-pildora', 'inicio_pildora'], ['i-ceja', 'inicio_ceja'], ['i-titulo', 'inicio_titulo'], ['i-cursiva', 'inicio_cursiva'], ['i-cuenta-txt', 'inicio_cuenta'], ['t-marca', 'marca'], ['frase', 'franja']]],
+    ['portada', 'patronal', [['p-ceja', 'portada_ceja'], ['p-cursiva', 'portada_cursiva'], ['p-titulo', 'portada_titulo'], ['p-fecha', 'portada_fecha'], ['p-sub', 'portada_sub']]],
+    ['gracias', 'novena', [['g-pildora', 'gracias_pildora'], ['g-titulo', 'gracias_titulo'], ['g-cursiva', 'gracias_cursiva'], ['g-ceja', 'gracias_ceja']]],
+    ['avisos', 'novena', [['a-sub', 'avisos_sub'], ['a-titulo', 'avisos_titulo']]]
+  ];
+  for (const [vista, tipo, textos] of vistas) {
+    const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=${vista}`, 1920, 1080, estadoCA({ tipo }));
+    await p.waitForTimeout(1200);
+    igual((await clasesNuevas(p)).join(' '), '', `${vista}: .escenario no recibe ninguna clase fondo-/dist-/oculto-`);
+    igual(await p.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--fondo-vista')), '', `${vista}: no hay --fondo-vista`);
+    revisar(!(await visibleEl(p, '#fondo-img')), `${vista}: no hay imagen de fondo`);
+    const distintos = await p.evaluate((pares) => {
+      const s = leerEstado();
+      return pares.filter(([id, clave]) => document.getElementById(id).textContent !== tx(s, clave)).map(([id]) => id);
+    }, textos);
+    igual(distintos.join(','), '', `${vista}: los textos son los de tx`);
+    revisar(await visibleEl(p, '#chispas') && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: chispas y marca como en la 1a`);
+    await captura(p, `1b/${CA}_${vista}_como-viene`);
+  }
+  // y la vista nueva, sin horarios ni redes: el aviso del panel
+  const h = await abrir(ctx, `/${CA}/pantalla.html?tipo=horarios`);
+  await h.waitForTimeout(1000);
+  igual((await texto(h, '#h-titulo')).trim(), 'Horarios de misa', 'horarios: el título por defecto');
+  igual((await texto(h, '#h-filas')).trim(), 'Consulte los horarios en el panel', 'horarios: sin horarios ni redes avisa que se consulte el panel');
+  revisar(!(await visibleEl(h, '#h-redes')), 'horarios: sin redes no hay franja de redes');
+  igual((await clasesNuevas(h)).join(' '), '', 'horarios: sin clases nuevas');
+  await ctx.close();
+}
+
+async function casoPersonalizada() {
+  console.log('1b · Pantalla personalizada');
+  const ctx = await nuevoContexto();
+  const cfg = conBloques((c) => {
+    c.galeria = [{ id: 'fondo-fiesta', src: 'medios/fachada.jpg', alt: 'Fachada como fondo' }];
+    c.pantallas = {
+      inicio: {
+        modo: 'personalizada', fondo: { tipo: 'color', color: '#7a3b12' }, imagen: 'patrono',
+        distribucion: 'derecha', ocultar: ['chispas'], textos: { inicio_titulo: 'Bienvenidos a {patrono}' }
+      },
+      gracias: { modo: 'personalizada', fondo: { tipo: 'imagen', imagen: 'fondo-fiesta' }, imagen: 'ninguna', distribucion: 'centro', ocultar: ['marca', 'envivo', 'franja', 'esquina', 'rayos', 'fachada'] }
+    };
+  });
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1920, 1080, estadoCA({ tipo: 'novena' }));
+  await p.waitForSelector('#marca-logo:not([hidden])');
+  await p.waitForTimeout(1500);
+  igual(await p.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--fondo-vista')), '#7a3b12', 'inicio: --fondo-vista es el color de la configuración');
+  igual(await p.evaluate(() => getComputedStyle(document.getElementById('lienzo')).backgroundColor), 'rgb(122, 59, 18)', 'inicio: el lienzo se pinta de ese color');
+  revisar(await p.evaluate(() => document.getElementById('virgen').closest('.escenario').classList.contains('dist-derecha')), 'inicio: #virgen está dentro de un escenario dist-derecha');
+  const caja = await p.evaluate(() => { const r = document.getElementById('virgen').getBoundingClientRect(); const t = document.querySelector('#v-inicio').getBoundingClientRect(); return { virgen: r.left, texto: t.right }; });
+  revisar(caja.virgen > 960 && caja.texto < caja.virgen + 1, 'inicio: la imagen queda a la derecha y el texto a la izquierda (' + Math.round(caja.virgen) + ' / ' + Math.round(caja.texto) + ')');
+  revisar(!(await visibleEl(p, '#chispas')), 'inicio: #chispas no se ve');
+  revisar(await visibleEl(p, '#marca') && await visibleEl(p, '#envivo'), 'inicio: lo que no se ocultó sigue a la vista');
+  igual((await texto(p, '#i-titulo')).trim(), 'Bienvenidos a ' + await p.evaluate(() => rellenar('{patrono}', leerEstado())), 'inicio: el título sale de la configuración con el hueco {patrono} relleno');
+  revisar((await texto(p, '#i-titulo')).includes('Inmaculada'), 'inicio: el hueco {patrono} es el patrono de la parroquia');
+  await captura(p, `1b/${CA}_inicio_personalizada`);
+
+  const g = await abrir(ctx, `/${CA}/pantalla.html?tipo=gracias`, 1920, 1080, estadoCA({ tipo: 'novena' }));
+  await g.waitForTimeout(1500);
+  const cl = await clasesNuevas(g);
+  revisar(['fondo-imagen', 'dist-centro', 'oculto-marca', 'oculto-envivo', 'oculto-franja', 'oculto-esquina', 'oculto-rayos', 'oculto-fachada'].every((x) => cl.includes(x)), 'gracias: clases ' + cl.join(' '));
+  revisar(await visibleEl(g, '#fondo-img') && await imagenVisible(g, '#fondo-img'), 'gracias: la imagen de fondo de la galería se ve');
+  igual(await g.getAttribute('#fondo-img', 'alt'), 'Fachada como fondo', 'gracias: el fondo lleva su alt');
+  revisar(!(await visibleEl(g, '#virgen')), 'gracias: imagen «ninguna» oculta la imagen (sin ícono roto)');
+  igual((await imagenesRotas(g)).length, 0, 'gracias: ninguna imagen rota');
+  revisar(!(await visibleEl(g, '#marca')) && !(await visibleEl(g, '#envivo')), 'gracias: marca y EN VIVO ocultos');
+  revisar((await texto(g, '#g-titulo')).trim() !== '', 'gracias: el título nunca se oculta');
+  await captura(g, `1b/${CA}_gracias_personalizada`);
+  await ctx.close();
+
+  // si la imagen de fondo falla: se oculta y queda el degradado
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(rutaConfig, servirConfig(cfg));
+  await ctx2.route('**/medios/fachada.jpg', (r) => r.abort());
+  const f = await abrir(ctx2, `/${CA}/pantalla.html?tipo=gracias`, 1920, 1080, estadoCA({ tipo: 'novena' }));
+  await f.waitForTimeout(1500);
+  revisar(!(await visibleEl(f, '#fondo-img')), 'fondo roto: la imagen de fondo se oculta');
+  revisar((await f.evaluate(() => getComputedStyle(document.getElementById('lienzo')).backgroundImage)).includes('linear-gradient'), 'fondo roto: queda el degradado');
+  igual((await imagenesRotas(f)).length, 0, 'fondo roto: ninguna imagen rota');
+  await ctx2.close();
+}
+
+async function casoHorarios() {
+  console.log('1b · Horarios y redes');
+  const ctx = await nuevoContexto();
+  const cfg = conBloques((c) => {
+    c.horarios = [
+      { dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' },
+      { dia: 'Domingo', hora: '10:00 a. m.' },
+      { dia: 'Sábado', hora: '6:00 p. m.', nota: 'Vigilia' }
+    ];
+    c.redes = [
+      { red: 'facebook', url: 'https://facebook.com/ParroquiaCiudadArce', texto: '/ParroquiaCiudadArce' },
+      { red: 'whatsapp', url: 'https://wa.me/50370000000', texto: '7000-0000' }
+    ];
+    c.pantallas = { horarios: { modo: 'personalizada', textos: { horarios_titulo: 'Misas de la semana' } } };
+  });
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=horarios`);
+  await p.waitForSelector('#h-filas .fila');
+  await p.waitForTimeout(1200);
+  igual((await texto(p, '#h-titulo')).trim(), 'Misas de la semana', 'el título se edita con horarios_titulo');
+  igual(await p.evaluate(() => document.querySelectorAll('#h-filas .fila').length), 3, 'tres horarios en la lista');
+  const filas = await p.evaluate(() => [...document.querySelectorAll('#h-filas .fila')].map((f) => f.innerText.replace(/\s+/g, ' ').trim()));
+  revisar(filas[0].includes('7:00 a. m.') && filas[0].includes('Domingo') && filas[0].includes('Misa con niños'), 'la primera fila trae hora, día y nota (' + filas[0] + ')');
+  revisar(await visibleEl(p, '#h-filas') && await visibleEl(p, '#h-redes'), 'lista y redes visibles');
+  const redes = await p.evaluate(() => [...document.querySelectorAll('#h-redes .red')].map((r) => r.innerText.replace(/\s+/g, ' ').trim()));
+  igual(redes.join(' | '), 'FACEBOOK /ParroquiaCiudadArce | WHATSAPP 7000-0000', 'las redes muestran su texto');
+  const cuerpo = await p.innerText('body');
+  revisar(!/https?:|facebook\.com|wa\.me/i.test(cuerpo), 'ninguna URL aparece en el texto de la página');
+  revisar(await p.evaluate(() => !document.documentElement.outerHTML.match(/facebook\.com|wa\.me/)), 'ni siquiera en el HTML (las URL no se usan)');
+  igual((await imagenesRotas(p)).length, 0, 'horarios: ninguna imagen rota');
+  await captura(p, `1b/${CA}_horarios`);
+  await ctx.close();
+
+  // el tope de 12 horarios cabe dentro de la tarjeta
+  const ctx2 = await nuevoContexto();
+  const lleno = conBloques((c) => {
+    c.horarios = Array.from({ length: 12 }, (_, i) => ({ dia: 'Día ' + (i + 1), hora: (i + 1) + ':00 p. m.', nota: i % 2 ? 'Nota de ejemplo' : '' }));
+    c.redes = [{ red: 'youtube', url: 'https://youtube.com/@x', texto: '@ParroquiaCiudadArce' }];
+  });
+  await ctx2.route(rutaConfig, servirConfig(lleno));
+  const q = await abrir(ctx2, `/${CA}/pantalla.html?tipo=horarios`);
+  await q.waitForSelector('#h-filas .fila');
+  await q.waitForTimeout(1500);
+  const dentro = await q.evaluate(() => {
+    const t = document.getElementById('v-horarios').getBoundingClientRect();
+    const fuera = [...document.querySelectorAll('#h-filas .fila, #h-redes .red')].filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > t.bottom - 20 || r.right > t.right; });
+    return fuera.length;
+  });
+  igual(dentro, 0, '12 horarios y una red caben dentro de la tarjeta');
+  await captura(q, `1b/${CA}_horarios_12`);
+  await ctx2.close();
+}
+
+async function casoAvisosFijos() {
+  console.log('1b · Avisos fijos');
+  const ctx = await nuevoContexto();
+  const cfg = conBloques((c) => {
+    c.avisos = [
+      { texto: 'Fijo vencido', hasta: '2020-01-01', orden: 1 },
+      { texto: 'Fijo vigente', detalle: 'Sáb · 6:00 p. m.', orden: 2 },
+      { texto: 'Fijo futuro', desde: '2999-01-01', orden: 3 }
+    ];
+  });
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=avisos`, 1920, 1080, estadoCA({ tipo: 'novena', avisos: [{ a: 'Aviso del panel', f: 'det' }, { a: '', f: '' }, { a: '', f: '' }, { a: '', f: '' }] }));
+  await p.waitForSelector('#a-filas .fila');
+  await p.waitForTimeout(1200);
+  const a = await p.evaluate(() => [...document.querySelectorAll('#a-filas .fila .a')].map((e) => e.textContent));
+  igual(a.join(' | '), 'Fijo vigente | Aviso del panel', 'el fijo vigente va antes que el del panel; el vencido y el futuro no aparecen');
+  igual(await p.evaluate(() => document.querySelector('#a-filas .fila .f').textContent), 'Sáb · 6:00 p. m.', 'el fijo trae su detalle');
+  await captura(p, `1b/${CA}_avisos_fijos`);
+
+  // seis filas caben en la tarjeta
+  const ctx2 = await nuevoContexto();
+  const seis = conBloques((c) => { c.avisos = Array.from({ length: 6 }, (_, i) => ({ texto: 'Aviso fijo número ' + (i + 1), detalle: 'Detalle ' + (i + 1), orden: i + 1 })); });
+  await ctx2.route(rutaConfig, servirConfig(seis));
+  const q = await abrir(ctx2, `/${CA}/pantalla.html?tipo=avisos`, 1920, 1080, estadoCA({ tipo: 'novena', avisos: [{ a: 'Del panel', f: '' }, { a: '', f: '' }, { a: '', f: '' }, { a: '', f: '' }] }));
+  await q.waitForSelector('#a-filas .fila');
+  await q.waitForTimeout(1200);
+  igual(await q.evaluate(() => document.querySelectorAll('#a-filas .fila').length), 6, 'con 6 fijos y 1 del panel se ven 6 filas');
+  const fuera = await q.evaluate(() => { const t = document.getElementById('v-avisos').getBoundingClientRect(); return [...document.querySelectorAll('#a-filas .fila')].filter((e) => e.getBoundingClientRect().bottom > t.bottom - 20).length; });
+  igual(fuera, 0, 'las 6 filas caben dentro de la tarjeta');
+  await captura(q, `1b/${CA}_avisos_6`);
+  await ctx.close();
+  await ctx2.close();
+}
+
 /* ---------- Comparación Ciudad Arce vicaria/ vs obs/ ---------- */
 
 const urlObs = (archivo) => 'file://' + path.join(__dirname, '..', '..', 'obs', archivo).replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:');
@@ -518,6 +705,10 @@ async function comparacion() {
     await casoImagenRota();
     await casoRecursosComunes();
     await casoCapturasYMedidas();
+    await casoComoViene();
+    await casoPersonalizada();
+    await casoHorarios();
+    await casoAvisosFijos();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

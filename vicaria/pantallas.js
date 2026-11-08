@@ -109,10 +109,11 @@ function avisosPara(s, hoy = new Date()) {
 /* Horarios de misa de la configuración [{dia, hora, nota}]. */
 function horariosPara() {
   return (Array.isArray(PARROQUIA.horarios) ? PARROQUIA.horarios : [])
+    .filter((h) => h && typeof h === 'object')
     .map((h) => ({ dia: h.dia, hora: h.hora, nota: typeof h.nota === 'string' ? h.nota : '' }));
 }
 
 /* Redes [{red, texto}]. La URL no se muestra (OBS no hace clic): solo el texto. */
 function redesPara() {
-  return (Array.isArray(PARROQUIA.redes) ? PARROQUIA.redes : []).map((r) => ({ red: r.red, texto: r.texto }));
+  return (Array.isArray(PARROQUIA.redes) ? PARROQUIA.redes : []).filter((r) => r && typeof r === 'object').map((r) => ({ red: r.red, texto: r.texto }));
 }

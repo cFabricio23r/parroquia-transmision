@@ -268,6 +268,7 @@ grupo('textos heredados', () => {
     gracias_cursiva: 'Nos vemos en la próxima\ntransmisión',
     avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     avisos_titulo: 'Avisos',
+    horarios_titulo: 'Horarios de misa',   // clave nueva de la 1b (vista horarios); no cambia ninguna de la 1a
     capa_logo: 'Parroquia Inmaculada Concepción de María',
     k_lectura1: 'PRIMERA LECTURA',
     k_salmo: 'SALMO RESPONSORIAL',
@@ -1837,6 +1838,43 @@ grupo('pantallas', () => {
       { dia: 'Lunes', hora: '6:00 p. m.', nota: '' }
     ]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'facebook', texto: '/ParroquiaCiudadArce' }]);
+  });
+  prueba('textoDe = tx sin bloques nuevos: todas las vistas, todos los textos, 4 tipos', () => {
+    const claves = Object.keys(c.textosBase({}));
+    assert.ok(claves.includes('horarios_titulo'), 'horarios_titulo está en textosBase');
+    for (const tipo of ['novena', 'evento', 'patronal', 'dominical']) {
+      for (const extra of [{}, { textos: { inicio_titulo: '  Escrito en el panel  ', franja: '' } }]) {
+        const s = c.normalizarEstado(Object.assign({ tipo, santo: 'Ana', fecha: '2026-12-01', lugar: 'El Carmen', evento: 'Retiro' }, extra));
+        for (const v of VISTAS) {
+          for (const k of claves) assert.equal(c.textoDe(s, v, k), c.tx(s, k), tipo + '/' + v + '/' + k);
+        }
+      }
+    }
+    assert.equal(c.textoDe(c.normalizarEstado({}), 'horarios', 'horarios_titulo'), 'Horarios de misa');
+  });
+  prueba('con CONFIG_NEUTRA (sin configuración) los ayudantes no lanzan', () => {
+    const n = cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, null);
+    const s = n.normalizarEstado({});
+    for (const v of VISTAS) {
+      assert.equal(n.ajustesDe(v).personalizada, false, v);
+      assert.equal(n.fondoDe(v).tipo, 'degradado', v);
+      assert.equal(n.visible(v, 'chispas'), true, v);
+      assert.equal(n.imagenDeVista(s, v).src, '', v);
+      for (const k of Object.keys(n.textosBase(s))) assert.equal(n.textoDe(s, v, k), n.tx(s, k), v + '/' + k);
+    }
+    assert.equal(n.imagenGaleria('x'), null);
+    assert.deepEqual(arr(n.avisosPara(s, dia(2026, 11, 8))), []);
+    assert.deepEqual(arr(n.horariosPara()), []);
+    assert.deepEqual(arr(n.redesPara()), []);
+  });
+  prueba('horariosPara y redesPara ignoran elementos nulos o que no son objetos', () => {
+    const x = cargarPantallas();
+    forzar(x, Object.assign(base(), {
+      horarios: [null, 'x', { dia: 'Lunes', hora: '6:00 p. m.' }],
+      redes: [null, 7, { red: 'web', url: 'https://x.org', texto: 'x.org' }]
+    }));
+    assert.deepEqual(arr(x.horariosPara(), plano), [{ dia: 'Lunes', hora: '6:00 p. m.', nota: '' }]);
+    assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
     const x = cargarPantallas();

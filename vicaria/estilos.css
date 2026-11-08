@@ -171,3 +171,76 @@ body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 /* ---------- Parroquia que no existe: el link no corresponde a ninguna parroquia ---------- */
 .no-existe{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#0c3562;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 160px;font-weight:800;font-size:72px;line-height:1.2}
 .escenario.sin-parroquia>*:not(.no-existe){display:none !important}
+
+/* ================= Personalización por pantalla (1b) =================
+   Todo cuelga de clases en .escenario que pone pantalla.html; sin clases, nada de esto aplica. */
+
+/* Fondo: color elegido (ya validado) o imagen de la galería; si la imagen falla queda el degradado */
+.fondo-img{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover;filter:brightness(.55)}
+.escenario.fondo-color .lienzo{background:var(--fondo-vista)}
+
+/* Distribución: la imagen a la derecha (y el texto a la izquierda) o al centro (detrás del texto) */
+.escenario.dist-derecha .virgen{left:auto;right:70px}
+.escenario.dist-derecha .virgen.b{left:auto;right:40px}
+.escenario.dist-derecha .virgen.c{left:auto;right:20px}
+.escenario.dist-derecha .virgen.foto{left:auto;right:130px}
+.escenario.dist-derecha .virgen.logo{left:auto;right:150px}
+.escenario.dist-derecha .texto{left:90px;right:860px;top:180px;bottom:210px}   /* más abajo: no pisa la marca (arriba a la izquierda) */
+.escenario.dist-derecha .aro{left:auto;right:150px}
+.escenario.dist-derecha .tarjeta{left:80px;right:600px}
+.escenario.dist-derecha .virgen.a{left:auto;right:10px}
+.escenario.dist-derecha .virgen.foto,.escenario.dist-derecha .virgen.logo{left:auto}
+body.avisos .escenario.dist-derecha .virgen,body.horarios .escenario.dist-derecha .virgen{left:auto;right:10px}
+body.avisos .escenario.dist-derecha .virgen.foto,body.horarios .escenario.dist-derecha .virgen.foto{left:auto;right:30px}
+body.avisos .escenario.dist-derecha .virgen.logo,body.horarios .escenario.dist-derecha .virgen.logo{left:auto;right:70px}
+
+.escenario.dist-centro .virgen,.escenario.dist-centro .virgen.b,.escenario.dist-centro .virgen.c,
+.escenario.dist-centro .virgen.foto,.escenario.dist-centro .virgen.logo,
+body.avisos .escenario.dist-centro .virgen,body.horarios .escenario.dist-centro .virgen,
+body.avisos .escenario.dist-centro .virgen.foto,body.horarios .escenario.dist-centro .virgen.foto,
+body.avisos .escenario.dist-centro .virgen.logo,body.horarios .escenario.dist-centro .virgen.logo{left:0;right:0;margin:0 auto;opacity:.28 !important}
+.escenario.dist-centro .aro{left:0;right:0;margin:0 auto;opacity:.5}
+.escenario.dist-centro .texto{left:160px;right:160px;align-items:center;text-align:center}
+.escenario.dist-centro .cursiva{max-width:none}
+.escenario.dist-centro .dia8{justify-content:center}
+.escenario.dist-centro .tarjeta{left:200px;right:200px}
+
+/* Elementos que la parroquia apaga */
+.escenario.oculto-marca .lienzo>.marca{display:none}
+.escenario.oculto-envivo .lienzo>.envivo{display:none}
+.escenario.oculto-chispas #chispas{display:none}
+.escenario.oculto-rayos .rayos{display:none}
+.escenario.oculto-fachada .fachada{display:none}
+.escenario.oculto-franja .franja .frase{visibility:hidden}
+.escenario.oculto-esquina .franja .fecha{display:none}
+
+/* Avisos y horarios con más filas: se compactan para caber en la tarjeta */
+.filas.compacta{gap:10px}
+.filas.compacta .fila{padding:8px 22px;gap:20px;grid-template-columns:84px minmax(0,1fr) auto}
+.filas.compacta .fila .n{width:56px;height:56px;border-radius:14px;font-size:26px}
+.filas.compacta .fila .a{font-size:30px}
+.filas.compacta .fila .f{font-size:22px}
+
+/* Horarios de misa */
+.fila.horario{grid-template-columns:260px minmax(0,1fr) auto}
+.fila.horario .n{width:auto;padding:0 18px;font-size:34px;white-space:nowrap}
+.fila.vacia{grid-template-columns:minmax(0,1fr)}
+.filas.compacta .fila.horario{grid-template-columns:200px minmax(0,1fr) auto}
+.filas.compacta .fila.horario .n{width:auto;padding:0 14px;font-size:26px}
+.filas.dos-col{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:10px 18px}
+.filas.dos-col .fila.horario{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"n a" "n f";gap:0 16px;padding:6px 16px;align-items:center}
+.filas.dos-col .fila.horario .n{grid-area:n;height:44px;width:auto;border-radius:12px;font-size:22px;padding:0 12px}
+.filas.dos-col .fila.horario .a{grid-area:a;font-size:26px;line-height:1.2}
+.filas.dos-col .fila.horario .f{grid-area:f;font-size:20px;line-height:1.2;text-align:left}
+.filas.dos-col .fila.horario .f:empty{display:none}
+.redes{display:flex;flex-wrap:wrap;gap:14px 28px;padding-top:6px;border-top:3px solid #eef5fc}
+.redes .red{display:flex;align-items:baseline;gap:10px;font-weight:700;font-size:28px;color:var(--oscuro)}
+.redes .red b{font-weight:900;font-size:20px;letter-spacing:3px;text-transform:uppercase;color:var(--medio)}
+
+/* La tarjeta de horarios se ubica igual que la de avisos */
+body.horarios .virgen{left:10px;bottom:60px;height:900px}
+body.horarios .virgen.c{height:980px}
+body.horarios .virgen.foto{left:30px;bottom:200px;width:520px;height:700px}
+body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
+#v-horarios h1{font-size:64px}
+#v-horarios .envivo{white-space:nowrap}

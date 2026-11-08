@@ -115,7 +115,7 @@ const CLAVES_TEXTOS = [
   'marca', 'inicio_pildora', 'inicio_ceja', 'inicio_titulo', 'inicio_cursiva', 'inicio_cuenta',
   'portada_ceja', 'portada_cursiva', 'portada_titulo', 'portada_fecha', 'portada_sub',
   'gracias_pildora', 'gracias_titulo', 'gracias_cursiva', 'gracias_ceja',
-  'avisos_sub', 'avisos_titulo', 'capa_logo', 'barra_y', 'franja',
+  'avisos_sub', 'avisos_titulo', 'horarios_titulo', 'capa_logo', 'barra_y', 'franja',
   'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario'
 ];
 
