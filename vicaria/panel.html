@@ -650,13 +650,13 @@ function camposDe(uso) {
     case 'rosario':
       return [campo('s', 'Misterios o intención', () => s.rosario, (v) => { s.rosario = v; }, () => 'Ej.: Misterios Gozosos')];
     case 'santisimo':
-      return [libre('t', 'Texto'), libre('s', 'Guía o intención', () => s.parroquia)];
+      return [libre('t', 'Texto'), libre('s', 'Guía o intención', () => lineaParroquia(s))];
     case 'lugar':
-      return [libre('k', 'Texto pequeño', () => delTipo.ceja || ROTULOS.lugar.ceja), libre('t', 'Lugar', () => s.lugar), libre('s', 'Sector o comunidad', () => String(s.sector || '').trim() || s.parroquia)];
+      return [libre('k', 'Texto pequeño', () => delTipo.ceja || ROTULOS.lugar.ceja), libre('t', 'Lugar', () => s.lugar), libre('s', 'Sector o comunidad', () => String(s.sector || '').trim() || lineaParroquia(s))];
     case 'oracion':
       return [libre('t', 'Intención')];
     default:   // libre
-      return [libre('k', 'Título', () => delTipo.ceja || ''), libre('t', 'Texto', () => delTipo.texto || ''), libre('s', 'Texto opcional', () => s.parroquia)];
+      return [libre('k', 'Título', () => delTipo.ceja || ''), libre('t', 'Texto', () => delTipo.texto || ''), libre('s', 'Texto opcional', () => lineaParroquia(s))];
   }
 }
 const idCampo = (usoId, c) => 'rot-' + usoId + '-' + c;
@@ -1091,6 +1091,7 @@ function aplicarParroquia(c) {
   $('nombre-parroquia').hidden = !nombre;
   document.title = nombre ? 'Panel de rótulos · ' + nombre : 'Panel de rótulos';
   const aviso = PARROQUIA_NO_EXISTE ? '' : ESTADO_CONFIG.aviso;
+  $('parroquia').placeholder = _nombreYLugar();   // lo que sale si el campo queda vacío
   $('aviso-config').textContent = aviso;
   $('aviso-config').hidden = aviso === '';
   if (!PARROQUIA_NO_EXISTE) llenar();   // refresca lo que sale de la configuración (textos con {fiesta}, etc.)

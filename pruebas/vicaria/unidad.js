@@ -106,6 +106,12 @@ grupo('tipos', () => {
   prueba('tipoDe con una clave desconocida devuelve el dominical', () => {
     assert.equal(tipoDe({ tipo: 'noexiste' }), TIPOS.dominical);
   });
+  prueba('rellenar: {constructor} y {toString} no toman nada heredado de Object', () => {
+    for (const clave of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+      const r = rellenar('A {' + clave + '} B', { tipo: 'otros' });
+      assert.equal(r, 'A [' + clave + '] B', clave);
+    }
+  });
   prueba('rellenar reemplaza {sector}', () => {
     assert.equal(rellenar('MISA PATRONAL · {sector}', { tipo: 'patronalsector', sector: 'SECTOR 8' }),
       'MISA PATRONAL · SECTOR 8');
@@ -741,13 +747,42 @@ grupo('comun por parroquia', () => {
     const a = cargarCon(COMUN, { 'pev_ciudad-arce_estado_v1': '{"santo":"Ana"}' }, CONFIG_CIUDAD_ARCE);
     const b = cargarCon(COMUN, { 'pev_ciudad-arce_estado_v1': '{"santo":"Ana"}' }, CONFIG_SAN_JOSE);
     assert.equal(a.leerEstado().santo, 'Ana');
-    assert.equal(b.leerEstado().santo, 'San José');
+    assert.equal(b.leerEstado().santo, '');   // y el de una parroquia no se hereda de otra
   });
-  prueba('estado: parroquia vacía se rellena con nombre · lugar de la configuración', () => {
+  prueba('estado: la línea de parroquia no se materializa; se resuelve al usarla (nombre · lugar)', () => {
     const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
     assert.equal(c.PREDETERMINADO.parroquia, '');
-    assert.equal(c.leerEstado().parroquia, 'Parroquia San José · Santa Tecla, La Libertad');
+    assert.equal(c.leerEstado().parroquia, '');
+    assert.equal(c.lineaParroquia(c.leerEstado()), 'Parroquia San José · Santa Tecla, La Libertad');
     assert.equal(c.normalizarEstado({ parroquia: 'Otra' }).parroquia, 'Otra');
+    assert.equal(c.lineaParroquia(c.normalizarEstado({ parroquia: 'Otra' })), 'Otra');
+  });
+  prueba('estado: con un estado guardado bajo la config v1, cambiar PARROQUIA cambia la línea de los rótulos', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_CIUDAD_ARCE);
+    c.guardarEstado(c.leerEstado());                                   // lo que haría el panel al abrir
+    const guardado = JSON.parse(c.__almacen['pev_ciudad-arce_estado_v1']);
+    assert.equal(guardado.parroquia, '');
+    const linea = () => c.rotulosDe(c.leerEstado()).find((r) => r.id === 'persona').texto.s;
+    assert.equal(linea(), 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad');
+    vm.runInContext('PARROQUIA = ' + JSON.stringify(Object.assign({}, CONFIG_CIUDAD_ARCE, { version: 2, lugar: 'Otro lugar' })), c);
+    assert.equal(linea(), 'Parroquia Inmaculada Concepción de María · Otro lugar');
+  });
+  prueba('estado: una línea escrita a mano gana sobre la de la configuración', () => {
+    const c = cargarCon(COMUN, { 'pev_ciudad-arce_estado_v1': '{"parroquia":"Mi línea"}' }, CONFIG_CIUDAD_ARCE);
+    assert.equal(c.rotulosDe(c.leerEstado()).find((r) => r.id === 'persona').texto.s, 'Mi línea');
+  });
+  prueba('PREDETERMINADO no trae datos de Ciudad Arce (ni celebrante ni santo)', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    assert.equal(c.PREDETERMINADO.celebrante, '');
+    assert.equal(c.PREDETERMINADO.santo, '');
+    const texto = JSON.stringify(c.PREDETERMINADO);
+    for (const ajeno of ['Héctor', 'Cruz', 'San José', 'Inmaculada', 'Ciudad Arce']) assert.ok(!texto.includes(ajeno), ajeno);
+  });
+  prueba('un rótulo «Celebrante» sin escribir nada queda con el texto vacío (el panel lo marca como falta)', () => {
+    const c = cargarCon(COMUN, {}, CONFIG_SAN_JOSE);
+    const persona = c.rotulosDe(c.normalizarEstado({ tipo: 'dominical' })).find((r) => r.id === 'persona');
+    assert.equal(persona.texto.t, '');
+    assert.ok(!JSON.stringify(c.rotulosDe(c.leerEstado())).includes('Héctor'));
   });
   prueba('estado: imagen virgen-a|b|c se migra a patrono', () => {
     const c = cargarCon(COMUN);
@@ -1019,6 +1054,17 @@ grupo('parroquia', () => {
     assert.ok(lum(q.rey) < lum(q.medio) && lum(q.medio) < lum(q.celeste));
   });
 
+  prueba('paleta: --medio se lee sobre blanco (>= 4.5) aunque el principal apenas pase', () => {
+    for (const principal of ['#2e7d32', '#2b70b0', '#1155a4', '#7a3b12', '#0c3562']) {
+      const q = p.paleta(principal, '#0c3562');
+      assert.ok(p.contraste('#ffffff', q.medio) >= 4.5, principal + ' -> ' + q.medio);
+      assert.equal(q.rey, principal);
+    }
+  });
+  prueba('paleta: Ciudad Arce y San José conservan su --medio (ya pasaba)', () => {
+    assert.equal(p.paleta('#1155a4', '#0c3562').medio, '#356fb2');
+    assert.equal(p.paleta('#7a3b12', '#4a2008').medio, '#8e5836');
+  });
   prueba('CONFIG_NEUTRA: mismo slug, colores base con contraste, sin logos ni fachada, sin nombre', () => {
     const n = p.CONFIG_NEUTRA;
     assert.equal(n.slug, p.SLUG);

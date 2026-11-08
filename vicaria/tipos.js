@@ -310,8 +310,9 @@ function rellenar(plantilla, s, hoy = new Date()) {
     anio: _anioDeLaFiesta(hoy)
   };
   return String(plantilla == null ? '' : plantilla).replace(/\{(\w+)\}/g, (llave, clave) => {
-    if (clave in deParroquia) return String(deParroquia[clave]);
-    if (!(clave in valores)) return '[' + clave + ']';
+    const propia = (o) => Object.prototype.hasOwnProperty.call(o, clave);
+    if (propia(deParroquia)) return String(deParroquia[clave]);
+    if (!propia(valores)) return '[' + clave + ']';
     const v = valores[clave];
     const t = v === undefined || v === null ? '' : String(v).trim();
     return t || '[' + clave + ']';
@@ -337,7 +338,7 @@ function rotulosDe(s) {
   const propio = s.rotulosTexto || {};
   return tipoDe(s).rotulos.map((uso) => {
     const p = propio[uso.id] || {};
-    const parroquia = s.parroquia || '';
+    const parroquia = lineaParroquia(s);
     let texto;
     switch (uso.base) {
       case 'persona':

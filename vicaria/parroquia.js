@@ -53,12 +53,17 @@ function _conBlanco(hex, parte) {
   return '#' + ch.join('');
 }
 
+const MIN_CONTRASTE = 4.5;
+
 /* Los seis colores de estilos.css (--oscuro --rey --medio --celeste --claro --palido) a partir de los dos de la parroquia. */
 function paleta(principal, oscuro) {
+  // --medio es texto pequeño sobre blanco (.rotulo .k): se acerca al principal hasta llegar a 4.5:1.
+  let parte = 15;
+  while (parte > 0 && contraste('#ffffff', _conBlanco(principal, parte / 100)) < MIN_CONTRASTE) parte--;
   return {
     oscuro: oscuro,
     rey: principal,
-    medio: _conBlanco(principal, 0.15),
+    medio: _conBlanco(principal, parte / 100),
     celeste: _conBlanco(principal, 0.35),
     claro: _conBlanco(principal, 0.6),
     palido: _conBlanco(principal, 0.9)
@@ -72,8 +77,6 @@ function aplicarPaleta(c) {
 }
 
 /* ---------- Validación de config.json (esquema 1) ---------- */
-
-const MIN_CONTRASTE = 4.5;
 
 function _texto(v) {
   return typeof v === 'string' && v.trim() !== '';

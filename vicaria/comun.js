@@ -11,7 +11,7 @@ const PREDETERMINADO = {
   tipo: 'novena',            // una clave de TIPOS (obs/tipos.js)
   prenovenaDia: 1,
   novenaDia: 1,
-  santo: 'San José',
+  santo: '',
   sector: '',
   fecha: '',                 // AAAA-MM-DD (patronal de sector, evento)
   lugar: '',
@@ -26,7 +26,7 @@ const PREDETERMINADO = {
   parroquia: '',             // vacío = «nombre · lugar» de la configuración de la parroquia
 
   celebranteRol: 'CELEBRANTE',
-  celebrante: 'Pbro. Héctor Cruz',
+  celebrante: '',
   lectura1: '',
   salmoNum: '',
   salmoResp: '',
@@ -63,7 +63,7 @@ function normalizarEstado(guardado) {
   delete s.virgen;
   // Las tres imágenes de la Virgen de Ciudad Arce pasan a ser «la del patrono» de la parroquia.
   if (['virgen-a', 'virgen-b', 'virgen-c'].includes(s.imagen)) s.imagen = 'patrono';
-  if (typeof s.parroquia !== 'string' || s.parroquia.trim() === '') s.parroquia = _nombreYLugar();
+  if (typeof s.parroquia !== 'string') s.parroquia = '';   // vacío = «nombre · lugar» de la configuración, resuelto al usarla (lineaParroquia)
   if (s.rotulo === 'celebrante') s.rotulo = 'persona';
   // mostrarCuenta:false se migra una sola vez: después queda en true para no volver a forzar cuenta:false.
   if (guardado.mostrarCuenta === false) {
@@ -251,6 +251,13 @@ function tx(s, clave) {
 /* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene). */
 function _nombreYLugar() {
   return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(' · ');
+}
+
+/* La línea de parroquia bajo los rótulos: la escrita en el panel, o «nombre · lugar» de la configuración EN USO
+   (no se guarda en el estado: si la configuración cambia, la línea la sigue). */
+function lineaParroquia(s) {
+  const propia = s && typeof s.parroquia === 'string' ? s.parroquia.trim() : '';
+  return propia || _nombreYLugar();
 }
 
 /* Imagen de la configuración { src, alt }, o null si esa parroquia no la tiene. */
