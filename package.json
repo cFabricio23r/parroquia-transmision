@@ -6,6 +6,8 @@
   "scripts": {
     "prueba": "node pruebas/prueba.js",
     "prueba:unidad": "node pruebas/unidad.js",
+    "prueba:vicaria": "node pruebas/vicaria/unidad.js",
+    "verificar:obs": "node herramientas/verificar-obs.js",
     "transiciones": "node herramientas/transiciones/render.js --plantilla stinger.html --duracion 2 --salida transiciones/Transicion_2000ms_Logo.webm && node herramientas/transiciones/render.js --plantilla stinger_virgen.html --duracion 2 --salida transiciones/Transicion_2000ms_Virgen.webm"
   },
   "devDependencies": {

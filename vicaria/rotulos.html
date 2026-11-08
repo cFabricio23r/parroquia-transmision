@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rótulos – Parroquia</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="escenario">
+  <div class="capa-logo" id="logo">
+    <img src="img/logo-blanco.png" alt="">
+    <div class="multilinea" id="logo-txt"></div>
+  </div>
+  <div class="envivo capa-envivo" id="envivo"><i></i>EN VIVO</div>
+
+  <div class="barra" id="barra"><span class="x" id="barra-x"></span><span class="y" id="barra-y"></span></div>
+
+  <div class="rotulo" id="rotulo">
+    <div class="lado"><img src="img/logo-blanco.png" alt=""></div>
+    <div class="cuerpo">
+      <span class="k" id="r-k"></span>
+      <span class="t" id="r-t"></span>
+      <span class="s" id="r-s"></span>
+    </div>
+  </div>
+</div>
+
+<script src="tipos.js"></script>
+<script src="comun.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let estado = leerEstado();
+
+/* Texto del rótulo elegido; null si s.rotulo no es un rótulo del tipo activo (el rótulo se oculta). */
+function contenido(s) {
+  const r = rotulosDe(s).find((x) => x.id === s.rotulo);
+  return r ? r.texto : null;
+}
+
+/* ----- máquina de animación del rótulo ----- */
+const R = $('rotulo');
+let mostrando = null;      // tipo de rótulo que está en pantalla
+let ocupado = false, pendiente = null;
+
+function ponerTexto(c, animar) {
+  const pares = [['r-k', c.k], ['r-t', c.t || ''], ['r-s', c.s || '']];
+  pares.forEach(([id, val]) => {
+    const el = $(id);
+    if (el.textContent !== val) {
+      el.textContent = val;
+      if (animar) { el.classList.remove('cambia'); void el.offsetWidth; el.classList.add('cambia'); }
+    }
+  });
+  ajustarTexto($('r-t'), 1390, c.chico ? 46 : 52, 28);
+}
+
+function entrar(tipo, c) {
+  ponerTexto(c, false);
+  R.classList.remove('sale', 'en'); void R.offsetWidth; R.classList.add('en');
+  mostrando = tipo;
+}
+
+function salir(despues) {
+  ocupado = true;
+  R.classList.remove('en'); R.classList.add('sale');
+  setTimeout(() => {
+    R.classList.remove('sale'); mostrando = null; ocupado = false;
+    if (despues) despues();
+    if (pendiente) { const p = pendiente; pendiente = null; aplicar(p); }
+  }, 430);
+}
+
+function aplicar(s) {
+  if (ocupado) { pendiente = s; return; }
+  const c = contenido(s);
+  const vence = s.rotuloHasta && Date.now() > s.rotuloHasta;
+  const tipo = (c && !vence) ? s.rotulo : null;
+
+  if (!tipo) { if (mostrando) salir(); return; }
+  if (!mostrando) { entrar(tipo, c); return; }
+  if (mostrando === tipo) { ponerTexto(c, true); return; }      // mismo rótulo: solo cambia el texto
+  salir(() => entrar(tipo, contenido(s)));                       // otro rótulo: sale y entra el nuevo
+}
+
+function pintar(s) {
+  estado = s;
+  $('logo').classList.toggle('oculto', !s.mostrarLogo);
+  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo);
+  $('logo-txt').textContent = tx(s, 'capa_logo');
+
+  aplicar(s);
+
+  const hayRotulo = !!contenido(s) && !(s.rotuloHasta && Date.now() > s.rotuloHasta);
+  $('barra-x').textContent = (s.barraTexto || '').trim() || tituloCelebracion(s);
+  $('barra-y').textContent = tx(s, 'barra_y');
+  $('barra').classList.toggle('oculto', !s.mostrarBarra || hayRotulo);
+}
+
+escucharEstado(pintar);
+setInterval(() => { if (estado.rotuloHasta) pintar(estado); }, 250);
+latir('rotulos');
+</script>
+</body>
+</html>

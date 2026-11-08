@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Parroquia</title>
+<script>
+/* Copia temprana de la línea de modo app (la original sigue al final del body): pone la clase antes del primer
+   pintado, para que la app no vea un instante el estilo gris del dock de OBS. */
+if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
+</script>
+<style>
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-500-normal.woff2) format('woff2');font-weight:500}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
+/* Paleta de los tableros S2Panel* */
+:root{--fondo:#0a1a30;--caja:#10284a;--caja2:#163560;--elegido:#1a3f75;--borde:#24497a;--campo:#061224;--texto:#eef5fc;--suave:#b4cbe8;--acento:#3d9be0;--rey:#1155a4;--rojo:#dd0300;--verde:#2fbf7a;--verde-fondo:#0f3a2a;--verde-texto:#9be8c2;--ambar:#f0b429;--ambar-fondo:#3a2e0a;--apagado:#3a4f6e;--foco:#8cc8ff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--fondo);color:var(--texto);font-family:Mont,system-ui,sans-serif;font-size:13px}
+body{padding-bottom:34px}
+button{font:inherit;font-weight:800;font-size:14px;border:2px solid transparent;border-radius:10px;cursor:pointer;color:var(--texto);background:var(--caja2);min-height:44px;padding:8px 12px}
+button:hover{background:#1d4377}
+button:disabled{background:var(--apagado);color:var(--suave);cursor:default}
+:focus-visible{outline:3px solid var(--foco);outline-offset:2px}
+input[type=text],input[type=number],input[type=date],textarea,select{width:100%;background:var(--campo);color:var(--texto);border:1px solid var(--borde);border-radius:9px;padding:10px;font:inherit;font-weight:500;font-size:14px;min-height:44px}
+input[type=date]{color-scheme:dark}
+input.falta{border:2px solid var(--ambar)}
+textarea{resize:vertical}
+label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;color:var(--suave)}
+.ayuda{font-size:12px;color:var(--suave);font-weight:500;line-height:1.45}
+
+/* ---------- arriba, siempre visible ---------- */
+.arriba{position:sticky;top:0;z-index:5;background:var(--fondo);padding:10px 12px 0;border-bottom:1px solid var(--borde);display:flex;flex-direction:column;gap:8px}
+.linea1{display:flex;align-items:center;justify-content:space-between;gap:6px 8px;flex-wrap:wrap}
+.conexion{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--suave);min-width:0}
+.punto{width:10px;height:10px;border-radius:50%;background:#7a869a;flex:none}
+.punto.ok{background:var(--verde)}
+.pildora{font-size:12px;font-weight:800;background:var(--caja2);border-radius:999px;padding:5px 10px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.ahora{display:flex;align-items:center;gap:10px;background:var(--caja);border:1px solid var(--borde);border-radius:12px;padding:10px 10px 10px 12px}
+.ahora .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ahora .tit{font-size:11px;font-weight:800;letter-spacing:1px;color:var(--suave)}
+.ahora .val{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ahora.en{border:2px solid var(--verde);background:var(--verde-fondo)}
+.ahora.en .tit{color:var(--verde-texto)}
+.ahora button{min-width:92px}
+.ahora button:not(:disabled){background:var(--rojo);min-height:52px}
+.progreso{height:4px;background:var(--verde);width:0;transition:width .25s linear;border-radius:2px}
+.pestanas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
+.pestanas button{border:0;border-radius:10px 10px 0 0;background:transparent;color:var(--suave);font-size:13px}
+.pestanas button[aria-selected=true]{background:var(--caja);color:var(--texto);box-shadow:inset 0 -3px 0 var(--acento)}
+
+/* ---------- hojas ---------- */
+.hoja{padding:12px;display:none;flex-direction:column;gap:12px}
+.hoja.activa{display:flex}
+.vista{display:flex;flex-direction:column;gap:12px}
+.seccion{background:var(--caja);border:1px solid var(--borde);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.seccion h3{margin:0;font-size:12px;letter-spacing:1.5px;color:var(--suave);font-weight:800;text-transform:uppercase}
+.subtitulo{font-weight:700;font-size:12px;color:var(--suave)}
+.fila{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px}
+
+/* elegir tipo */
+.tipos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tipos button{text-align:left;min-height:64px;padding:9px 10px;display:flex;flex-direction:column;gap:3px;border-radius:12px}
+.tipos button:last-child:nth-child(odd){grid-column:1/-1}
+.tipos .nom{font-weight:800;font-size:14px}
+.tipos .sub{font-weight:500;font-size:11px;color:var(--suave)}
+.tipos button[aria-pressed=true]{background:var(--elegido);border-color:var(--acento)}
+.tipos button[aria-pressed=true] .nom::before{content:"✓ "}
+.primario{background:var(--rey);color:#fff;font-size:16px;min-height:54px;border-radius:12px}
+.primario:hover{background:#1863bd}
+.tipo-actual{display:flex;align-items:center;gap:10px;background:var(--elegido);border:2px solid var(--acento);border-radius:12px;padding:10px 12px}
+.tipo-actual .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tipo-actual .tit{font-size:11px;font-weight:800;letter-spacing:1px;color:var(--suave)}
+.tipo-actual .nom{font-weight:800;font-size:17px}
+
+/* lista de revisión */
+.revision{border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.revision.faltan{background:var(--ambar-fondo);border:2px solid var(--ambar)}
+.revision.listo{background:var(--verde-fondo);border:2px solid var(--verde)}
+.revision .tit{font-weight:800;font-size:14px}
+.revision.faltan .tit{color:var(--ambar)}
+.revision.listo .tit{color:var(--verde-texto)}
+.revision a{font-weight:700;font-size:13px;color:var(--texto);min-height:36px;display:flex;align-items:center}
+
+/* campos de rótulos */
+.uso{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--borde)}
+.uso:first-child{padding-top:0;border-top:0}
+.uso .nombre{font-weight:800;font-size:13px;color:var(--texto)}
+.uso .nombre .n{display:inline-flex;width:22px;height:22px;border-radius:6px;background:var(--campo);color:var(--suave);align-items:center;justify-content:center;font-size:11px;margin-right:6px}
+
+/* día */
+.dia{display:flex;align-items:center;gap:8px}
+.dia button{width:52px;font-size:20px;flex:none}
+.dia .num{flex:1;text-align:center;font-weight:800;font-size:18px;background:var(--campo);border:1px solid var(--borde);border-radius:9px;padding:9px 0}
+
+/* opciones: imagen, cuenta, duración */
+.opciones{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.opciones.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
+.opciones button{position:relative;background:var(--campo);border-color:var(--borde);font-weight:700;font-size:12px;padding:4px;line-height:1.25}
+.opciones button[aria-pressed=true]{border-color:var(--verde);background:var(--verde-fondo)}
+.opciones button[aria-pressed=true]::before{content:"✓";position:absolute;top:1px;left:4px;font-size:11px;color:var(--verde-texto)}
+.opciones .sub{display:block;font-weight:500;font-size:10px;color:var(--suave)}
+.segmento button{background:var(--caja2);border-color:transparent;font-size:13px}
+.segmento button[aria-pressed=true]{background:var(--elegido);border-color:var(--acento)}
+
+/* en vivo */
+.siguiente{background:var(--rey);color:#fff;font-size:18px;min-height:72px}
+.siguiente:hover{background:#1863bd}
+.siguiente .sub{display:block;font-weight:600;font-size:12px;color:#d6e6f8;margin-top:2px}
+.rotulos{display:flex;flex-direction:column;gap:8px}
+.rot{text-align:left;border-radius:12px;min-height:62px;padding:8px 10px;display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:10px}
+.rot .tecla{width:30px;height:30px;border-radius:8px;background:var(--campo);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--suave)}
+.rot .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rot .nom{font-size:15px}
+.rot .prev{font-weight:500;font-size:12px;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rot .prev.falta{color:var(--ambar)}
+.rot .est{font-size:11px;letter-spacing:1px;color:var(--suave)}
+.rot[aria-pressed=true]{border-color:var(--verde);background:var(--verde-fondo)}
+.rot[aria-pressed=true] .est{color:var(--verde-texto)}
+
+/* modo app: panel compacto para la columna de la app Android (360 dp de ancho, ~318 px de alto) */
+.modo-app .linea1,.modo-app .ahora,.modo-app #atajos{display:none}
+.modo-app .arriba{padding-top:6px;gap:4px}
+.modo-app .hoja{padding:8px;gap:8px}
+.modo-app .fila-vivo{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px}
+.modo-app #siguiente,.modo-app #ocultar{min-height:52px}
+.modo-app #siguiente{font-size:15px}
+.modo-app #siguiente .sub{display:none}
+.modo-app #ocultar{background:var(--rojo);padding:4px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.modo-app #ocultar:disabled{background:var(--apagado)}
+.modo-app #ocultar .sub{display:block;max-width:100%;font-weight:500;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .seccion{padding:8px;gap:6px}
+.modo-app .seccion h3{display:none}
+.modo-app .rotulos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.modo-app .rot{min-height:52px;padding:4px 8px;grid-template-columns:24px minmax(0,1fr);gap:6px}
+.modo-app .rot .tecla{width:24px;height:24px;border-radius:6px;font-size:12px}
+.modo-app .rot .txt{gap:0}
+.modo-app .rot .nom{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .rot .prev{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modo-app .rot .est{display:none}
+
+/* interruptores (botones role=switch: sin campos en la hoja En vivo) */
+.interruptor{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;padding:4px 0;font-weight:700;font-size:14px;text-align:left;width:100%}
+.interruptor:hover{background:transparent}
+.interruptor .lado{display:flex;align-items:center;gap:8px;flex:none;font-size:12px;color:var(--suave)}
+.perilla{width:46px;height:26px;border-radius:13px;background:var(--apagado);position:relative;flex:none;transition:background .2s}
+.perilla::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.interruptor[aria-checked=true] .perilla{background:#178a52}
+.interruptor[aria-checked=true] .perilla::after{left:23px}
+
+/* plegables */
+details{background:var(--caja);border:1px solid var(--borde);border-radius:12px;padding:4px 12px}
+summary{cursor:pointer;font-weight:800;font-size:14px;min-height:44px;display:flex;align-items:center}
+details[open]>summary{margin-bottom:8px}
+details details{background:var(--caja2);margin-bottom:8px}
+details label{margin-bottom:9px}
+.secundario{background:transparent;border:2px solid var(--borde);color:var(--texto);font-weight:700}
+.aviso{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:start;margin-bottom:10px}
+.aviso .n{width:24px;height:24px;border-radius:6px;background:var(--rey);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;margin-top:10px}
+.aviso .campos{display:flex;flex-direction:column;gap:5px}
+/* guardadas (tablero S2PanelGuardadas) */
+.guardada{border-top:1px solid var(--borde);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.guardada:first-child{border-top:0;padding-top:0}
+.guardada .nom{font-weight:800;font-size:15px;overflow-wrap:anywhere}
+.guardada .meta{font-size:12px;color:var(--suave)}
+.guardada .acciones{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px}
+.guardada .acciones button{font-size:12px;padding:8px 4px}
+.guardada .acciones .cargar{background:var(--rey);color:#fff;font-size:14px}
+.guardada .acciones .cargar:hover{background:#1863bd}
+.guardada .acciones .borrar{background:transparent;border-color:var(--borde);color:var(--suave)}
+.rapida{display:flex;align-items:center;gap:8px}
+.rapida .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rapida .nom{font-weight:800;font-size:14px;overflow-wrap:anywhere}
+.rapida .meta{font-size:11px;color:var(--suave)}
+.rapida button{min-width:84px}
+.enlace{background:transparent;border:0;color:#6cb6f0;font-size:13px;text-align:left;padding:0 4px}
+.enlace:hover{background:transparent;text-decoration:underline}
+.estado-guardadas{font-size:12px;font-weight:700;color:var(--verde-texto);min-height:16px}
+.estado-guardadas.error{color:var(--ambar)}
+.guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
+.guardado.si{opacity:1}
+
+/* ---------- dock de OBS: gris y compacto (Tarea 9e) ----------
+   Es el estilo por defecto: todo va bajo :root:not(.modo-app), así la app Android (.modo-app) queda igual.
+   Colores del tema por defecto de OBS 33 (Yami «Default», data/obs-studio/themes/Yami.obt):
+   grey7 #1D1F26 bg_window · grey6 #272A33 bg_base · grey4 #3C404D button_bg, input_bg y border_color ·
+   grey3 #464B59 button_bg_hover · grey1 #5B6273 input_border · blue3 #284CB8 primary · blue2 #476BD7 primary_light ·
+   blue1 #718CDC highlight_color · white1 #FFFFFF text · white4 #B4B4B4 · white3 #D2D2D2 · red3 #C01C37 · red4 #A1172E ·
+   green1/2/3/4/6 · yellow1 #EABC48 · yellow6 #493709.
+   Texto atenuado: white4 sobre fondos grey6/grey7 y white3 dentro de botones (white5, text_muted de OBS, no llega a 4,5:1). */
+:root:not(.modo-app){--fondo:#1D1F26;--caja:#272A33;--caja2:#3C404D;--elegido:#284CB8;--borde:#3C404D;--campo:#1D1F26;--texto:#FFFFFF;--suave:#B4B4B4;--suave-boton:#D2D2D2;--acento:#476BD7;--rey:#476BD7;--rojo:#C01C37;--verde:#37D247;--verde-borde:#25A231;--verde-fondo:#0F4313;--verde-texto:#59D966;--ambar:#EABC48;--ambar-fondo:#493709;--apagado:#272A33;--foco:#718CDC;--hover:#464B59;--campo-borde:#5B6273}
+:root:not(.modo-app) body{font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;padding-bottom:24px}
+:root:not(.modo-app) button{font-weight:600;font-size:12px;border:1px solid transparent;border-radius:4px;min-height:28px;padding:4px 8px}
+:root:not(.modo-app) button:hover{background:var(--hover)}
+:root:not(.modo-app) .pestanas button:hover{color:var(--suave-boton)}
+:root:not(.modo-app) button:disabled{background:var(--apagado);border-color:var(--borde);color:var(--suave)}
+:root:not(.modo-app) :focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
+:root:not(.modo-app) :is(input,textarea,select):focus{background:var(--fondo);border-color:var(--elegido)}
+:root:not(.modo-app) :is(input,textarea)::placeholder{color:var(--suave);opacity:1}
+:root:not(.modo-app) input.falta{border:2px solid var(--ambar)}
+:root:not(.modo-app) label{gap:3px;font-weight:600;font-size:11px}
+:root:not(.modo-app) .ayuda{font-size:11px;font-weight:400;line-height:1.4}
+/* arriba */
+:root:not(.modo-app) .arriba{padding:6px 8px 0;gap:6px}
+:root:not(.modo-app) .linea1{gap:4px 6px}
+:root:not(.modo-app) .conexion{gap:5px;font-size:11px;font-weight:400}
+:root:not(.modo-app) .punto{width:7px;height:7px}
+:root:not(.modo-app) .pildora{font-size:11px;font-weight:400;color:var(--suave);background:transparent;border-radius:0;padding:0}
+:root:not(.modo-app) .ahora{gap:6px;border-radius:4px;padding:5px 6px 5px 8px}
+:root:not(.modo-app) .ahora .info{gap:1px}
+:root:not(.modo-app) .ahora .tit{font-size:11px;font-weight:600;letter-spacing:0}
+:root:not(.modo-app) .ahora .val{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .ahora.en{border:1px solid var(--verde-borde)}
+:root:not(.modo-app) .ahora button{min-width:0;min-height:26px;padding:0 10px}
+:root:not(.modo-app) .ahora button:not(:disabled){background:var(--rojo);min-height:26px}
+:root:not(.modo-app) .ahora button:not(:disabled):hover{background:#A1172E}
+:root:not(.modo-app) .progreso{height:3px}
+:root:not(.modo-app) .pestanas button{border-radius:4px 4px 0 0;font-size:12px;font-weight:400;min-height:26px;padding:2px 4px}
+:root:not(.modo-app) .pestanas button[aria-selected=true]{font-weight:600;box-shadow:inset 0 -2px 0 var(--acento)}
+/* hojas */
+:root:not(.modo-app) .hoja{padding:8px;gap:8px}
+:root:not(.modo-app) .vista{gap:8px}
+:root:not(.modo-app) .seccion{border-radius:4px;padding:8px;gap:6px}
+:root:not(.modo-app) .seccion h3{font-size:11px;letter-spacing:0;font-weight:600;text-transform:none}
+:root:not(.modo-app) .subtitulo{font-weight:600;font-size:11px}
+:root:not(.modo-app) .fila{grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:6px}
+:root:not(.modo-app) .tipos{gap:4px}
+:root:not(.modo-app) .tipos button{min-height:34px;padding:4px 6px;gap:1px;border-radius:4px}
+:root:not(.modo-app) .tipos .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .tipos .sub{font-weight:400;font-size:11px;color:var(--suave-boton)}
+:root:not(.modo-app) .tipos button[aria-pressed=true]{border-color:var(--acento)}
+:root:not(.modo-app) [aria-pressed=true] .sub{color:var(--texto)}
+:root:not(.modo-app) .primario{font-size:12.5px;min-height:32px;border-radius:4px}
+:root:not(.modo-app) .primario:hover,:root:not(.modo-app) .siguiente:hover,:root:not(.modo-app) .guardada .acciones .cargar:hover{background:var(--elegido)}
+:root:not(.modo-app) .tipo-actual{gap:6px;border:1px solid var(--acento);border-radius:4px;padding:6px 8px}
+:root:not(.modo-app) .tipo-actual .info{gap:1px}
+:root:not(.modo-app) .tipo-actual .tit{font-size:11px;font-weight:600;letter-spacing:0;color:var(--suave-boton)}
+:root:not(.modo-app) .tipo-actual .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .tipo-actual .ayuda{color:var(--suave-boton)}
+:root:not(.modo-app) .revision{border-radius:4px;padding:6px 8px;gap:0}
+:root:not(.modo-app) .revision.faltan{border:1px solid var(--ambar)}
+:root:not(.modo-app) .revision.listo{border:1px solid var(--verde-borde)}
+:root:not(.modo-app) .revision .tit{font-weight:600;font-size:12px}
+:root:not(.modo-app) .revision a{font-weight:400;font-size:12px;min-height:24px}
+:root:not(.modo-app) .uso{gap:6px;padding-top:8px}
+:root:not(.modo-app) .uso .nombre{font-weight:600;font-size:12px}
+:root:not(.modo-app) .uso .nombre .n{width:18px;height:18px;border-radius:3px;margin-right:5px}
+:root:not(.modo-app) .dia{gap:6px}
+:root:not(.modo-app) .dia button{width:34px;font-size:16px;padding:0}
+:root:not(.modo-app) .dia .num{font-weight:600;font-size:13px;border-radius:4px;padding:5px 0}
+:root:not(.modo-app) .opciones{gap:4px}
+:root:not(.modo-app) #imagenes{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+:root:not(.modo-app) #duracion{grid-template-columns:repeat(auto-fit,minmax(56px,1fr))}
+:root:not(.modo-app) .opciones.tres{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
+:root:not(.modo-app) .opciones button{background:var(--caja2);border-color:transparent;font-weight:600;font-size:11px;padding:3px 4px}
+:root:not(.modo-app) .opciones button[aria-pressed=true]{border-color:var(--acento);background:var(--elegido)}
+:root:not(.modo-app) .opciones button[aria-pressed=true]::before{position:static;font-size:11px;margin-right:2px;color:var(--texto)}
+:root:not(.modo-app) .opciones .sub{font-weight:400;font-size:11px;color:var(--suave-boton)}
+:root:not(.modo-app) .segmento button{font-size:12px;padding:4px 2px}
+/* en vivo */
+:root:not(.modo-app) .siguiente{font-size:12.5px;min-height:34px}
+:root:not(.modo-app) .siguiente .sub{display:inline;font-weight:400;font-size:11px;color:var(--texto);margin:0 0 0 6px}
+:root:not(.modo-app) .rotulos{gap:4px}
+:root:not(.modo-app) .rot{border-radius:4px;min-height:34px;padding:4px 6px;grid-template-columns:18px minmax(0,1fr) auto;gap:7px}
+:root:not(.modo-app) .rot .tecla{width:18px;height:18px;border-radius:3px;font-weight:700;font-size:11px;color:var(--suave)}
+:root:not(.modo-app) .rot .txt{gap:0}
+:root:not(.modo-app) .rot .nom{font-weight:600;font-size:12.5px;line-height:1.25}
+/* el texto del rótulo se ve entero: en un dock angosto pasa a una segunda línea en vez de cortarse */
+:root:not(.modo-app) .rot .prev{font-weight:400;font-size:11px;line-height:1.25;color:var(--suave-boton);white-space:normal;overflow:visible;overflow-wrap:anywhere}
+:root:not(.modo-app) .rot .prev.falta{color:var(--ambar)}
+:root:not(.modo-app) .rot .est{font-size:11px;font-weight:600;letter-spacing:0;color:var(--suave-boton)}
+:root:not(.modo-app) .rot[aria-pressed=true]{border-color:var(--acento);background:var(--elegido)}
+:root:not(.modo-app) .rot[aria-pressed=true] :is(.prev,.prev.falta,.est){color:var(--texto)}
+:root:not(.modo-app) .interruptor{gap:8px;padding:2px 0;font-weight:400;font-size:12.5px;min-height:26px}
+:root:not(.modo-app) .interruptor:hover{background:transparent}
+:root:not(.modo-app) .interruptor .lado{gap:6px;font-size:11px}
+:root:not(.modo-app) .perilla{width:30px;height:16px;border-radius:8px;background:var(--caja2)}
+:root:not(.modo-app) .perilla::after{top:2px;left:2px;width:12px;height:12px}
+:root:not(.modo-app) .interruptor[aria-checked=true] .perilla{background:var(--acento)}
+:root:not(.modo-app) .interruptor[aria-checked=true] .perilla::after{left:16px}
+/* plegables y guardadas */
+:root:not(.modo-app) details{border-radius:4px;padding:2px 8px}
+:root:not(.modo-app) summary{font-weight:600;font-size:12.5px;min-height:28px}
+:root:not(.modo-app) details[open]>summary{margin-bottom:6px}
+:root:not(.modo-app) details details{margin-bottom:6px}
+:root:not(.modo-app) details details :is(input,textarea){background:var(--caja)}
+:root:not(.modo-app) details label{margin-bottom:6px}
+:root:not(.modo-app) .secundario{border:1px solid var(--campo-borde);font-weight:600}
+:root:not(.modo-app) .aviso{grid-template-columns:18px minmax(0,1fr);gap:6px;margin-bottom:8px}
+:root:not(.modo-app) .aviso .n{width:18px;height:18px;border-radius:3px;background:var(--caja2);font-weight:700;font-size:11px;margin-top:5px}
+:root:not(.modo-app) .aviso .campos{gap:4px}
+:root:not(.modo-app) .guardada{padding-top:8px;gap:6px}
+:root:not(.modo-app) .guardada .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .guardada .meta{font-size:11px}
+:root:not(.modo-app) .guardada .acciones{gap:4px}
+:root:not(.modo-app) .guardada .acciones button{font-size:12px;padding:4px}
+/* pruebas/prueba.js exige 44 px en los botones de la lista de guardadas: se dejan en 44 hasta que se decida otra cosa */
+:root:not(.modo-app) #lista-guardadas button{min-height:44px}
+:root:not(.modo-app) .guardada .acciones .cargar{font-size:12px}
+:root:not(.modo-app) .guardada .acciones .borrar{border-color:var(--campo-borde);color:var(--texto)}
+:root:not(.modo-app) .rapida{gap:6px}
+:root:not(.modo-app) .rapida .nom{font-weight:600;font-size:12.5px}
+:root:not(.modo-app) .rapida button{min-width:64px}
+:root:not(.modo-app) .enlace{color:var(--texto);text-decoration:underline;font-size:12px;font-weight:400}
+:root:not(.modo-app) .enlace:hover{background:transparent;text-decoration-thickness:2px}
+:root:not(.modo-app) .estado-guardadas{font-size:11px;font-weight:600}
+:root:not(.modo-app) .guardado{background:#1E8528;font-weight:600;padding:4px 8px;border-radius:4px;font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="arriba">
+  <div class="linea1">
+    <span class="conexion"><span class="punto" id="punto"></span><span id="conexion">Buscando pantallas…</span></span>
+    <span class="pildora" id="transmision"></span>
+  </div>
+  <div class="ahora" id="ahora">
+    <div class="info">
+      <span class="tit" id="ahora-tit">EN PANTALLA</span>
+      <span class="val" id="ahora-val">Ningún rótulo</span>
+      <span class="progreso" id="progreso"></span>
+    </div>
+    <button type="button" id="ocultar" aria-keyshortcuts="Escape" title="Ocultar (Esc)">Ocultar</button>
+  </div>
+  <div class="pestanas" role="tablist">
+    <button type="button" role="tab" id="tab-preparar" data-hoja="preparar" aria-controls="hoja-preparar" aria-selected="true">Preparar</button>
+    <button type="button" role="tab" id="tab-vivo" data-hoja="vivo" aria-controls="hoja-vivo" aria-selected="false">En vivo</button>
+    <button type="button" role="tab" id="tab-guardadas" data-hoja="guardadas" aria-controls="hoja-guardadas" aria-selected="false">Guardadas</button>
+  </div>
+</div>
+
+<!-- ================= PREPARAR ================= -->
+<section class="hoja activa" id="hoja-preparar" role="tabpanel" aria-labelledby="tab-preparar">
+
+  <!-- Elegir el tipo (tablero S2PanelElegir) -->
+  <div class="vista" id="elegir" hidden>
+    <div class="seccion">
+      <h3>¿Qué vamos a transmitir?</h3>
+      <div class="tipos" id="tipos"></div>
+      <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después puede cambiar cualquier dato.</span>
+    </div>
+    <div class="seccion" id="sec-rapidas" hidden>
+      <h3>O cargar una guardada</h3>
+      <div id="rapidas" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button type="button" class="enlace" id="ver-guardadas">Ver todas las guardadas</button>
+    </div>
+    <button type="button" class="primario" id="continuar">Continuar</button>
+  </div>
+
+  <!-- Llenar los datos (tablero S2PanelPreparar) -->
+  <div class="vista" id="preparar-datos">
+    <div class="tipo-actual">
+      <div class="info">
+        <span class="tit">TIPO</span>
+        <span class="nom" id="tipo-nombre"></span>
+        <span class="ayuda" id="tipo-desc"></span>
+      </div>
+      <button type="button" id="cambiar-tipo">Cambiar</button>
+    </div>
+
+    <div class="revision" id="revision" role="status"></div>
+
+    <div class="seccion" id="sec-datos">
+      <h3>Datos de la transmisión</h3>
+      <div class="dia" id="caja-dia">
+        <button type="button" id="dia-menos" aria-label="Día anterior">−</button>
+        <div class="num" id="dia-num" aria-live="polite">DÍA 1</div>
+        <button type="button" id="dia-mas" aria-label="Día siguiente">+</button>
+      </div>
+      <label id="caja-sector">Sector o comunidad<input type="text" id="dato-sector" placeholder="Ej.: SECTOR 8"></label>
+      <label id="caja-santo">Santo o patrono<input type="text" id="dato-santo" placeholder="Ej.: San José"></label>
+      <label id="caja-fecha">Fecha<input type="date" id="dato-fecha"></label>
+      <label id="caja-lugar">Lugar<input type="text" id="dato-lugar" placeholder="Ej.: Parque central · 5:00 p. m."></label>
+      <label id="caja-evento">Nombre del evento<input type="text" id="dato-evento" placeholder="Ej.: Concierto de Adviento"></label>
+    </div>
+
+    <div class="seccion">
+      <h3 id="campos-titulo">Rótulos</h3>
+      <span class="ayuda">Lo gris es el texto automático: sale así si deja la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
+      <div id="campos-rotulos" style="display:flex;flex-direction:column;gap:10px"></div>
+      <datalist id="cargos"></datalist>
+      <button type="button" class="secundario" id="limpiar-lecturas">Borrar lecturas (para la próxima misa)</button>
+    </div>
+
+    <div class="seccion">
+      <h3>Pantallas</h3>
+      <span class="subtitulo" id="imagen-tit">Imagen</span>
+      <div class="opciones" id="imagenes" role="group" aria-labelledby="imagen-tit"></div>
+      <label>Esquina
+        <select id="esquina">
+          <option value=""></option>
+          <option value="hoy">Fecha de hoy</option>
+          <option value="fecha">Fecha de la transmisión</option>
+          <option value="fiesta">8 de diciembre</option>
+          <option value="texto">Texto libre</option>
+        </select></label>
+      <label id="caja-esquinaTexto">Texto de la esquina<textarea id="esquinaTexto" rows="2"></textarea></label>
+      <span class="subtitulo" id="cuenta-tit">Cuenta regresiva a la fiesta</span>
+      <div class="opciones tres" role="group" aria-labelledby="cuenta-tit">
+        <button type="button" data-cuenta="auto">Automática</button>
+        <button type="button" data-cuenta="si">Mostrar</button>
+        <button type="button" data-cuenta="no">No mostrar</button>
+      </div>
+      <span class="ayuda" id="cuenta-estado"></span>
+      <label>Días que faltan<input type="number" id="diasManual" min="0"></label>
+    </div>
+
+    <details id="det-avisos">
+      <summary>Avisos</summary>
+      <div class="ayuda" style="margin-bottom:8px">Solo se muestran los avisos que tengan texto.</div>
+      <div id="avisos"></div>
+      <button type="button" class="secundario" id="limpiar-avisos" style="width:100%;margin-bottom:8px">Borrar todos los avisos</button>
+    </details>
+
+    <details id="det-textos">
+      <summary>Textos de las pantallas</summary>
+      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si deja la casilla vacía. Enter = nueva línea.</div>
+      <label>Frase de la franja inferior<input type="text" id="frase"></label>
+      <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto"></label>
+      <label>Línea bajo los rótulos<input type="text" id="parroquia"></label>
+      <div id="textos"></div>
+      <button type="button" class="secundario" id="restablecer" style="width:100%;margin-bottom:8px">Volver a los textos automáticos</button>
+    </details>
+
+    <button type="button" class="secundario" id="guardar-esta">Guardar esta transmisión…</button>
+  </div>
+</section>
+
+<!-- ================= EN VIVO (sin campos de texto) ================= -->
+<section class="hoja" id="hoja-vivo" role="tabpanel" aria-labelledby="tab-vivo">
+  <button type="button" class="siguiente" id="siguiente" aria-keyshortcuts="Space"><span id="sig-nom">Siguiente</span><span class="sub">Barra espaciadora</span></button>
+  <div class="seccion">
+    <h3 id="vivo-titulo">Rótulos</h3>
+    <div class="rotulos" id="rotulos"></div>
+    <span class="subtitulo" id="duracion-tit">Ocultar solo después de</span>
+    <div class="opciones segmento" id="duracion" role="group" aria-labelledby="duracion-tit">
+      <button type="button" data-seg="8">8 s</button><button type="button" data-seg="12">12 s</button><button type="button" data-seg="20">20 s</button><button type="button" data-seg="0">Manual</button>
+    </div>
+  </div>
+  <div class="seccion">
+    <h3>Sobre la cámara</h3>
+    <button type="button" class="interruptor" role="switch" data-switch="mostrarLogo"><span>Logo de la parroquia</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
+    <button type="button" class="interruptor" role="switch" data-switch="mostrarEnVivo"><span>Etiqueta EN VIVO</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
+    <button type="button" class="interruptor" role="switch" data-switch="mostrarBarra"><span>Barra con el título</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
+  </div>
+  <span class="ayuda" id="atajos" style="padding:0 4px"></span>
+</section>
+
+<!-- ================= GUARDADAS (Tarea 6) ================= -->
+<section class="hoja" id="hoja-guardadas" role="tabpanel" aria-labelledby="tab-guardadas">
+  <div class="seccion">
+    <h3>Guardar la transmisión actual</h3>
+    <label>Nombre<input type="text" id="guardar-nombre" autocomplete="off" maxlength="80"></label>
+    <button type="button" class="primario" id="guardar-boton" style="font-size:14px;min-height:44px">Guardar</button>
+    <span class="estado-guardadas" id="estado-guardadas" role="status"></span>
+  </div>
+  <div class="seccion" id="sec-guardadas">
+    <h3 id="titulo-guardadas" tabindex="-1">Transmisiones guardadas</h3>
+    <div id="lista-guardadas" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</section>
+
+<div class="guardado" id="guardado" role="status">Guardado ✓</div>
+
+<script src="tipos.js"></script>
+<script src="comun.js"></script>
+<script src="guardadas.js"></script>
+<script>
+/* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
+if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
+const $ = (id) => document.getElementById(id);
+const nuevo = (etiqueta, clase, texto) => {
+  const el = document.createElement(etiqueta);
+  if (clase) el.className = clase;
+  if (texto !== undefined) el.textContent = texto;
+  return el;
+};
+let s = leerEstado();
+
+/* En modo app, Siguiente y Ocultar van juntos arriba de En vivo (se mueven los mismos nodos, sin clonar). */
+if (document.documentElement.classList.contains('modo-app')) {
+  const fila = nuevo('div', 'fila-vivo');
+  $('hoja-vivo').prepend(fila);
+  fila.append($('siguiente'), $('ocultar'));
+  const sub = nuevo('span', 'sub', 'nada en pantalla');
+  sub.id = 'ocultar-sub';
+  $('ocultar').append(sub);
+}
+
+/* Modo app: los rótulos salen si y solo si la escena es Cámara. La app avisa con window.fijarEscenaApp(escena).
+   Es un valor local de este panel (no va al estado compartido) y arranca en 'inicio'. */
+let rotulosBloqueados = () => false;
+let aplicarEscenaApp = () => {};
+let ocultarFueraDeCamara = () => {};
+if (document.documentElement.classList.contains('modo-app')) {
+  let escenaApp = 'inicio';
+  rotulosBloqueados = () => escenaApp !== 'camara';
+  aplicarEscenaApp = () => {
+    const fuera = rotulosBloqueados();
+    document.documentElement.classList.toggle('fuera-de-camara', fuera);
+    document.querySelectorAll('[data-rotulo], #siguiente').forEach(b => {
+      if (fuera) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+      else { b.removeAttribute('aria-disabled'); if (b.dataset.rotulo !== undefined) b.disabled = false; }   // Siguiente: refrescar() decide su disabled
+    });
+    const sub = document.querySelector('#siguiente .sub');
+    sub.textContent = fuera ? 'Solo en Cámara' : 'Barra espaciadora';
+    sub.style.display = fuera ? 'block' : '';
+  };
+  /* Fuera de Cámara no se queda ningún rótulo: ni el guardado antes de cargar ni el que escriba otro cliente
+     (llega por escucharEstado, que pone el estado nuevo en `s` y refresca). Solo mira `s`, nunca relee el
+     almacenamiento: ocultar() deja s.rotulo en 'ninguno' antes de guardar, así que aunque la escritura falle
+     (cupo lleno) la pasada siguiente no vuelve a entrar y el panel sigue trabajando en memoria. */
+  ocultarFueraDeCamara = () => {
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();
+  };
+  window.fijarEscenaApp = (escena) => {
+    escenaApp = escena;
+    if (rotulosBloqueados() && s.rotulo !== 'ninguno') ocultar();   // guarda y refresca una sola vez
+    else refrescar();
+  };
+}
+
+/* ---------- guardar ---------- */
+let avisoT, esperaT;
+function guardar() {
+  clearTimeout(esperaT);
+  guardarEstado(s); refrescar();
+  $('guardado').classList.add('si'); clearTimeout(avisoT); avisoT = setTimeout(() => $('guardado').classList.remove('si'), 800);
+}
+function guardarPronto() { clearTimeout(esperaT); esperaT = setTimeout(guardar, 350); }
+
+/* ---------- pestañas ---------- */
+const HOJAS = ['preparar', 'vivo', 'guardadas'];
+function abrir(h) {
+  if (!HOJAS.includes(h)) h = 'preparar';   // un nombre viejo guardado (avisos, textos…) abre Preparar
+  document.querySelectorAll('[data-hoja]').forEach(b => b.setAttribute('aria-selected', b.dataset.hoja === h ? 'true' : 'false'));
+  document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
+  try { localStorage.setItem('parroquia_panel_hoja', h); } catch (e) {}
+}
+// Con el mouse (detail > 0) la pestaña suelta el foco: así Espacio queda para «siguiente» y no la vuelve a apretar.
+document.querySelectorAll('[data-hoja]').forEach(b => b.addEventListener('click', (e) => { abrir(b.dataset.hoja); if (e.detail > 0) b.blur(); }));
+let hojaGuardada = null;
+try { hojaGuardada = localStorage.getItem('parroquia_panel_hoja'); } catch (e) {}
+abrir(hojaGuardada);
+
+/* ---------- fecha corta para la píldora («jue 5 nov») ---------- */
+const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function fechaCorta(f) { return DIAS_CORTOS[f.getDay()] + ' ' + f.getDate() + ' ' + MESES_CORTOS[f.getMonth()]; }
+function fechaTransmision() {
+  const f = tipoDe(s).datos.includes('fecha') ? fechaLocal(s.fecha) : null;
+  return f || new Date();
+}
+
+/* ---------- elegir el tipo ---------- */
+let eligiendo = false;
+function verEleccion(si) {
+  eligiendo = si;
+  $('elegir').hidden = !si; $('preparar-datos').hidden = si;
+  (si ? document.querySelector('[data-tipo][aria-pressed=true]') || $('continuar') : $('cambiar-tipo')).focus();
+}
+ORDEN_TIPOS.forEach(clave => {
+  const tipo = TIPOS[clave];
+  const b = nuevo('button'); b.type = 'button'; b.dataset.tipo = clave;
+  b.append(nuevo('span', 'nom', tipo.nombre), nuevo('span', 'sub', tipo.descripcion || ''));
+  b.addEventListener('click', () => cambiarTipo(clave));
+  $('tipos').append(b);
+});
+function cambiarTipo(clave) {
+  if (clave !== s.tipo) {
+    // Otro tipo: imagen, esquina y cuenta vuelven a las del tipo nuevo (los datos, rótulos y avisos se quedan).
+    s.imagen = ''; s.esquina = ''; s.esquinaTexto = ''; s.cuenta = null;
+  }
+  s.tipo = clave;
+  const ids = rotulosDe(s).map(r => r.id);
+  if (!ids.includes(s.rotulo)) { s.rotulo = 'ninguno'; s.rotuloHasta = 0; }
+  if (!ids.includes(ultimoMostrado)) ultimoMostrado = null;
+  guardar();
+}
+$('cambiar-tipo').addEventListener('click', () => verEleccion(true));
+$('continuar').addEventListener('click', () => verEleccion(false));
+
+/* ---------- datos del tipo ---------- */
+const DATOS = {
+  sector: { campo: 'dato-sector', falta: 'Falta el sector' },
+  santo:  { campo: 'dato-santo',  falta: 'Falta el santo o patrono' },
+  fecha:  { campo: 'dato-fecha',  falta: 'Falta la fecha' },
+  lugar:  { campo: 'dato-lugar',  falta: 'Falta el lugar' },
+  evento: { campo: 'dato-evento', falta: 'Falta el nombre del evento' }
+};
+Object.entries(DATOS).forEach(([clave, d]) => {
+  const el = $(d.campo);
+  el.addEventListener('input', () => { s[clave] = el.value; guardarPronto(); });
+});
+function campoDia() { return s.tipo === 'prenovena' ? 'prenovenaDia' : 'novenaDia'; }
+$('dia-mas').addEventListener('click', () => { const c = campoDia(); s[c] = (parseInt(s[c], 10) || 1) + 1; if (c === 'novenaDia') s[c] = Math.min(9, s[c]); guardar(); });
+$('dia-menos').addEventListener('click', () => { const c = campoDia(); s[c] = Math.max(1, (parseInt(s[c], 10) || 1) - 1); guardar(); });
+
+/* ---------- campos de los rótulos ----------
+   Un grupo por cada uso de rotulosDe(s). Las bases heredadas escriben en sus campos de siempre
+   (celebrante, lectura1, salmoResp…); las demás en s.rotulosTexto[id].{k,t,s}.
+   Cada campo: { c: 'k'|'t'|'s', etiqueta, leer(), escribir(v), auto() } (leen y escriben en `s`). */
+const FALTA = { persona: 'el nombre', lectura1: 'la cita', lectura2: 'la cita', evangelio: 'la cita', salmo: 'la respuesta', santisimo: 'el texto', lugar: 'el lugar', oracion: 'la intención', libre: 'el texto' };
+const propio = (id, c) => ((s.rotulosTexto || {})[id] || {})[c] || '';
+function escribirPropio(id, c, v) {
+  const todos = Object.assign({}, s.rotulosTexto);
+  todos[id] = Object.assign({}, todos[id], { [c]: v });
+  s.rotulosTexto = todos;
+}
+function campo(c, etiqueta, leer, escribir, auto) { return { c, etiqueta, leer, escribir, auto: auto || (() => '') }; }
+function camposDe(uso) {
+  const id = uso.id;
+  const delTipo = tipoDe(s).rotulos.find(r => r.id === id) || {};
+  const libre = (c, etiqueta, auto) => campo(c, etiqueta, () => propio(id, c), (v) => escribirPropio(id, c, v), auto);
+  switch (uso.base) {
+    case 'persona':
+      // Con ceja propia (Guía) el nombre es de ese rótulo; sin ella, el del celebrante de la transmisión.
+      return [
+        Object.assign(delTipo.ceja
+          ? libre('k', 'Cargo', () => delTipo.ceja)
+          : campo('k', 'Cargo', () => s.celebranteRol, (v) => { s.celebranteRol = v; }, () => ROTULOS.persona.ceja), { lista: 'cargos' }),
+        delTipo.ceja
+          ? libre('t', 'Nombre')
+          : campo('t', 'Nombre', () => s.celebrante, (v) => { s.celebrante = v; })
+      ];
+    case 'lectura1': case 'lectura2': case 'evangelio':
+      return [campo('t', 'Cita', () => s[uso.base], (v) => { s[uso.base] = v; }, () => uso.base === 'evangelio' ? 'Ej.: Según san Mateo 24, 37-44' : 'Ej.: Isaías 2, 1-5')];
+    case 'salmo':
+      return [
+        campo('k', 'Salmo', () => s.salmoNum, (v) => { s.salmoNum = v; }, () => 'Ej.: Salmo 121'),
+        campo('t', 'Respuesta', () => s.salmoResp, (v) => { s.salmoResp = v; }, () => 'Ej.: Vamos con alegría…')
+      ];
+    case 'rosario':
+      return [campo('s', 'Misterios o intención', () => s.rosario, (v) => { s.rosario = v; }, () => 'Ej.: Misterios Gozosos')];
+    case 'santisimo':
+      return [libre('t', 'Texto'), libre('s', 'Guía o intención', () => s.parroquia)];
+    case 'lugar':
+      return [libre('k', 'Texto pequeño', () => delTipo.ceja || ROTULOS.lugar.ceja), libre('t', 'Lugar', () => s.lugar), libre('s', 'Sector o comunidad', () => String(s.sector || '').trim() || s.parroquia)];
+    case 'oracion':
+      return [libre('t', 'Intención')];
+    default:   // libre
+      return [libre('k', 'Título', () => delTipo.ceja || ''), libre('t', 'Texto', () => delTipo.texto || ''), libre('s', 'Texto opcional', () => s.parroquia)];
+  }
+}
+const idCampo = (usoId, c) => 'rot-' + usoId + '-' + c;
+CARGOS.forEach(c => { const o = nuevo('option'); o.value = c; $('cargos').append(o); });
+let camposPintados = [];   // [{ el, uso, def }]
+let tipoPintado = null;
+function pintarCampos() {
+  tipoPintado = s.tipo;
+  const caja = $('campos-rotulos'); caja.textContent = '';
+  camposPintados = [];
+  rotulosDe(s).forEach((uso, i) => {
+    const g = nuevo('div', 'uso');
+    const titulo = nuevo('div', 'nombre');
+    titulo.append(nuevo('span', 'n', String(i + 1)), document.createTextNode(uso.nombre));
+    g.append(titulo);
+    const defs = camposDe(uso);
+    const fila = defs.length === 2 && defs[0].c === 'k' ? nuevo('div', 'fila') : g;
+    defs.forEach(def => {
+      const l = nuevo('label', '', def.etiqueta);
+      const el = nuevo('input'); el.type = 'text';
+      el.id = idCampo(uso.id, def.c);
+      el.dataset.uso = uso.id; el.dataset.c = def.c;
+      if (def.lista) el.setAttribute('list', def.lista);
+      el.setAttribute('aria-label', uso.nombre + ' · ' + def.etiqueta);
+      el.addEventListener('input', () => { def.escribir(el.value); guardarPronto(); refrescarFaltas(); });
+      l.append(el); fila.append(l);
+      camposPintados.push({ el, uso, def });
+    });
+    if (fila !== g) g.append(fila);
+    caja.append(g);
+  });
+}
+
+/* ---------- pantallas: imagen, esquina, cuenta ---------- */
+const IMAGENES = [['', 'Automática'], ['virgen-a', 'Virgen A'], ['virgen-b', 'Virgen B'], ['virgen-c', 'Virgen C'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
+const nombreImagen = (k) => (IMAGENES.find(x => x[0] === k) || [k, k])[1];
+IMAGENES.forEach(([clave, nombre]) => {
+  const b = nuevo('button', '', nombre); b.type = 'button'; b.dataset.imagen = clave;
+  if (!clave) b.append(nuevo('span', 'sub'));
+  b.addEventListener('click', () => { s.imagen = clave; guardar(); });
+  $('imagenes').append(b);
+});
+$('esquina').addEventListener('change', () => { s.esquina = $('esquina').value; guardar(); });
+$('esquinaTexto').addEventListener('input', () => { s.esquinaTexto = $('esquinaTexto').value; guardarPronto(); });
+const CUENTA = { auto: null, si: true, no: false };
+document.querySelectorAll('[data-cuenta]').forEach(b => b.addEventListener('click', () => { s.cuenta = CUENTA[b.dataset.cuenta]; guardar(); }));
+function modoEsquina(m) {
+  if (m === 'fiesta') return '8 de diciembre';
+  if (m === 'fecha') return 'fecha de la transmisión';
+  if (m === 'texto') return 'texto';
+  return 'fecha de hoy';
+}
+
+/* ---------- casillas sueltas ---------- */
+const CAMPOS = ['diasManual', 'frase', 'barraTexto', 'parroquia'];
+CAMPOS.forEach(c => { const el = $(c); el.addEventListener('input', () => { s[c] = el.value; guardarPronto(); }); });
+$('limpiar-lecturas').addEventListener('click', () => { ['lectura1','salmoNum','salmoResp','lectura2','evangelio','rosario'].forEach(c => s[c] = ''); llenar(); guardar(); });
+
+/* ---------- avisos ---------- */
+for (let i = 0; i < 4; i++) {
+  const d = nuevo('div', 'aviso');
+  const campos = nuevo('div', 'campos');
+  [['a', 'Ej.: Rezo del Santo Rosario', 'Aviso ' + (i + 1)], ['f', 'Ej.: Sáb 30 · 6:00 p. m.', 'Fecha y hora del aviso ' + (i + 1)]].forEach(([c, ph, al]) => {
+    const el = nuevo('input'); el.type = 'text'; el.dataset.aviso = i; el.dataset.c = c; el.placeholder = ph; el.setAttribute('aria-label', al);
+    campos.append(el);
+  });
+  d.append(nuevo('span', 'n', String(i + 1)), campos);
+  $('avisos').append(d);
+}
+document.querySelectorAll('[data-aviso]').forEach(el => el.addEventListener('input', () => { s.avisos[el.dataset.aviso][el.dataset.c] = el.value; guardarPronto(); }));
+$('limpiar-avisos').addEventListener('click', () => { s.avisos = [{a:'',f:''},{a:'',f:''},{a:'',f:''},{a:'',f:''}]; llenar(); guardar(); });
+
+/* ---------- todos los textos ---------- */
+const ESQUEMA = [
+  ['Pantalla de inicio', [['inicio_pildora','Etiqueta blanca'],['inicio_ceja','Texto pequeño'],['inicio_titulo','Título',1],['inicio_cursiva','Frase en cursiva',1],['inicio_cuenta','Texto de la cuenta regresiva',1]]],
+  ['Portada 8 de diciembre', [['portada_ceja','Texto pequeño'],['portada_cursiva','Frase en cursiva'],['portada_titulo','Título',1],['portada_fecha','Fecha'],['portada_sub','Texto bajo la fecha']]],
+  ['Gracias por acompañarnos', [['gracias_pildora','Etiqueta blanca'],['gracias_titulo','Título',1],['gracias_cursiva','Frase en cursiva',1],['gracias_ceja','Texto final']]],
+  ['Avisos', [['avisos_sub','Texto pequeño'],['avisos_titulo','Título']]],
+  ['Logo y barra', [['marca','Nombre junto al logo (pantallas)',1],['capa_logo','Nombre junto al logo (cámara)',1],['barra_y','Segunda parte de la barra']]],
+  ['Títulos de los rótulos', [['k_lectura1','Primera lectura'],['k_salmo','Salmo'],['k_lectura2','Segunda lectura'],['k_evangelio','Evangelio'],['k_rosario','Texto pequeño del Rosario'],['t_rosario','Título del Rosario']]]
+];
+ESQUEMA.forEach(([grupo, lista]) => {
+  const d = nuevo('details');
+  d.append(nuevo('summary', '', grupo));
+  lista.forEach(([clave, nombre, multi]) => {
+    const l = nuevo('label', '', nombre);
+    const el = nuevo(multi ? 'textarea' : 'input');
+    if (multi) el.rows = 2; else el.type = 'text';
+    el.dataset.texto = clave;
+    el.addEventListener('input', () => { s.textos = s.textos || {}; s.textos[clave] = el.value; guardarPronto(); });
+    l.append(el); d.append(l);
+  });
+  $('textos').append(d);
+});
+$('restablecer').addEventListener('click', () => { s.textos = {}; llenar(); guardar(); });
+
+/* ---------- rótulos en vivo ---------- */
+let ultimoMostrado = null;
+let botonesDe = null;   // tipo para el que se armaron los botones
+const usos = () => rotulosDe(s);
+function visible() { return s.rotulo !== 'ninguno' && !(s.rotuloHasta && Date.now() > s.rotuloHasta) ? s.rotulo : null; }
+function mostrar(id) {
+  if (!usos().some(u => u.id === id)) return;
+  s.rotulo = id; ultimoMostrado = id;
+  const seg = s.duracionSeg || 0; s.rotuloHasta = seg ? Date.now() + seg * 1000 : 0; s.rotuloDesde = Date.now();
+  guardar();
+}
+function ocultar() { s.rotulo = 'ninguno'; s.rotuloHasta = 0; guardar(); }
+function alternar(id) { if (visible() === id) ocultar(); else mostrar(id); }
+function siguienteUso() {
+  const lista = usos();
+  if (!lista.length) return null;
+  const base = visible() || ultimoMostrado;
+  const i = lista.findIndex(u => u.id === base);
+  return lista[(i + 1) % lista.length];
+}
+function armarBotones() {
+  botonesDe = s.tipo;
+  const caja = $('rotulos'); caja.textContent = '';
+  usos().forEach((uso, i) => {
+    const b = nuevo('button', 'rot'); b.type = 'button'; b.dataset.rotulo = uso.id;
+    if (i < 9) b.setAttribute('aria-keyshortcuts', String(i + 1));
+    const txt = nuevo('span', 'txt');
+    txt.append(nuevo('span', 'nom', uso.nombre), nuevo('span', 'prev'));
+    b.append(nuevo('span', 'tecla', i < 9 ? String(i + 1) : ''), txt, nuevo('span', 'est'));
+    b.addEventListener('click', () => alternar(uso.id));
+    caja.append(b);
+  });
+}
+$('siguiente').addEventListener('click', () => { const u = siguienteUso(); if (u) mostrar(u.id); });
+$('ocultar').addEventListener('click', ocultar);
+document.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { s.duracionSeg = parseInt(b.dataset.seg, 10); guardar(); }));
+document.querySelectorAll('[data-switch]').forEach(b => b.addEventListener('click', () => { s[b.dataset.switch] = !s[b.dataset.switch]; guardar(); }));
+
+/* Atajos de teclado.
+   - Esc (ocultar) funciona siempre, salvo dentro de una casilla (ahí solo sale de la casilla).
+   - 1–9, Espacio y N solo con la hoja En vivo abierta: en Preparar nada sale al aire por accidente.
+   - Espacio y Enter no le quitan su acción a un botón, enlace, resumen o interruptor enfocado, salvo los
+     botones de rótulo y «Siguiente» (ahí «siguiente» es lo esperado). */
+function esControl(el) {
+  if (!el || el === document.body) return false;
+  if (el.closest('.rot') || el.id === 'siguiente') return false;
+  return !!el.closest('button, a, summary, [role=switch], [role=tab]');
+}
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
+  if (!$('hoja-vivo').classList.contains('activa')) return;
+  if (rotulosBloqueados()) return;   // modo app fuera de Cámara: ni números ni Espacio sacan un rótulo
+  if (/^[1-9]$/.test(e.key)) {
+    const uso = usos()[+e.key - 1];          // solo si el tipo tiene un rótulo con ese número
+    if (uso) { alternar(uso.id); e.preventDefault(); }
+  } else if (e.key.toLowerCase() === 'n' || ((e.key === ' ' || e.key === 'Enter') && !esControl(t))) {
+    if (e.key === 'Enter' && t !== document.body) return;   // Enter en un botón de rótulo: su propio clic
+    const u = siguienteUso(); if (u) mostrar(u.id); e.preventDefault();
+  }
+});
+
+/* ---------- transmisiones guardadas ---------- */
+let nombreEscrito = false;   // el voluntario ya tocó el nombre: no se le pisa con la sugerencia
+const nombreSugerido = () => tipoDe(s).nombre + ' ' + fechaCorta(fechaTransmision());
+function avisoGuardadas(texto, error) { const e = $('estado-guardadas'); e.textContent = texto; e.classList.toggle('error', !!error); }
+
+/* «hoy», «ayer», «hace 7 días»… (por días de calendario) */
+function haceCuanto(ms) {
+  const a = new Date(ms), h = new Date();
+  const dias = Math.round((new Date(h.getFullYear(), h.getMonth(), h.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 14) return 'hace ' + dias + ' días';
+  if (dias < 60) return 'hace ' + Math.floor(dias / 7) + ' semanas';
+  if (dias < 365) return 'hace ' + Math.floor(dias / 30) + ' meses';
+  const anios = Math.floor(dias / 365);
+  return 'hace ' + anios + (anios === 1 ? ' año' : ' años');
+}
+const nombreTipo = (clave) => (TIPOS[clave] || TIPOS.dominical).nombre;
+const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
+
+function cargarGuardada(id) {
+  const estado = cargarTransmision(id, s);
+  if (!estado) { pintarGuardadas(); return; }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  s = estado;                       // reemplaza todo el estado; el rótulo queda en «ninguno»
+  ultimoMostrado = null;
+  tipoPintado = null; botonesDe = null;   // reconstruye los campos aunque alguno tuviera el foco
+  guardar();                        // las pantallas se enteran
+  llenar();
+  nombreEscrito = false;
+  pintarGuardadas();
+  verEleccion(false);
+  abrir('preparar');
+}
+function guardarActual() {
+  const campo = $('guardar-nombre');
+  const nombre = campo.value.trim();
+  if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
+  const existia = existeGuardada(nombre);
+  if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
+  if (!guardarTransmision(nombre, s)) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
+  nombreEscrito = false;
+  avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
+  pintarGuardadas();
+}
+function pintarGuardadas() {
+  const lista = leerGuardadas();
+  const caja = $('lista-guardadas'); caja.textContent = '';
+  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay transmisiones guardadas. Escriba un nombre arriba y apriete Guardar.'));
+  lista.forEach(g => {
+    const fila = nuevo('div', 'guardada');
+    const info = nuevo('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · usada ' + haceCuanto(ultimoUso(g))));
+    info.title = 'Última vez: ' + new Date(ultimoUso(g)).toLocaleDateString('es');
+    const acciones = nuevo('div', 'acciones');
+    const boton = (clase, texto, accion) => {
+      const b = nuevo('button', clase, texto); b.type = 'button'; b.dataset.id = g.id;
+      b.setAttribute('aria-label', texto + ' «' + g.nombre + '»');
+      b.addEventListener('click', accion);
+      return b;
+    };
+    acciones.append(
+      boton('cargar', 'Cargar', () => cargarGuardada(g.id)),
+      boton('duplicar', 'Duplicar', () => {
+        const copia = duplicarTransmision(g.id);
+        pintarGuardadas();
+        if (!copia) { avisoGuardadas('No se pudo duplicar en este navegador.', true); return; }
+        avisoGuardadas('Duplicada: «' + copia.nombre + '»');
+        const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
+        if (nuevoCargar) nuevoCargar.focus();
+      }),
+      boton('borrar', 'Borrar', () => {
+        if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
+        const borrada = borrarTransmision(g.id);
+        avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
+        pintarGuardadas();
+        $('titulo-guardadas').focus();
+      })
+    );
+    fila.append(info, acciones);
+    caja.append(fila);
+  });
+
+  /* «O cargar una guardada» en Elegir: las 2 más usadas */
+  const rapidas = $('rapidas'); rapidas.textContent = '';
+  $('sec-rapidas').hidden = !lista.length;
+  lista.slice(0, 2).forEach(g => {
+    const fila = nuevo('div', 'rapida');
+    const txt = nuevo('div', 'txt');
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
+    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
+    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
+    b.addEventListener('click', () => cargarGuardada(g.id));
+    fila.append(txt, b);
+    rapidas.append(fila);
+  });
+}
+$('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
+$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual(); e.preventDefault(); } });
+$('guardar-boton').addEventListener('click', guardarActual);
+$('ver-guardadas').addEventListener('click', () => abrir('guardadas'));
+$('guardar-esta').addEventListener('click', () => {
+  abrir('guardadas');
+  if (!nombreEscrito) $('guardar-nombre').value = nombreSugerido();
+  $('guardar-nombre').focus(); $('guardar-nombre').select();
+});
+window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS) pintarGuardadas(); });
+
+/* ---------- pintar el panel ---------- */
+function llenar() {
+  if (tipoPintado !== s.tipo) pintarCampos();
+  Object.entries(DATOS).forEach(([clave, d]) => { const el = $(d.campo); if (document.activeElement !== el) el.value = s[clave] ?? ''; });
+  camposPintados.forEach(({ el, def }) => { if (document.activeElement !== el) el.value = def.leer() ?? ''; });
+  CAMPOS.forEach(c => { if (document.activeElement !== $(c)) $(c).value = s[c] ?? ''; });
+  if (document.activeElement !== $('esquinaTexto')) $('esquinaTexto').value = s.esquinaTexto || '';
+  document.querySelectorAll('[data-aviso]').forEach(el => { if (document.activeElement !== el) el.value = s.avisos[el.dataset.aviso][el.dataset.c] || ''; });
+  refrescar();
+}
+
+/* Faltas: cada uso con texto principal vacío y cada dato del tipo sin llenar. */
+function faltas() {
+  const lista = [];
+  tipoDe(s).datos.forEach(d => {
+    if (DATOS[d] && !String(s[d] ?? '').trim()) lista.push({ campo: DATOS[d].campo, texto: DATOS[d].falta });
+  });
+  const conLugar = tipoDe(s).datos.includes('lugar');
+  rotulosDe(s).forEach(uso => {
+    // El rótulo «Lugar» sin texto propio usa el dato Lugar: si falta, ya se pide una vez arriba.
+    if (uso.base === 'lugar' && conLugar && !propio(uso.id, 't')) return;
+    if (!String(uso.texto.t || '').trim()) lista.push({ campo: idCampo(uso.id, 't'), texto: uso.nombre + ': falta ' + (FALTA[uso.base] || 'el texto') });
+  });
+  return lista;
+}
+let firmaFaltas = null;
+function refrescarFaltas() {
+  const lista = faltas();
+  const faltan = new Set(lista.map(f => f.campo));
+  camposPintados.forEach(({ el }) => el.classList.toggle('falta', faltan.has(el.id)));
+  Object.values(DATOS).forEach(d => $(d.campo).classList.toggle('falta', faltan.has(d.campo)));
+  const firma = JSON.stringify(lista);
+  if (firma === firmaFaltas) return;   // no rehacer los enlaces si nada cambió
+  firmaFaltas = firma;
+  const r = $('revision'); r.textContent = '';
+  r.classList.toggle('faltan', lista.length > 0); r.classList.toggle('listo', !lista.length);
+  r.append(nuevo('span', 'tit', !lista.length ? '✓ Todo listo' : '⚠ ' + (lista.length === 1 ? 'Falta 1 dato' : 'Faltan ' + lista.length + ' datos')));
+  lista.forEach(f => {
+    const a = nuevo('a', '', '• ' + f.texto); a.href = '#' + f.campo;
+    a.addEventListener('click', (e) => { e.preventDefault(); const el = $(f.campo); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } });
+    r.append(a);
+  });
+}
+
+function refrescar() {
+  const tipo = tipoDe(s);
+  if (tipoPintado !== s.tipo) llenar();
+  if (botonesDe !== s.tipo) armarBotones();
+
+  $('transmision').textContent = tipo.nombre + ' · ' + fechaCorta(fechaTransmision());
+  if (!nombreEscrito && document.activeElement !== $('guardar-nombre')) $('guardar-nombre').value = nombreSugerido();
+  document.querySelectorAll('[data-tipo]').forEach(b => b.setAttribute('aria-pressed', s.tipo === b.dataset.tipo ? 'true' : 'false'));
+  $('continuar').textContent = 'Continuar con ' + tipo.nombre;
+  $('tipo-nombre').textContent = tipo.nombre;
+  $('tipo-desc').textContent = tipo.descripcion || '';
+  $('campos-titulo').textContent = 'Rótulos · ' + tipo.nombre;
+  $('vivo-titulo').textContent = 'Rótulos · ' + tipo.nombre;
+
+  /* datos: solo los que el tipo usa */
+  const datos = tipo.datos;
+  $('sec-datos').hidden = !datos.length;
+  $('caja-dia').hidden = !datos.includes('dia');
+  $('dia-num').textContent = 'DÍA ' + (s[campoDia()] || 1);
+  Object.keys(DATOS).forEach(d => { $('caja-' + d).hidden = !datos.includes(d); });
+  camposPintados.forEach(({ el, def }) => { el.placeholder = def.auto() || ''; });
+  refrescarFaltas();
+
+  /* pantallas */
+  document.querySelectorAll('[data-imagen]').forEach(b => b.setAttribute('aria-pressed', (s.imagen || '') === b.dataset.imagen ? 'true' : 'false'));
+  document.querySelector('[data-imagen=""] .sub').textContent = nombreImagen(tipo.imagen);
+  const opAuto = $('esquina').querySelector('option[value=""]');
+  opAuto.textContent = 'Automática · ' + (tipo.esquina === 'texto' ? rellenar(tipo.esquinaTexto, s).replace(/\n/g, ' ') : modoEsquina(tipo.esquina));
+  if (document.activeElement !== $('esquina')) $('esquina').value = s.esquina || '';
+  $('caja-esquinaTexto').hidden = (s.esquina || tipo.esquina) !== 'texto';
+  $('esquinaTexto').placeholder = rellenar(tipo.esquinaTexto, s);
+  const cuentaClave = s.cuenta === true ? 'si' : s.cuenta === false ? 'no' : 'auto';
+  document.querySelectorAll('[data-cuenta]').forEach(b => b.setAttribute('aria-pressed', b.dataset.cuenta === cuentaClave ? 'true' : 'false'));
+  const dias = diasFaltan(s);
+  $('cuenta-estado').textContent = cuentaVisible(s) ? 'Ahora se ve: faltan ' + dias + (dias === 1 ? ' día.' : ' días.') : 'Ahora no se ve en las pantallas.';
+  const auto = diasFaltan(Object.assign({}, s, { diasManual: '' }));
+  $('diasManual').placeholder = String(auto);
+
+  const escritos = s.avisos.filter(a => (a.a || '').trim()).length;
+  document.querySelector('#det-avisos > summary').textContent = 'Avisos (' + escritos + (escritos === 1 ? ' escrito)' : ' escritos)');
+
+  /* en vivo */
+  const v = visible();
+  const lista = usos();
+  lista.forEach(uso => {
+    const b = $('rotulos').querySelector(`[data-rotulo="${uso.id}"]`);
+    if (!b) return;
+    const texto = String(uso.texto.t || '').trim();
+    const p = b.querySelector('.prev');
+    p.textContent = texto || '⚠ Falta ' + (FALTA[uso.base] || 'el texto');
+    p.classList.toggle('falta', !texto);
+    b.setAttribute('aria-pressed', v === uso.id ? 'true' : 'false');
+    b.querySelector('.est').textContent = v === uso.id ? 'AL AIRE' : 'MOSTRAR';
+  });
+  const sig = siguienteUso();
+  $('sig-nom').textContent = sig ? 'Siguiente: ' + sig.nombre : 'Sin rótulos';
+  $('siguiente').disabled = !sig;
+  aplicarEscenaApp();
+  const alAire = lista.find(u => u.id === v);
+  $('ahora').classList.toggle('en', !!alAire);
+  $('ahora-val').textContent = alAire ? alAire.nombre + ' — ' + (alAire.texto.t || '') : 'Ningún rótulo';
+  $('ocultar').disabled = !alAire;
+  pintarCuentaAtras();
+  document.querySelectorAll('[data-seg]').forEach(b => b.setAttribute('aria-pressed', String(s.duracionSeg || 0) === b.dataset.seg ? 'true' : 'false'));
+  document.querySelectorAll('[data-switch]').forEach(b => {
+    const si = !!s[b.dataset.switch];
+    b.setAttribute('aria-checked', si ? 'true' : 'false');
+    b.querySelector('.estado-sw').textContent = si ? 'Sí' : 'No';
+  });
+  const n = Math.min(9, lista.length);
+  $('atajos').textContent = 'Atajos con el panel seleccionado: ' + (n ? (n === 1 ? '1' : '1 a ' + n) + ' muestra u oculta ese rótulo · ' : '') + 'Espacio = siguiente · Esc = ocultar.';
+
+  const base = textosBase(s);
+  document.querySelectorAll('[data-texto]').forEach(el => {
+    const k = el.dataset.texto; el.placeholder = base[k] || '';
+    if (document.activeElement !== el) el.value = (s.textos && s.textos[k]) || '';
+  });
+  $('frase').placeholder = base.franja || '';
+  $('barraTexto').placeholder = tituloCelebracion(s);
+  ocultarFueraDeCamara();   // al final: ocultar() vuelve a refrescar con el estado ya limpio
+}
+
+/* «EN PANTALLA · se oculta en 9 s» */
+function pintarCuentaAtras() {
+  const v = visible();
+  const quedan = v && s.rotuloHasta ? Math.max(0, Math.ceil((s.rotuloHasta - Date.now()) / 1000)) : 0;
+  $('ahora-tit').textContent = !v ? 'EN PANTALLA' : quedan ? 'EN PANTALLA · se oculta en ' + quedan + ' s' : 'EN PANTALLA AHORA';
+  const sub = $('ocultar-sub');   // solo existe en modo app
+  if (sub) {
+    const uso = v && usos().find(u => u.id === v);
+    sub.textContent = !uso ? 'nada en pantalla' : uso.nombre + (quedan ? ' · ' + quedan + ' s' : '');
+  }
+}
+
+/* barra de progreso del ocultado automático + conexión */
+setInterval(() => {
+  const v = visible();
+  const pr = $('progreso');
+  if (v && s.rotuloHasta) {
+    const total = (s.rotuloHasta - (s.rotuloDesde || s.rotuloHasta - (s.duracionSeg || 1) * 1000));
+    pr.style.width = Math.max(0, Math.min(100, 100 * (s.rotuloHasta - Date.now()) / total)) + '%';
+  } else pr.style.width = '0';
+  pintarCuentaAtras();
+  if (s.rotuloHasta && Date.now() > s.rotuloHasta && s.rotulo !== 'ninguno') refrescar();
+
+  let l = {}; try { l = JSON.parse(localStorage.getItem(CLAVE_LATIDO) || '{}'); } catch (e) {}
+  const vivos = Object.entries(l).filter(([, t]) => Date.now() - t < 3000).length;
+  $('punto').classList.toggle('ok', vivos > 0);
+  $('conexion').textContent = vivos ? 'Conectado con ' + vivos + (vivos === 1 ? ' pantalla' : ' pantallas') : 'Sin pantallas conectadas';
+}, 250);
+
+escucharEstado((nuevoEstado) => { s = nuevoEstado; llenar(); });
+llenar();
+pintarGuardadas();
+</script>
+</body>
+</html>

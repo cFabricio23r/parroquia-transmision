@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pantalla – Parroquia</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="escenario">
+<div class="lienzo" id="lienzo">
+  <div class="brillo"></div>
+  <img class="fachada" src="img/fachada.jpg" alt="">
+  <div class="rayos"></div>
+  <div id="chispas"></div>
+  <img class="virgen virgen-entra" id="virgen" src="img/virgen-a.png" alt="">
+
+  <div class="marca" id="marca">
+    <img src="img/logo-blanco.png" alt="">
+    <div class="multilinea" id="t-marca"></div>
+  </div>
+  <div class="envivo" id="envivo"><i></i>EN VIVO</div>
+
+  <!-- INICIO: en breve comenzamos -->
+  <div class="texto" id="v-inicio" hidden>
+    <span class="pildora" id="i-pildora"></span>
+    <p class="ceja" id="i-ceja"></p>
+    <h1 class="titulo"><span class="brilla multilinea" id="i-titulo"></span></h1>
+    <p class="cursiva multilinea" id="i-cursiva"></p>
+    <div class="cuenta" id="i-cuenta"><b id="i-dias"></b><span class="multilinea" id="i-cuenta-txt"></span></div>
+    <div class="salida" id="i-salida" hidden><span>SALIDA</span><span id="i-salida-lugar"></span></div>
+  </div>
+
+  <!-- PORTADA 8 DE DICIEMBRE -->
+  <div class="texto" id="v-portada" hidden style="gap:14px;top:140px">
+    <p class="ceja" id="p-ceja" style="font-size:28px;letter-spacing:9px;margin:0"></p>
+    <p class="cursiva" id="p-cursiva" style="font-size:84px;line-height:1;margin:0"></p>
+    <h1 class="titulo" style="font-size:112px"><span class="brilla multilinea" id="p-titulo"></span></h1>
+    <div class="dia8">
+      <div class="caja" id="p-caja"><b id="p-caja-num">8</b><span id="p-caja-mes">DIC</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-weight:900;font-size:52px;letter-spacing:2px;line-height:1" id="p-fecha"></span>
+        <span style="font-weight:600;font-size:26px;color:#bfe0ff" id="p-sub"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portada de evento: logo grande dentro de un aro (en lugar de la imagen de la celebración) -->
+  <div class="aro" id="p-aro" hidden><img src="img/logo-blanco.png" alt=""></div>
+
+  <!-- GRACIAS -->
+  <div class="texto" id="v-gracias" hidden>
+    <span class="pildora" id="g-pildora"></span>
+    <h1 class="titulo" style="font-size:88px;line-height:1;letter-spacing:-1px;margin-top:10px"><span class="brilla multilinea" id="g-titulo"></span></h1>
+    <p class="cursiva multilinea" style="font-size:60px" id="g-cursiva"></p>
+    <p class="ceja" style="font-size:26px;letter-spacing:6px" id="g-ceja"></p>
+  </div>
+
+  <!-- AVISOS -->
+  <div class="tarjeta" id="v-avisos" hidden>
+    <div class="cab">
+      <div><div class="sub" id="a-sub"></div><h1 id="a-titulo"></h1></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <img src="img/logo-color.png" alt="" style="height:78px;display:block">
+        <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
+      </div>
+    </div>
+    <div class="filas" id="a-filas"></div>
+  </div>
+
+  <div class="franja-entra" style="position:absolute;left:0;right:0;bottom:0;height:102px">
+    <div class="franja-linea"></div>
+    <div class="franja">
+      <div class="borde"></div>
+      <div class="frase"><i>✦</i><span id="frase"></span><i>✦</i></div>
+      <div class="fecha" id="f-fecha"><b id="f-num"></b><span class="multilinea" id="f-txt"></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="tipos.js"></script>
+<script src="comun.js"></script>
+<script>
+const vista = (new URLSearchParams(location.search).get('tipo') || 'inicio').toLowerCase();
+const $ = (id) => document.getElementById(id);
+if (vista === 'avisos') { document.body.classList.add('avisos'); $('marca').style.display = 'none'; $('envivo').style.display = 'none'; }
+
+/* Vista que se pinta de verdad: la portada solo existe para los tipos que la traen en tipos.js
+   (portada: 'fiesta' | 'evento'); los demás pintan en ella la vista de Inicio. La URL no cambia. */
+function vistaDe(s) {
+  return vista === 'portada' && !tipoDe(s).portada ? 'inicio' : vista;
+}
+
+/* La imagen se pide una sola vez: si no existe (custodia.png, santo.png…) cae a la fachada y no vuelve a intentarlo. */
+const FACHADA = 'img/fachada.jpg';
+function clasificarImagen(v) {
+  const archivo = (v.getAttribute('src') || '').split('/').pop();
+  const variante = (/^virgen-([abc])\.png$/.exec(archivo) || [])[1];
+  v.classList.remove('a', 'b', 'c', 'foto', 'logo');
+  if (archivo === 'fachada.jpg') v.classList.add('foto');              // horizontal: marco con foto
+  else if (archivo === 'logo-blanco.png') v.classList.add('logo');     // el logo, en el hueco de la figura
+  else v.classList.add(variante || 'a');                               // virgen a | b | c y cualquier otra imagen vertical
+}
+$('virgen').addEventListener('error', () => {
+  const v = $('virgen');
+  if ((v.getAttribute('src') || '') === FACHADA) return;   // ni la fachada carga: no insistir
+  v.setAttribute('src', FACHADA);
+  clasificarImagen(v);
+});
+
+/* chispas de luz que suben despacio */
+(function () {
+  const caja = $('chispas');
+  for (let i = 0; i < 26; i++) {
+    const c = document.createElement('span');
+    c.className = 'chispa';
+    c.textContent = i % 3 === 0 ? '✦' : '•';
+    c.style.left = (Math.random() * 1900) + 'px';
+    c.style.top = (300 + Math.random() * 700) + 'px';
+    c.style.fontSize = (i % 3 === 0 ? 12 + Math.random() * 14 : 8 + Math.random() * 10) + 'px';
+    c.style.animationDuration = (9 + Math.random() * 10) + 's';
+    c.style.animationDelay = (-Math.random() * 18) + 's';
+    caja.append(c);
+  }
+})();
+
+let firmaAnterior = '';
+function reanimar(el) { el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra'); }
+
+function pintar(s) {
+  const tipo = tipoDe(s);
+  const efectiva = vistaDe(s);
+  const esPortadaEvento = efectiva === 'portada' && tipo.portada === 'evento';
+  ['inicio', 'portada', 'gracias', 'avisos'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
+
+  const v = $('virgen');
+  const src = imagenDe(s);
+  if (v.dataset.pedida !== src) {
+    v.dataset.pedida = src; v.setAttribute('src', src); clasificarImagen(v);
+    v.classList.remove('virgen-entra'); void v.offsetWidth; v.classList.add('virgen-entra');
+  }
+  v.hidden = esPortadaEvento;                // la portada de evento lleva el logo grande en su lugar
+  $('p-aro').hidden = !esPortadaEvento;
+
+  $('frase').textContent = tx(s, 'franja');
+  $('t-marca').textContent = tx(s, 'marca');
+  const esq = esquinaDe(s);                  // { num, txt }: sin número solo se ve el texto
+  $('f-num').textContent = esq.num;
+  $('f-num').hidden = !esq.num;
+  $('f-txt').textContent = esq.txt;
+  $('f-fecha').classList.toggle('solo-texto', !esq.num);
+
+  let firma = '';
+  if (efectiva === 'inicio') {
+    $('i-pildora').textContent = tx(s, 'inicio_pildora');
+    ajustarTexto($('i-pildora'), 960, 28, 16);
+    $('i-ceja').textContent = tx(s, 'inicio_ceja');
+    $('i-ceja').classList.toggle('larga', $('i-ceja').textContent.length > 34);   // cejas largas: 22 px (S2InicioPatronalSector)
+    $('i-titulo').textContent = tx(s, 'inicio_titulo');
+    $('i-cursiva').textContent = tx(s, 'inicio_cursiva');
+    const d = diasFaltan(s);
+    $('i-cuenta').style.display = cuentaVisible(s) ? 'flex' : 'none';
+    $('i-dias').textContent = d;
+    $('i-cuenta-txt').textContent = tx(s, 'inicio_cuenta');
+    $('i-salida').hidden = !tipo.salida;
+    $('i-salida-lugar').textContent = tipo.salida ? rellenar('{lugar}', s) : '';
+    firma = s.tipo + '|' + src + '|' + $('i-pildora').textContent;
+  }
+  if (efectiva === 'portada') {
+    if (esPortadaEvento) {
+      // S2PortadaEvento: nombre del evento, caja con el día y el mes, y el lugar
+      const f = fechaLocal(s.fecha);
+      const lugar = String(s.lugar || '').trim();
+      $('p-ceja').textContent = tipo.portadaCeja;
+      $('p-cursiva').textContent = tipo.portadaCursiva;
+      $('p-titulo').textContent = tituloCelebracion(s);
+      $('p-caja').hidden = !f;
+      $('p-caja-num').textContent = f ? String(f.getDate()) : '';
+      $('p-caja-mes').textContent = f ? _MESES[f.getMonth()].slice(0, 3) : '';
+      $('p-fecha').textContent = lugar;
+      $('p-fecha').hidden = !lugar;
+      $('p-sub').textContent = '';
+      $('p-sub').hidden = true;
+    } else {
+      $('p-ceja').textContent = tx(s, 'portada_ceja');
+      $('p-cursiva').textContent = tx(s, 'portada_cursiva');
+      $('p-titulo').textContent = tx(s, 'portada_titulo');
+      $('p-caja').hidden = false;
+      $('p-caja-num').textContent = '8';
+      $('p-caja-mes').textContent = 'DIC';
+      $('p-fecha').hidden = false;
+      $('p-fecha').textContent = tx(s, 'portada_fecha');
+      $('p-sub').hidden = false;
+      $('p-sub').textContent = tx(s, 'portada_sub');
+    }
+    firma = 'portada|' + s.tipo + '|' + src;
+  }
+  if (efectiva === 'gracias') {
+    $('g-pildora').textContent = tx(s, 'gracias_pildora');
+    ajustarTexto($('g-pildora'), 960, 28, 16);
+    $('g-titulo').textContent = tx(s, 'gracias_titulo');
+    $('g-cursiva').textContent = tx(s, 'gracias_cursiva');
+    $('g-ceja').textContent = tx(s, 'gracias_ceja');
+    firma = s.tipo + '|' + src + '|' + $('g-pildora').textContent;
+  }
+  if (efectiva === 'avisos') {
+    $('a-sub').textContent = tx(s, 'avisos_sub');
+    $('a-titulo').textContent = tx(s, 'avisos_titulo');
+    const filas = $('a-filas'); filas.innerHTML = '';
+    const llenos = s.avisos.filter(x => (x.a || '').trim() || (x.f || '').trim());
+    const lista = llenos.length ? llenos : [{ a: 'Escriba los avisos en el panel', f: '' }];
+    lista.forEach((x, i) => {
+      const fila = document.createElement('div'); fila.className = 'fila';
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1).padStart(2, '0');
+      const a = document.createElement('span'); a.className = 'a'; a.textContent = x.a || '';
+      const f = document.createElement('span'); f.className = 'f'; f.textContent = x.f || '';
+      fila.append(n, a, f); filas.append(fila);
+    });
+    firma = 'avisos|' + JSON.stringify(lista);
+  }
+  // volver a animar la entrada cuando cambia la celebración (no al escribir cada letra)
+  if (firma !== firmaAnterior) {
+    firmaAnterior = firma;
+    const vistaEl = $('v-' + efectiva);
+    if (efectiva === 'avisos') reanimar($('a-filas')); else if (vistaEl) reanimar(vistaEl);
+  }
+}
+
+escucharEstado(pintar);
+latir('pantalla-' + vista);
+</script>
+</body>
+</html>
