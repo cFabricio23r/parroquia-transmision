@@ -223,7 +223,7 @@ function textosBase(s) {
     portada_ceja: 'FIESTAS PATRONALES ' + rellenar('{anio}', s),
     portada_cursiva: 'en honor a la',
     portada_titulo: patrono,
-    portada_fecha: 'DE ' + mesFiesta,
+    portada_fecha: mesFiesta ? 'DE ' + mesFiesta : '',
     portada_sub: 'Solemnidad de nuestro patrono',
     gracias_pildora: tituloCelebracion(s),
     gracias_titulo: '¡Gracias por\nacompañarnos!',
@@ -281,6 +281,49 @@ function imagenDe(s) {
 /* Texto alternativo de la imagen que devuelve imagenDe. */
 function altDe(s) {
   return _imagenElegida(s).alt;
+}
+
+/* Caja de la portada patronal: { num: '8', mes: 'DIC' }, o null si la parroquia no tiene fiesta
+   (así la portada no pinta «DE » ni un número vacío). */
+function cajaFiesta() {
+  const f = PARROQUIA.fiesta;
+  if (!f || !f.dia || !f.mes) return null;
+  return { num: String(f.dia), mes: _MESES[f.mes - 1].slice(0, 3) };
+}
+
+/* Clase CSS de la imagen de la transmisión según su ruta: 'foto' si es la fachada de la configuración
+   (horizontal, con marco), 'logo' si es el logo blanco, 'a' para cualquier otra (vertical). */
+function claseDeImagen(src) {
+  const fachada = _imagenConfig(PARROQUIA.fachada);
+  const logo = _imagenConfig(PARROQUIA.logos && PARROQUIA.logos.blanco);
+  if (fachada && src === fachada.src) return 'foto';
+  if (logo && src === logo.src) return 'logo';
+  return 'a';
+}
+
+/* Qué imagen sigue cuando `src` no carga: la fachada { src, alt }; o null si ya era la fachada o no hay
+   fachada (entonces la imagen se oculta y queda el degradado de los colores). */
+function respaldoDeImagen(src) {
+  const fachada = _imagenConfig(PARROQUIA.fachada);
+  if (!fachada || src === fachada.src) return null;
+  return { src: fachada.src, alt: typeof fachada.alt === 'string' ? fachada.alt : '' };
+}
+
+/* Pone en un <img> la imagen { src, alt } de la configuración. Sin imagen (o si ya falló) el <img> se oculta:
+   nunca queda el ícono de imagen rota. Una ruta que falla no se vuelve a pedir mientras la ruta sea la misma. */
+function ponerImagen(img, im) {
+  const src = im && typeof im.src === 'string' ? im.src : '';
+  if (img.dataset.pedida !== src) {
+    img.dataset.pedida = src;
+    img.dataset.fallo = '';
+    if (src) img.setAttribute('src', src); else img.removeAttribute('src');
+    if (src && !img.dataset.vigilada) {
+      img.dataset.vigilada = '1';
+      img.addEventListener('error', () => { img.dataset.fallo = '1'; img.hidden = true; });
+    }
+  }
+  img.alt = im && typeof im.alt === 'string' ? im.alt : '';
+  img.hidden = !src || img.dataset.fallo === '1';
 }
 
 /* Escala el escenario de 1920×1080 al tamaño real de la fuente de navegador. */

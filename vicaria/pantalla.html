@@ -6,16 +6,17 @@
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
-<div class="escenario">
+<div class="escenario" id="escenario">
+<div class="no-existe" id="no-existe" hidden>Esta parroquia no existe, revisa el link</div>
 <div class="lienzo" id="lienzo">
   <div class="brillo"></div>
-  <img class="fachada" src="img/fachada.jpg" alt="">
+  <img class="fachada" id="fachada" alt="" hidden>
   <div class="rayos"></div>
   <div id="chispas"></div>
-  <img class="virgen virgen-entra" id="virgen" src="img/virgen-a.png" alt="">
+  <img class="virgen virgen-entra" id="virgen" alt="" hidden>
 
   <div class="marca" id="marca">
-    <img src="img/logo-blanco.png" alt="">
+    <img id="marca-logo" alt="" hidden>
     <div class="multilinea" id="t-marca"></div>
   </div>
   <div class="envivo" id="envivo"><i></i>EN VIVO</div>
@@ -45,7 +46,7 @@
   </div>
 
   <!-- Portada de evento: logo grande dentro de un aro (en lugar de la imagen de la celebración) -->
-  <div class="aro" id="p-aro" hidden><img src="img/logo-blanco.png" alt=""></div>
+  <div class="aro" id="p-aro" hidden><img id="aro-logo" alt="" hidden></div>
 
   <!-- GRACIAS -->
   <div class="texto" id="v-gracias" hidden>
@@ -60,7 +61,7 @@
     <div class="cab">
       <div><div class="sub" id="a-sub"></div><h1 id="a-titulo"></h1></div>
       <div style="display:flex;align-items:center;gap:16px">
-        <img src="img/logo-color.png" alt="" style="height:78px;display:block">
+        <img id="a-logo" alt="" style="height:78px;display:block" hidden>
         <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
       </div>
     </div>
@@ -78,6 +79,7 @@
 </div>
 </div>
 
+<script src="parroquia.js"></script>
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script>
@@ -91,20 +93,18 @@ function vistaDe(s) {
   return vista === 'portada' && !tipoDe(s).portada ? 'inicio' : vista;
 }
 
-/* La imagen se pide una sola vez: si no existe (custodia.png, santo.png…) cae a la fachada y no vuelve a intentarlo. */
-const FACHADA = 'img/fachada.jpg';
+/* La imagen se pide una sola vez: si no carga (custodia.png, patrono…) cae a la fachada de la parroquia y no
+   vuelve a intentarlo; si la fachada tampoco carga, la imagen se oculta y queda el degradado de los colores. */
 function clasificarImagen(v) {
-  const archivo = (v.getAttribute('src') || '').split('/').pop();
-  const variante = (/^virgen-([abc])\.png$/.exec(archivo) || [])[1];
   v.classList.remove('a', 'b', 'c', 'foto', 'logo');
-  if (archivo === 'fachada.jpg') v.classList.add('foto');              // horizontal: marco con foto
-  else if (archivo === 'logo-blanco.png') v.classList.add('logo');     // el logo, en el hueco de la figura
-  else v.classList.add(variante || 'a');                               // virgen a | b | c y cualquier otra imagen vertical
+  v.classList.add(claseDeImagen(v.getAttribute('src') || ''));   // foto (fachada) | logo | a (vertical)
 }
 $('virgen').addEventListener('error', () => {
   const v = $('virgen');
-  if ((v.getAttribute('src') || '') === FACHADA) return;   // ni la fachada carga: no insistir
-  v.setAttribute('src', FACHADA);
+  const r = respaldoDeImagen(v.getAttribute('src') || '');
+  if (!r) { v.dataset.fallo = '1'; v.hidden = true; return; }
+  v.setAttribute('src', r.src);
+  v.alt = r.alt;
   clasificarImagen(v);
 });
 
@@ -128,6 +128,7 @@ let firmaAnterior = '';
 function reanimar(el) { el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra'); }
 
 function pintar(s) {
+  if (PARROQUIA_NO_EXISTE) return;
   const tipo = tipoDe(s);
   const efectiva = vistaDe(s);
   const esPortadaEvento = efectiva === 'portada' && tipo.portada === 'evento';
@@ -136,13 +137,19 @@ function pintar(s) {
   const v = $('virgen');
   const src = imagenDe(s);
   if (v.dataset.pedida !== src) {
-    v.dataset.pedida = src; v.setAttribute('src', src); clasificarImagen(v);
+    v.dataset.pedida = src; v.dataset.fallo = '';
+    if (src) v.setAttribute('src', src); else v.removeAttribute('src');
+    v.alt = altDe(s);
+    clasificarImagen(v);
     v.classList.remove('virgen-entra'); void v.offsetWidth; v.classList.add('virgen-entra');
   }
-  v.hidden = esPortadaEvento;                // la portada de evento lleva el logo grande en su lugar
+  // la portada de evento lleva el logo grande en su lugar; sin imagen o con la imagen rota no se muestra nada
+  v.hidden = esPortadaEvento || !v.getAttribute('src') || v.dataset.fallo === '1';
   $('p-aro').hidden = !esPortadaEvento;
 
-  $('frase').textContent = tx(s, 'franja');
+  const franja = tx(s, 'franja');
+  $('frase').textContent = franja;
+  $('frase').parentNode.style.visibility = franja ? '' : 'hidden';   // sin lema no hay franja (el espacio se conserva)
   $('t-marca').textContent = tx(s, 'marca');
   const esq = esquinaDe(s);                  // { num, txt }: sin número solo se ve el texto
   $('f-num').textContent = esq.num;
@@ -185,11 +192,13 @@ function pintar(s) {
       $('p-ceja').textContent = tx(s, 'portada_ceja');
       $('p-cursiva').textContent = tx(s, 'portada_cursiva');
       $('p-titulo').textContent = tx(s, 'portada_titulo');
-      $('p-caja').hidden = false;
-      $('p-caja-num').textContent = '8';
-      $('p-caja-mes').textContent = 'DIC';
-      $('p-fecha').hidden = false;
-      $('p-fecha').textContent = tx(s, 'portada_fecha');
+      const caja = cajaFiesta();             // { num, mes } o null si la parroquia no tiene fiesta
+      const fecha = tx(s, 'portada_fecha');
+      $('p-caja').hidden = !caja;
+      $('p-caja-num').textContent = caja ? caja.num : '';
+      $('p-caja-mes').textContent = caja ? caja.mes : '';
+      $('p-fecha').hidden = !fecha;
+      $('p-fecha').textContent = fecha;
       $('p-sub').hidden = false;
       $('p-sub').textContent = tx(s, 'portada_sub');
     }
@@ -226,6 +235,23 @@ function pintar(s) {
   }
 }
 
+/* La configuración de la parroquia manda: colores, logos, fachada y el aviso de «no existe».
+   Se aplica al cargar y cada vez que cambia la configuración (copia, servidor o 404). */
+function aplicarParroquia(c) {
+  const no = PARROQUIA_NO_EXISTE;
+  $('escenario').classList.toggle('sin-parroquia', no);
+  $('no-existe').hidden = !no;
+  if (no) return;
+  aplicarPaleta(c);
+  ponerImagen($('fachada'), c.fachada);
+  ponerImagen($('marca-logo'), c.logos && c.logos.blanco);
+  ponerImagen($('aro-logo'), c.logos && c.logos.blanco);
+  ponerImagen($('a-logo'), c.logos && c.logos.color);
+  pintar(leerEstado());   // la firma de pintar no incluye la versión: sin cambios reales no se reanima la entrada
+}
+aplicarParroquia(PARROQUIA);
+alCambiarParroquia(aplicarParroquia);
+vigilarParroquia();
 escucharEstado(pintar);
 latir('pantalla-' + vista);
 </script>

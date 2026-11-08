@@ -6,9 +6,10 @@
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
-<div class="escenario">
+<div class="escenario" id="escenario">
+  <div class="no-existe" id="no-existe" hidden>Esta parroquia no existe, revisa el link</div>
   <div class="capa-logo" id="logo">
-    <img src="img/logo-blanco.png" alt="">
+    <img id="logo-img" alt="" hidden>
     <div class="multilinea" id="logo-txt"></div>
   </div>
   <div class="envivo capa-envivo" id="envivo"><i></i>EN VIVO</div>
@@ -16,7 +17,7 @@
   <div class="barra" id="barra"><span class="x" id="barra-x"></span><span class="y" id="barra-y"></span></div>
 
   <div class="rotulo" id="rotulo">
-    <div class="lado"><img src="img/logo-blanco.png" alt=""></div>
+    <div class="lado"><img id="lado-logo" alt="" hidden></div>
     <div class="cuerpo">
       <span class="k" id="r-k"></span>
       <span class="t" id="r-t"></span>
@@ -25,6 +26,7 @@
   </div>
 </div>
 
+<script src="parroquia.js"></script>
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script>
@@ -83,6 +85,7 @@ function aplicar(s) {
 }
 
 function pintar(s) {
+  if (PARROQUIA_NO_EXISTE) return;
   estado = s;
   $('logo').classList.toggle('oculto', !s.mostrarLogo);
   $('envivo').classList.toggle('oculto', !s.mostrarEnVivo);
@@ -96,6 +99,20 @@ function pintar(s) {
   $('barra').classList.toggle('oculto', !s.mostrarBarra || hayRotulo);
 }
 
+/* La configuración de la parroquia manda: colores, logo y el aviso de «no existe». */
+function aplicarParroquia(c) {
+  const no = PARROQUIA_NO_EXISTE;
+  $('escenario').classList.toggle('sin-parroquia', no);
+  $('no-existe').hidden = !no;
+  if (no) return;
+  aplicarPaleta(c);
+  ponerImagen($('logo-img'), c.logos && c.logos.blanco);
+  ponerImagen($('lado-logo'), c.logos && c.logos.blanco);
+  pintar(leerEstado());   // mismo rótulo y mismo texto: no se reanima
+}
+aplicarParroquia(PARROQUIA);
+alCambiarParroquia(aplicarParroquia);
+vigilarParroquia();
 escucharEstado(pintar);
 setInterval(() => { if (estado.rotuloHasta) pintar(estado); }, 250);
 latir('rotulos');

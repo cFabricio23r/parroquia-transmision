@@ -853,6 +853,34 @@ grupo('comun por parroquia', () => {
     assert.equal(c.imagenDe({ imagen: 'patrono' }), 'medios/patrono.png');
     assert.equal(c.fiestaMMDD(), '12-08');
   });
+
+  prueba('portada: cajaFiesta da día y las tres primeras letras del mes (DIC, MAR)', () => {
+    assert.deepEqual(Object.assign({}, cargarCon(COMUN).cajaFiesta()), { num: '8', mes: 'DIC' });
+    assert.deepEqual(Object.assign({}, cargarCon(COMUN, {}, CONFIG_SAN_JOSE).cajaFiesta()), { num: '19', mes: 'MAR' });
+  });
+  prueba('portada: sin fiesta no hay caja ni «DE » suelto', () => {
+    const c = cargarCon(COMUN, {}, null);
+    assert.equal(c.cajaFiesta(), null);
+    assert.equal(c.textosBase(c.normalizarEstado({})).portada_fecha, '');
+  });
+  prueba('imágenes: claseDeImagen reconoce la fachada y el logo por la ruta de la configuración', () => {
+    const c = cargarCon(COMUN);
+    assert.equal(c.claseDeImagen('medios/fachada.jpg'), 'foto');
+    assert.equal(c.claseDeImagen('medios/logo-blanco.png'), 'logo');
+    assert.equal(c.claseDeImagen('medios/patrono.png'), 'a');
+    assert.equal(c.claseDeImagen('img/custodia.png'), 'a');
+    assert.equal(c.claseDeImagen('fachada.jpg'), 'a');   // el nombre suelto no cuenta
+    assert.equal(cargarCon(COMUN, {}, null).claseDeImagen(''), 'a');
+  });
+  prueba('imágenes: respaldoDeImagen cae a la fachada, y de la fachada a nada', () => {
+    const c = cargarCon(COMUN);
+    assert.deepEqual(Object.assign({}, c.respaldoDeImagen('medios/patrono.png')),
+      { src: 'medios/fachada.jpg', alt: 'Fachada del templo parroquial de Ciudad Arce' });
+    assert.deepEqual(Object.assign({}, c.respaldoDeImagen('img/custodia.png')),
+      { src: 'medios/fachada.jpg', alt: 'Fachada del templo parroquial de Ciudad Arce' });
+    assert.equal(c.respaldoDeImagen('medios/fachada.jpg'), null);
+    assert.equal(cargarCon(COMUN, {}, null).respaldoDeImagen('medios/patrono.png'), null);
+  });
 });
 
 grupo('parroquia', () => {
@@ -991,6 +1019,19 @@ grupo('parroquia', () => {
     assert.ok(!n.logos || (!(n.logos.blanco && n.logos.blanco.src) && !(n.logos.color && n.logos.color.src)));
     assert.ok(!n.fachada);
     assert.equal(n.nombre, '');
+  });
+});
+
+grupo('aplicar paleta', () => {
+  prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
+    const puestas = {};
+    const documento = { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
+      documentElement: { style: { setProperty: (k, v) => { puestas[k] = v; } } } };
+    const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: documento });
+    c.aplicarPaleta(CONFIG_SAN_JOSE);
+    assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
+    assert.equal(puestas['--rey'], '#7a3b12');
+    assert.equal(puestas['--oscuro'], '#4a2008');
   });
 });
 

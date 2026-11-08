@@ -65,6 +65,12 @@ function paleta(principal, oscuro) {
   };
 }
 
+/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido). */
+function aplicarPaleta(c) {
+  const p = paleta(c.colores.principal, c.colores.oscuro);
+  for (const k of Object.keys(p)) document.documentElement.style.setProperty('--' + k, p[k]);
+}
+
 /* ---------- Validación de config.json (esquema 1) ---------- */
 
 const MIN_CONTRASTE = 4.5;

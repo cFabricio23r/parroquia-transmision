@@ -167,3 +167,7 @@ body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 /* Portada de evento: logo grande dentro de un aro */
 .aro{position:absolute;left:150px;top:230px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22) 0%,rgba(255,255,255,.06) 70%);border:3px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center}
 .aro img{width:340px;display:block;filter:drop-shadow(0 14px 30px rgba(5,20,50,.45))}
+
+/* ---------- Parroquia que no existe: el link no corresponde a ninguna parroquia ---------- */
+.no-existe{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#0c3562;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 160px;font-weight:800;font-size:72px;line-height:1.2}
+.escenario.sin-parroquia>*:not(.no-existe){display:none !important}

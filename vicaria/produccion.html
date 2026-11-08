@@ -16,6 +16,7 @@
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-700-normal.woff2) format('woff2');font-weight:700}
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-900-normal.woff2) format('woff2');font-weight:900}
+:root{--oscuro:#0c3562;--rey:#1155a4;--celeste:#3d9be0}
 [hidden]{display:none !important}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Mont,sans-serif}
@@ -25,18 +26,18 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .halo{position:absolute !important;left:50%;border-radius:50%}
 
 /* ---------- A · Claro ---------- */
-.claro{background:#f4f7fb;color:#0c3562;gap:44px}
+.claro{background:#f4f7fb;color:var(--oscuro);gap:44px}
 .claro .halo{top:50%;width:1500px;height:1500px;margin:-750px 0 0 -750px;background:radial-gradient(circle,rgba(61,155,224,.16) 0%,rgba(61,155,224,0) 60%)}
 .claro .ceja{font-weight:800;font-size:40px;letter-spacing:10px;color:#26323f}
 .claro .fila{display:flex;align-items:center;gap:48px}
 .claro .fila img{width:340px;display:block}
 .claro .nombres{display:flex;flex-direction:column;gap:10px}
-.claro .grande{font-weight:900;font-size:118px;line-height:.95;letter-spacing:-3px;color:#1155a4}
+.claro .grande{font-weight:900;font-size:118px;line-height:.95;letter-spacing:-3px;color:var(--rey)}
 .claro .sub{font-weight:700;font-size:34px;letter-spacing:8px;color:#3d6fa8}
 .claro .pie{position:absolute !important;left:0;right:0;bottom:72px;text-align:center;font-weight:600;font-size:26px;letter-spacing:3px;color:#4a5a6c}
 
 /* ---------- B · Azul ---------- */
-.azul{background:linear-gradient(135deg,#0c3562 0%,#1155a4 55%,#3d9be0 100%);color:#fff;gap:40px}
+.azul{background:linear-gradient(135deg,var(--oscuro) 0%,var(--rey) 55%,var(--celeste) 100%);color:#fff;gap:40px}
 .azul .halo{top:46%;width:1300px;height:1300px;margin:-650px 0 0 -650px;background:radial-gradient(circle,rgba(255,255,255,.24) 0%,rgba(255,255,255,0) 60%)}
 .azul .ceja{font-weight:700;font-size:36px;letter-spacing:12px;color:#d6e6f8}
 .azul img{position:relative;width:300px;display:block;filter:drop-shadow(0 16px 30px rgba(5,20,50,.4))}
@@ -45,39 +46,45 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .azul .linea{display:flex;align-items:center;gap:24px}
 .azul .raya{width:90px;height:3px;background:#bfe0ff}
 .azul .sub{font-weight:700;font-size:34px;letter-spacing:9px;color:#e6f1fb}
-.azul .banda{position:absolute !important;left:0;right:0;bottom:0;height:96px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;letter-spacing:6px;color:#0c3562}
+.azul .banda{position:absolute !important;left:0;right:0;bottom:0;height:96px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;letter-spacing:6px;color:var(--oscuro)}
+
+/* ---------- Parroquia que no existe ---------- */
+.no-existe{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#0c3562;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 160px;font-weight:800;font-size:72px;line-height:1.2}
+.escenario.sin-parroquia>*:not(.no-existe){display:none !important}
 </style>
 </head>
 <body>
-<div class="escenario">
+<div class="escenario" id="escenario">
+  <div class="no-existe" id="no-existe" hidden>Esta parroquia no existe, revisa el link</div>
   <section class="lamina claro" id="claro" hidden>
     <div class="halo" aria-hidden="true"></div>
     <span class="ceja" data-texto>UNA PRODUCCIÓN DE</span>
     <div class="fila">
-      <img src="img/logo-color.png" alt="Logo de la Parroquia Inmaculada Concepción de María">
+      <img id="logo-claro" alt="" hidden>
       <div class="nombres">
         <span class="grande" data-texto>Comunicaciones</span>
-        <span class="sub" data-texto>PARROQUIA DE CIUDAD ARCE</span>
+        <span class="sub" data-texto data-sub></span>
       </div>
     </div>
-    <span class="pie" data-texto>Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad</span>
+    <span class="pie" data-texto id="pie"></span>
   </section>
 
   <section class="lamina azul" id="azul" hidden>
     <div class="halo" aria-hidden="true"></div>
     <span class="ceja" data-texto>UNA PRODUCCIÓN DE</span>
-    <img src="img/logo-blanco.png" alt="Logo de la Parroquia Inmaculada Concepción de María">
+    <img id="logo-azul" alt="" hidden>
     <div class="nombres">
       <span class="grande" data-texto>Comunicaciones</span>
       <div class="linea">
         <span class="raya" aria-hidden="true"></span>
-        <span class="sub" data-texto>PARROQUIA DE CIUDAD ARCE</span>
+        <span class="sub" data-texto data-sub></span>
         <span class="raya" aria-hidden="true"></span>
       </div>
     </div>
-    <div class="banda" data-texto>INMACULADA CONCEPCIÓN DE MARÍA · LA LIBERTAD</div>
+    <div class="banda" data-texto id="banda"></div>
   </section>
 </div>
+<script src="parroquia.js"></script>
 <script>
 (function () {
   // Solo «claro» elige el Claro; cualquier otra cosa es el Azul.
@@ -98,6 +105,45 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
   }
   ajustar();
   window.addEventListener('resize', ajustar);
+
+  // Los textos y las imágenes salen de la configuración de la parroquia (parroquia.js).
+  // «Parroquia de <ciudad>» y «<patrono> · <departamento>» se arman con el lugar «Ciudad, Departamento».
+  var lamina = document.getElementById(estilo);
+  function poner(el, texto) { el.textContent = texto; el.hidden = texto === ''; }
+  function imagen(img, im) {
+    if (!img.dataset.vigilada) {
+      img.dataset.vigilada = '1';
+      img.addEventListener('error', function () { img.dataset.fallo = '1'; img.hidden = true; });
+    }
+    var src = im && typeof im.src === 'string' ? im.src : '';
+    if (img.dataset.pedida !== src) {
+      img.dataset.pedida = src; img.dataset.fallo = '';
+      if (src) img.setAttribute('src', src); else img.removeAttribute('src');
+    }
+    img.alt = im && typeof im.alt === 'string' ? im.alt : '';
+    img.hidden = !src || img.dataset.fallo === '1';
+  }
+  function aplicarParroquia(c) {
+    var no = PARROQUIA_NO_EXISTE;
+    document.getElementById('escenario').classList.toggle('sin-parroquia', no);
+    document.getElementById('no-existe').hidden = !no;
+    if (no) return;
+    aplicarPaleta(c);
+    var partes = String(c.lugar || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    var ciudad = partes[0] || '', depto = partes.slice(1).join(', ');
+    var patrono = c.patrono && c.patrono.nombre ? c.patrono.nombre : '';
+    var nombre = c.nombre || '';
+    lamina.querySelectorAll('[data-sub]').forEach(function (el) { poner(el, ciudad ? 'PARROQUIA DE ' + ciudad.toUpperCase() : ''); });
+    var pie = lamina.querySelector('#pie');
+    if (pie) poner(pie, [nombre, c.lugar || ''].filter(Boolean).join(' · '));
+    var banda = lamina.querySelector('#banda');
+    if (banda) poner(banda, [patrono.toUpperCase(), depto.toUpperCase()].filter(Boolean).join(' · '));
+    imagen(document.getElementById('logo-claro') || document.getElementById('logo-azul'),
+      estilo === 'claro' ? (c.logos && c.logos.color) : (c.logos && c.logos.blanco));
+  }
+  aplicarParroquia(PARROQUIA);
+  alCambiarParroquia(aplicarParroquia);
+  vigilarParroquia();
 })();
 </script>
 </body>
