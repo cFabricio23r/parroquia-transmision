@@ -11,6 +11,7 @@ import android.view.SurfaceView
 import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.sources.OrientationForced
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.rtmp.RtmpStream
 import com.pedro.library.util.FpsListener
@@ -243,6 +244,8 @@ object Motor : ConnectChecker {
     // El servicio en primer plano se para siempre que se deja el aire (terminar o corte).
     contexto?.let { ServicioTransmision.parar(it) }
     olvidarFps()
+    // Al dejar el aire el zoom vuelve a 1× (Tarea 9g).
+    ponerZoom(1.0)
     val s = stream ?: return true
     if (!s.isStreaming) return true
     cerrando = true
@@ -281,6 +284,29 @@ object Motor : ConnectChecker {
       r = r.replace(it, "[oculto]")
     }
     return r
+  }
+
+  // Zoom (Tarea 9g). RtmpStream(contexto, checker) usa Camera2Source (verificado con javap en
+  // library-2.8.1). Camera2Source.setZoom no hace nada si la cámara no está encendida.
+  private fun camara(): Camera2Source? = stream?.videoSource as? Camera2Source
+
+  /** { min, max } del zoom del celular, o null si no se sabe (cámara apagada o sin zoom). */
+  fun rangoZoom(): Map<String, Double>? = try {
+    camara()?.getZoomRange()?.let { mapOf("min" to it.lower.toDouble(), "max" to it.upper.toDouble()) }
+  } catch (e: Exception) {
+    Log.w(TAG, "rango de zoom no disponible: ${e.javaClass.simpleName}")
+    null
+  }
+
+  /** Pone el zoom, dentro del rango del celular. */
+  fun ponerZoom(nivel: Double) {
+    val c = camara() ?: return
+    try {
+      val r = c.getZoomRange()
+      c.setZoom(nivel.toFloat().coerceIn(r.lower, r.upper))
+    } catch (e: Exception) {
+      Log.w(TAG, "no se pudo poner el zoom: ${e.javaClass.simpleName}")
+    }
   }
 
   private fun olvidarFps() {

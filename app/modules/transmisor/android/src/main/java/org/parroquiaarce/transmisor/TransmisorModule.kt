@@ -66,6 +66,15 @@ class TransmisorModule : Module() {
       Motor.terminar()
     }.runOnQueue(Queues.MAIN)
 
+    // Zoom de la cámara (Tarea 9g).
+    AsyncFunction("rangoZoom") {
+      Motor.rangoZoom()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("ponerZoom") { nivel: Double ->
+      Motor.ponerZoom(nivel)
+    }.runOnQueue(Queues.MAIN)
+
     // Transición del logo a otra escena; resuelve al terminar (unos 2 s).
     AsyncFunction("cambiarEscena") { escena: String, promise: Promise ->
       Capa.cambiarEscena(

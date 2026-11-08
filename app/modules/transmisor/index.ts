@@ -125,6 +125,16 @@ export function medirAvisos(): Promise<{ termico: number | null; temperatura: nu
   return Modulo.medirAvisos();
 }
 
+/** Rango del zoom de la cámara, o null (Tarea 9g). */
+export function rangoZoom(): Promise<{ min: number; max: number } | null> {
+  return Modulo.rangoZoom();
+}
+
+/** Pone el zoom de la cámara. Sale al aire. */
+export function ponerZoom(nivel: number): Promise<void> {
+  return Modulo.ponerZoom(nivel);
+}
+
 /**
  * Avisa con un mensaje en español si el servicio en primer plano no pudo arrancar: la transmisión
  * sigue, pero se congela si la app pasa a segundo plano (review M4).

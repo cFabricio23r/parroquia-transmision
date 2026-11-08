@@ -16,14 +16,19 @@ interface Props {
   /** Señal, batería, calor y red (Tarea 9). */
   avisos: Aviso[];
   onEscena: (escena: Escena) => void;
+  /** Pantalla completa (Tarea 9g): los avisos siguen el tamaño de la vista y no hay tira. */
+  completa?: { ancho: number; alto: number } | null;
 }
 
-export default function EnVivo({ fase, escena, mensaje, avisos, onEscena }: Props) {
+export default function EnVivo({ fase, escena, mensaje, avisos, onEscena, completa }: Props) {
   // El reducer solo cambia la escena estando al aire; en el resto la tira queda apagada.
   const tiraActiva = fase === 'en_vivo' || fase === 'reconectando';
   return (
     <View style={estilos.capa} pointerEvents="box-none">
-      <View style={estilos.sobreVista} pointerEvents="none">
+      <View
+        style={[estilos.sobreVista, completa && { width: completa.ancho, height: completa.alto, paddingTop: 56 }]}
+        pointerEvents="none"
+      >
         <View style={estilos.arriba}>
           <Avisos avisos={avisos} />
           {mensaje ? (
@@ -36,9 +41,11 @@ export default function EnVivo({ fase, escena, mensaje, avisos, onEscena }: Prop
           <Text style={[estilos.aviso, estilos.avisoOscuro]}>Cámara oculta · los rótulos se ven solo en «Cámara»</Text>
         ) : null}
       </View>
-      <View style={estilos.abajo}>
-        <TiraEscenas escena={escena} desactivada={!tiraActiva} onElegir={onEscena} />
-      </View>
+      {completa ? null : (
+        <View style={estilos.abajo}>
+          <TiraEscenas escena={escena} desactivada={!tiraActiva} onElegir={onEscena} />
+        </View>
+      )}
     </View>
   );
 }
