@@ -480,6 +480,7 @@ details label{margin-bottom:9px}
 <script src="parroquia.js"></script>
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
+<script src="pantallas.js"></script>
 <script src="guardadas.js"></script>
 <script>
 /* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
@@ -660,7 +661,7 @@ function camposDe(uso) {
   }
 }
 const idCampo = (usoId, c) => 'rot-' + usoId + '-' + c;
-CARGOS.forEach(c => { const o = nuevo('option'); o.value = c; $('cargos').append(o); });
+
 let camposPintados = [];   // [{ el, uso, def }]
 let tipoPintado = null;
 function pintarCampos() {
@@ -1094,6 +1095,8 @@ function aplicarParroquia(c) {
   $('parroquia').placeholder = _nombreYLugar();   // lo que sale si el campo queda vacío
   $('aviso-config').textContent = aviso;
   $('aviso-config').hidden = aviso === '';
+  $('cargos').replaceChildren();   // los cargos sugeridos salen de la configuración (o de CARGOS)
+  cargosDe().forEach((cargo) => { const o = nuevo('option'); o.value = cargo; $('cargos').append(o); });
   if (!PARROQUIA_NO_EXISTE) llenar();   // refresca lo que sale de la configuración (textos con {fiesta}, etc.)
 }
 

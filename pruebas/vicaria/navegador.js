@@ -478,6 +478,54 @@ async function casoComoViene() {
   await ctx.close();
 }
 
+async function casoEstiloRotulos() {
+  console.log('1b · Estilo de rótulos');
+  const ctx = await nuevoContexto();
+  const cfg = conBloques((c) => { c.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] }; });
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona' }));
+  await r.waitForSelector('#rotulo.en');
+  await r.waitForTimeout(1500);
+  const medidas = () => r.evaluate(() => {
+    const el = document.getElementById('rotulo'); const b = el.getBoundingClientRect();
+    return { radio: getComputedStyle(el).borderRadius, centro: b.left + b.width / 2, lado: getComputedStyle(el.querySelector('.lado')).backgroundColor,
+      logo: getComputedStyle(document.getElementById('logo')).borderRadius, barra: getComputedStyle(document.getElementById('barra')).borderRadius,
+      clases: [...document.getElementById('escenario').classList].filter((x) => /^(esquinas-|pos-)/.test(x)).join(' ') };
+  });
+  let m = await medidas();
+  igual(m.radio, '0px', 'rótulo: esquinas rectas (borderRadius 0px)');
+  igual(m.logo, '0px', 'capa del logo: esquinas rectas');
+  igual(m.barra, '0px', 'barra: esquinas rectas');
+  revisar(Math.abs(m.centro - 960) <= 2, 'rótulo: centrado en 960 (centro en ' + m.centro.toFixed(1) + ')');
+  igual(m.lado, 'rgb(26, 82, 118)', 'rótulo: el lado usa colorLado');
+  const anim = await r.evaluate(() => getComputedStyle(document.querySelector('#rotulo .cuerpo')).animationName);
+  igual(anim, 'cuerpoEntra', 'rótulo centrado: la animación de entrada sigue activa');
+  await captura(r, `1b/${CA}_rotulo_estilo`);
+  // al quitar el bloque, todo vuelve a lo de siempre
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined }); aplicarParroquia(PARROQUIA); });
+  m = await medidas();
+  igual(m.clases, '', 'sin bloque: se quitan las clases');
+  igual(m.radio, '24px', 'sin bloque: vuelven las esquinas redondeadas');
+  revisar(m.lado !== 'rgb(26, 82, 118)', 'sin bloque: se quita --lado');
+  revisar(await r.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--lado') === ''), 'sin bloque: --lado vacío');
+
+  const panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  await panel.waitForSelector('#cargos option', { state: 'attached' });
+  const op = await panel.evaluate(() => [...document.querySelectorAll('#cargos option')].map((o) => o.value));
+  igual(JSON.stringify(op), JSON.stringify(['LECTOR', 'MONAGUILLO']), 'panel: el datalist tiene los cargos de la configuración');
+  await ctx.close();
+
+  const ctx2 = await nuevoContexto();
+  const p2 = await abrir(ctx2, `/${CA}/panel.html`, 360, 1250);
+  await p2.waitForSelector('#cargos option', { state: 'attached' });
+  const op2 = await p2.evaluate(() => [...document.querySelectorAll('#cargos option')].map((o) => o.value));
+  igual(JSON.stringify(op2), JSON.stringify(['CELEBRANTE', 'PREDICADOR', 'CONCELEBRANTE', 'DIÁCONO', 'GUÍA', 'CORO']), 'panel sin bloque: el datalist es CARGOS');
+  const r2 = await abrir(ctx2, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona' }));
+  await r2.waitForSelector('#rotulo.en');
+  igual(await r2.evaluate(() => [...document.getElementById('escenario').classList].filter((x) => /^(esquinas-|pos-)/.test(x)).join(' ')), '', 'Ciudad Arce sin bloque: ninguna clase nueva');
+  await ctx2.close();
+}
+
 async function casoPersonalizada() {
   console.log('1b · Pantalla personalizada');
   const ctx = await nuevoContexto();
@@ -726,6 +774,7 @@ async function comparacion() {
     await casoCapturasYMedidas();
     await casoComoViene();
     await casoPersonalizada();
+    await casoEstiloRotulos();
     await casoPortadaCaeAInicio();
     await casoHorarios();
     await casoAvisosFijos();

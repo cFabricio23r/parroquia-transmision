@@ -1880,6 +1880,23 @@ grupo('pantallas', () => {
     assert.deepEqual(arr(x.horariosPara(), plano), [{ dia: 'Lunes', hora: '6:00 p. m.', nota: '' }]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
+  prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
+  });
+  prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] };
+    });
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276' }]);
+    assert.deepEqual(arr(x.cargosDe()), ['LECTOR', 'MONAGUILLO']);
+  });
+  prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
+    const x = cargarPantallas();
+    forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
+  });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
     const x = cargarPantallas();
     assert.equal(x.ajustesDe('inicio').personalizada, false);

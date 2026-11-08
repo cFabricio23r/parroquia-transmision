@@ -29,6 +29,7 @@
 <script src="parroquia.js"></script>
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
+<script src="pantallas.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 let estado = leerEstado();
@@ -106,6 +107,11 @@ function aplicarParroquia(c) {
   $('no-existe').hidden = !no;
   if (no) return;
   aplicarPaleta(c);
+  const e = estiloRotulos();   // clases y --lado se reponen en cada cambio y se quitan al volver a lo de siempre
+  $('escenario').classList.toggle('esquinas-rectas', e.esquinas === 'rectas');
+  $('escenario').classList.toggle('pos-centro', e.posicion === 'centro');
+  if (e.colorLado) $('escenario').style.setProperty('--lado', e.colorLado);
+  else $('escenario').style.removeProperty('--lado');
   ponerImagen($('logo-img'), c.logos && c.logos.blanco);
   ponerImagen($('lado-logo'), c.logos && c.logos.blanco);
   pintar(leerEstado());   // mismo rótulo y mismo texto: no se reanima

@@ -117,3 +117,24 @@ function horariosPara() {
 function redesPara() {
   return (Array.isArray(PARROQUIA.redes) ? PARROQUIA.redes : []).filter((r) => r && typeof r === 'object').map((r) => ({ red: r.red, texto: r.texto }));
 }
+
+/* ---------- Rótulos ---------- */
+
+/* Estilo de los rótulos. Sin bloque `rotulos` (o con valores fuera de lo permitido): los de hoy.
+   colorLado solo si es un #rrggbb válido. */
+function estiloRotulos() {
+  const r = PARROQUIA.rotulos && typeof PARROQUIA.rotulos === 'object' ? PARROQUIA.rotulos : {};
+  return {
+    tipografia: 'montserrat',
+    esquinas: r.esquinas === 'rectas' ? 'rectas' : 'redondeadas',
+    posicion: r.posicion === 'centro' ? 'centro' : 'izquierda',
+    colorLado: typeof r.colorLado === 'string' && RE_HEX.test(r.colorLado) ? r.colorLado : null
+  };
+}
+
+/* Cargos que sugiere el panel: los de la configuración, o CARGOS si no hay (o la lista queda vacía). */
+function cargosDe() {
+  const l = PARROQUIA.rotulos && Array.isArray(PARROQUIA.rotulos.cargos)
+    ? PARROQUIA.rotulos.cargos.filter((t) => typeof t === 'string' && t.trim() !== '') : [];
+  return l.length ? l : CARGOS.slice();
+}
