@@ -692,6 +692,8 @@ async function casoTiposPropios() {
   const g2 = { id: 'galeria-a', src: 'medios/logo-blanco.svg', alt: 'Primera imagen de la galería' };
   const g3 = { id: 'galeria-b', src: 'medios/fachada.svg', alt: 'Segunda imagen de la galería' };
   const v1 = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  v1.version = 1;                 // San José de ejemplo ya está en la versión 2: aquí la serie empieza en 1
+  delete v1.pantallas;            // las pantallas del ejemplo usan su propia galería, que este caso reemplaza
   v1.galeria = [g2];
   v1.tipos = { apagados: ['horasanta'], propios: [propio] };
   const v2 = Object.assign(JSON.parse(JSON.stringify(v1)), { version: 2, publicado: '2026-11-08T12:00:00Z' });
@@ -759,6 +761,64 @@ async function casoTiposPropios() {
   igual(await panel.getAttribute('[data-tipo="dominical"]', 'aria-pressed'), 'true', 'el panel marca el primero disponible');
   await pant.waitForFunction(() => !/MISIONERA/.test(document.getElementById('i-pildora').textContent), null, { timeout: 5000 }).catch(() => {});
   revisar(!/MISIONERA/.test(await texto(pant, '#i-pildora')), 'la pantalla también cae al primero disponible («' + (await texto(pant, '#i-pildora')) + '»)');
+  await ctx.close();
+}
+
+async function casoSanJoseCompleto() {
+  console.log('1b · San José completo (las 5 vistas, rótulos y panel)');
+  const ctx = await nuevoContexto();
+  const estadoSJ = (estado) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${SJ}_estado_v1`, JSON.stringify(estado)]);
+  const AJENO = /Inmaculada|Ciudad Arce|diciembre/i;
+  const cfg = CONFIG[SJ];
+  const vistas = [
+    ['inicio', 'inicio', { tipo: 'misa-de-ninos' }],
+    ['portada', 'portada', { tipo: 'patronal' }],
+    ['gracias', 'gracias', { tipo: 'novena' }],
+    ['avisos', 'avisos', { tipo: 'novena', avisos: [{ a: 'Aviso del panel', f: 'Detalle del panel' }, { a: '', f: '' }, { a: '', f: '' }, { a: '', f: '' }] }],
+    ['horarios', 'horarios', { tipo: 'novena' }]
+  ];
+  for (const [nombre, tipo, estado] of vistas) {
+    const p = await abrir(ctx, `/${SJ}/pantalla.html?tipo=${tipo}`, 1920, 1080, estadoSJ(estado));
+    await p.waitForTimeout(1800);
+    const cuerpo = await p.innerText('body');
+    revisar(cuerpo.trim() !== '' && !AJENO.test(cuerpo), 'San José · ' + nombre + ': tiene texto y ninguno de Ciudad Arce');
+    igual((await imagenesRotas(p)).length, 0, 'San José · ' + nombre + ': ninguna imagen rota');
+    await captura(p, `1b/${SJ}_${nombre}`);
+    if (nombre === 'inicio') {
+      igual(await texto(p, '#i-pildora'), 'MISA DE NIÑOS', 'inicio: el tipo propio de la configuración se ve');
+      igual(await p.getAttribute('#virgen', 'src'), 'medios/taller.svg', 'inicio: la imagen es la de la galería');
+      revisar(!(await visibleEl(p, '#chispas')), 'inicio: sin chispas');
+      revisar(/Bienvenidos a Parroquia San José/.test(await texto(p, '#i-cursiva')), 'inicio: el texto de la configuración rellena {parroquia}');
+    }
+    if (nombre === 'avisos') {
+      const a = await p.evaluate(() => [...document.querySelectorAll('#a-filas .fila .a')].map((e) => e.textContent));
+      igual(a.join(' | '), 'Ensayo del coro | Colecta para el techo del salón | Aviso del panel', 'avisos: fijos vigentes primero y después el del panel');
+    }
+    if (nombre === 'horarios') {
+      igual(await p.evaluate(() => document.querySelectorAll('#h-filas .fila').length), cfg.horarios.length, 'horarios: una fila por horario');
+      igual(await p.evaluate(() => document.querySelectorAll('#h-redes .red').length), cfg.redes.length, 'horarios: una línea por red');
+      revisar(!/https?:|facebook\.com|youtube\.com|wa\.me/i.test(cuerpo), 'horarios: ninguna URL en pantalla');
+    }
+    await p.close();
+  }
+  const r = await abrir(ctx, `/${SJ}/rotulos.html`, 1920, 1080, estadoSJ({ tipo: 'misa-de-ninos', rotulo: 'persona', datos: {} }));
+  await r.waitForSelector('#rotulo.en', { timeout: 5000 }).catch(() => {});
+  await r.waitForTimeout(1200);
+  const cr = await r.innerText('body');
+  revisar(!AJENO.test(cr), 'San José · rótulos: ningún texto de Ciudad Arce');
+  igual((await imagenesRotas(r)).length, 0, 'San José · rótulos: ninguna imagen rota');
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).borderRadius), '0px', 'rótulos: esquinas rectas');
+  await captura(r, `1b/${SJ}_rotulos`);
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250, estadoSJ({ tipo: 'misa-de-ninos' }));
+  await panel.waitForSelector('[data-tipo="misa-de-ninos"]', { state: 'attached' });
+  await panel.waitForTimeout(600);
+  const cp = await panel.innerText('body');
+  revisar(!AJENO.test(cp), 'San José · panel: ningún texto de Ciudad Arce');
+  igual((await imagenesRotas(panel)).length, 0, 'San José · panel: ninguna imagen rota');
+  const tp = await panel.evaluate(() => [...document.querySelectorAll('#tipos [data-tipo]')].map((b) => b.dataset.tipo));
+  revisar(tp.includes('misa-de-ninos') && !tp.includes('procesion'), 'panel: tipo propio presente y Procesión apagada (' + tp.length + ' tipos)');
+  igual(await panel.evaluate(() => [...document.querySelectorAll('#cargos option')].map((o) => o.value).join(',')), cfg.rotulos.cargos.join(','), 'panel: los cargos son los de la configuración');
+  await captura(panel, `1b/${SJ}_panel`);
   await ctx.close();
 }
 
@@ -856,6 +916,7 @@ async function comparacion() {
     await casoHorarios();
     await casoAvisosFijos();
     await casoTiposPropios();
+    await casoSanJoseCompleto();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

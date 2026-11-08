@@ -1451,6 +1451,13 @@ grupo('servidor-vicaria: patrones de vercel.json', () => {
     const m = emparejar(compilarPatron(r.source), '/ciudad-arce/pantallas.js');
     assert.equal(r.destination.replace(':script', m.script), '/pantallas.js');
   });
+  prueba('LEEME-config.md existe pero ninguna regla de vercel.json lo sirve bajo /<slug>/ (da 404)', () => {
+    assert.ok(fs.statSync(path.join(__dirname, '..', '..', 'vicaria', 'LEEME-config.md')).isFile());
+    for (const ruta of ['/san-jose-ejemplo/LEEME-config.md', '/ciudad-arce/LEEME-config.md']) {
+      const r = reglas.rewrites.concat(reglas.headers).find((x) => emparejar(compilarPatron(x.source), ruta));
+      assert.equal(r, undefined, ruta);
+    }
+  });
   prueba('config.json lleva Cache-Control must-revalidate', () => {
     const h = reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/ciudad-arce/config.json'));
     assert.ok(h);

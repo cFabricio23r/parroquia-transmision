@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img" aria-label="Dibujo de ejemplo de una escuadra, un martillo y un lirio">
+  <rect width="800" height="1000" fill="#f3e9ea"/>
+  <circle cx="400" cy="430" r="300" fill="#e8dadc"/>
+  <path d="M230 700V260h70v370h270v70z" fill="#8a1c2b"/>
+  <rect x="470" y="300" width="40" height="300" rx="10" fill="#a99093" transform="rotate(20 490 450)"/>
+  <rect x="420" y="250" width="140" height="70" rx="12" fill="#4b0f18" transform="rotate(20 490 285)"/>
+  <path d="M400 860V690" stroke="#4b0f18" stroke-width="14" stroke-linecap="round"/>
+  <path d="M400 700c-60-40-70-110-20-160 20 40 30 90 20 160zM400 700c60-40 70-110 20-160-20 40-30 90-20 160z" fill="#ffffff" stroke="#4b0f18" stroke-width="8"/>
+  <rect y="880" width="800" height="120" fill="#4b0f18"/>
+</svg>
