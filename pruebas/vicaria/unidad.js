@@ -1443,6 +1443,163 @@ grupo('servidor-vicaria: patrones de vercel.json', () => {
   });
 });
 
+grupo('config 1b', () => {
+  const p = cargarCon(['tipos.js', 'comun.js']);
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const con = (cambios) => {
+    const c = base();
+    cambios(c);
+    return c;
+  };
+  const GALERIA = [
+    { id: 'patrono-2', src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono', etiquetas: ['patrono'] },
+    { id: 'fondo-fiesta', src: 'medios/fondo-fiesta.webp', alt: 'Fondo de la fiesta' }
+  ];
+  const conGaleria = (c) => { c.galeria = GALERIA.map((g) => Object.assign({}, g)); };
+  const completa = () => con((c) => {
+    conGaleria(c);
+    c.pantallas = {
+      inicio: {
+        modo: 'personalizada',
+        fondo: { tipo: 'imagen', imagen: 'fondo-fiesta' },
+        imagen: 'galeria:patrono-2',
+        distribucion: 'izquierda',
+        ocultar: ['chispas', 'rayos', 'esquina'],
+        textos: { inicio_titulo: 'Bienvenidos a {patrono}', franja: 'Fiesta de {fiesta}' }
+      },
+      portada: { modo: 'personalizada', fondo: { tipo: 'color', color: '#0c3562' }, imagen: 'patrono', distribucion: 'centro' },
+      gracias: { modo: 'como-viene', imagen: 'ninguna' },
+      avisos: { fondo: { tipo: 'degradado' }, imagen: 'automatica' },
+      horarios: { modo: 'personalizada', imagen: 'fachada', distribucion: 'derecha', ocultar: ['marca', 'envivo', 'franja', 'fachada'] }
+    };
+    c.rotulos = { tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#7a3b12', cargos: ['CELEBRANTE', 'PREDICADOR'] };
+    c.tipos = {
+      apagados: ['horasanta', 'procesion'],
+      propios: [{
+        clave: 'hora-misionera', nombre: 'Hora misionera', descripcion: 'Oración por las misiones',
+        titulo: 'Hora\nmisionera', ceja: 'MES MISIONERO', cursiva: 'con {patronoCorto}', franja: 'Rezamos juntos',
+        imagen: 'galeria:patrono-2', esquina: 'texto', esquinaTexto: 'MISIONES', rotulos: ['persona', 'lectura1', 'libre']
+      }]
+    };
+    c.horarios = [{ dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' }, { dia: 'Lunes', hora: '6:00 p. m.' }];
+    c.redes = [{ red: 'facebook', url: 'https://facebook.com/ParroquiaCiudadArce', texto: '/ParroquiaCiudadArce' }];
+    c.avisos = [{ texto: 'Retiro de jóvenes', detalle: 'Sáb 30 · 6:00 p. m.', desde: '2026-11-01', hasta: '2026-11-30', orden: 1 }, { texto: 'Colecta' }];
+  });
+
+  prueba('acepta la configuración de la 1a sin cambios', () => {
+    for (const cfg of [CONFIG_CIUDAD_ARCE, CONFIG_SAN_JOSE]) {
+      const r = cargarCon([], {}, cfg).validarConfig(cfg);
+      assert.deepEqual(Array.from(r.errores), []);
+      assert.equal(r.ok, true);
+    }
+  });
+  prueba('acepta todos los bloques nuevos', () => {
+    const r = p.validarConfig(completa());
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.equal(r.ok, true);
+  });
+
+  const malo = (descripcion, cambios, campo) => {
+    prueba('rechaza bloques nuevos inválidos: ' + descripcion, () => {
+      const r = p.validarConfig(con(cambios));
+      assert.equal(r.ok, false);
+      assert.ok(r.errores.some((e) => e.includes(campo)), 'ningún error menciona «' + campo + '»: ' + JSON.stringify(r.errores));
+    });
+  };
+  malo('fondo.tipo video', (c) => { c.pantallas = { inicio: { fondo: { tipo: 'video' } } }; }, 'pantallas.inicio.fondo.tipo');
+  malo('fondo color sin color', (c) => { c.pantallas = { inicio: { fondo: { tipo: 'color' } } }; }, 'pantallas.inicio.fondo.color');
+  malo('fondo color sin contraste', (c) => { c.pantallas = { inicio: { fondo: { tipo: 'color', color: '#ffff00' } } }; }, 'pantallas.inicio.fondo.color');
+  malo('fondo imagen que no existe en la galería', (c) => { conGaleria(c); c.pantallas = { inicio: { fondo: { tipo: 'imagen', imagen: 'noexiste' } } }; }, 'pantallas.inicio.fondo.imagen');
+  malo('imagen galeria:noexiste', (c) => { c.pantallas = { inicio: { imagen: 'galeria:noexiste' } }; }, 'pantallas.inicio.imagen');
+  malo('imagen con una clave desconocida', (c) => { c.pantallas = { inicio: { imagen: 'paisaje' } }; }, 'pantallas.inicio.imagen');
+  malo('vista desconocida', (c) => { c.pantallas = { menu: { modo: 'personalizada' } }; }, 'pantallas.menu');
+  malo('modo desconocido', (c) => { c.pantallas = { inicio: { modo: 'libre' } }; }, 'pantallas.inicio.modo');
+  malo('distribucion desconocida', (c) => { c.pantallas = { avisos: { distribucion: 'arriba' } }; }, 'pantallas.avisos.distribucion');
+  malo('ocultar titulo', (c) => { c.pantallas = { inicio: { ocultar: ['titulo'] } }; }, 'pantallas.inicio.ocultar');
+  malo('ocultar que no es lista', (c) => { c.pantallas = { inicio: { ocultar: 'chispas' } }; }, 'pantallas.inicio.ocultar');
+  malo('textos con clave que no existe', (c) => { c.pantallas = { inicio: { textos: { inexistente: 'x' } } }; }, 'pantallas.inicio.textos.inexistente');
+  malo('rotulos.tipografia arial', (c) => { c.rotulos = { tipografia: 'arial' }; }, 'rotulos.tipografia');
+  malo('rotulos.esquinas desconocida', (c) => { c.rotulos = { esquinas: 'ovaladas' }; }, 'rotulos.esquinas');
+  malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'derecha' }; }, 'rotulos.posicion');
+  malo('rotulos.colorLado sin contraste', (c) => { c.rotulos = { colorLado: '#ffff00' }; }, 'rotulos.colorLado');
+  malo('rotulos.cargos con 13 elementos', (c) => { c.rotulos = { cargos: Array.from({ length: 13 }, (_, i) => 'CARGO ' + i) }; }, 'rotulos.cargos');
+  malo('tipo propio con clave dominical', (c) => { c.tipos = { propios: [{ clave: 'dominical', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
+  malo('tipo propio con clave inválida', (c) => { c.tipos = { propios: [{ clave: 'Hora Misionera', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
+  malo('tipo propio sin nombre', (c) => { c.tipos = { propios: [{ clave: 'hora-misionera' }] }; }, 'tipos.propios[0].nombre');
+  malo('tipo propio con rotulos bailarin', (c) => { c.tipos = { propios: [{ clave: 'hora-misionera', nombre: 'X', rotulos: ['bailarin'] }] }; }, 'tipos.propios[0].rotulos');
+  malo('tipo propio con esquina desconocida', (c) => { c.tipos = { propios: [{ clave: 'hora-misionera', nombre: 'X', esquina: 'luna' }] }; }, 'tipos.propios[0].esquina');
+  malo('tipo propio con imagen de galería inexistente', (c) => { c.tipos = { propios: [{ clave: 'hora-misionera', nombre: 'X', imagen: 'galeria:noexiste' }] }; }, 'tipos.propios[0].imagen');
+  malo('dos tipos propios con la misma clave', (c) => { c.tipos = { propios: [{ clave: 'mision', nombre: 'A' }, { clave: 'mision', nombre: 'B' }] }; }, 'tipos.propios[1].clave');
+  malo('tipos.apagados con una clave que no es común', (c) => { c.tipos = { apagados: ['inventado'] }; }, 'tipos.apagados');
+  malo('tipos.apagados con las 11 claves y sin propios', (c) => {
+    c.tipos = { apagados: ['dominical', 'semana', 'horasanta', 'sector', 'patronalsector', 'procesion', 'otros', 'prenovena', 'novena', 'patronal', 'evento'] };
+  }, 'tipos.apagados');
+  malo('más de 10 tipos propios', (c) => {
+    c.tipos = { propios: Array.from({ length: 11 }, (_, i) => ({ clave: 'tipo-' + i + 'x', nombre: 'T' + i })) };
+  }, 'tipos.propios');
+  malo('horarios con 13 elementos', (c) => { c.horarios = Array.from({ length: 13 }, () => ({ dia: 'Lunes', hora: '6:00 p. m.' })); }, 'horarios');
+  malo('horarios sin hora', (c) => { c.horarios = [{ dia: 'Lunes' }]; }, 'horarios[0].hora');
+  malo('redes con url http', (c) => { c.redes = [{ red: 'web', url: 'http://x', texto: 'x' }]; }, 'redes[0].url');
+  malo('redes con red desconocida', (c) => { c.redes = [{ red: 'tiktok', url: 'https://x.org', texto: 'x' }]; }, 'redes[0].red');
+  malo('más de 6 redes', (c) => { c.redes = Array.from({ length: 7 }, () => ({ red: 'web', url: 'https://x.org', texto: 'x' })); }, 'redes');
+  malo('avisos con desde 2026-02-30', (c) => { c.avisos = [{ texto: 'x', desde: '2026-02-30' }]; }, 'avisos[0].desde');
+  malo('avisos con fecha mal escrita', (c) => { c.avisos = [{ texto: 'x', hasta: '30/11/2026' }]; }, 'avisos[0].hasta');
+  malo('avisos con desde mayor que hasta', (c) => { c.avisos = [{ texto: 'x', desde: '2026-12-01', hasta: '2026-11-01' }]; }, 'avisos[0].desde');
+  malo('más de 10 avisos', (c) => { c.avisos = Array.from({ length: 11 }, () => ({ texto: 'x' })); }, 'avisos');
+  malo('aviso con texto de 201 caracteres', (c) => { c.avisos = [{ texto: 'a'.repeat(201) }]; }, 'avisos[0].texto');
+  malo('texto de pantalla de 201 caracteres', (c) => { c.pantallas = { inicio: { textos: { inicio_titulo: 'a'.repeat(201) } } }; }, 'pantallas.inicio.textos.inicio_titulo');
+  malo('imagen de galería sin alt', (c) => { conGaleria(c); delete c.galeria[0].alt; }, 'galeria[0].alt');
+  malo('galería con id repetido', (c) => { conGaleria(c); c.galeria[1].id = c.galeria[0].id; }, 'galeria[1].id');
+  malo('galería con id inválido', (c) => { conGaleria(c); c.galeria[0].id = 'Patrono_2'; }, 'galeria[0].id');
+  malo('galería con más de 30 imágenes', (c) => {
+    c.galeria = Array.from({ length: 31 }, (_, i) => ({ id: 'img-' + i + 'x', src: 'medios/a.png', alt: 'a' }));
+  }, 'galeria');
+  malo('pantallas que no es objeto', (c) => { c.pantallas = []; }, 'pantallas');
+  malo('horarios que no es lista', (c) => { c.horarios = {}; }, 'horarios');
+
+  prueba('rutas de imagen solo dentro de medios/', () => {
+    const malas = ['https://x/a.png', '//x/a.png', '../otra/medios/a.png', 'medios/../a.png', 'medios\\a.png', 'medios/a.gif'];
+    const lugares = {
+      'logos.blanco': (c, s) => { c.logos.blanco.src = s; },
+      'fachada': (c, s) => { c.fachada.src = s; },
+      'patrono.imagen': (c, s) => { c.patrono.imagen.src = s; },
+      'galeria[0]': (c, s) => { conGaleria(c); c.galeria[0].src = s; }
+    };
+    for (const lugar of Object.keys(lugares)) {
+      for (const s of malas) {
+        const r = p.validarConfig(con((c) => lugares[lugar](c, s)));
+        assert.equal(r.ok, false, lugar + ' acepta ' + s);
+        assert.ok(r.errores.some((e) => e.includes(lugar)), lugar + ' ' + s + ': ' + JSON.stringify(r.errores));
+      }
+      const ok = p.validarConfig(con((c) => lugares[lugar](c, 'medios/a.webp')));
+      assert.deepEqual(Array.from(ok.errores), [], lugar);
+    }
+  });
+  prueba('RUTA_MEDIO acepta png, jpg, jpeg, webp y svg (también en mayúsculas)', () => {
+    for (const s of ['medios/a.png', 'medios/a.jpg', 'medios/a.jpeg', 'medios/a.webp', 'medios/a.svg', 'medios/Foto-1_b.JPG']) {
+      assert.ok(p.RUTA_MEDIO.test(s), s);
+    }
+  });
+  prueba('CLAVES_COMUNES coincide con ORDEN_TIPOS', () => {
+    assert.deepEqual(Array.from(p.CLAVES_COMUNES), Array.from(p.ORDEN_TIPOS));
+  });
+  prueba('BASES_ROTULO coincide con las claves de ROTULOS', () => {
+    assert.deepEqual(Array.from(p.BASES_ROTULO).sort(), Object.keys(p.ROTULOS).sort());
+  });
+  prueba('CLAVES_TEXTOS coincide con las claves de textosBase', () => {
+    assert.deepEqual(Array.from(p.CLAVES_TEXTOS).sort(), Object.keys(p.textosBase({})).sort());
+  });
+  prueba('los dos config.json de ejemplo siguen siendo válidos', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    for (const slug of ['ciudad-arce', 'san-jose-ejemplo']) {
+      const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vicaria', slug, 'config.json'), 'utf8'));
+      const r = cargar(['parroquia.js'], {}, { location: { pathname: '/' + slug + '/panel.html' } }).validarConfig(cfg);
+      assert.deepEqual(Array.from(r.errores), [], slug);
+    }
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
