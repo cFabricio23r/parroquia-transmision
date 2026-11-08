@@ -757,11 +757,17 @@ document.querySelectorAll('[data-aviso]').forEach(el => el.addEventListener('inp
 $('limpiar-avisos').addEventListener('click', () => { s.avisos = [{a:'',f:''},{a:'',f:''},{a:'',f:''},{a:'',f:''}]; llenar(); guardar(); });
 
 /* ---------- todos los textos ---------- */
+/* Vista de la que sale cada texto (para mostrar en el panel lo que sale al aire). Los compartidos (marca, franja…) usan inicio. */
+function vistaDeTexto(clave) {
+  const m = /^(inicio|portada|gracias|avisos|horarios)_/.exec(clave);
+  return m ? m[1] : 'inicio';
+}
 const ESQUEMA = [
   ['Pantalla de inicio', [['inicio_pildora','Etiqueta blanca'],['inicio_ceja','Texto pequeño'],['inicio_titulo','Título',1],['inicio_cursiva','Frase en cursiva',1],['inicio_cuenta','Texto de la cuenta regresiva',1]]],
   ['Portada de la fiesta patronal', [['portada_ceja','Texto pequeño'],['portada_cursiva','Frase en cursiva'],['portada_titulo','Título',1],['portada_fecha','Fecha'],['portada_sub','Texto bajo la fecha']]],
   ['Gracias por acompañarnos', [['gracias_pildora','Etiqueta blanca'],['gracias_titulo','Título',1],['gracias_cursiva','Frase en cursiva',1],['gracias_ceja','Texto final']]],
   ['Avisos', [['avisos_sub','Texto pequeño'],['avisos_titulo','Título']]],
+  ['Horarios', [['horarios_titulo','Título']]],
   ['Logo y barra', [['marca','Nombre junto al logo (pantallas)',1],['capa_logo','Nombre junto al logo (cámara)',1],['barra_y','Segunda parte de la barra']]],
   ['Títulos de los rótulos', [['k_lectura1','Primera lectura'],['k_salmo','Salmo'],['k_lectura2','Segunda lectura'],['k_evangelio','Evangelio'],['k_rosario','Texto pequeño del Rosario'],['t_rosario','Título del Rosario']]]
 ];
@@ -1071,11 +1077,12 @@ function refrescar() {
   $('atajos').textContent = 'Atajos con el panel seleccionado: ' + (n ? (n === 1 ? '1' : '1 a ' + n) + ' muestra u oculta ese rótulo · ' : '') + 'Espacio = siguiente · Esc = ocultar.';
 
   const base = textosBase(s);
+  const vacio = Object.assign({}, s, { textos: {} });   // lo que sale al aire si el campo queda vacío: la configuración o lo automático
   document.querySelectorAll('[data-texto]').forEach(el => {
-    const k = el.dataset.texto; el.placeholder = base[k] || '';
+    const k = el.dataset.texto; el.placeholder = textoDe(vacio, vistaDeTexto(k), k);
     if (document.activeElement !== el) el.value = (s.textos && s.textos[k]) || '';
   });
-  $('frase').placeholder = base.franja || '';
+  $('frase').placeholder = textoDe(vacio, 'inicio', 'franja');
   $('barraTexto').placeholder = tituloCelebracion(s);
   ocultarFueraDeCamara();   // al final: ocultar() vuelve a refrescar con el estado ya limpio
 }
@@ -1121,7 +1128,8 @@ function aplicarParroquia(c) {
   $('parroquia').placeholder = _nombreYLugar();   // lo que sale si el campo queda vacío
   $('aviso-config').textContent = aviso;
   $('aviso-config').hidden = aviso === '';
-  if (!PARROQUIA_NO_EXISTE && !ordenTipos().includes(s.tipo)) cambiarTipo(ordenTipos()[0]);   // el tipo elegido ya no se ofrece
+  // el tipo elegido ya no se ofrece (con la configuración neutra no se toca: aún no llegó la de la parroquia, como en normalizarEstado)
+  if (!PARROQUIA_NO_EXISTE && ESTADO_CONFIG.origen !== 'neutra' && !ordenTipos().includes(s.tipo)) cambiarTipo(ordenTipos()[0]);
   armarTipos();   // los tipos y las imágenes de la galería salen de la configuración
   armarImagenes();
   $('cargos').replaceChildren();   // los cargos sugeridos salen de la configuración (o de CARGOS)

@@ -478,7 +478,9 @@ async function casoComoViene() {
   const h = await abrir(ctx, `/${CA}/pantalla.html?tipo=horarios`);
   await h.waitForTimeout(1000);
   igual((await texto(h, '#h-titulo')).trim(), 'Horarios de misa', 'horarios: el título por defecto');
-  igual((await texto(h, '#h-filas')).trim(), 'Consulte los horarios en el panel', 'horarios: sin horarios ni redes avisa que se consulte el panel');
+  igual((await texto(h, '#h-filas')).trim(), '', 'horarios: sin horarios ni redes no se pone ninguna instrucción al aire');
+  revisar(!(await visibleEl(h, '#h-filas')), 'horarios: sin horarios ni redes la lista queda oculta');
+  revisar(!/panel/i.test(await h.innerText('body')), 'horarios: ninguna mención del panel en la pantalla');
   revisar(!(await visibleEl(h, '#h-redes')), 'horarios: sin redes no hay franja de redes');
   igual((await clasesNuevas(h)).join(' '), '', 'horarios: sin clases nuevas');
   await ctx.close();
@@ -770,6 +772,42 @@ async function casoTiposPropios() {
   await ctx.close();
 }
 
+async function casoPanelNeutroConservaPropio() {
+  console.log('1b · Panel con configuración neutra al arrancar conserva el tipo propio');
+  const ctx = await nuevoContexto();
+  let bloquear = true;
+  await ctx.route(`**/${SJ}/config.json`, (r) => (bloquear ? r.abort() : r.continue()));
+  const clave = `pev_${SJ}_estado_v1`;
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250, async (p) => {
+    await p.clock.install();
+    await p.addInitScript(([k, v]) => localStorage.setItem(k, v), [clave, JSON.stringify({ tipo: 'misa-de-ninos', imagen: 'galeria:taller' })]);
+  });
+  await panel.waitForSelector('#aviso-config:not([hidden])');
+  const guardado = () => panel.evaluate((k) => { const e = JSON.parse(localStorage.getItem(k)); return e.tipo + '|' + e.imagen; }, clave);
+  igual(await guardado(), 'misa-de-ninos|galeria:taller', 'sin configuración: el estado guardado conserva el tipo propio y su imagen');
+  bloquear = false;
+  await panel.clock.runFor(61000);
+  await panel.waitForSelector('[data-tipo="misa-de-ninos"]', { state: 'attached', timeout: 5000 }).catch(() => {});
+  igual(await panel.getAttribute('[data-tipo="misa-de-ninos"]', 'aria-pressed'), 'true', 'al llegar la configuración, el panel muestra el propio elegido');
+  igual(await guardado(), 'misa-de-ninos|galeria:taller', 'y el estado sigue siendo el propio');
+  await ctx.close();
+}
+
+async function casoPlaceholdersTextos() {
+  console.log('1b · Los placeholders de Textos muestran lo que sale al aire');
+  const ctx = await nuevoContexto();
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250);
+  await panel.waitForSelector('[data-tipo="misa-de-ninos"]', { state: 'attached' });
+  const ph = (k) => panel.evaluate((c) => document.querySelector(`[data-texto="${c}"]`).placeholder, k);
+  igual(await ph('avisos_titulo'), 'Avisos de la semana', 'avisos_titulo: el de la configuración');
+  igual(await ph('gracias_titulo'), '¡Dios les bendiga!', 'gracias_titulo: el de la configuración');
+  revisar(/^Bienvenidos a Parroquia San José/.test(await ph('inicio_cursiva')), 'inicio_cursiva: con el hueco {parroquia} rellenado');
+  igual(await ph('horarios_titulo'), 'Misas en San José', 'horarios_titulo existe en el panel y muestra el de la configuración');
+  const auto = await panel.evaluate(() => textosBase(s).inicio_titulo);
+  igual(await ph('inicio_titulo'), auto, 'sin texto en la configuración: el automático');
+  await ctx.close();
+}
+
 async function casoSanJoseCompleto() {
   console.log('1b · San José completo (las 5 vistas, rótulos y panel)');
   const ctx = await nuevoContexto();
@@ -922,6 +960,8 @@ async function comparacion() {
     await casoHorarios();
     await casoAvisosFijos();
     await casoTiposPropios();
+    await casoPanelNeutroConservaPropio();
+    await casoPlaceholdersTextos();
     await casoSanJoseCompleto();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

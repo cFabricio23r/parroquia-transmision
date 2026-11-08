@@ -57,13 +57,18 @@ const MIN_CONTRASTE = 4.5;
 
 /* Los seis colores de estilos.css (--oscuro --rey --medio --celeste --claro --palido) a partir de los dos de la parroquia. */
 function paleta(principal, oscuro) {
-  // --medio es texto pequeño sobre blanco (.rotulo .k): se acerca al principal hasta llegar a 4.5:1.
+  // --medio es texto pequeño sobre blanco (.rotulo .k) y sobre el fondo fijo de las filas (#eef5fc, estilos.css): se
+  // acerca al principal hasta llegar a 4.5:1 contra los dos.
+  const FONDO_FILA = '#eef5fc';
+  const pasa = (hex) => contraste('#ffffff', hex) >= MIN_CONTRASTE && contraste(FONDO_FILA, hex) >= MIN_CONTRASTE;
   let parte = 15;
-  while (parte > 0 && contraste('#ffffff', _conBlanco(principal, parte / 100)) < MIN_CONTRASTE) parte--;
+  while (parte > 0 && !pasa(_conBlanco(principal, parte / 100))) parte--;
+  let medio = _conBlanco(principal, parte / 100);
+  if (!pasa(medio) && pasa(oscuro)) medio = oscuro;   // principal muy claro: ni sin mezcla alcanza, se usa el oscuro
   return {
     oscuro: oscuro,
     rey: principal,
-    medio: _conBlanco(principal, parte / 100),
+    medio: medio,
     celeste: _conBlanco(principal, 0.35),
     claro: _conBlanco(principal, 0.6),
     palido: _conBlanco(principal, 0.9)

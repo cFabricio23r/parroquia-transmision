@@ -21,7 +21,7 @@ const RAIZ = path.resolve(__dirname, '..', 'vicaria');
 
 const TIPOS = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2'
 };
 
@@ -118,4 +118,4 @@ if (require.main === module) {
   crearServidor().listen(puerto, () => console.log('vicaria/ en http://localhost:' + puerto + '/<slug>/panel.html'));
 }
 
-module.exports = { crearServidor, compilarPatron, emparejar };
+module.exports = { crearServidor, compilarPatron, emparejar, TIPOS };

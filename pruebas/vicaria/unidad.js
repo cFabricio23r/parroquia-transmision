@@ -1070,6 +1070,13 @@ grupo('parroquia', () => {
       assert.equal(q.rey, principal);
     }
   });
+  prueba('paleta: --medio también se lee sobre el fondo fijo de las filas (#eef5fc, >= 4.5)', () => {
+    for (const principal of ['#0066cc', '#007a33', '#767676', '#d1001f', '#c4161c', '#1155a4', '#7a3b12']) {
+      const q = p.paleta(principal, '#0c3562');
+      assert.ok(p.contraste('#ffffff', q.medio) >= 4.5, 'blanco ' + principal + ' -> ' + q.medio);
+      assert.ok(p.contraste('#eef5fc', q.medio) >= 4.5, 'fila ' + principal + ' -> ' + q.medio + ' ' + p.contraste('#eef5fc', q.medio));
+    }
+  });
   prueba('paleta: Ciudad Arce y San José conservan su --medio (ya pasaba)', () => {
     assert.equal(p.paleta('#1155a4', '#0c3562').medio, '#356fb2');
     assert.equal(p.paleta('#7a3b12', '#4a2008').medio, '#8e5836');
@@ -1425,6 +1432,15 @@ grupo('parroquias de ejemplo', () => {
   });
 });
 
+grupo('servidor-vicaria: tipos de contenido', () => {
+  const { TIPOS } = require('../../herramientas/servidor-vicaria');
+  prueba('sirve .webp y .jpeg con su tipo (RUTA_MEDIO los acepta)', () => {
+    assert.equal(TIPOS['.webp'], 'image/webp');
+    assert.equal(TIPOS['.jpeg'], 'image/jpeg');
+    assert.equal(TIPOS['.jpg'], 'image/jpeg');
+  });
+});
+
 grupo('servidor-vicaria: patrones de vercel.json', () => {
   const { compilarPatron, emparejar } = require('../../herramientas/servidor-vicaria');
   const fs = require('node:fs');
@@ -1765,6 +1781,19 @@ grupo('pantallas', () => {
     const auto = x.imagenDeVista(s, 'horarios');
     assert.equal(auto.src, x.imagenDe(s));
     assert.equal(auto.alt, x.altDe(s));
+  });
+  prueba('imagenDeVista: la imagen elegida en el panel gana a la fija de la pantalla; esta solo reemplaza a automática', () => {
+    const x = cargarPantallas((cfg) => {
+      cfg.galeria = GAL;
+      cfg.pantallas = { gracias: { modo: 'personalizada', imagen: 'fachada' }, inicio: { modo: 'personalizada', imagen: 'ninguna' } };
+    });
+    const elegida = x.normalizarEstado({ tipo: 'novena', imagen: 'logo' });
+    assert.equal(x.imagenDeVista(elegida, 'gracias').src, x.imagenDe(elegida), 'gracias: la del panel');
+    assert.notEqual(x.imagenDeVista(elegida, 'gracias').src, 'medios/fachada.jpg');
+    assert.equal(x.imagenDeVista(elegida, 'inicio').src, x.imagenDe(elegida), 'inicio: «ninguna» tampoco le gana a la del panel');
+    const auto = x.normalizarEstado({ tipo: 'novena' });
+    assert.equal(x.imagenDeVista(auto, 'gracias').src, 'medios/fachada.jpg', 'sin elección del panel, la de la pantalla');
+    assert.equal(x.imagenDeVista(auto, 'inicio').src, '');
   });
   prueba('imagenGaleria: la encuentra o da null', () => {
     const x = cargarPantallas((cfg) => { cfg.galeria = GAL; });

@@ -261,11 +261,7 @@ function pintar(s) {
       const f = document.createElement('span'); f.className = 'f'; f.textContent = h.nota;
       fila.append(n, a, f); filas.append(fila);
     });
-    if (!horarios.length && !redes.length) {
-      const fila = document.createElement('div'); fila.className = 'fila vacia';
-      const a = document.createElement('span'); a.className = 'a'; a.textContent = 'Consulte los horarios en el panel';
-      fila.append(a); filas.append(fila);
-    }
+    filas.hidden = !horarios.length && !redes.length;   // sin nada que mostrar solo queda el título: ninguna instrucción al aire
     filas.classList.toggle('compacta', horarios.length > 4);
     filas.classList.toggle('dos-col', horarios.length > 6);
     const cajaRedes = $('h-redes'); cajaRedes.textContent = '';
