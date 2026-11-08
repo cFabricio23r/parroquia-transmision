@@ -1907,6 +1907,119 @@ grupo('pantallas', () => {
   });
 });
 
+grupo('tipos propios y apagados', () => {
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const GAL = [{ id: 'patrono-2', src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono' }];
+  const PROPIO = {
+    clave: 'hora-misionera', nombre: 'Hora misionera', descripcion: 'Oración por las misiones de {parroquia}.',
+    titulo: 'HORA MISIONERA', ceja: 'EN HONOR A {patronoCorto}', cursiva: 'Id y anunciad', franja: '«{lema}»',
+    imagen: 'galeria:patrono-2', esquina: 'fiesta', rotulos: ['persona', 'lectura1', 'oracion']
+  };
+  const cargarTipos = (cambios) => {
+    const cfg = base();
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const arr = (x) => Array.from(x);
+  const sinBloque = cargarTipos();
+
+  prueba('ordenTipos sin bloque tipos es ORDEN_TIPOS', () => {
+    assert.deepEqual(arr(sinBloque.ordenTipos()), arr(sinBloque.ORDEN_TIPOS));
+    assert.equal(sinBloque.ORDEN_TIPOS.length, 11);
+  });
+  prueba('ordenTipos quita los apagados y pone los propios al final, en el orden de la configuración', () => {
+    const x = cargarTipos((cfg) => {
+      cfg.galeria = GAL;
+      cfg.tipos = { apagados: ['horasanta', 'evento'], propios: [PROPIO, { clave: 'adoracion', nombre: 'Adoración' }] };
+    });
+    const o = arr(x.ordenTipos());
+    assert.ok(!o.includes('horasanta') && !o.includes('evento'));
+    assert.deepEqual(o, arr(x.ORDEN_TIPOS).filter((k) => k !== 'horasanta' && k !== 'evento').concat(['hora-misionera', 'adoracion']));
+    assert.equal(x.ORDEN_TIPOS.length, 11, 'la constante no cambia');
+  });
+  prueba('ordenTipos se evalúa al llamarse (la configuración llega después)', () => {
+    const x = cargarTipos();
+    assert.equal(x.ordenTipos().length, 11);
+    const nueva = base();
+    nueva.tipos = { apagados: ['horasanta'], propios: [{ clave: 'adoracion', nombre: 'Adoración' }] };
+    forzar(x, nueva);
+    assert.deepEqual(arr(x.ordenTipos()).slice(-1), ['adoracion']);
+    assert.ok(!arr(x.ordenTipos()).includes('horasanta'));
+  });
+  prueba('tipoDe de un propio completa los huecos con valores de «otros» y arma los rótulos desde las bases', () => {
+    const x = cargarTipos((cfg) => { cfg.galeria = GAL; cfg.tipos = { propios: [PROPIO, { clave: 'adoracion', nombre: 'Adoración' }] }; });
+    const t = x.tipoDe({ tipo: 'hora-misionera' });
+    assert.equal(t.nombre, 'Hora misionera');
+    assert.equal(t.imagen, 'galeria:patrono-2');
+    assert.equal(t.esquina, 'fiesta');
+    assert.equal(t.cuenta, false);
+    assert.equal(t.portada, undefined);
+    assert.deepEqual(arr(t.rotulos).map((r) => [r.id, r.base]), [['persona', 'persona'], ['lectura1', 'lectura1'], ['oracion', 'oracion']]);
+    const v = x.tipoDe({ tipo: 'adoracion' });   // solo clave y nombre: el resto sale de los valores por defecto
+    assert.equal(v.imagen, 'patrono');
+    assert.equal(v.esquina, 'hoy');
+    assert.equal(v.cuenta, false);
+    assert.equal(v.portada, undefined);
+    assert.deepEqual(arr(v.datos), []);
+    assert.equal(x.tituloCelebracion({ tipo: 'adoracion' }), 'ADORACIÓN');
+  });
+  prueba('los textos de un propio son plantillas: rellenar pone los huecos', () => {
+    const x = cargarTipos((cfg) => { cfg.galeria = GAL; cfg.tipos = { propios: [PROPIO] }; });
+    const s = x.normalizarEstado({ tipo: 'hora-misionera' });
+    const tb = x.textosBase(s);
+    assert.equal(tb.inicio_ceja, 'EN HONOR A INMACULADA');
+    assert.equal(tb.inicio_pildora, 'HORA MISIONERA');
+    assert.equal(tb.franja, '«TODA HERMOSA ERES, MARÍA»');
+    const ro = x.rotulosDe(s);
+    assert.deepEqual(arr(ro).map((r) => r.id), ['persona', 'lectura1', 'oracion']);
+    assert.equal(ro[0].texto.k, 'CELEBRANTE');
+  });
+  prueba('un propio con imagen galeria:<id> usa la imagen de la galería; si falta, la fachada', () => {
+    const x = cargarTipos((cfg) => { cfg.galeria = GAL; cfg.tipos = { propios: [PROPIO] }; });
+    const s = x.normalizarEstado({ tipo: 'hora-misionera' });
+    assert.equal(x.imagenDe(s), 'medios/patrono-2.jpg');
+    assert.equal(x.altDe(s), 'Segunda imagen del patrono');
+    assert.equal(x.imagenDeVista(s, 'inicio').src, 'medios/patrono-2.jpg');
+    const fachada = base().fachada;
+    forzar(x, Object.assign(base(), { galeria: [], tipos: { propios: [PROPIO] } }));   // la galería ya no la trae
+    assert.equal(x.imagenDe(s), fachada.src);
+    assert.equal(x.altDe(s), fachada.alt);
+    // la elección hecha en el panel pasa por el mismo camino
+    forzar(x, Object.assign(base(), { galeria: GAL }));
+    assert.equal(x.imagenDe(x.normalizarEstado({ tipo: 'dominical', imagen: 'galeria:patrono-2' })), 'medios/patrono-2.jpg');
+    // y el respaldo si la imagen no carga es la fachada
+    assert.equal(x.respaldoDeImagen('medios/patrono-2.jpg').src, fachada.src);
+  });
+  prueba('un propio con imagen «ninguna» no trae imagen', () => {
+    const x = cargarTipos((cfg) => { cfg.tipos = { propios: [{ clave: 'silencio', nombre: 'Silencio', imagen: 'ninguna' }] }; });
+    assert.equal(x.imagenDe(x.normalizarEstado({ tipo: 'silencio' })), '');
+  });
+  prueba('tipo guardado que ya no existe: tipoDe cae al primero disponible y normalizarEstado lo corrige', () => {
+    const x = cargarTipos();   // sin el propio «hora-misionera»
+    assert.equal(x.tipoDe({ tipo: 'hora-misionera' }), x.TIPOS.dominical);
+    assert.equal(x.normalizarEstado({ tipo: 'hora-misionera' }).tipo, 'dominical');
+    assert.equal(x.normalizarEstado({ tipo: 'hora-misionera', santo: 'Ana' }).santo, 'Ana');
+    assert.equal(x.normalizarEstado({ tipo: 'novena' }).tipo, 'novena');
+    const y = cargarTipos((cfg) => { cfg.tipos = { apagados: ['dominical', 'novena'] }; });   // el primero disponible ya no es el dominical
+    assert.equal(y.tipoDe({ tipo: 'dominical' }), y.TIPOS.semana);
+    assert.equal(y.normalizarEstado({}).tipo, 'semana');   // el tipo por defecto (novena) está apagado
+    assert.equal(y.normalizarEstado({ tipo: 'inexistente' }).tipo, 'semana');
+    assert.equal(y.tipoDe(null), y.TIPOS.semana);
+  });
+  prueba('un tipo propio guardado se conserva cuando la configuración lo trae', () => {
+    const x = cargarTipos((cfg) => { cfg.tipos = { propios: [{ clave: 'adoracion', nombre: 'Adoración' }] }; });
+    assert.equal(x.normalizarEstado({ tipo: 'adoracion' }).tipo, 'adoracion');
+  });
+  prueba('un tipo propio no pisa a los comunes ni los muta', () => {
+    const x = cargarTipos((cfg) => { cfg.tipos = { propios: [{ clave: 'adoracion', nombre: 'Adoración', rotulos: ['persona'] }] }; });
+    x.tipoDe({ tipo: 'adoracion' });
+    assert.equal(Object.keys(x.TIPOS).length, 11);
+    assert.equal(x.TIPOS.dominical.rotulos.length, 5);
+    assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

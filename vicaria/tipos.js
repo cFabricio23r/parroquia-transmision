@@ -275,9 +275,68 @@ const ORDEN_TIPOS = [
   'otros', 'prenovena', 'novena', 'patronal', 'evento'
 ];
 
-/* Tipo de la transmisión; si la clave no existe (estado viejo o dañado) usa el dominical. */
+/* Tipos propios de la parroquia (configuración `tipos.propios`), tal como los validó parroquia.js. Se lee al llamarse. */
+function _propios() {
+  const l = PARROQUIA.tipos && Array.isArray(PARROQUIA.tipos.propios) ? PARROQUIA.tipos.propios : [];
+  return l.filter((t) => t && typeof t === 'object' && typeof t.clave === 'string' && t.clave !== '' && !Object.prototype.hasOwnProperty.call(TIPOS, t.clave));
+}
+
+/* Claves de los tipos que ofrece la parroquia, en orden: los comunes sin los apagados y después los propios
+   (en el orden de la configuración). ORDEN_TIPOS no cambia; esta lista se evalúa cada vez que se llama. */
+function ordenTipos() {
+  const apagados = PARROQUIA.tipos && Array.isArray(PARROQUIA.tipos.apagados) ? PARROQUIA.tipos.apagados : [];
+  return ORDEN_TIPOS.filter((k) => !apagados.includes(k)).concat(_propios().map((t) => t.clave));
+}
+
+/* Nombre de cada base de rótulo, para los rótulos de un tipo propio. */
+const _NOMBRE_BASE = {
+  persona: 'Persona', lectura1: '1.ª lectura', lectura2: '2.ª lectura', salmo: 'Salmo', evangelio: 'Evangelio',
+  rosario: 'Santo Rosario', santisimo: 'Exposición del Santísimo', lugar: 'Lugar', oracion: 'Oración', libre: 'Texto libre'
+};
+
+/* Arma un tipo completo a partir de un tipo propio de la configuración: lo que no trae sale de valores por
+   defecto (imagen del patrono, esquina de hoy, sin cuenta ni portada, sin datos). Los textos son plantillas
+   que rellenar() completa como las de los tipos comunes. Devuelve un objeto nuevo. */
+function _tipoPropio(p) {
+  const texto = (v, defecto) => (typeof v === 'string' && v.trim() !== '' ? v : defecto);
+  const usadas = {};
+  const rotulos = (Array.isArray(p.rotulos) ? p.rotulos : []).filter((b) => Object.prototype.hasOwnProperty.call(ROTULOS, b)).map((base) => {
+    usadas[base] = (usadas[base] || 0) + 1;
+    return { id: usadas[base] === 1 ? base : base + '-' + usadas[base], base, nombre: _NOMBRE_BASE[base] || base };
+  });
+  const titulo = texto(p.titulo, p.nombre);
+  return {
+    nombre: p.nombre,
+    descripcion: texto(p.descripcion, ''),
+    titulo,
+    ceja: texto(p.ceja, '{parroquia}'),
+    cursiva: texto(p.cursiva, ''),
+    franja: texto(p.franja, _FRANJA),
+    graciasCursiva: _GRACIAS_CURSIVA,
+    graciasPie: texto(p.ceja, '{parroquia}'),
+    barra: titulo,
+    imagen: texto(p.imagen, 'patrono'),
+    esquina: texto(p.esquina, 'hoy'),
+    esquinaTexto: texto(p.esquinaTexto, ''),
+    cuenta: false,
+    rotulos,
+    datos: []
+  };
+}
+
+/* Tipo de la transmisión: un común, o uno propio de la parroquia. Si la clave no está entre los que ofrece
+   la parroquia (estado viejo o dañado, tipo apagado o propio borrado) usa el primero disponible. */
 function tipoDe(s) {
-  return (s && Object.prototype.hasOwnProperty.call(TIPOS, s.tipo)) ? TIPOS[s.tipo] : TIPOS.dominical;
+  const clave = s ? s.tipo : undefined;
+  const orden = ordenTipos();
+  const hay = (k) => Object.prototype.hasOwnProperty.call(TIPOS, k);
+  const apagados = PARROQUIA.tipos && Array.isArray(PARROQUIA.tipos.apagados) ? PARROQUIA.tipos.apagados : [];
+  const propio = _propios().find((t) => t.clave === clave);
+  if (propio) return _tipoPropio(propio);
+  if (hay(clave) && !apagados.includes(clave)) return TIPOS[clave];
+  const primero = orden[0];
+  const p = _propios().find((t) => t.clave === primero);
+  return hay(primero) ? TIPOS[primero] : p ? _tipoPropio(p) : TIPOS.dominical;
 }
 
 /* Reemplaza los huecos de una plantilla.

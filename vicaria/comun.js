@@ -72,6 +72,9 @@ function normalizarEstado(guardado) {
   }
   // La frase por defecto de antes pasa a vacío: cada tipo trae su propia franja.
   if (typeof s.frase === 'string' && s.frase.trim() === FRASE_ANTIGUA) s.frase = '';
+  // Un tipo que la parroquia ya no ofrece (apagado, o un propio que se borró) pasa al primero disponible.
+  const disponibles = ordenTipos();
+  if (!disponibles.includes(s.tipo) && disponibles.length) s.tipo = disponibles[0];
   if (!Array.isArray(s.avisos)) s.avisos = PREDETERMINADO.avisos;
   while (s.avisos.length < 4) s.avisos.push({ a: '', f: '' });
   if (!s.textos || typeof s.textos !== 'object') s.textos = {};
@@ -274,8 +277,11 @@ function _imagenElegida(s) {
   const clave = s.imagen || tipoDe(s).imagen;
   if (clave === 'custodia') return { src: 'img/custodia.png', alt: 'Custodia con el Santísimo' };
   if (clave === 'santo') return { src: 'img/santo.png', alt: 'Imagen del santo' };
+  if (clave === 'ninguna') return { src: '', alt: '' };
   let img = null;
-  if (clave === 'logo') img = _imagenConfig(PARROQUIA.logos && PARROQUIA.logos.blanco);
+  // 'galeria:<id>' (pantallas.js): la de la galería; si ya no existe cae a la fachada, como una imagen que falla.
+  if (typeof clave === 'string' && clave.indexOf('galeria:') === 0 && typeof imagenGaleria === 'function') img = imagenGaleria(clave.slice(8));
+  else if (clave === 'logo') img = _imagenConfig(PARROQUIA.logos && PARROQUIA.logos.blanco);
   else if (clave === 'patrono') img = _imagenConfig(PARROQUIA.patrono && PARROQUIA.patrono.imagen);
   if (!img && clave !== 'logo') img = _imagenConfig(PARROQUIA.fachada);
   return img ? { src: img.src, alt: typeof img.alt === 'string' ? img.alt : '' } : { src: '', alt: '' };

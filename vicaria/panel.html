@@ -577,13 +577,23 @@ function verEleccion(si) {
   $('elegir').hidden = !si; $('preparar-datos').hidden = si;
   (si ? document.querySelector('[data-tipo][aria-pressed=true]') || $('continuar') : $('cambiar-tipo')).focus();
 }
-ORDEN_TIPOS.forEach(clave => {
-  const tipo = TIPOS[clave];
-  const b = nuevo('button'); b.type = 'button'; b.dataset.tipo = clave;
-  b.append(nuevo('span', 'nom', tipo.nombre), nuevo('span', 'sub', tipo.descripcion || ''));
-  b.addEventListener('click', () => cambiarTipo(clave));
-  $('tipos').append(b);
-});
+/* Los botones salen de ordenTipos(): los comunes que no se apagaron y los propios de la parroquia. La configuración
+   llega después de cargar la página, así que se vuelven a armar al cambiar (sin duplicar) solo si la lista cambió. */
+let firmaTipos = null;
+function armarTipos() {
+  const lista = ordenTipos().map(clave => { const tipo = tipoDe({ tipo: clave }); return [clave, tipo.nombre, rellenar(tipo.descripcion || '', s)]; });
+  const firma = JSON.stringify(lista);
+  if (firma === firmaTipos) return;
+  firmaTipos = firma;
+  $('tipos').replaceChildren();
+  lista.forEach(([clave, nombre, descripcion]) => {
+    const b = nuevo('button'); b.type = 'button'; b.dataset.tipo = clave;
+    b.append(nuevo('span', 'nom', nombre), nuevo('span', 'sub', descripcion));
+    b.addEventListener('click', () => cambiarTipo(clave));
+    $('tipos').append(b);
+  });
+}
+armarTipos();
 function cambiarTipo(clave) {
   if (clave !== s.tipo) {
     // Otro tipo: imagen, esquina y cuenta vuelven a las del tipo nuevo (los datos, rótulos y avisos se quedan).
@@ -692,14 +702,30 @@ function pintarCampos() {
 }
 
 /* ---------- pantallas: imagen, esquina, cuenta ---------- */
-const IMAGENES = [['', 'Automática'], ['patrono', 'Patrono'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
+const IMAGENES_BASE = [['', 'Automática'], ['patrono', 'Patrono'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
+/* Las imágenes de la galería de la parroquia se suman como «galeria:<id>» con su texto alternativo como nombre.
+   La lista se calcula de nuevo cada vez que cambia la configuración: nunca queda una imagen repetida. */
+const imagenesDe = () => IMAGENES_BASE.concat((Array.isArray(PARROQUIA.galeria) ? PARROQUIA.galeria : [])
+  .filter(g => g && typeof g.id === 'string' && g.id !== '')
+  .map(g => ['galeria:' + g.id, (typeof g.alt === 'string' && g.alt.trim()) || g.id]));
+let IMAGENES = IMAGENES_BASE;
 const nombreImagen = (k) => (IMAGENES.find(x => x[0] === k) || [k, k])[1];
-IMAGENES.forEach(([clave, nombre]) => {
-  const b = nuevo('button', '', nombre); b.type = 'button'; b.dataset.imagen = clave;
-  if (!clave) b.append(nuevo('span', 'sub'));
-  b.addEventListener('click', () => { s.imagen = clave; guardar(); });
-  $('imagenes').append(b);
-});
+let firmaImagenes = null;
+function armarImagenes() {
+  const lista = imagenesDe();
+  const firma = JSON.stringify(lista);
+  if (firma === firmaImagenes) return;
+  firmaImagenes = firma;
+  IMAGENES = lista;
+  $('imagenes').replaceChildren();
+  IMAGENES.forEach(([clave, nombre]) => {
+    const b = nuevo('button', '', nombre); b.type = 'button'; b.dataset.imagen = clave;
+    if (!clave) b.append(nuevo('span', 'sub'));
+    b.addEventListener('click', () => { s.imagen = clave; guardar(); });
+    $('imagenes').append(b);
+  });
+}
+armarImagenes();
 $('esquina').addEventListener('change', () => { s.esquina = $('esquina').value; guardar(); });
 $('esquinaTexto').addEventListener('input', () => { s.esquinaTexto = $('esquinaTexto').value; guardarPronto(); });
 const CUENTA = { auto: null, si: true, no: false };
@@ -836,7 +862,7 @@ function haceCuanto(ms) {
   const anios = Math.floor(dias / 365);
   return 'hace ' + anios + (anios === 1 ? ' año' : ' años');
 }
-const nombreTipo = (clave) => (TIPOS[clave] || TIPOS.dominical).nombre;
+const nombreTipo = (clave) => tipoDe({ tipo: clave }).nombre;
 const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
 
 function cargarGuardada(id) {
@@ -1095,6 +1121,9 @@ function aplicarParroquia(c) {
   $('parroquia').placeholder = _nombreYLugar();   // lo que sale si el campo queda vacío
   $('aviso-config').textContent = aviso;
   $('aviso-config').hidden = aviso === '';
+  if (!PARROQUIA_NO_EXISTE && !ordenTipos().includes(s.tipo)) cambiarTipo(ordenTipos()[0]);   // el tipo elegido ya no se ofrece
+  armarTipos();   // los tipos y las imágenes de la galería salen de la configuración
+  armarImagenes();
   $('cargos').replaceChildren();   // los cargos sugeridos salen de la configuración (o de CARGOS)
   cargosDe().forEach((cargo) => { const o = nuevo('option'); o.value = cargo; $('cargos').append(o); });
   if (!PARROQUIA_NO_EXISTE) llenar();   // refresca lo que sale de la configuración (textos con {fiesta}, etc.)

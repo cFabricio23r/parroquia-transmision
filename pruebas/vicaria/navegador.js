@@ -685,6 +685,81 @@ async function casoAvisosFijos() {
   await ctx2.close();
 }
 
+async function casoTiposPropios() {
+  console.log('1b · Tipos propios, tipos apagados y galería');
+  const ctx = await nuevoContexto();
+  const propio = { clave: 'hora-misionera', nombre: 'Hora misionera', descripcion: 'Oración por las misiones de {parroquia}.', titulo: 'HORA MISIONERA', ceja: 'EN HONOR A {patronoCorto}', cursiva: 'Id y anunciad', imagen: 'galeria:galeria-a', esquina: 'fiesta', rotulos: ['persona', 'lectura1', 'oracion'] };
+  const g2 = { id: 'galeria-a', src: 'medios/logo-blanco.svg', alt: 'Primera imagen de la galería' };
+  const g3 = { id: 'galeria-b', src: 'medios/fachada.svg', alt: 'Segunda imagen de la galería' };
+  const v1 = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  v1.galeria = [g2];
+  v1.tipos = { apagados: ['horasanta'], propios: [propio] };
+  const v2 = Object.assign(JSON.parse(JSON.stringify(v1)), { version: 2, publicado: '2026-11-08T12:00:00Z' });
+  v2.galeria = [g2, g3];
+  v2.tipos.propios = [propio, { clave: 'silencio', nombre: 'Hora de silencio' }];
+  const v3 = Object.assign(JSON.parse(JSON.stringify(v1)), { version: 3, publicado: '2026-11-08T13:00:00Z' });
+  v3.tipos = { apagados: ['horasanta'] };   // el propio se borró de la configuración
+  let sirve = v1;   // solo San José cambia: Ciudad Arce sigue con su archivo real
+  await ctx.route(`**/${SJ}/config.json`, (r) => servirConfig(sirve)(r));
+  const panelCA = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250, (p) => p.clock.install());
+  const pant = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`, 1920, 1080);
+  await panel.waitForSelector('[data-tipo="hora-misionera"]', { state: 'attached' });
+  await panelCA.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+  const tiposDe = (p) => p.evaluate(() => [...document.querySelectorAll('#tipos [data-tipo]')].map((b) => b.dataset.tipo));
+  const imgsDe = (p) => p.evaluate(() => [...document.querySelectorAll('#imagenes [data-imagen]')].map((b) => b.dataset.imagen));
+  const tipoGuardado = () => panel.evaluate((k) => JSON.parse(localStorage.getItem(k)).tipo, `pev_${SJ}_estado_v1`);
+
+  let tipos = await tiposDe(panel);
+  revisar(tipos.includes('hora-misionera') && !tipos.includes('horasanta'), 'el panel muestra el propio y no muestra Hora Santa (' + tipos.join(', ') + ')');
+  igual(tipos[tipos.length - 1], 'hora-misionera', 'el propio va al final de la lista');
+  igual(tipos.length, 11, '11 tipos: 10 comunes y 1 propio');
+  const botonPropio = await panel.evaluate(() => [...document.querySelectorAll('[data-tipo="hora-misionera"] span')].map((e) => e.textContent).join(' / '));
+  igual(botonPropio, 'Hora misionera / Oración por las misiones de Parroquia San José (ejemplo).', 'el botón del propio trae su nombre y su descripción con los huecos rellenos');
+  igual((await imgsDe(panel)).join(','), ',patrono,fachada,logo,custodia,santo,galeria:galeria-a', 'IMAGENES suma la imagen de la galería');
+  igual((await panel.textContent('[data-imagen="galeria:galeria-a"]')).trim(), 'Primera imagen de la galería', 'la imagen de la galería se llama como su alt');
+
+  // dos parroquias abiertas: los propios de una no aparecen en la otra
+  const tiposCA = await tiposDe(panelCA);
+  revisar(!tiposCA.includes('hora-misionera') && tiposCA.includes('horasanta') && tiposCA.length === 11, 'Ciudad Arce no ve el propio de San José y conserva Hora Santa (' + tiposCA.join(', ') + ')');
+  revisar(!(await imgsDe(panelCA)).some((k) => k.startsWith('galeria:')), 'Ciudad Arce no ve la galería de San José');
+
+  // elegirlo: la pantalla muestra su título, su ceja con los huecos y la imagen de la galería
+  await elegirTipo(panel, 'hora-misionera');
+  await pant.waitForFunction(() => document.getElementById('i-pildora').textContent === 'HORA MISIONERA', null, { timeout: 5000 }).catch(() => {});
+  igual(await texto(pant, '#i-pildora'), 'HORA MISIONERA', 'al elegirlo, la pantalla muestra su título');
+  igual((await texto(pant, '#i-ceja')).trim(), 'EN HONOR A SAN JOSÉ', 'la ceja del propio rellena los huecos');
+  igual(await pant.getAttribute('#virgen', 'src'), 'medios/logo-blanco.svg', 'la pantalla usa la imagen de la galería del propio');
+  igual(await pant.getAttribute('#virgen', 'alt'), 'Primera imagen de la galería', 'con el alt de la galería');
+  igual((await imagenesRotas(pant)).length, 0, 'tipo propio: ninguna imagen rota');
+  await panel.click('[data-hoja="vivo"]');
+  igual(await panel.evaluate(() => document.querySelectorAll('#rotulos [data-rotulo]').length), 3, 'los rótulos del propio salen de sus bases (persona, lectura1, oracion)');
+  await captura(pant, `1b/${SJ}_tipo-propio`);
+
+  // la configuración cambia en vivo: se suman tipos e imágenes sin duplicar lo que ya estaba
+  sirve = v2;
+  await panel.clock.runFor(61000);
+  await panel.waitForSelector('[data-tipo="silencio"]', { state: 'attached', timeout: 5000 }).catch(() => {});
+  tipos = await tiposDe(panel);
+  igual(tipos.length, 12, 'tras el cambio de configuración: 12 tipos, sin repetir (' + tipos.join(', ') + ')');
+  igual(new Set(tipos).size, tipos.length, 'ningún tipo repetido');
+  igual((await imgsDe(panel)).join(','), ',patrono,fachada,logo,custodia,santo,galeria:galeria-a,galeria:galeria-b', 'la galería se suma una vez cada imagen');
+  igual(await tipoGuardado(), 'hora-misionera', 'el tipo elegido se conserva');
+  igual(await panel.getAttribute('[data-tipo="hora-misionera"]', 'aria-pressed'), 'true', 'y sigue marcado');
+
+  // el propio se borra de la configuración mientras está elegido: cae al primero disponible, sin error
+  sirve = v3;
+  await panel.clock.runFor(61000);
+  await panel.waitForFunction(() => !document.querySelector('[data-tipo="hora-misionera"]'), null, { timeout: 5000 }).catch(() => {});
+  tipos = await tiposDe(panel);
+  revisar(!tipos.includes('hora-misionera') && tipos.length === 10, 'el propio borrado ya no está en el panel (' + tipos.length + ' tipos)');
+  igual(await tipoGuardado(), 'dominical', 'el tipo guardado cae al primero disponible');
+  igual(await panel.getAttribute('[data-tipo="dominical"]', 'aria-pressed'), 'true', 'el panel marca el primero disponible');
+  await pant.waitForFunction(() => !/MISIONERA/.test(document.getElementById('i-pildora').textContent), null, { timeout: 5000 }).catch(() => {});
+  revisar(!/MISIONERA/.test(await texto(pant, '#i-pildora')), 'la pantalla también cae al primero disponible («' + (await texto(pant, '#i-pildora')) + '»)');
+  await ctx.close();
+}
+
 /* ---------- Comparación Ciudad Arce vicaria/ vs obs/ ---------- */
 
 const urlObs = (archivo) => 'file://' + path.join(__dirname, '..', '..', 'obs', archivo).replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:');
@@ -778,6 +853,7 @@ async function comparacion() {
     await casoPortadaCaeAInicio();
     await casoHorarios();
     await casoAvisosFijos();
+    await casoTiposPropios();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
