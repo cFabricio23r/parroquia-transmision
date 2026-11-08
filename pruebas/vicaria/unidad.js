@@ -565,6 +565,145 @@ grupo('guardadas', () => {
   });
 });
 
+grupo('parroquia', () => {
+  const CIUDAD_ARCE = {
+    esquema: 1,
+    version: 1,
+    publicado: '2026-11-07T12:00:00Z',
+    slug: 'ciudad-arce',
+    nombre: 'Parroquia Inmaculada Concepción de María',
+    nombreCorto: 'Inmaculada Concepción',
+    lugar: 'Ciudad Arce, La Libertad',
+    colores: { principal: '#1155a4', oscuro: '#0c3562' },
+    logos: {
+      blanco: { src: 'medios/logo-blanco.png', alt: 'Logo de la Parroquia Inmaculada Concepción de María' },
+      color: { src: 'medios/logo-color.png', alt: 'Logo de la Parroquia Inmaculada Concepción de María' }
+    },
+    fachada: { src: 'medios/fachada.jpg', alt: 'Fachada del templo parroquial de Ciudad Arce' },
+    patrono: {
+      nombre: 'Inmaculada Concepción de María',
+      corto: 'Inmaculada',
+      imagen: { src: 'medios/patrono.png', alt: 'Imagen de la Inmaculada Concepción' }
+    },
+    fiesta: { dia: 8, mes: 12, lema: 'Toda hermosa eres, María', cuentaDesdeDias: 60 }
+  };
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CIUDAD_ARCE));
+    cambios(c);
+    return c;
+  };
+  const en = (ruta) => cargar(['parroquia.js'], {}, { location: { pathname: ruta } });
+
+  let p;
+  try {
+    p = en('/ciudad-arce/panel.html');
+  } catch (e) {
+    prueba('se puede cargar vicaria/parroquia.js', () => { throw e; });
+    return;
+  }
+
+  prueba('slugDe toma el primer segmento si es un slug válido', () => {
+    assert.equal(p.slugDe('/ciudad-arce/panel.html'), 'ciudad-arce');
+    assert.equal(p.slugDe('/ciudad-arce/'), 'ciudad-arce');
+  });
+  prueba('slugDe devuelve null para lo inválido', () => {
+    assert.equal(p.slugDe('/Ciudad-Arce/panel.html'), null);
+    assert.equal(p.slugDe('/panel.html'), null);
+    assert.equal(p.slugDe('/../panel.html'), null);
+    assert.equal(p.slugDe('/a/panel.html'), null);
+    assert.equal(p.slugDe('/san%20jose/x.html'), null);
+    assert.equal(p.slugDe('/-ab/x.html'), null);
+    assert.equal(p.slugDe('/ab--cd/x.html'), null);
+  });
+  prueba('slugDe acepta 40 caracteres y rechaza 41', () => {
+    assert.equal(p.slugDe('/' + 'a'.repeat(40) + '/x.html'), 'a'.repeat(40));
+    assert.equal(p.slugDe('/' + 'a'.repeat(41) + '/x.html'), null);
+  });
+  prueba('SLUG sale de location.pathname al cargar', () => {
+    assert.equal(p.SLUG, 'ciudad-arce');
+    assert.equal(en('/panel.html').SLUG, null);
+  });
+  prueba('claveDe lleva el prefijo pev_<slug>_ y nunca parroquia_', () => {
+    const q = en('/san-jose/panel.html');
+    assert.equal(q.claveDe('estado_v1'), 'pev_san-jose_estado_v1');
+    assert.ok(!q.claveDe('estado_v1').startsWith('parroquia_'));
+    assert.equal(en('/panel.html').claveDe('estado_v1'), 'pev__estado_v1');
+  });
+
+  prueba('contraste: blanco sobre #1155a4 está entre 7.3 y 7.4 (el brief decía 7.0-7.2, pero el WCAG da 7.34); igual con igual es 1', () => {
+    const r = p.contraste('#ffffff', '#1155a4');
+    assert.ok(r > 7.3 && r < 7.4, String(r));
+    assert.equal(p.contraste('#ffffff', '#ffffff'), 1);
+    assert.equal(p.contraste('#ffffff', '#000000'), 21);
+  });
+
+  prueba('validarConfig acepta la configuración de Ciudad Arce', () => {
+    const r = p.validarConfig(CIUDAD_ARCE);
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.equal(r.ok, true);
+  });
+  prueba('validarConfig acepta los campos opcionales ausentes', () => {
+    const r = p.validarConfig(copia((c) => {
+      delete c.nombreCorto; delete c.logos.color; delete c.patrono.imagen;
+      delete c.fiesta.lema; delete c.fiesta.cuentaDesdeDias;
+    }));
+    assert.deepEqual(Array.from(r.errores), []);
+  });
+  const malo = (descripcion, cambios, campo) => {
+    prueba('validarConfig rechaza: ' + descripcion, () => {
+      const r = p.validarConfig(copia(cambios));
+      assert.equal(r.ok, false);
+      assert.ok(r.errores.some((e) => e.includes(campo)), 'ningún error menciona «' + campo + '»: ' + JSON.stringify(r.errores));
+    });
+  };
+  malo('falta nombre', (c) => { delete c.nombre; }, 'nombre');
+  malo('logos.blanco.alt vacío', (c) => { c.logos.blanco.alt = ''; }, 'logos.blanco');
+  malo('fachada.alt solo espacios', (c) => { c.fachada.alt = '   '; }, 'fachada');
+  malo('colores.principal sin contraste', (c) => { c.colores.principal = '#ffff00'; }, 'El texto blanco no se lee sobre el color principal');
+  malo('colores.oscuro no es hex', (c) => { c.colores.oscuro = 'azul'; }, 'colores.oscuro');
+  malo('fiesta 31 de abril', (c) => { c.fiesta = { dia: 31, mes: 4 }; }, 'fiesta.dia');
+  malo('fiesta 30 de febrero', (c) => { c.fiesta = { dia: 30, mes: 2 }; }, 'fiesta.dia');
+  malo('esquema 2', (c) => { c.esquema = 2; }, 'esquema');
+  malo('slug distinto del de la página', (c) => { c.slug = 'san-jose'; }, 'slug');
+  malo('version no entera', (c) => { c.version = 1.5; }, 'version');
+  malo('patrono.imagen sin alt', (c) => { delete c.patrono.imagen.alt; }, 'patrono.imagen');
+  prueba('validarConfig acepta fiesta del 29 de febrero', () => {
+    const r = p.validarConfig(copia((c) => { c.fiesta = { dia: 29, mes: 2 }; }));
+    assert.equal(r.ok, true, JSON.stringify(r.errores));
+  });
+  prueba('validarConfig: sin SLUG en la página cualquier config da error de slug', () => {
+    const r = en('/panel.html').validarConfig(CIUDAD_ARCE);
+    assert.equal(r.ok, false);
+    assert.ok(r.errores.some((e) => e.includes('slug')));
+  });
+  prueba('validarConfig rechaza lo que no es objeto', () => {
+    assert.equal(p.validarConfig(null).ok, false);
+    assert.equal(p.validarConfig('x').ok, false);
+  });
+
+  prueba('paleta: rey y oscuro tal cual; celeste, claro y palido cada vez más claros', () => {
+    const q = p.paleta('#1155a4', '#0c3562');
+    assert.equal(q.rey, '#1155a4');
+    assert.equal(q.oscuro, '#0c3562');
+    for (const k of ['oscuro', 'rey', 'medio', 'celeste', 'claro', 'palido']) assert.match(q[k], /^#[0-9a-f]{6}$/, k);
+    const lum = (h) => 1 / p.contraste('#ffffff', h);
+    assert.ok(lum(q.celeste) < lum(q.claro) && lum(q.claro) < lum(q.palido));
+    assert.ok(lum(q.rey) < lum(q.medio) && lum(q.medio) < lum(q.celeste));
+  });
+
+  prueba('CONFIG_NEUTRA: mismo slug, colores base con contraste, sin logos ni fachada, sin nombre', () => {
+    const n = p.CONFIG_NEUTRA;
+    assert.equal(n.slug, p.SLUG);
+    assert.equal(n.colores.principal, '#1155a4');
+    assert.equal(n.colores.oscuro, '#0c3562');
+    assert.ok(p.contraste('#ffffff', n.colores.principal) >= 4.5);
+    assert.ok(p.contraste('#ffffff', n.colores.oscuro) >= 4.5);
+    assert.ok(!n.logos || (!(n.logos.blanco && n.logos.blanco.src) && !(n.logos.color && n.logos.color.src)));
+    assert.ok(!n.fachada);
+    assert.equal(n.nombre, '');
+  });
+});
+
 /* ---------- Resultado ---------- */
 console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
 process.exit(fallos ? 1 : 0);
