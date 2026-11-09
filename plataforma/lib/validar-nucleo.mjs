@@ -82,3 +82,8 @@ export function validarBorrador(borrador, slug) {
     slug,
   );
 }
+
+/** Razón de contraste WCAG entre dos colores #rrggbb, con la función de parroquia.js. */
+export function contraste(hexA, hexB) {
+  return contextoDe('contraste').contraste(hexA, hexB);
+}

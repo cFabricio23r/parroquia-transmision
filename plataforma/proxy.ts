@@ -25,6 +25,11 @@ export async function proxy(peticion: NextRequest) {
   );
   const { data } = await supabase.auth.getUser();
   if (!data.user && !esPublica(peticion.nextUrl.pathname)) {
+    // La API la llama el formulario con fetch: responde 401 en JSON (una redirección haría que
+    // el navegador siguiera a la página de entrar y el formulario perdiera lo escrito).
+    if (peticion.nextUrl.pathname.startsWith('/editor/api/')) {
+      return NextResponse.json({ error: 'Tu sesión venció. Entra de nuevo' }, { status: 401 });
+    }
     return NextResponse.redirect(new URL('/editor/entrar', peticion.url));
   }
   return respuesta;

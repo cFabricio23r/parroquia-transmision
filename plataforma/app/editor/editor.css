@@ -46,3 +46,17 @@
 .confirmar { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .boton-neutro { background: #44505e; }
 .boton-neutro:hover { background: #2b3540; }
+
+/* Formulario de identidad (T6) */
+.grupo, .grupo-imagen { border: 1px solid #c9d3de; border-radius: 8px; padding: 12px 16px 4px; margin: 0 0 20px; }
+.grupo-imagen { background: #f7fafd; }
+.grupo legend, .grupo-imagen legend { font-weight: 700; color: var(--oscuro); padding: 0 6px; }
+.campo select { width: 100%; padding: 10px 12px; font-size: 1rem; border: 2px solid #5b6b7d; border-radius: 6px; background: #fff; }
+.campo select:focus-visible { outline: 3px solid var(--medio); outline-offset: 2px; }
+.campo-color input[type='color'] { width: 72px; height: 44px; padding: 2px; }
+.contraste-bien { color: #14602b; font-weight: 600; margin: 4px 0 0; }
+.contraste-mal { color: #a30200; font-weight: 600; margin: 4px 0 0; }
+.miniatura { margin-bottom: 12px; }
+.miniatura img { max-height: 96px; max-width: 100%; border: 1px solid #c9d3de; background: #8a94a0; border-radius: 4px; }
+.falta { margin-top: 28px; }
+.falta ul { padding-left: 20px; }

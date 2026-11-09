@@ -7,7 +7,7 @@ App Next.js (16.4.5) de la plataforma multiparroquia. En esta etapa sirve las pa
 - `npm run dev` y `npm run build` corren antes `herramientas/copiar-vicaria.mjs` (`predev` / `prebuild`): copia `vicaria/` a `public/` (sin `vercel.json` ni `LEEME-config.md`) y escribe `lib/generado/slugs-del-repo.json`. Ambos se generan, no se versionan.
 - `next.config.ts` lee `../vicaria/vercel.json` y devuelve sus `rewrites` y `headers` sin cambios: es la única fuente de verdad, igual que `herramientas/servidor-vicaria.js`.
 - `.env.example` lista las variables. Los secretos (`SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `VERCEL_DEPLOY_HOOK_URL`) nunca llevan `NEXT_PUBLIC_`.
-- Pruebas: `npm --prefix plataforma test` (unidad) y `npm --prefix plataforma run test:integracion`.
+- Pruebas: `npm --prefix plataforma test` (unidad) y `npm --prefix plataforma run test:integracion`. `npm run test:navegador` (Playwright, Chromium) levanta `next dev` en el puerto 3100 contra el Supabase local y corre `pruebas/navegador/*.mjs`; la primera vez hace falta `npx playwright install chromium`.
 
 ## Archivo que refresca la sesión (Tarea 4)
 
