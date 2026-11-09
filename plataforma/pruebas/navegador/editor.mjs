@@ -60,7 +60,8 @@ try {
   // Desde antes de la primera navegación, para ver también los pedidos de la carga inicial de los iframes.
   const pedidosConfig = [];
   pagina.on('request', (q) => {
-    if (/\/config\.json(\?|$)/.test(q.url())) pedidosConfig.push(q.url());
+    // Solo los de los iframes de la vista previa: la propia página sí pide /<slug>/config.json (estado de «Publicar»).
+    if (q.frame() !== pagina.mainFrame() && /\/config\.json(\?|$)/.test(q.url())) pedidosConfig.push(q.url());
   });
 
   console.log('Entrar y llegar al formulario');

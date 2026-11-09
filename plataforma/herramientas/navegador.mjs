@@ -42,6 +42,8 @@ const entorno = {
   SUPABASE_URL: url,
   SUPABASE_PUBLISHABLE_KEY: valores.PUBLISHABLE_KEY ?? '',
   SITIO_URL: BASE,
+  // Las pruebas nunca avisan a Vercel, aunque el entorno de quien las corre tenga el aviso configurado.
+  VERCEL_DEPLOY_HOOK_URL: '',
   BASE_URL: BASE,
 };
 

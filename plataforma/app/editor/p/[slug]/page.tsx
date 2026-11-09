@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { SEGUNDOS_URL_FIRMADA } from '../../../../lib/borrador';
+import { formatearFecha } from '../../../../lib/fecha';
 import { validarBorrador } from '../../../../lib/validar';
 import { recogerMedios } from '../../../../lib/vista-previa';
+import { clienteServicio } from '../../../../lib/supabase/servicio';
 import { clienteServidor } from '../../../../lib/supabase/servidor';
 import { FormularioIdentidad, type IdentidadInicial } from './FormularioIdentidad';
+import { Versiones, type VersionPublicada } from './Versiones';
 
 export const metadata = { title: 'Identidad de la parroquia' };
 export const dynamic = 'force-dynamic';
@@ -44,6 +47,28 @@ export default async function EditarIdentidad({ params }: { params: Promise<{ sl
     });
   }
 
+  // Versiones publicadas (RLS: las ve quien ve la parroquia). El correo de quien publicó solo lo puede
+  // leer el servidor; esta página ya comprobó arriba que la persona es de esta parroquia o administradora.
+  const { data: filas } = await sesion
+    .from('versiones')
+    .select('numero, publicada_en, publicada_por, origen_numero')
+    .eq('parroquia_id', parroquia.id)
+    .order('numero', { ascending: false });
+  const correos = new Map<string, string>();
+  const servicio = clienteServicio();
+  await Promise.all(
+    [...new Set((filas ?? []).map((f) => f.publicada_por as string | null).filter((id): id is string => !!id))].map(async (id) => {
+      const { data } = await servicio.auth.admin.getUserById(id);
+      if (data.user?.email) correos.set(id, data.user.email);
+    }),
+  );
+  const versiones: VersionPublicada[] = (filas ?? []).map((f) => ({
+    numero: f.numero as number,
+    fecha: formatearFecha(f.publicada_en as string),
+    quien: correos.get(f.publicada_por as string) ?? '—',
+    origen: (f.origen_numero as number | null) ?? null,
+  }));
+
   return (
     <main className="tarjeta ancha">
       <p>
@@ -58,6 +83,7 @@ export default async function EditarIdentidad({ params }: { params: Promise<{ sl
         errores={validarBorrador(borrador.config, slug).errores}
         urls={urls}
       />
+      <Versiones slug={slug} versiones={versiones} />
     </main>
   );
 }

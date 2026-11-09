@@ -41,24 +41,24 @@ export interface Respuesta<T> {
   estado: number;
   cuerpo: T;
 }
-type ConError = { error: string };
-const conError = (estado: number, mensaje: string): Respuesta<ConError> => ({ estado, cuerpo: { error: mensaje } });
+export type ConError = { error: string };
+export const conError = (estado: number, mensaje: string): Respuesta<ConError> => ({ estado, cuerpo: { error: mensaje } });
 
-function fallo(donde: string, e: unknown): Respuesta<ConError> {
+export function fallo(donde: string, e: unknown): Respuesta<ConError> {
   console.error(`[${donde}]`, e instanceof Error ? e.message : (e as { message?: string })?.message ?? e);
   return conError(500, MENSAJE_FALLO);
 }
 
-type Acceso = { ok: true; parroquiaId: string } | { ok: false; respuesta: Respuesta<ConError> };
+export type Acceso = { ok: true; parroquiaId: string; usuarioId: string } | { ok: false; respuesta: Respuesta<ConError> };
 
 /** 401 sin sesión; 403 si la parroquia no existe o no es de quien actúa (no se distingue: no se filtra su existencia). */
-async function comprobarAcceso(sesion: SupabaseClient, slug: string): Promise<Acceso> {
+export async function comprobarAcceso(sesion: SupabaseClient, slug: string): Promise<Acceso> {
   const { data: usuario } = await sesion.auth.getUser();
   if (!usuario.user) return { ok: false, respuesta: conError(401, MENSAJE_SIN_SESION) };
   const { data, error } = await sesion.from('parroquias').select('id').eq('slug', slug).maybeSingle();
   if (error) return { ok: false, respuesta: fallo('comprobarAcceso', error) };
   if (!data) return { ok: false, respuesta: conError(403, MENSAJE_SIN_PERMISO) };
-  return { ok: true, parroquiaId: data.id };
+  return { ok: true, parroquiaId: data.id, usuarioId: usuario.user.id };
 }
 
 export interface GuardadoOk {
@@ -115,7 +115,7 @@ export async function guardarBorrador(
   }
 }
 
-const TIPOS: Record<string, string> = {
+export const TIPOS: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
   webp: 'image/webp',

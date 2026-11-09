@@ -66,3 +66,17 @@
 .vista-previa h2 { margin-top: 0; }
 .vista-previa-marcos { display: flex; flex-wrap: wrap; gap: 12px; }
 .vista-previa iframe { border: 1px solid #c9d3de; border-radius: 8px; background: #000; max-width: 100%; }
+
+/* Publicar y versiones */
+.publicar { margin-top: 36px; border-top: 2px solid #c9d3de; padding-top: 8px; }
+.estado-llegada { margin: 16px 0 8px; }
+.estado-llegada p { margin: 0; }
+.estado-llegada p + p { margin-top: 8px; }
+.versiones { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.versiones th, .versiones td { text-align: left; padding: 8px; border-bottom: 1px solid #c9d3de; vertical-align: middle; }
+.versiones thead th { color: var(--oscuro); }
+.solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.dialogo { max-width: 420px; border: 2px solid var(--oscuro); border-radius: 12px; padding: 24px; color: #1a1a1a; }
+.dialogo::backdrop { background: rgba(12, 53, 98, 0.6); }
+.dialogo h2 { margin-top: 0; }
+.acciones-dialogo { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
