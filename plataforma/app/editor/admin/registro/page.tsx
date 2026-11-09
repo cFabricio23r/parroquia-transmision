@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatearFecha } from '../../../../lib/fecha';
 import { clienteServicio } from '../../../../lib/supabase/servicio';
 import { SoloAdmin, sesionDeAdmin } from '../guardia';
 
@@ -75,10 +76,7 @@ export default async function Registro({ searchParams }: { searchParams: Promise
               {filas.map((f) => (
                 <tr key={f.id}>
                   <td>
-                    {/* Fecha local de quien mira: se formatea en el navegador (el servidor tiene otra zona). */}
-                    <time dateTime={f.en} suppressHydrationWarning>
-                      {new Date(f.en).toLocaleString('es')}
-                    </time>
+                    <time dateTime={f.en}>{formatearFecha(f.en)}</time>
                   </td>
                   <td>{f.parroquia_id ? (nombres.get(f.parroquia_id) ?? 'parroquia eliminada') : '—'}</td>
                   <td>{f.usuario_id ? (correos.get(f.usuario_id) ?? '—') : '—'}</td>

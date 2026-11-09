@@ -1,8 +1,10 @@
 // Administración de parroquias, invitaciones y registro, contra el Supabase LOCAL.
 // La lógica de lib/admin.ts recibe los clientes y el buzón inyectados.
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clienteAnonimo, clienteServicio, crearUsuario, hacerAdmin, hacerMiembro, crearParroquia as parroquiaDePrueba, sufijo } from './ayudas';
 import {
+  MENSAJE_ENTRAR_MANUAL,
   MENSAJE_INVITACION_INVALIDA,
   MENSAJE_SOLO_ADMIN,
   aceptarInvitacion,
@@ -47,6 +49,7 @@ describe('crearParroquia', () => {
 
     const reservado = await crearParroquia(d, 'editor', 'X');
     expect(reservado.error).toMatch(/en uso o está reservada/);
+    expect(reservado.campo).toBe('slug');
     const delRepo = await crearParroquia(d, 'ciudad-arce', 'X');
     expect(delRepo.error).toMatch(/en uso o está reservada/);
 
@@ -71,6 +74,7 @@ describe('crearParroquia', () => {
     const admin = await unAdmin();
     const r = await crearParroquia(deps(admin.cliente), `sin-nombre-${sufijo()}`, '   ');
     expect(r.error).toMatch(/nombre/i);
+    expect(r.campo).toBe('nombre');
   });
 });
 
@@ -108,6 +112,7 @@ describe('aceptarInvitacion', () => {
     // Sin contraseña válida no se crea nada
     const corta = await aceptarInvitacion(deps(), token, { clave: 'corta', repetida: 'corta' });
     expect(corta.error).toMatch(/al menos 8/);
+    expect(corta.campo).toBe('clave');
     const distintas = await aceptarInvitacion(deps(), token, { clave: 'clave-larga-1', repetida: 'clave-larga-2' });
     expect(distintas.error).toMatch(/no coinciden/);
 
@@ -143,6 +148,47 @@ describe('aceptarInvitacion', () => {
     const { data: u } = await sesion.auth.getUser();
     const { count } = await servicio.from('administradores').select('usuario_id', { count: 'exact', head: true }).eq('usuario_id', u.user!.id);
     expect(count).toBe(1);
+  });
+
+  it('dos pedidos simultáneos con el mismo token: exactamente uno lo logra', async () => {
+    const admin = await unAdmin();
+    const p = await parroquiaDePrueba('acepta-carrera');
+    const correo = `carrera-${sufijo()}@ejemplo.test`;
+    await invitar(deps(admin.cliente), correo, p.id);
+    const token = tokenDelBuzon();
+
+    const resultados = await Promise.all([
+      aceptarInvitacion(deps(clienteAnonimo()), token, CLAVE),
+      aceptarInvitacion(deps(clienteAnonimo()), token, CLAVE),
+    ]);
+    expect(resultados.filter((r) => !r.error)).toHaveLength(1);
+    expect(resultados.filter((r) => r.error)).toHaveLength(1);
+    const { count } = await servicio.from('miembros').select('usuario_id', { count: 'exact', head: true }).eq('parroquia_id', p.id);
+    expect(count).toBe(1);
+    const { count: avisos } = await servicio.from('registro').select('id', { count: 'exact', head: true }).eq('parroquia_id', p.id).eq('accion', 'aceptar_invitacion');
+    expect(avisos).toBe(1);
+  });
+
+  it('si solo falla iniciar la sesión, la asignación queda y se avisa sin error ni devolver el token', async () => {
+    const admin = await unAdmin();
+    const p = await parroquiaDePrueba('acepta-sin-sesion');
+    const correo = `sinsesion-${sufijo()}@ejemplo.test`;
+    await invitar(deps(admin.cliente), correo, p.id);
+    const token = tokenDelBuzon();
+    const sesionRota = {
+      auth: {
+        getUser: async () => ({ data: { user: null } }),
+        signInWithPassword: async () => ({ error: new Error('simulado') }),
+      },
+    } as unknown as SupabaseClient;
+
+    const r = await aceptarInvitacion(deps(sesionRota), token, CLAVE);
+    expect(r.error).toBeUndefined();
+    expect(r.aviso).toBe(MENSAJE_ENTRAR_MANUAL);
+    const { count } = await servicio.from('miembros').select('usuario_id', { count: 'exact', head: true }).eq('parroquia_id', p.id);
+    expect(count).toBe(1);
+    const { data: inv } = await servicio.from('invitaciones').select('usada_en').eq('token_hash', hashDe(token)).single();
+    expect(inv?.usada_en).not.toBeNull();
   });
 
   it('con cuenta y la misma sesión: asigna sin pedir contraseña', async () => {
@@ -244,7 +290,9 @@ describe('invitar', () => {
   it('rechaza un correo mal escrito y una parroquia inexistente', async () => {
     const admin = await unAdmin();
     const p = await parroquiaDePrueba('invita-mala');
-    expect((await invitar(deps(admin.cliente), 'sin-arroba', p.id)).error).toMatch(/correo/i);
+    const mala = await invitar(deps(admin.cliente), 'sin-arroba', p.id);
+    expect(mala.error).toMatch(/correo/i);
+    expect(mala.campo).toBe('correo');
     expect((await invitar(deps(admin.cliente), `a-${sufijo()}@ejemplo.test`, crypto.randomUUID())).error).toMatch(/parroquia/i);
     expect(buzon).toHaveLength(0);
   });

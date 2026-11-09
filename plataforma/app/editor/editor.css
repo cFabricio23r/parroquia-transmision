@@ -43,3 +43,6 @@
 .tabla-envoltura caption { text-align: left; font-weight: 600; color: var(--oscuro); padding-bottom: 8px; }
 .tabla-envoltura th, .tabla-envoltura td { text-align: left; padding: 8px; border-bottom: 1px solid #c9d3de; vertical-align: top; }
 .tabla-envoltura th { background: var(--palido); color: var(--oscuro); }
+.confirmar { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.boton-neutro { background: #44505e; }
+.boton-neutro:hover { background: #2b3540; }

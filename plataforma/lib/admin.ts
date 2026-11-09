@@ -11,6 +11,13 @@ export const MENSAJE_SOLO_ADMIN = 'Solo un administrador puede hacer esto';
 export const MENSAJE_INVITACION_INVALIDA = 'Esta invitación ya no sirve. Pide una nueva al administrador';
 const MENSAJE_FALLO = 'No se pudo completar. Intenta de nuevo';
 
+/** Campo del formulario al que se refiere el error; sin `campo`, el error va solo en el resumen. */
+export type Campo = 'nombre' | 'slug' | 'correo' | 'clave';
+export interface Resultado {
+  error?: string;
+  campo?: Campo;
+}
+
 export interface DepsAdmin {
   servicio: SupabaseClient; // service_role: salta RLS (el registro solo lo escribe él)
   sesion: SupabaseClient; // la sesión de quien actúa
@@ -52,21 +59,21 @@ export async function crearParroquia(
   deps: DepsAdmin,
   slugCrudo: string,
   nombreCrudo: string,
-): Promise<{ error?: string; slug?: string }> {
+): Promise<Resultado & { slug?: string }> {
   const quien = await exigirAdmin(deps.sesion);
   if (!quien) return { error: MENSAJE_SOLO_ADMIN };
   const slug = slugCrudo.trim().toLowerCase();
   const nombre = nombreCrudo.trim();
   const errorSlug = revisarSlug(slug, deps.slugsDelRepo);
-  if (errorSlug) return { error: errorSlug };
-  if (!nombre) return { error: 'Escribe el nombre de la parroquia.' };
+  if (errorSlug) return { error: errorSlug, campo: 'slug' };
+  if (!nombre) return { error: 'Escribe el nombre de la parroquia.', campo: 'nombre' };
   try {
     const { data, error } = await deps.servicio
       .from('parroquias')
       .insert({ slug, nombre, creada_por: quien })
       .select('id')
       .single();
-    if (error?.code === '23505') return { error: 'Esa dirección ya está en uso o está reservada. Elige otra.' };
+    if (error?.code === '23505') return { error: 'Esa dirección ya está en uso o está reservada. Elige otra.', campo: 'slug' };
     if (error || !data) throw error ?? new Error('sin fila');
     const { error: errorBorrador } = await deps.servicio
       .from('borradores')
@@ -83,11 +90,11 @@ export async function crearParroquia(
 }
 
 /** Invita a un coordinador. Anula las pendientes del mismo correo y parroquia. Solo administradores. */
-export async function invitar(deps: DepsAdmin, correoCrudo: string, parroquiaId: string): Promise<{ error?: string }> {
+export async function invitar(deps: DepsAdmin, correoCrudo: string, parroquiaId: string): Promise<Resultado> {
   const quien = await exigirAdmin(deps.sesion);
   if (!quien) return { error: MENSAJE_SOLO_ADMIN };
   const correo = normalizar(correoCrudo);
-  if (!RE_CORREO.test(correo)) return { error: 'Escribe un correo válido.' };
+  if (!RE_CORREO.test(correo)) return { error: 'Escribe un correo válido.', campo: 'correo' };
   if (!RE_UUID.test(parroquiaId)) return { error: 'Esa parroquia no existe.' };
   try {
     const { data: parroquia } = await deps.servicio.from('parroquias').select('nombre').eq('id', parroquiaId).maybeSingle();
@@ -127,7 +134,7 @@ export async function invitar(deps: DepsAdmin, correoCrudo: string, parroquiaId:
 }
 
 /** Quita a un coordinador de una parroquia. Solo administradores. */
-export async function quitarAcceso(deps: DepsAdmin, parroquiaId: string, usuarioId: string): Promise<{ error?: string }> {
+export async function quitarAcceso(deps: DepsAdmin, parroquiaId: string, usuarioId: string): Promise<Resultado> {
   const quien = await exigirAdmin(deps.sesion);
   if (!quien) return { error: MENSAJE_SOLO_ADMIN };
   if (!RE_UUID.test(parroquiaId) || !RE_UUID.test(usuarioId)) return { error: MENSAJE_FALLO };
@@ -169,6 +176,8 @@ async function usuarioPorCorreo(servicio: SupabaseClient, correo: string): Promi
   return (data as string | null) ?? null;
 }
 
+export const MENSAJE_ENTRAR_MANUAL =
+  'Tu cuenta quedó creada y la invitación aceptada, pero no pudimos iniciar tu sesión. Entra con tu correo y tu contraseña en /editor/entrar';
 const mensajeSinSesion = (correo: string) =>
   `Ya tienes una cuenta con ${correo}. Entra con ese correo en /editor/entrar y luego abre otra vez el enlace de la invitación`;
 const mensajeOtraSesion = (correo: string) => `Esta invitación es para ${correo}. Sal de tu cuenta y entra con esa`;
@@ -210,7 +219,7 @@ export async function aceptarInvitacion(
   deps: DepsAdmin,
   token: string,
   datos: { clave?: string; repetida?: string },
-): Promise<{ error?: string; parroquiaSlug?: string }> {
+): Promise<Resultado & { parroquiaSlug?: string; aviso?: string }> {
   try {
     const inv = await buscarInvitacion(deps.servicio, token);
     if (!inv) return { error: MENSAJE_INVITACION_INVALIDA };
@@ -223,8 +232,8 @@ export async function aceptarInvitacion(
       if (!actual) return { error: mensajeSinSesion(inv.correo) };
       if (actual !== inv.correo || data.user?.id !== existente) return { error: mensajeOtraSesion(inv.correo) };
     } else {
-      if (clave.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA };
-      if (clave !== (datos.repetida ?? '')) return { error: MENSAJE_CLAVES_DISTINTAS };
+      if (clave.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA, campo: 'clave' };
+      if (clave !== (datos.repetida ?? '')) return { error: MENSAJE_CLAVES_DISTINTAS, campo: 'clave' };
     }
 
     // Gasta el token: solo uno de dos pedidos simultáneos encuentra la fila todavía libre.
@@ -264,16 +273,18 @@ export async function aceptarInvitacion(
         accion: 'aceptar_invitacion',
         detalle: { correo: inv.correo, rol: inv.rol },
       });
-      if (!existente) {
-        const { error } = await deps.sesion.auth.signInWithPassword({ email: inv.correo, password: clave });
-        if (error) throw error;
-      }
       let parroquiaSlug: string | undefined;
       if (inv.parroquia_id) {
         const { data } = await deps.servicio.from('parroquias').select('slug').eq('id', inv.parroquia_id).maybeSingle();
         parroquiaSlug = data?.slug;
       }
-      return { parroquiaSlug };
+      // La asignación ya quedó hecha y el token gastado: si solo falla entrar, no se devuelve el token ni se muestra un error.
+      let aviso: string | undefined;
+      if (!existente) {
+        const { error } = await deps.sesion.auth.signInWithPassword({ email: inv.correo, password: clave });
+        if (error) aviso = MENSAJE_ENTRAR_MANUAL;
+      }
+      return { parroquiaSlug, aviso };
     } catch (e) {
       // El token se devuelve para poder reintentar; si la cuenta ya se creó, el reintento pedirá entrar con ese correo.
       await devolver();

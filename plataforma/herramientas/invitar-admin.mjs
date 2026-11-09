@@ -1,7 +1,7 @@
 /*
   Invita a un administrador de la plataforma (el primero no puede salir de la propia plataforma).
   Uso:  node herramientas/invitar-admin.mjs <correo>
-  Lee plataforma/.env.local: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, SITIO_URL y,
+  Lee plataforma/.env.local (obligatorio; sus valores mandan sobre las variables del shell): NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, SITIO_URL y,
   para enviar el correo de verdad, RESEND_API_KEY (y CORREO_REMITENTE). Sin RESEND_API_KEY
   escribe el correo en la consola. La llave secreta nunca se imprime ni se guarda en otro lado.
 
@@ -9,9 +9,10 @@
   (token y hash) y lib/correo.ts (texto del correo). Si cambian allá, cámbialas aquí.
 */
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
@@ -28,7 +29,10 @@ function salir(mensaje) {
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const archivoEnv = path.join(raiz, '.env.local');
-if (existsSync(archivoEnv)) process.loadEnvFile(archivoEnv);
+if (!existsSync(archivoEnv)) salir(`No encuentro ${archivoEnv}. Créalo a partir de .env.example con las llaves del proyecto al que vas a invitar.`);
+// process.loadEnvFile NO pisa variables que ya existen en el shell (verificado en Node 22.16): si hubiera
+// una SUPABASE_SECRET_KEY vieja en el entorno, se usaría esa. Aquí gana siempre lo que dice .env.local.
+Object.assign(process.env, parseEnv(readFileSync(archivoEnv, 'utf8')));
 
 const correo = String(process.argv[2] ?? '').trim().toLowerCase();
 if (!RE_CORREO.test(correo)) salir('Uso: node herramientas/invitar-admin.mjs <correo>');
@@ -39,6 +43,7 @@ const sitio = (process.env.SITIO_URL ?? '').replace(/\/+$/, '');
 if (!url || !llave) salir('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SECRET_KEY en plataforma/.env.local');
 if (!sitio) salir('Falta SITIO_URL en plataforma/.env.local: sin ella el enlace de la invitación no apuntaría a ningún lado');
 
+console.log(`Proyecto de destino: ${url}`);
 const servicio = createClient(url, llave, { auth: { persistSession: false, autoRefreshToken: false } });
 
 // Anula las invitaciones de administrador pendientes del mismo correo.

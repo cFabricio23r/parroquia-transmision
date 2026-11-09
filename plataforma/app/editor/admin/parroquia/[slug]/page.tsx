@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatearFecha } from '../../../../../lib/fecha';
 import { clienteServicio } from '../../../../../lib/supabase/servicio';
 import { BotonQuitar, FormInvitar } from '../../formularios';
 import { SoloAdmin, sesionDeAdmin } from '../../guardia';
@@ -60,7 +61,7 @@ export default async function PaginaParroquia({ params }: { params: Promise<{ sl
         <ul className="lista">
           {pendientes.map((i) => (
             <li key={i.id}>
-              {i.correo} <span className="ayuda">(vence el {new Date(i.vence_en).toISOString().slice(0, 10)})</span>
+              {i.correo} <span className="ayuda">(vence el {formatearFecha(i.vence_en, false)})</span>
             </li>
           ))}
         </ul>
