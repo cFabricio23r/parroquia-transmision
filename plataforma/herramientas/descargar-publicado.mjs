@@ -12,8 +12,9 @@
   dejarían de funcionar. Falla si:
    - faltan las variables, Supabase no responde o contesta un error (listar, bajar un config.json o
      una imagen), o un slug publicado existe también en vicaria/;
-   - una parroquia (el error la nombra) tiene un slug que no es válido o está reservado, no tiene
-     config.json o no valida, nombra una imagen con forma rara, o una imagen que nombra no existe (404).
+   - una parroquia (el error la nombra) tiene un slug que no es válido o está reservado, su
+     config.json no valida, nombra una imagen con forma rara, o una imagen que nombra no existe (404).
+  Única excepción: una carpeta sin config.json nunca estuvo en las pantallas; se avisa (`AVISO:`) y se sigue.
 */
 import { createClient } from '@supabase/supabase-js';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -68,7 +69,9 @@ async function traer(bucket, slug) {
   if (motivo) throw new ParroquiaRota(motivo);
 
   const texto = await bajar(bucket, `${slug}/config.json`, `${slug}/config.json`);
-  if (!texto) throw new ParroquiaRota('no tiene config.json');
+  // Sin config.json la parroquia nunca llegó a las pantallas (p. ej. una primera publicación que falló):
+  // no hay nada en vivo que perder, así que se avisa y se sigue en vez de frenar a todas las demás.
+  if (!texto) return null;
   let config;
   try {
     config = JSON.parse(texto.toString('utf8'));
@@ -127,7 +130,9 @@ export async function descargarPublicado({ url, clave, destino, slugsDelRepo }) 
   const traidas = [];
   for (const slug of slugs) {
     try {
-      traidas.push([slug, await traer(bucket, slug)]);
+      const datos = await traer(bucket, slug);
+      if (datos) traidas.push([slug, datos]);
+      else console.warn(`AVISO: publicado/${slug}/ no tiene config.json (nunca llegó a las pantallas); se deja afuera.`);
     } catch (e) {
       if (e instanceof ParroquiaRota) throw new Error(`la parroquia «${slug}» no se puede traer: ${e.message.replace(/\.$/, '')}. Corrígela o bórrala de publicado/.`);
       throw e;

@@ -168,14 +168,21 @@ describe('descargar-publicado', () => {
     await fallaNombrando(mala, /no es JSON válido/);
   }, 60_000);
 
-  it('falla y nombra la parroquia si su carpeta no tiene config.json', async () => {
+  it('una carpeta sin config.json (nunca llegó a las pantallas) se deja afuera con aviso y el resto sigue', async () => {
+    const buena = await parroquiaPublicada();
     const sola = `solo-${sufijo()}`;
     const ruta = `${sola}/medios/v1-fachada-0a1b2c3d.png`;
     const { error } = await servicio.storage.from('publicado').upload(ruta, png, { contentType: 'image/png' });
     expect(error).toBeNull();
     subidos.push(ruta);
     nuevoDestino();
-    await fallaNombrando(sola, /no tiene config\.json/);
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.parroquias).toContain(buena.slug);
+    expect(r.parroquias).not.toContain(sola);
+    expect(existsSync(path.join(destino, sola))).toBe(false);
+    expect(existsSync(path.join(destino, buena.slug, 'config.json'))).toBe(true);
+    expect(aviso.mock.calls.some(([m]) => String(m).startsWith('AVISO:') && String(m).includes(sola))).toBe(true);
   }, 60_000);
 
   it('falla y nombra la parroquia si su config nombra una imagen que no tiene el formato de lo publicado (no la baja)', async () => {
