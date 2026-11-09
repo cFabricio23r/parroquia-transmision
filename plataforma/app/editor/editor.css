@@ -27,3 +27,19 @@
 .boton:disabled { opacity: 0.7; cursor: progress; }
 .editor a { color: var(--rey); }
 .enlaces { margin-top: 16px; text-align: center; }
+.tarjeta.ancha { max-width: 900px; }
+.tarjeta h2 { color: var(--oscuro); font-size: 1.15rem; margin: 24px 0 8px; }
+.lista { list-style: none; padding: 0; margin: 0 0 16px; }
+.lista li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #c9d3de; }
+.boton-peligro { background: #a30200; width: auto; padding: 8px 14px; }
+.boton-peligro:hover { background: #7a0200; }
+.boton-corto { width: auto; padding: 8px 16px; }
+.filtro { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.filtro label { font-weight: 600; color: var(--oscuro); }
+.filtro select { padding: 8px; font-size: 1rem; border: 2px solid #5b6b7d; border-radius: 6px; }
+.tabla-envoltura { overflow-x: auto; }
+.tabla-envoltura:focus-visible { outline: 3px solid var(--medio); outline-offset: 2px; }
+.tabla-envoltura table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.tabla-envoltura caption { text-align: left; font-weight: 600; color: var(--oscuro); padding-bottom: 8px; }
+.tabla-envoltura th, .tabla-envoltura td { text-align: left; padding: 8px; border-bottom: 1px solid #c9d3de; vertical-align: top; }
+.tabla-envoltura th { background: var(--palido); color: var(--oscuro); }

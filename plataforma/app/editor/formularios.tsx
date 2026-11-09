@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { cambiarClave, entrar, pedirRecuperacion } from './acciones-sesion';
 
 /** Resumen de errores: role="alert" y recibe el foco al aparecer. */
-function Resumen({ mensaje }: { mensaje?: string }) {
+export function Resumen({ mensaje }: { mensaje?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (mensaje) ref.current?.focus();
@@ -16,7 +16,7 @@ function Resumen({ mensaje }: { mensaje?: string }) {
   );
 }
 
-function Campo(props: { id: string; etiqueta: string; tipo: string; autoComplete: string; ayuda?: string; error?: string }) {
+export function Campo(props: { id: string; etiqueta: string; tipo: string; autoComplete: string; ayuda?: string; error?: string }) {
   const ayudaId = props.ayuda ? `${props.id}-ayuda` : undefined;
   const errorId = props.error ? `${props.id}-error` : undefined;
   return (
