@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prepararVistaPrevia } from '../../lib/vista-previa';
+import { prepararVistaPrevia, recogerMedios } from '../../lib/vista-previa';
 
 const urls = { 'medios/logo.png': 'http://x/firmada-logo?token=1', 'medios/fachada.jpg': 'http://x/firmada-fachada?token=2' };
 
@@ -34,5 +34,20 @@ describe('prepararVistaPrevia', () => {
     const borrador = { fachada: { src: 'medios/fachada.jpg', alt: 'F' } };
     prepararVistaPrevia(borrador, urls);
     expect(borrador.fachada.src).toBe('medios/fachada.jpg');
+  });
+});
+
+describe('recogerMedios', () => {
+  it('junta cada src de medios/ a cualquier profundidad, sin repetidos', () => {
+    const r = recogerMedios({
+      logos: { blanco: { src: 'medios/logo.png', alt: 'L' } },
+      galeria: [{ id: 'a', imagen: { src: 'medios/g1.jpg' } }, { id: 'b', imagen: { src: 'medios/logo.png' } }],
+      pantallas: { inicio: { fondo: { tipo: 'imagen', src: 'medios/fondo.jpg' } } },
+    });
+    expect(r.sort()).toEqual(['medios/fondo.jpg', 'medios/g1.jpg', 'medios/logo.png']);
+  });
+
+  it('ignora src que no son de medios/ y textos que no son src', () => {
+    expect(recogerMedios({ a: { src: 'https://x/y.png' }, b: 'medios/z.png', c: { src: 3 }, d: null })).toEqual([]);
   });
 });

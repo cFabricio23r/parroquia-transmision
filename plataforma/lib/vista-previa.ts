@@ -19,3 +19,15 @@ export function prepararVistaPrevia(valor: unknown, urls: Record<string, string>
   }
   return valor === null ? undefined : valor;
 }
+
+/** Todos los `src` que empiezan con `medios/`, a cualquier profundidad (galería, fondos, logos…), sin repetidos. */
+export function recogerMedios(valor: unknown, encontrados = new Set<string>()): string[] {
+  if (Array.isArray(valor)) valor.forEach((v) => recogerMedios(v, encontrados));
+  else if (valor !== null && typeof valor === 'object') {
+    for (const [clave, v] of Object.entries(valor)) {
+      if (clave === 'src' && typeof v === 'string' && v.startsWith('medios/')) encontrados.add(v);
+      else recogerMedios(v, encontrados);
+    }
+  }
+  return [...encontrados];
+}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { SEGUNDOS_URL_FIRMADA } from '../../../../lib/borrador';
 import { validarBorrador } from '../../../../lib/validar';
+import { recogerMedios } from '../../../../lib/vista-previa';
 import { clienteServidor } from '../../../../lib/supabase/servidor';
 import { FormularioIdentidad, type IdentidadInicial } from './FormularioIdentidad';
 
@@ -31,10 +32,8 @@ export default async function EditarIdentidad({ params }: { params: Promise<{ sl
   if (!borrador) return <NoEncontrada />;
 
   const config = borrador.config as IdentidadInicial;
-  // URLs firmadas de las imágenes que ya tiene el borrador, para mostrarlas en el formulario.
-  const imagenes = [config.logos?.blanco, config.logos?.color, config.fachada, config.patrono?.imagen]
-    .map((i) => i?.src)
-    .filter((s): s is string => typeof s === 'string' && s.startsWith('medios/'));
+  // URLs firmadas de todas las imágenes del borrador (identidad, galería, fondos…), para el formulario y la vista previa.
+  const imagenes = recogerMedios(borrador.config);
   const urls: Record<string, string> = {};
   if (imagenes.length) {
     const { data } = await sesion.storage

@@ -57,6 +57,11 @@ try {
   const pagina = await contexto.newPage();
   const erroresJs = [];
   pagina.on('pageerror', (e) => erroresJs.push(e.message));
+  // Desde antes de la primera navegación, para ver también los pedidos de la carga inicial de los iframes.
+  const pedidosConfig = [];
+  pagina.on('request', (q) => {
+    if (/\/config\.json(\?|$)/.test(q.url())) pedidosConfig.push(q.url());
+  });
 
   console.log('Entrar y llegar al formulario');
   await entrar(pagina, P.correo);
@@ -76,10 +81,6 @@ try {
   igual(sinEtiqueta.length, 0, 'todo campo tiene su label' + (sinEtiqueta.length ? ': ' + sinEtiqueta.join(', ') : ''));
 
   console.log('Vista previa con las pantallas reales');
-  const pedidosConfig = [];
-  pagina.on('request', (q) => {
-    if (/\/config\.json(\?|$)/.test(q.url())) pedidosConfig.push(q.url());
-  });
   const marcoInicio = pagina.locator('iframe[title="Vista previa: inicio"]');
   const marcoPortada = pagina.locator('iframe[title="Vista previa: portada"]');
   await marcoInicio.waitFor();
@@ -105,6 +106,7 @@ try {
   igual(pedidosConfig.length, 0, 'la vista previa no pidió config.json' + (pedidosConfig.length ? ': ' + pedidosConfig.join(', ') : ''));
   const clavesPev = await pagina.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('pev_')));
   revisar(clavesPev.every((k) => k.startsWith('pev_vistaprevia_')), 'solo hay claves pev_vistaprevia_ en localStorage' + (clavesPev.length ? ': ' + clavesPev.join(', ') : ''));
+  revisar(clavesPev.length > 0 && !clavesPev.some((k) => k.startsWith(`pev_${P.slug}_`)), `no hay ninguna clave pev_${P.slug}_ (las del OBS real)`);
   await pagina.getByLabel('Nombre de la parroquia', { exact: true }).fill(`Parroquia ${P.slug}`);
 
   console.log('Contraste de los colores');
