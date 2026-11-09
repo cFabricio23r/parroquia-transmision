@@ -1,5 +1,5 @@
 // El build trae lo publicado: descargar-publicado contra el Supabase LOCAL, con la clave publicable.
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -8,7 +8,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { clienteServicio, crearParroquia, crearUsuario, hacerMiembro, sufijo, type UsuarioPrueba } from './ayudas';
 import { publicar } from '../../lib/publicar';
-import { descargarPublicado } from '../../herramientas/descargar-publicado.mjs';
+import { RESERVADOS, descargarPublicado, escribir } from '../../herramientas/descargar-publicado.mjs';
 
 const servicio = clienteServicio();
 const URL_LOCAL = process.env.SUPABASE_URL ?? '';
@@ -94,6 +94,12 @@ afterAll(async () => {
 describe('descargar-publicado', () => {
   const avisos = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+  // Limpieza aunque una aserción falle: la carpeta temporal y el espía de la consola.
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (destino) rmSync(destino, { recursive: true, force: true });
+  });
+
   const nuevoDestino = () => {
     destino = mkdtempSync(path.join(tmpdir(), 'descargar-'));
     return destino;
@@ -110,7 +116,6 @@ describe('descargar-publicado', () => {
     expect(archivos).toHaveLength(3);
     for (const a of archivos) expect(a).toMatch(/^v1-/);
     expect(readFileSync(path.join(destino, p.slug, p.config.fachada.src)).equals(png)).toBe(true);
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('al repetirse borra lo viejo de la parroquia y no toca otras carpetas del destino', async () => {
@@ -123,7 +128,6 @@ describe('descargar-publicado', () => {
     await descargarPublicado(ENTRADA());
     expect(existsSync(path.join(destino, p.slug, 'medios', 'v0-viejo-00000000.png'))).toBe(false);
     expect(readFileSync(path.join(destino, 'ciudad-arce', 'config.json'), 'utf8')).toBe('del repo');
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('omite un config.json inválido con aviso y sigue con los demás', async () => {
@@ -139,8 +143,6 @@ describe('descargar-publicado', () => {
     expect(espia.mock.calls.some((c) => String(c[0]).startsWith('AVISO:') && String(c[0]).includes(mala))).toBe(true);
     expect(existsSync(path.join(destino, mala))).toBe(false);
     expect(existsSync(path.join(destino, buena.slug, 'config.json'))).toBe(true);
-    espia.mockRestore();
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('omite una parroquia cuyo config nombra una imagen que no tiene el formato de lo publicado (no la baja)', async () => {
@@ -152,9 +154,17 @@ describe('descargar-publicado', () => {
     const r = await descargarPublicado(ENTRADA());
     expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toContain('medios/fachada.png');
     expect(existsSync(path.join(destino, slug))).toBe(false);
-    expect(existsSync(path.join(destino, '..', 'x.png'))).toBe(false);
-    espia.mockRestore();
-    rmSync(destino, { recursive: true, force: true });
+  }, 60_000);
+
+  it('omite una parroquia cuyo src es MEDIOS/… (validarConfig no distingue mayúsculas, el formato publicado sí)', async () => {
+    const buena = await parroquiaPublicada();
+    const slug = `may-${sufijo()}`;
+    await subirConfig(slug, { ...structuredClone(buena.config), slug, fachada: { src: 'MEDIOS/Fachada.PNG', alt: 'Fachada' } });
+    avisos();
+    nuevoDestino();
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toContain('MEDIOS/Fachada.PNG');
+    expect(existsSync(path.join(destino, slug))).toBe(false);
   }, 60_000);
 
   it('omite una parroquia cuya imagen no existe en publicado (404) y sigue con las demás', async () => {
@@ -168,8 +178,6 @@ describe('descargar-publicado', () => {
     expect(r.parroquias).not.toContain(slug);
     expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toMatch(/imagen/i);
     expect(existsSync(path.join(destino, slug))).toBe(false);
-    espia.mockRestore();
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('omite una carpeta cuyo nombre no es un slug válido o es una ruta reservada', async () => {
@@ -182,34 +190,51 @@ describe('descargar-publicado', () => {
       expect(r.omitidas.map((o: { slug: string }) => o.slug)).toContain(carpeta);
       expect(existsSync(path.join(destino, carpeta))).toBe(false);
     }
-    espia.mockRestore();
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('falla si un slug publicado coincide con una carpeta de vicaria/', async () => {
     const p = await parroquiaPublicada();
     nuevoDestino();
     await expect(descargarPublicado(ENTRADA([p.slug]))).rejects.toThrow(`el slug ${p.slug} existe en vicaria/ y en Supabase`);
-    rmSync(destino, { recursive: true, force: true });
   }, 60_000);
 
   it('sin Supabase (puerto cerrado) falla con un mensaje claro', async () => {
     nuevoDestino();
     await expect(descargarPublicado({ ...ENTRADA(), url: 'http://127.0.0.1:1' })).rejects.toThrow(/Supabase/);
-    rmSync(destino, { recursive: true, force: true });
   });
 
   it('si Supabase responde un error de servidor falla', async () => {
     nuevoDestino();
     const url = await escuchar(500);
     await expect(descargarPublicado({ ...ENTRADA(), url })).rejects.toThrow(/Supabase/);
-    rmSync(destino, { recursive: true, force: true });
   });
 
   it('sin url o sin clave falla antes de llamar', async () => {
     nuevoDestino();
     await expect(descargarPublicado({ ...ENTRADA(), url: '' })).rejects.toThrow(/NEXT_PUBLIC_SUPABASE_URL/);
     await expect(descargarPublicado({ ...ENTRADA(), clave: '' })).rejects.toThrow(/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
-    rmSync(destino, { recursive: true, force: true });
+  });
+});
+
+describe('descargar-publicado: guardias sin Supabase', () => {
+  it('escribir no deja salir ningún archivo de destino/<slug>/', () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'guardia-'));
+    try {
+      expect(() =>
+        escribir(tmp, 'una', { texto: Buffer.from('{}'), imagenes: [{ nombre: 'medios/../../fuera.png', contenido: Buffer.from('x') }] }),
+      ).toThrow(/fuera de la carpeta/);
+      expect(existsSync(path.join(tmp, 'fuera.png'))).toBe(false);
+      expect(existsSync(path.join(tmp, '..', 'fuera.png'))).toBe(false);
+      escribir(tmp, 'una', { texto: Buffer.from('{}'), imagenes: [{ nombre: 'medios/v1-a-0a1b2c3d.png', contenido: Buffer.from('x') }] });
+      expect(existsSync(path.join(tmp, 'una', 'medios', 'v1-a-0a1b2c3d.png'))).toBe(true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('RESERVADOS es la misma lista que lib/slug.ts', () => {
+    const fuente = readFileSync(new URL('../../lib/slug.ts', import.meta.url), 'utf8');
+    const lista = /const RESERVADOS = \[([^\]]*)\]/.exec(fuente)![1].split(',').map((t) => t.trim().replace(/^'|'$/g, ''));
+    expect([...RESERVADOS].sort()).toEqual(lista.sort());
   });
 });

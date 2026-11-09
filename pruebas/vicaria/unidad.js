@@ -1479,14 +1479,31 @@ grupo('servidor-vicaria: patrones de vercel.json', () => {
     assert.ok(h);
     assert.deepEqual(h.headers, [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }]);
   });
-  prueba('las imágenes de medios/ llevan la CSP y caché inmutable, y solo ellas', () => {
-    const h = reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/mi-parroquia/medios/v1-fachada-0a1b2c3d.svg'));
-    assert.ok(h, 'falta el header de /:slug/medios/:archivo');
-    assert.deepEqual(h.headers, [
-      { key: 'Content-Security-Policy', value: "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'" },
-      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-    ]);
-    assert.equal(reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/mi-parroquia/config.json')).headers.length, 1);
+  const cabecerasDe = (ruta) => {
+    const k = {};
+    for (const h of reglas.headers) if (emparejar(compilarPatron(h.source), ruta)) for (const kv of h.headers) k[kv.key] = kv.value;
+    return k;
+  };
+  const CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
+  prueba('toda imagen de medios/ lleva la CSP; la de repo sin versión no es immutable', () => {
+    for (const ruta of ['/ciudad-arce/medios/logo-blanco.png', '/san-jose-ejemplo/medios/x.svg']) {
+      assert.deepEqual(cabecerasDe(ruta), { 'Content-Security-Policy': CSP }, ruta);
+    }
+  });
+  prueba('solo lo publicado (v<N>-nombre-<8 hex>.ext) lleva caché immutable, además de la CSP', () => {
+    assert.deepEqual(cabecerasDe('/x-y/medios/v1-fachada-0a1b2c3d.png'), {
+      'Content-Security-Policy': CSP,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
+    for (const ruta of ['/x-y/medios/v1-fachada-0a1b2c3d.exe', '/x-y/medios/v1-fachada-0a1b2c3.png', '/x-y/medios/v1-fachada-0a1b2c3d.png/x', '/x-y/medios/fachada-0a1b2c3d.png']) {
+      assert.ok(!('Cache-Control' in cabecerasDe(ruta)), ruta);
+    }
+  });
+  prueba(':nombre(regex) admite grupos (?:…) pero rechaza grupos de captura internos', () => {
+    const p = compilarPatron('/:a/:b(v\\d+\\.(?:png|jpg))');
+    assert.deepEqual(emparejar(p, '/z/v12.jpg'), { a: 'z', b: 'v12.jpg' });
+    assert.throws(() => compilarPatron('/:a/:b((x)y)'), /no soportado/);
+    assert.throws(() => compilarPatron('/:a/:b(x'), /no soportado/);
   });
 });
 

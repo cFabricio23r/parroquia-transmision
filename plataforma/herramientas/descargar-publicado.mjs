@@ -22,7 +22,7 @@ import { validarConfig } from '../lib/validar-nucleo.mjs';
 
 // Mismas reglas que lib/slug.ts (que es TypeScript y este script no puede importar).
 const RE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const RESERVADOS = ['editor', 'api', 'auth', '_next', 'fuentes', 'img', 'medios'];
+export const RESERVADOS = ['editor', 'api', 'auth', '_next', 'fuentes', 'img', 'medios'];
 // El formato que publica lib/publicar.ts: medios/v<N>-<campo>-<8 hex>.<ext>
 const RE_MEDIO = /^medios\/v\d+-[a-z0-9-]+-[0-9a-f]{8}\.(png|jpg|webp|svg)$/;
 const TAM_PAGINA = 100;
@@ -41,12 +41,12 @@ const falloSupabase = (que, error) =>
 
 const noExiste = (error) => Number(error?.statusCode) === 404 || Number(error?.status) === 404;
 
-/** Todos los `src` que empiezan con `medios/`, en cualquier parte del config. */
+/** Todos los `src` (texto) del config, en cualquier parte. validarConfig solo admite rutas `medios/…` (sin distinguir mayúsculas), así que todos deben tener el formato publicado. */
 function mediosDe(valor, salida = new Set()) {
   if (Array.isArray(valor)) valor.forEach((v) => mediosDe(v, salida));
   else if (valor !== null && typeof valor === 'object') {
     for (const [clave, v] of Object.entries(valor)) {
-      if (clave === 'src' && typeof v === 'string' && v.startsWith('medios/')) salida.add(v);
+      if (clave === 'src' && typeof v === 'string') salida.add(v);
       else mediosDe(v, salida);
     }
   }
@@ -79,7 +79,7 @@ async function traer(bucket, slug) {
   const imagenes = [];
   const medios = [...mediosDe(config)];
   for (const m of medios) {
-    if (!RE_MEDIO.test(m)) throw new Omitir(`nombra la imagen «${m}», que no tiene el formato de lo publicado`);
+    if (!RE_MEDIO.test(m)) throw new Omitir(`nombra la imagen «${m}», que no tiene el formato de lo publicado (medios/v<N>-…)`);
   }
   for (const m of medios) {
     const contenido = await bajar(bucket, `${slug}/${m}`, `la imagen ${slug}/${m}`);
@@ -90,7 +90,7 @@ async function traer(bucket, slug) {
 }
 
 /** Escribe una parroquia ya descargada, borrando antes lo que hubiera de ella (sin dejar `v<N>-` viejos). */
-function escribir(destino, slug, { texto, imagenes }) {
+export function escribir(destino, slug, { texto, imagenes }) {
   const carpeta = path.join(destino, slug);
   rmSync(carpeta, { recursive: true, force: true });
   mkdirSync(carpeta, { recursive: true });

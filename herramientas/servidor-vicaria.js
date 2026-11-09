@@ -6,8 +6,8 @@
   y lo que se prueba aquí es lo mismo que se publica.
 
   NO VERIFICADO: la sintaxis de patrones de Vercel. Este servidor solo entiende las formas que
-  usa vicaria/vercel.json: texto fijo, `:nombre` (un segmento) y `:nombre(a|b|c)` (uno de varios
-  textos fijos). Cualquier otro patrón se rechaza al arrancar. Que Vercel interprete esos mismos
+  usa vicaria/vercel.json: texto fijo, `:nombre` (un segmento) y `:nombre(regex)` (el grupo se usa
+  tal cual como expresión regular, sin grupos de captura internos). Cualquier otro patrón se rechaza al arrancar. Que Vercel interprete esos mismos
   patrones igual se comprueba en la Tarea 8, ya publicado.
 
   Orden (como Vercel, según lo entendemos; no verificado): primero el archivo si existe; si no,
@@ -31,19 +31,37 @@ const escapar = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function compilarPatron(patron) {
   const nombres = [];
   let re = '';
-  const trozo = /:([A-Za-z_]\w*)(?:\(([A-Za-z0-9_|-]+)\))?|([A-Za-z0-9_./-]+)/y;
+  const noSoportado = () => new Error('Patrón no soportado por servidor-vicaria.js: ' + patron);
+  const trozo = /:([A-Za-z_]\w*)|([A-Za-z0-9_./-]+)/y;
   let pos = 0;
   while (pos < patron.length) {
     trozo.lastIndex = pos;
     const m = trozo.exec(patron);
-    if (!m) throw new Error('Patrón no soportado por servidor-vicaria.js: ' + patron);
-    if (m[3] !== undefined) {
-      re += escapar(m[3]);
-    } else {
-      nombres.push(m[1]);
-      re += m[2] ? '(' + m[2].split('|').map((a) => a).join('|') + ')' : '([^/]+)';
-    }
+    if (!m) throw noSoportado();
     pos = trozo.lastIndex;
+    if (m[2] !== undefined) {
+      re += escapar(m[2]);
+      continue;
+    }
+    nombres.push(m[1]);
+    if (patron[pos] !== '(') {
+      re += '([^/]+)';
+      continue;
+    }
+    // :nombre(regex): se toma hasta el paréntesis que lo cierra y se usa tal cual como expresión regular.
+    let hondo = 0;
+    let fin = -1;
+    for (let i = pos; i < patron.length; i++) {
+      if (patron[i] === '\\') i++;
+      else if (patron[i] === '(') hondo++;
+      else if (patron[i] === ')' && --hondo === 0) { fin = i; break; }
+    }
+    const interior = fin < 0 ? '' : patron.slice(pos + 1, fin);
+    // Un grupo de captura interno desordenaría los valores: solo se admiten los no capturantes «(?:…)».
+    if (!interior || /(^|[^\\])\((?!\?:)/.test(interior)) throw noSoportado();
+    try { new RegExp(interior); } catch (e) { throw noSoportado(); }
+    re += '(' + interior + ')';
+    pos = fin + 1;
   }
   return { re: new RegExp('^' + re + '$'), nombres };
 }
