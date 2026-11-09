@@ -5,6 +5,7 @@ App Next.js (16.4.5) de la plataforma multiparroquia. En esta etapa sirve las pa
 ## Cómo funciona
 
 - `npm run dev` y `npm run build` corren antes `herramientas/copiar-vicaria.mjs` (`predev` / `prebuild`): copia `vicaria/` a `public/` (sin `vercel.json` ni `LEEME-config.md`) y escribe `lib/generado/slugs-del-repo.json`. Ambos se generan, no se versionan.
+- `npm run build` corre además `herramientas/descargar-publicado.mjs` (solo `prebuild`): baja de Supabase, con la clave publicable, el `config.json` de cada parroquia publicada y sus imágenes a `public/<slug>/`. Necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; si Supabase no responde, el build falla (Vercel conserva el despliegue anterior). Una parroquia con config inválido o con una imagen que falta se omite con una línea `AVISO:`.
 - `next.config.ts` lee `../vicaria/vercel.json` y devuelve sus `rewrites` y `headers` sin cambios: es la única fuente de verdad, igual que `herramientas/servidor-vicaria.js`.
 - `.env.example` lista las variables. Los secretos (`SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `VERCEL_DEPLOY_HOOK_URL`) nunca llevan `NEXT_PUBLIC_`.
 - Pruebas: `npm --prefix plataforma test` (unidad) y `npm --prefix plataforma run test:integracion`. `npm run test:navegador` (Playwright, Chromium) levanta `next dev` en el puerto 3100 contra el Supabase local y corre `pruebas/navegador/*.mjs`; la primera vez hace falta `npx playwright install chromium`.

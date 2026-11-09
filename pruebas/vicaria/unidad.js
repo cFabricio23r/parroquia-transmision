@@ -1479,6 +1479,15 @@ grupo('servidor-vicaria: patrones de vercel.json', () => {
     assert.ok(h);
     assert.deepEqual(h.headers, [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }]);
   });
+  prueba('las imágenes de medios/ llevan la CSP y caché inmutable, y solo ellas', () => {
+    const h = reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/mi-parroquia/medios/v1-fachada-0a1b2c3d.svg'));
+    assert.ok(h, 'falta el header de /:slug/medios/:archivo');
+    assert.deepEqual(h.headers, [
+      { key: 'Content-Security-Policy', value: "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'" },
+      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+    ]);
+    assert.equal(reglas.headers.find((x) => emparejar(compilarPatron(x.source), '/mi-parroquia/config.json')).headers.length, 1);
+  });
 });
 
 grupo('config 1b', () => {

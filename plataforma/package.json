@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node herramientas/copiar-vicaria.mjs",
     "dev": "next dev",
-    "prebuild": "node herramientas/copiar-vicaria.mjs",
+    "prebuild": "node herramientas/copiar-vicaria.mjs && node herramientas/descargar-publicado.mjs",
     "build": "next build",
     "start": "next start",
     "test": "vitest run --config vitest.config.ts pruebas/unidad",
