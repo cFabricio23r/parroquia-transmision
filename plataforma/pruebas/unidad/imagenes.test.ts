@@ -21,6 +21,16 @@ describe('revisarImagen', () => {
     }
   });
 
+  it('un JPG muy comprimido que crece al volver a codificarlo sale igual por debajo de 3 MB', async () => {
+    const ruido = { create: { width: 3300, height: 3300, channels: 3 as const, background: '#808080', noise: { type: 'gaussian' as const, mean: 128, sigma: 40 } } };
+    const entrada = await sharp(ruido).jpeg({ quality: 50 }).toBuffer();
+    expect(entrada.length).toBeLessThanOrEqual(MAX_BYTES_IMAGEN);
+    expect((await sharp(entrada).jpeg({ quality: 90 }).toBuffer()).length).toBeGreaterThan(MAX_BYTES_IMAGEN); // el caso existe
+    const r = await revisarImagen(new Uint8Array(entrada), 'la fachada');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.bytes.length).toBeLessThanOrEqual(MAX_BYTES_IMAGEN);
+  }, 60_000);
+
   it('rechaza bytes de un MZ (ejecutable) aunque el archivo se llame .png', async () => {
     const mz = new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0, 4, 0, 0, 0]);
     const r = await revisarImagen(mz, 'la fachada');

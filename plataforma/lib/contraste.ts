@@ -1,6 +1,6 @@
 // Contraste del blanco sobre un color. Espejo exacto de `contraste` de vicaria/parroquia.js
 // (una prueba compara ambos); vive aparte porque el formulario cliente no puede importar
-// validar-nucleo.mjs (lee archivos con fs).
+// validar-nucleo.mjs (usa el módulo vm de Node).
 export const MIN_CONTRASTE = 4.5;
 
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));

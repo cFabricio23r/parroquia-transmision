@@ -66,11 +66,16 @@ export async function revisarImagen(bytes: Uint8Array, campo: string): Promise<R
   }
   try {
     // Sin withMetadata()/keepExif(), sharp descarta EXIF, XMP e IPTC. rotate() sin ángulo orienta según EXIF.
-    const base = sharp(bytes, { limitInputPixels: MAX_PIXELES_IMAGEN }).rotate();
-    const salida =
-      tipo === 'png' ? base.png() : tipo === 'jpg' ? base.jpeg({ quality: 90 }) : base.webp({ quality: 90 });
-    const limpio = await salida.toBuffer();
-    return { ok: true, bytes: new Uint8Array(limpio), extension: tipo };
+    // Volver a codificar puede hacer crecer un JPG/WebP muy comprimido (calidad 90 > la original), y el
+    // bucket `borradores` corta en 3 MB lo que se guarda: si crece de más, se prueba con menos calidad.
+    const calidades = tipo === 'png' ? [0] : [90, 80, 70];
+    for (const quality of calidades) {
+      const base = sharp(bytes, { limitInputPixels: MAX_PIXELES_IMAGEN }).rotate();
+      const salida = tipo === 'png' ? base.png() : tipo === 'jpg' ? base.jpeg({ quality }) : base.webp({ quality });
+      const limpio = await salida.toBuffer();
+      if (limpio.length <= MAX_BYTES_IMAGEN) return { ok: true, bytes: new Uint8Array(limpio), extension: tipo };
+    }
+    return { ok: false, error: `${campo}: la imagen pesa más de 3 MB al prepararla. Reduce su tamaño y vuelve a subirla.` };
   } catch (e) {
     if (/pixel limit/i.test(String(e))) {
       return { ok: false, error: `${campo}: la imagen tiene demasiados píxeles (máximo 40 millones). Redúcela y vuelve a subirla.` };
