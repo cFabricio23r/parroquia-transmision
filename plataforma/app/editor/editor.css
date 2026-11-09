@@ -24,7 +24,7 @@
 .aviso { border: 2px solid var(--rey); background: var(--palido); color: var(--oscuro); padding: 12px; border-radius: 6px; margin-bottom: 16px; }
 .boton { width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; color: #fff; background: var(--rey); border: 0; border-radius: 6px; cursor: pointer; }
 .boton:hover { background: var(--oscuro); }
-.boton:disabled { opacity: 0.7; cursor: progress; }
+.boton:disabled, .boton[aria-disabled="true"] { opacity: 0.7; cursor: progress; }
 .editor a { color: var(--rey); }
 .enlaces { margin-top: 16px; text-align: center; }
 .tarjeta.ancha { max-width: 900px; }

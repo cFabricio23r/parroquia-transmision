@@ -1,4 +1,5 @@
 // Publicar, restaurar y avisar a Vercel, contra el Supabase LOCAL con sesiones reales.
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -101,6 +102,32 @@ async function mediosPublicados(p: Parroquia): Promise<string[]> {
 }
 const deps = (u: UsuarioPrueba, hookUrl?: string) => ({ sesion: u.cliente, servicio, hookUrl });
 const sinSesion = () => ({ sesion: clienteAnonimo(), servicio });
+/** El cliente de servicio, pero con la subida de config.json fallando (como un tiempo agotado: el objeto pudo escribirse igual). */
+function servicioConConfigCaido(): SupabaseClient {
+  return new Proxy(servicio, {
+    get(t, k) {
+      if (k === 'storage') {
+        return {
+          from: (bucket: string) =>
+            new Proxy(t.storage.from(bucket), {
+              get(b, m) {
+                if (m === 'upload') {
+                  return (ruta: string, ...resto: any[]) =>
+                    ruta.endsWith('/config.json')
+                      ? Promise.resolve({ data: null, error: { message: 'tiempo agotado simulado' } })
+                      : (b.upload as any)(ruta, ...resto);
+                }
+                const v = (b as any)[m];
+                return typeof v === 'function' ? v.bind(b) : v;
+              },
+            }),
+        };
+      }
+      const v = (t as any)[k];
+      return typeof v === 'function' ? v.bind(t) : v;
+    },
+  });
+}
 const silenciar = () => vi.spyOn(console, 'error').mockImplementation(() => {});
 
 beforeAll(async () => {
@@ -240,6 +267,21 @@ describe('publicar', () => {
     expect((await versionesDe(p)).map((v) => v.numero)).toEqual([1]);
     expect(await configPublicado(p)).toEqual(publicadaAntes);
     expect(await mediosPublicados(p)).toContain(`v3-${p.archivos[0]}`); // el que ya estaba no se borra
+  });
+
+  it('si falla la subida de config.json (resultado ambiguo) responde 500 pero conserva las copias y la versión', async () => {
+    const p = await parroquiaLista();
+    expect((await publicar(deps(cA), p.slug)).estado).toBe(200);
+    const publicadaAntes = await configPublicado(p);
+    const espia = silenciar();
+    const r = await publicar({ sesion: cA.cliente, servicio: servicioConConfigCaido() }, p.slug);
+    espia.mockRestore();
+    expect(r.estado).toBe(500);
+    expect((r.cuerpo as { error: string }).error).toMatch(/Intenta de nuevo/);
+    // Si config.json llegó a escribirse, apunta a v2-: esas imágenes y la versión 2 tienen que seguir ahí.
+    expect((await versionesDe(p)).map((v) => v.numero)).toEqual([1, 2]);
+    expect(await mediosPublicados(p)).toEqual(p.archivos.flatMap((a) => [`v1-${a}`, `v2-${a}`]).sort());
+    expect(await configPublicado(p)).toEqual(publicadaAntes); // aquí la subida no se escribió
   });
 
   it('sin sesión da 401 y un coordinador de B no puede publicar A (403); un administrador sí', async () => {

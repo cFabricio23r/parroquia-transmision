@@ -85,6 +85,7 @@ try {
   await pagina.getByRole('button', { name: 'Publicar', exact: true }).click();
   await pagina.getByRole('button', { name: 'Volver a esta versión: la 1' }).waitFor();
   igual(JSON.stringify(await numeros(P.id)), '[1]', 'quedó la versión 1');
+  igual(await pagina.evaluate(() => document.activeElement?.textContent), 'Publicar', 'al terminar de publicar el foco sigue en «Publicar» (no cae al body)');
   await pagina.getByText('Publicaste la versión 1; las pantallas todavía no la tienen').waitFor();
   revisar(true, 'con las pantallas en 404 dice «las pantallas todavía no la tienen»');
   const fila1 = await pagina.getByRole('row').filter({ hasText: 'Volver a esta versión' }).first().innerText();
@@ -118,6 +119,7 @@ try {
   await dialogo.getByRole('button', { name: 'Sí, volver a esta versión' }).click();
   await pagina.getByText('(copia de la versión 1)').waitFor();
   igual(JSON.stringify(await numeros(P.id)), '[1,2,3]', 'quedó la versión 3');
+  igual(await pagina.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Volver a esta versión: la 1', 'al terminar de restaurar el foco está en el botón de la fila');
   const fila3 = await pagina.getByRole('row').filter({ hasText: '(copia de la versión 1)' }).innerText();
   revisar(/^3\s/.test(fila3), 'la fila de la 3 dice «(copia de la versión 1)»');
   const despues = await leerBorrador(P.id);

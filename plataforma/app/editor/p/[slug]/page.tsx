@@ -49,16 +49,18 @@ export default async function EditarIdentidad({ params }: { params: Promise<{ sl
 
   // Versiones publicadas (RLS: las ve quien ve la parroquia). El correo de quien publicó solo lo puede
   // leer el servidor; esta página ya comprobó arriba que la persona es de esta parroquia o administradora.
-  const { data: filas } = await sesion
+  const { data: filas, error: errorVersiones } = await sesion
     .from('versiones')
     .select('numero, publicada_en, publicada_por, origen_numero')
     .eq('parroquia_id', parroquia.id)
     .order('numero', { ascending: false });
+  if (errorVersiones) console.error('[página de la parroquia] no se pudieron leer las versiones:', errorVersiones.message);
   const correos = new Map<string, string>();
   const servicio = clienteServicio();
   await Promise.all(
     [...new Set((filas ?? []).map((f) => f.publicada_por as string | null).filter((id): id is string => !!id))].map(async (id) => {
-      const { data } = await servicio.auth.admin.getUserById(id);
+      const { data, error } = await servicio.auth.admin.getUserById(id);
+      if (error) console.error('[página de la parroquia] no se pudo leer quién publicó:', error.message);
       if (data.user?.email) correos.set(id, data.user.email);
     }),
   );

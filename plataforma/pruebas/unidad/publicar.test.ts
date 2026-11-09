@@ -18,6 +18,7 @@ const borrador = () => ({
   },
   fachada: { src: 'medios/fachada-0a1b2c3d.jpg', alt: 'Fachada' },
   patrono: { ...base.patrono, imagen: { src: 'medios/fachada-0a1b2c3d.jpg', alt: 'La misma imagen en otro campo' } },
+  galeria: [{ id: 'foto-a', src: 'medios/foto-99887766.png', alt: 'Foto' }, { id: 'foto-b', src: 'medios/foto-99887766.png', alt: 'Otra vez' }],
 });
 const AHORA = new Date('2026-11-08T15:30:00Z');
 
@@ -31,11 +32,14 @@ describe('prepararPublicacion', () => {
     expect(c.logos.color.src).toBe('medios/v3-logo-color-11223344.svg');
     expect(c.fachada.src).toBe('medios/v3-fachada-0a1b2c3d.jpg');
     expect(c.patrono.imagen.src).toBe('medios/v3-fachada-0a1b2c3d.jpg');
+    expect(c.galeria[0].src).toBe('medios/v3-foto-99887766.png'); // dentro de un arreglo
+    expect(c.galeria[1].src).toBe('medios/v3-foto-99887766.png');
     expect(c).toMatchObject({ esquema: 1, version: 3, publicado: '2026-11-08T15:30:00.000Z', slug: 'ciudad-arce' });
     expect(copias).toEqual([
       { desde: 'logo-blanco-aabbccdd.png', hacia: 'ciudad-arce/medios/v3-logo-blanco-aabbccdd.png' },
       { desde: 'logo-color-11223344.svg', hacia: 'ciudad-arce/medios/v3-logo-color-11223344.svg' },
       { desde: 'fachada-0a1b2c3d.jpg', hacia: 'ciudad-arce/medios/v3-fachada-0a1b2c3d.jpg' },
+      { desde: 'foto-99887766.png', hacia: 'ciudad-arce/medios/v3-foto-99887766.png' },
     ]);
     expect(validarConfig(config, 'ciudad-arce')).toEqual({ ok: true, errores: [] });
     expect(entrada).toEqual(copia); // no muta el borrador
@@ -50,7 +54,7 @@ describe('prepararPublicacion', () => {
     );
     expect(config).toMatchObject({ version: 1, slug: 'ciudad-arce', fondo: { src: 'img/fondo.png' } });
     expect(copias.every((c) => c.hacia.startsWith('ciudad-arce/medios/v1-'))).toBe(true);
-    expect(copias).toHaveLength(3);
+    expect(copias).toHaveLength(4);
   });
 });
 

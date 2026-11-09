@@ -142,6 +142,7 @@ async function emitir(
   const { servicio } = deps;
   const subidas: string[] = [];
   let versionInsertada = false;
+  let subiendoConfig = false;
   try {
     for (const c of copias) {
       const { data: blob, error: errorBajar } = await servicio.storage.from('borradores').download(`${acceso.parroquiaId}/${c.desde}`);
@@ -163,6 +164,8 @@ async function emitir(
     });
     if (errorInsertar) throw errorInsertar;
     versionInsertada = true;
+    // Desde aquí un error es ambiguo (puede llegar después de que el objeto se escribió): no se limpia nada.
+    subiendoConfig = true;
     const { error: errorConfig } = await servicio.storage
       .from('publicado')
       .upload(`${slug}/config.json`, Buffer.from(JSON.stringify(config, null, 2)), {
@@ -172,10 +175,18 @@ async function emitir(
       });
     if (errorConfig) throw errorConfig;
   } catch (e) {
-    // Limpieza de lo que dejó este llamado; si también falla no hay más que hacer (el número ya es un hueco).
-    if (subidas.length) await servicio.storage.from('publicado').remove(subidas).catch(() => undefined);
-    if (versionInsertada) {
-      await servicio.from('versiones').delete().eq('parroquia_id', acceso.parroquiaId).eq('numero', numero);
+    // Limpieza solo si falló antes de tocar config.json (una copia o el insert). Si falló la subida de
+    // config.json se conservan copias y versión: puede haberse escrito igual y apuntar a esas imágenes;
+    // lo huérfano no hace daño. Si la limpieza falla no hay más que hacer (el número ya es un hueco).
+    if (!subiendoConfig) {
+      if (subidas.length) {
+        const { error } = await servicio.storage.from('publicado').remove(subidas);
+        if (error) console.error('[publicar] no se pudieron quitar las copias:', error.message);
+      }
+      if (versionInsertada) {
+        const { error } = await servicio.from('versiones').delete().eq('parroquia_id', acceso.parroquiaId).eq('numero', numero);
+        if (error) console.error('[publicar] no se pudo quitar la versión:', error.message);
+      }
     }
     const r = fallo(accion, e);
     return { estado: r.estado, cuerpo: { error: MENSAJE_FALLO } };

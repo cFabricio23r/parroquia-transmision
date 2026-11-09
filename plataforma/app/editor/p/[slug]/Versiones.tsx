@@ -55,6 +55,7 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
   }, [restaurando]);
 
   async function enviar(ruta: 'publicar' | 'restaurar', cuerpo?: object) {
+    if (ocupado) return; // aria-disabled no bloquea el clic: se evita aquí (y el botón no pierde el foco)
     setError(undefined);
     setAviso(undefined);
     setOcupado(true);
@@ -81,11 +82,13 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
   }
 
   const pedirRestaurar = (numero: number, el: HTMLElement) => {
+    if (ocupado) return;
     disparador.current = el;
     setRestaurando(numero);
   };
   function confirmarRestaurar() {
     const numero = restaurando;
+    if (ocupado) return;
     dialogo.current?.close();
     if (numero !== null) void enviar('restaurar', { numero });
   }
@@ -100,7 +103,7 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
       <h2 id="publicar-titulo">Publicar</h2>
       <p className="ayuda">Se publica lo último que guardaste como borrador. Si escribiste algo y no lo guardaste, guárdalo antes.</p>
       <Resumen mensaje={error} />
-      <button className="boton" type="button" onClick={() => void enviar('publicar')} disabled={ocupado}>
+      <button className="boton" type="button" onClick={() => void enviar('publicar')} aria-disabled={ocupado}>
         {ocupado ? 'Publicando…' : 'Publicar'}
       </button>
 
@@ -143,7 +146,7 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
                     type="button"
                     className="boton boton-corto boton-neutro"
                     aria-label={`Volver a esta versión: la ${v.numero}`}
-                    disabled={ocupado}
+                    aria-disabled={ocupado}
                     onClick={(e) => pedirRestaurar(v.numero, e.currentTarget)}
                   >
                     Volver a esta versión
