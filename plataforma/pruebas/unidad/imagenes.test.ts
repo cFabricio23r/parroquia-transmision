@@ -40,6 +40,14 @@ describe('revisarImagen', () => {
     ['href externo', '<svg xmlns="http://www.w3.org/2000/svg"><a href="https://malo.example/x"><rect width="1" height="1"/></a></svg>'],
     ['xlink:href externo', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="https://malo.example/x#a"/></svg>'],
     ['foreignObject', '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div>hola</div></foreignObject></svg>'],
+    ['prefijo s:script', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(1)</s:script></svg>'],
+    ['prefijo h:script', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:h="http://www.w3.org/1999/xhtml"><h:script>alert(1)</h:script></svg>'],
+    ['prefijo s:foreignObject', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:foreignObject/></svg>'],
+    ['prefijo h:iframe', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:h="http://www.w3.org/1999/xhtml"><h:iframe src="https://x"/></svg>'],
+    ['set con referencia &#', '<svg xmlns="http://www.w3.org/2000/svg"><a><set attributeName="href" to="&#106;avascript:alert(1)"/></a></svg>'],
+    ['set con https', '<svg xmlns="http://www.w3.org/2000/svg"><a><set attributeName="href" to="https://malo.example"/></a></svg>'],
+    ['animate', '<svg xmlns="http://www.w3.org/2000/svg"><a><animate attributeName="href" values="#a"/></a></svg>'],
+    ['onload tras barra', '<svg xmlns="http://www.w3.org/2000/svg"/onload="alert(1)"></svg>'],
     ['javascript:', '<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:alert(1)"><rect/></a></svg>'],
   ])('rechaza un SVG con %s', async (_n, svg) => {
     const r = await revisarImagen(texto(svg), 'el logo');
@@ -67,6 +75,14 @@ describe('revisarImagen', () => {
       expect(r.extension).toBe('jpg');
       expect((await sharp(r.bytes).metadata()).exif).toBeUndefined();
     }
+  });
+
+  it('rechaza una imagen con más de 40 millones de píxeles', async () => {
+    const grande = await sharp({ create: { width: 8000, height: 8000, channels: 3, background: '#336699' } }).png().toBuffer();
+    expect(grande.length).toBeLessThan(MAX_BYTES_IMAGEN);
+    const r = await revisarImagen(new Uint8Array(grande), 'la fachada');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('demasiados píxeles');
   });
 
   it('rechaza un PNG dañado', async () => {

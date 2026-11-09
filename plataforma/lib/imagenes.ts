@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 
 export const MAX_BYTES_IMAGEN = 3 * 1024 * 1024;
+export const MAX_PIXELES_IMAGEN = 40_000_000;
 
 export type Extension = 'png' | 'jpg' | 'webp' | 'svg';
 export type ResultadoImagen =
@@ -18,10 +19,15 @@ function detectar(b: Uint8Array): Extension | null {
 
 // Un SVG puede llevar código: se rechaza (no se "limpia") todo lo que ejecute o cargue algo de fuera.
 const PELIGROS_SVG: Array<[RegExp, string]> = [
-  [/<\s*script/i, 'lleva un <script>'],
-  [/\son[a-z]+\s*=/i, 'lleva un evento (como onload)'],
-  [/<\s*foreignObject/i, 'lleva <foreignObject>'],
-  [/<\s*(iframe|embed|object)\b/i, 'lleva contenido incrustado'],
+  // Los elementos pueden llevar prefijo de espacio de nombres (<s:script>, <h:iframe>).
+  [/<\s*(?:[\w.-]+:)?script\b/i, 'lleva un <script>'],
+  [/<\s*(?:[\w.-]+:)?foreignObject\b/i, 'lleva <foreignObject>'],
+  [/<\s*(?:[\w.-]+:)?(?:iframe|embed|object)\b/i, 'lleva contenido incrustado'],
+  // Animaciones: pueden cambiar un href a otro valor en tiempo de ejecución.
+  [/<\s*(?:[\w.-]+:)?(?:set|animate|animateMotion|animateTransform)\b/i, 'lleva animaciones (set o animate)'],
+  // Las referencias numéricas (&#106;) esconden texto como "javascript:": se rechazan todas.
+  [/&#/, 'lleva referencias numéricas de caracteres (&#...)'],
+  [/[\s/"']on[a-z]+\s*=/i, 'lleva un evento (como onload)'],
   [/<!\s*(ENTITY|DOCTYPE)/i, 'lleva una declaración DOCTYPE o ENTITY'],
   [/javascript\s*:/i, 'lleva un enlace javascript:'],
   [/(?:xlink:)?href\s*=\s*["']\s*(?!#)/i, 'enlaza a algo de fuera (href)'],
@@ -60,12 +66,15 @@ export async function revisarImagen(bytes: Uint8Array, campo: string): Promise<R
   }
   try {
     // Sin withMetadata()/keepExif(), sharp descarta EXIF, XMP e IPTC. rotate() sin ángulo orienta según EXIF.
-    const base = sharp(bytes).rotate();
+    const base = sharp(bytes, { limitInputPixels: MAX_PIXELES_IMAGEN }).rotate();
     const salida =
       tipo === 'png' ? base.png() : tipo === 'jpg' ? base.jpeg({ quality: 90 }) : base.webp({ quality: 90 });
     const limpio = await salida.toBuffer();
     return { ok: true, bytes: new Uint8Array(limpio), extension: tipo };
-  } catch {
+  } catch (e) {
+    if (/pixel limit/i.test(String(e))) {
+      return { ok: false, error: `${campo}: la imagen tiene demasiados píxeles (máximo 40 millones). Redúcela y vuelve a subirla.` };
+    }
     return { ok: false, error: `${campo}: la imagen está dañada o no se pudo leer.` };
   }
 }
