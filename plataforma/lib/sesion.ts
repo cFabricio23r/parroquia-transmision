@@ -85,6 +85,26 @@ export async function cambiarClave(cliente: SupabaseClient, clave: string, repet
   if (clave.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA };
   if (clave !== repetida) return { error: MENSAJE_CLAVES_DISTINTAS };
   const { error } = await cliente.auth.updateUser({ password: clave });
-  if (error) return { error: error.message.includes('different') ? 'Elige una contraseña distinta de la anterior' : 'No se pudo cambiar la contraseña. Pide un enlace nuevo' };
+  if (error) return { error: error.code === 'same_password' ? 'Elige una contraseña distinta de la anterior' : 'No se pudo cambiar la contraseña. Pide un enlace nuevo' };
   return {};
+}
+
+/**
+ * Responde MENSAJE_RECUPERAR al instante y deja todo el trabajo (generateLink, registro y envío)
+ * para `programar` (en Next, `after`). Así el tiempo de respuesta no distingue si el correo tiene cuenta.
+ */
+export function pedirRecuperacionDiferida(
+  deps: DepsRecuperacion,
+  correo: string,
+  programar: (tarea: () => Promise<unknown>) => void,
+): { mensaje: string } {
+  programar(() => pedirRecuperacion(deps, correo));
+  return { mensaje: MENSAJE_RECUPERAR };
+}
+
+/** URL pública del sitio para los enlaces de los correos. Fuera de desarrollo/pruebas, sin SITIO_URL falla. */
+export function resolverSitioUrl(env: { SITIO_URL?: string; NODE_ENV?: string }): string {
+  if (env.SITIO_URL) return env.SITIO_URL.replace(/\/+$/, '');
+  if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') return 'http://localhost:3000';
+  throw new Error('Falta SITIO_URL: sin ella los enlaces de los correos apuntarían a localhost');
 }

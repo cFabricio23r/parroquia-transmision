@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FormOlvide } from '../formularios';
+import { AvisoEnlace, FormOlvide } from '../formularios';
 
 export const metadata = { title: 'Recuperar la contraseña' };
 
@@ -8,11 +8,7 @@ export default async function Olvide({ searchParams }: { searchParams: Promise<{
   return (
     <main className="tarjeta">
       <h1>Recupera tu contraseña</h1>
-      {error === 'enlace' && (
-        <div role="alert" className="resumen-error">
-          El enlace no sirve o ya venció. Pide uno nuevo.
-        </div>
-      )}
+      {error === 'enlace' && <AvisoEnlace />}
       <FormOlvide />
       <p className="enlaces">
         <Link href="/editor/entrar">Volver a entrar</Link>

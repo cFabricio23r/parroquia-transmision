@@ -45,6 +45,17 @@ function Campo(props: { id: string; etiqueta: string; tipo: string; autoComplete
   );
 }
 
+/** Aviso de enlace vencido que llega por la URL: role="alert" y recibe el foco al montarse. */
+export function AvisoEnlace() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <div ref={ref} role="alert" tabIndex={-1} className="resumen-error">
+      El enlace no sirve o ya venció. Pide uno nuevo.
+    </div>
+  );
+}
+
 const valor = (e: FormEvent<HTMLFormElement>, nombre: string) => String(new FormData(e.currentTarget).get(nombre) ?? '');
 
 export function FormEntrar() {
@@ -53,6 +64,7 @@ export function FormEntrar() {
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const datos = { correo: valor(e, 'correo'), clave: valor(e, 'clave') };
+    setError(undefined); // se vuelve a anunciar y enfocar aunque el mensaje sea el mismo
     setOcupado(true);
     const r = await entrar(datos.correo, datos.clave);
     setError(r?.error);
@@ -104,6 +116,7 @@ export function FormNuevaClave() {
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const datos = { clave: valor(e, 'clave'), repetida: valor(e, 'repetida') };
+    setError(undefined);
     setOcupado(true);
     const r = await cambiarClave(datos.clave, datos.repetida);
     setError(r?.error);
