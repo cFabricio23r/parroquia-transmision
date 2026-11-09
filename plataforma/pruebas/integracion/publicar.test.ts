@@ -12,9 +12,11 @@ import {
   crearUsuario,
   hacerAdmin,
   hacerMiembro,
+  limpiarStorage,
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
+import { revisarImagen } from '../../lib/imagenes';
 import { publicar, restaurar } from '../../lib/publicar';
 
 const servicio = clienteServicio();
@@ -144,7 +146,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await Promise.all([cerrar(hook500), cerrar(hook200)]);
-});
+  await limpiarStorage();
+}, 60_000);
 
 describe('publicar', () => {
   it('un borrador incompleto devuelve 422 con los errores y no crea versión ni reserva número', async () => {
@@ -192,8 +195,11 @@ describe('publicar', () => {
     expect(versiones[1].config).toEqual(config); // lo que quedó en la tabla es lo que quedó publicado
     expect(versiones[0].config.fachada.src).toMatch(/^medios\/v1-/);
     expect(await mediosPublicados(p)).toEqual(p.archivos.flatMap((a) => [`v1-${a}`, `v2-${a}`]).sort());
+    // Lo publicado son los bytes que devuelve revisarImagen (re-codificados), no los del borrador tal cual.
     const { data: copia } = await servicio.storage.from('publicado').download(`${p.slug}/medios/v2-${p.archivos[0]}`);
-    expect(Buffer.from(await copia!.arrayBuffer()).equals(png)).toBe(true);
+    const esperada = await revisarImagen(png, 'x');
+    expect(esperada.ok).toBe(true);
+    expect(Buffer.from(await copia!.arrayBuffer()).equals(Buffer.from((esperada as { bytes: Uint8Array }).bytes))).toBe(true);
     // El borrador no cambió: ni el contenido ni el sello (un UPDATE le daría un 409 falso al editor abierto).
     expect(await borradorDe(p)).toEqual(antes);
     expect((await registroDe(p, 'publicar')).map((f) => [f.usuario_id, f.detalle])).toEqual([
@@ -236,7 +242,7 @@ describe('publicar', () => {
     expect(r.cuerpo).toEqual({ numero: 2, hook: 'fallo' });
   });
 
-  it('si falla una copia (la imagen no está en borradores) responde 500, no deja versión y no toca config.json', async () => {
+  it('si falta una imagen en borradores responde 500, no reserva número, no deja versión y no toca config.json', async () => {
     const p = await parroquiaLista();
     expect((await publicar(deps(cA), p.slug)).estado).toBe(200); // v1 publicada
     const publicadaAntes = await configPublicado(p);
@@ -247,8 +253,8 @@ describe('publicar', () => {
     expect(r.estado).toBe(500);
     expect((r.cuerpo as { error: string }).error).toMatch(/Intenta de nuevo/);
     expect((await versionesDe(p)).map((v) => v.numero)).toEqual([1]);
+    expect(await ultimaVersion(p)).toBe(1); // las imágenes se bajan y revisan antes de reservar
     expect(await configPublicado(p)).toEqual(publicadaAntes);
-    // lo que ya se había copiado de la versión 2 no queda huérfano
     expect(await mediosPublicados(p)).toEqual(p.archivos.map((a) => `v1-${a}`).sort());
   });
 
@@ -282,6 +288,67 @@ describe('publicar', () => {
     expect((await versionesDe(p)).map((v) => v.numero)).toEqual([1, 2]);
     expect(await mediosPublicados(p)).toEqual(p.archivos.flatMap((a) => [`v1-${a}`, `v2-${a}`]).sort());
     expect(await configPublicado(p)).toEqual(publicadaAntes); // aquí la subida no se escribió
+  });
+
+  /** Sube `bytes` directo a Storage con la sesión del miembro (sin pasar por la app ni por revisarImagen) y lo pone en fachada. */
+  async function fachadaSubidaDirecto(p: Parroquia, archivo: string, bytes: Buffer, contentType: string) {
+    const { error } = await cA.cliente.storage.from('borradores').upload(`${p.id}/${archivo}`, bytes, { contentType });
+    expect(error).toBeNull(); // las políticas lo permiten: por eso publicar vuelve a revisar
+    const b = await borradorDe(p);
+    await servicio.from('borradores').update({ config: { ...b.config, fachada: { src: `medios/${archivo}`, alt: 'Fachada' } } }).eq('parroquia_id', p.id);
+  }
+
+  it('un archivo que no es imagen, subido directo a borradores con nombre .png, no se publica (422, sin reservar ni copiar)', async () => {
+    const p = await parroquiaLista();
+    const archivo = `fachada-${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}.png`;
+    await fachadaSubidaDirecto(p, archivo, Buffer.from('esto no es una imagen <html>'), 'image/png');
+    const r = await publicar(deps(cA), p.slug);
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores.join(' ')).toContain(`medios/${archivo}`);
+    expect(await versionesDe(p)).toEqual([]);
+    expect(await ultimaVersion(p)).toBe(0);
+    expect(await mediosPublicados(p)).toEqual([]);
+    expect(await configPublicado(p)).toBeNull();
+  });
+
+  it('un SVG con <script> subido directo a borradores no llega a publicado (422)', async () => {
+    const p = await parroquiaLista();
+    const archivo = `fachada-${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}.svg`;
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><script>alert(1)</script><rect width="10" height="10"/></svg>';
+    await fachadaSubidaDirecto(p, archivo, Buffer.from(svg), 'image/svg+xml');
+    const r = await publicar(deps(cA), p.slug);
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores.join(' ')).toMatch(/script/);
+    expect(await mediosPublicados(p)).toEqual([]);
+    expect(await configPublicado(p)).toBeNull();
+    expect(await ultimaVersion(p)).toBe(0);
+  });
+
+  it('un JPG subido directo con nombre .png no se renombra en silencio: 422 con el motivo', async () => {
+    const p = await parroquiaLista();
+    const archivo = `fachada-${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}.png`;
+    const jpg = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#336699' } }).jpeg().toBuffer();
+    await fachadaSubidaDirecto(p, archivo, jpg, 'image/png');
+    const r = await publicar(deps(cA), p.slug);
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores.join(' ')).toContain('es JPG aunque su nombre dice PNG');
+    expect(await mediosPublicados(p)).toEqual([]);
+  });
+
+  it('una imagen válida subida directo con metadatos se publica re-codificada (sin EXIF)', async () => {
+    const p = await parroquiaLista();
+    const archivo = `fachada-${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}.jpg`;
+    const conExif = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#336699' } })
+      .jpeg()
+      .withExif({ IFD0: { Artist: 'secreto-exif' } })
+      .toBuffer();
+    expect(conExif.includes('secreto-exif')).toBe(true);
+    await fachadaSubidaDirecto(p, archivo, conExif, 'image/jpeg');
+    expect((await publicar(deps(cA), p.slug)).estado).toBe(200);
+    const { data } = await servicio.storage.from('publicado').download(`${p.slug}/medios/v1-${archivo}`);
+    const publicada = Buffer.from(await data!.arrayBuffer());
+    expect(publicada.includes('secreto-exif')).toBe(false);
+    expect((await sharp(publicada).metadata()).format).toBe('jpeg');
   });
 
   it('sin sesión da 401 y un coordinador de B no puede publicar A (403); un administrador sí', async () => {

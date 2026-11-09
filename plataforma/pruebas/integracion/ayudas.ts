@@ -61,6 +61,48 @@ export async function crearUsuario(correo: string, clave: string): Promise<Usuar
   return { id: data.user.id, correo, cliente };
 }
 
+// Parroquias creadas por este archivo de pruebas (cada archivo de vitest tiene su propia copia del módulo).
+const creadas: { id: string; slug: string }[] = [];
+
+/** Todas las rutas de objetos bajo `carpeta` (recorre las subcarpetas: en la lista salen con id null). */
+async function rutasBajo(bucket: string, carpeta: string): Promise<string[]> {
+  const almacen = clienteServicio().storage.from(bucket);
+  const rutas: string[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await almacen.list(carpeta, { limit: 1000, offset });
+    if (error) throw new Error(`no se pudo listar ${bucket}/${carpeta}: ${error.message}`);
+    for (const e of data ?? []) {
+      const ruta = `${carpeta}/${e.name}`;
+      if (e.id === null) rutas.push(...(await rutasBajo(bucket, ruta)));
+      else rutas.push(ruta);
+    }
+    if (!data || data.length < 1000) break;
+  }
+  return rutas;
+}
+
+/** Borra todo lo que hay en `bucket` bajo cada carpeta (sin error si no hay nada). */
+export async function borrarCarpetas(bucket: string, carpetas: string[]): Promise<void> {
+  for (const carpeta of carpetas) {
+    const rutas = await rutasBajo(bucket, carpeta);
+    for (let i = 0; i < rutas.length; i += 100) {
+      const { error } = await clienteServicio().storage.from(bucket).remove(rutas.slice(i, i + 100));
+      if (error) throw new Error(`no se pudo borrar ${bucket}/${carpeta}: ${error.message}`);
+    }
+  }
+}
+
+/**
+ * Borra de Storage lo que dejaron las parroquias que creó este archivo: `publicado/<slug>/` y
+ * `borradores/<id>/`. Va en el afterAll de cada archivo que publica o sube imágenes: lo publicado que
+ * queda en la base local lo baja el build local (descargar-publicado) y algo roto lo haría fallar.
+ */
+export async function limpiarStorage(): Promise<void> {
+  const lista = creadas.splice(0);
+  await borrarCarpetas('publicado', lista.map((p) => p.slug));
+  await borrarCarpetas('borradores', lista.map((p) => p.id));
+}
+
 /** Crea una parroquia con slug único (`<slug>-<sufijo>`) y su borrador inicial. */
 export async function crearParroquia(slug: string): Promise<{ id: string; slug: string }> {
   const servicio = clienteServicio();
@@ -71,6 +113,7 @@ export async function crearParroquia(slug: string): Promise<{ id: string; slug: 
     .select('id, slug')
     .single();
   if (error || !data) throw new Error(`no se pudo crear la parroquia: ${error?.message}`);
+  creadas.push(data);
   const { error: errorBorrador } = await servicio
     .from('borradores')
     .insert({ parroquia_id: data.id, config: { titulo: 'inicial', color: '#123456' } });

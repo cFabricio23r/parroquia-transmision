@@ -19,6 +19,7 @@ import {
   type ConError,
   type Respuesta,
 } from './borrador';
+import { revisarImagen } from './imagenes';
 import { validarBorrador, validarConfig } from './validar';
 
 export type EstadoHook = 'ok' | 'fallo' | 'sin-configurar';
@@ -45,9 +46,14 @@ const MAX_INT4 = 2_147_483_647;
  */
 const RE_MEDIO = /^medios\/[a-z0-9-]+-[0-9a-f]{8}\.(png|jpg|webp|svg)$/;
 
-const esMedio = (clave: string, v: unknown): v is string => clave === 'src' && typeof v === 'string' && v.startsWith('medios/');
+/**
+ * Un `src` que apunta a medios/ (sin distinguir mayúsculas, como validarConfig): tiene que tener el
+ * nombre exacto de una subida. Es la misma regla que aplica el build (mediosDe/RE_MEDIO de
+ * herramientas/descargar-publicado.mjs), así nada que se publique se cae después en el build.
+ */
+const esMedio = (clave: string, v: unknown): v is string => clave === 'src' && typeof v === 'string' && /^medios\//i.test(v);
 
-/** Un error por cada `src: 'medios/…'` del borrador que no tiene el nombre de una imagen subida. */
+/** Un error por cada `src` de medios/ del borrador (en cualquier parte) que no tiene el nombre de una imagen subida. */
 export function erroresDeMedios(borrador: unknown): string[] {
   const errores = new Set<string>();
   const recorrer = (valor: unknown) => {
@@ -114,6 +120,60 @@ async function avisarHook(url: string | undefined): Promise<EstadoHook> {
   return 'fallo';
 }
 
+/** Los archivos (`<campo>-<8 hex>.<ext>`) que nombra el borrador, sin repetir. Supone `erroresDeMedios` vacío. */
+function archivosDelBorrador(borrador: unknown): string[] {
+  const archivos = new Set<string>();
+  const recorrer = (valor: unknown) => {
+    if (Array.isArray(valor)) valor.forEach(recorrer);
+    else if (valor !== null && typeof valor === 'object') {
+      for (const [clave, v] of Object.entries(valor)) {
+        if (esMedio(clave, v)) archivos.add(v.slice('medios/'.length));
+        else recorrer(v);
+      }
+    }
+  };
+  recorrer(borrador);
+  return [...archivos];
+}
+
+export interface ImagenRevisada {
+  bytes: Uint8Array;
+  tipo: string;
+}
+
+/**
+ * Baja de `borradores/<id>/` cada imagen que nombra el borrador y la vuelve a pasar por `revisarImagen`:
+ * un miembro puede subir a Storage sin pasar por la app (las políticas lo permiten), así que lo que hay
+ * en borradores no es de fiar. Se publican los bytes re-codificados. Si la imagen no pasa, o su tipo real
+ * no es el que dice la extensión del nombre, es un error de publicación (422): no se renombra en silencio.
+ * Un error al bajar (la imagen no está, Storage caído) lanza.
+ */
+async function revisarImagenesDelBorrador(
+  servicio: SupabaseClient,
+  parroquiaId: string,
+  archivos: string[],
+): Promise<{ imagenes: Map<string, ImagenRevisada>; errores: string[] }> {
+  const imagenes = new Map<string, ImagenRevisada>();
+  const errores: string[] = [];
+  for (const archivo of archivos) {
+    const { data: blob, error } = await servicio.storage.from('borradores').download(`${parroquiaId}/${archivo}`);
+    if (error || !blob) throw error ?? new Error(`no está ${archivo} en borradores`);
+    const nombre = `La imagen «medios/${archivo}»`;
+    const revisada = await revisarImagen(new Uint8Array(await blob.arrayBuffer()), nombre);
+    if (!revisada.ok) {
+      errores.push(revisada.error);
+      continue;
+    }
+    const extension = archivo.slice(archivo.lastIndexOf('.') + 1);
+    if (revisada.extension !== extension) {
+      errores.push(`${nombre}: el archivo es ${revisada.extension.toUpperCase()} aunque su nombre dice ${extension.toUpperCase()}. Vuelve a subirla desde el formulario.`);
+      continue;
+    }
+    imagenes.set(archivo, { bytes: revisada.bytes, tipo: TIPOS[revisada.extension] });
+  }
+  return { imagenes, errores };
+}
+
 async function registrar(
   servicio: SupabaseClient,
   fila: { parroquia_id: string; usuario_id: string; accion: string; detalle: Record<string, unknown> },
@@ -124,7 +184,7 @@ async function registrar(
 }
 
 /**
- * Del número ya reservado a la publicación: copiar imágenes → insertar la versión → subir config.json
+ * Del número ya reservado a la publicación: subir las imágenes (ya revisadas) → insertar la versión → subir config.json
  * → registro → hook. Si algo falla antes del registro se deshace lo que este llamado dejó (copias y
  * fila de la versión) y config.json no se toca, o queda como estaba si ni se llegó a subir.
  */
@@ -134,7 +194,7 @@ async function emitir(
   slug: string,
   numero: number,
   config: object,
-  copias: { desde: string; hacia: string }[],
+  copias: { hacia: string; imagen: ImagenRevisada }[],
   origen: number | null,
   accion: 'publicar' | 'restaurar',
   detalle: Record<string, unknown>,
@@ -145,13 +205,10 @@ async function emitir(
   let subiendoConfig = false;
   try {
     for (const c of copias) {
-      const { data: blob, error: errorBajar } = await servicio.storage.from('borradores').download(`${acceso.parroquiaId}/${c.desde}`);
-      if (errorBajar || !blob) throw errorBajar ?? new Error(`no está ${c.desde} en borradores`);
-      const extension = c.desde.slice(c.desde.lastIndexOf('.') + 1);
       // upsert false: si el destino existe, un número reservado se reusó y eso es un error, no algo que pisar.
       const { error: errorSubir } = await servicio.storage
         .from('publicado')
-        .upload(c.hacia, Buffer.from(await blob.arrayBuffer()), { contentType: TIPOS[extension], upsert: false });
+        .upload(c.hacia, Buffer.from(c.imagen.bytes), { contentType: c.imagen.tipo, upsert: false });
       if (errorSubir) throw errorSubir;
       subidas.push(c.hacia);
     }
@@ -216,10 +273,14 @@ export async function publicar(deps: DepsPublicar, slug: string): Promise<Respue
 
     const errores = [...validarBorrador(borrador.config, slug).errores, ...erroresDeMedios(borrador.config)];
     if (errores.length) return { estado: 422, cuerpo: { errores } };
+    // Antes de reservar el número: una imagen que no pasa la revisión no gasta número ni copia nada.
+    const revision = await revisarImagenesDelBorrador(deps.servicio, acceso.parroquiaId, archivosDelBorrador(borrador.config));
+    if (revision.errores.length) return { estado: 422, cuerpo: { errores: revision.errores } };
 
     const numero = await reservar(deps.servicio, acceso.parroquiaId);
     const { config, copias } = prepararPublicacion(borrador.config as object, slug, numero, (deps.ahora ?? (() => new Date()))());
-    return await emitir(deps, acceso, slug, numero, config, copias, null, 'publicar', { numero });
+    const subidas = copias.map((c) => ({ hacia: c.hacia, imagen: revision.imagenes.get(c.desde)! }));
+    return await emitir(deps, acceso, slug, numero, config, subidas, null, 'publicar', { numero });
   } catch (e) {
     return fallo('publicar', e);
   }

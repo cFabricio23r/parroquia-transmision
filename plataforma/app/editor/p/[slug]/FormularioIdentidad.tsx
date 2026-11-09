@@ -1,7 +1,7 @@
 'use client';
 // Formulario de identidad y patrono. Conserva lo escrito pase lo que pase con el guardado:
 // nunca navega ni recarga (sesión vencida, conflicto, red caída).
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { mensajeContraste, MIN_CONTRASTE, contraste } from '../../../../lib/contraste';
 import { Resumen } from '../../formularios';
 import { VistaPrevia } from './VistaPrevia';
@@ -21,7 +21,7 @@ export interface IdentidadInicial {
   logos?: Objeto & { blanco?: Imagen; color?: Imagen };
   fachada?: Imagen;
   patrono?: Objeto & { nombre?: string; corto?: string; imagen?: Imagen };
-  fiesta?: Objeto & { dia?: number; mes?: number; lema?: string };
+  fiesta?: Objeto & { dia?: number; mes?: number; lema?: string; cuentaDesdeDias?: number };
 }
 
 export const MENSAJE_SESION_VENCIDA =
@@ -31,6 +31,8 @@ const MENSAJE_CONFLICTO =
   'Otra persona guardó cambios mientras editabas. Copia lo que escribiste, recarga la página para ver la versión nueva y vuelve a aplicar tus cambios.';
 const MENSAJE_RED = 'No se pudo guardar. Revisa tu conexión y vuelve a intentarlo. Lo que escribiste sigue en esta página.';
 const MENSAJE_FALLO = 'No se pudo guardar. Intenta de nuevo.';
+// Supabase no respondió (proxy.ts responde 503): no es una sesión vencida.
+export const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const COLOR_PRINCIPAL = '#1155a4';
@@ -136,6 +138,8 @@ function CampoImagen(props: {
       if (r.status === 401) {
         setError(MENSAJE_SESION_VENCIDA);
         props.alErrorSesion();
+      } else if (r.status === 503) {
+        setError(cuerpo.error ?? MENSAJE_SIN_CONEXION);
       } else if (r.ok && cuerpo.src) {
         props.alCambiar({ src: cuerpo.src, alt: props.valor.alt, url: cuerpo.url });
       } else {
@@ -209,6 +213,8 @@ export function FormularioIdentidad(props: {
   actualizadoEn: string;
   errores: string[];
   urls: Record<string, string>;
+  /** Avisa cuando lo que está en el formulario deja de coincidir (o vuelve a coincidir) con lo guardado. */
+  alCambiarSinGuardar?: (sinGuardar: boolean) => void;
 }) {
   const ini = props.inicial;
   const [nombre, setNombre] = useState(ini.nombre ?? '');
@@ -225,6 +231,7 @@ export function FormularioIdentidad(props: {
   const [dia, setDia] = useState(ini.fiesta?.dia === undefined ? '' : String(ini.fiesta.dia));
   const [mes, setMes] = useState(ini.fiesta?.mes === undefined ? '' : String(ini.fiesta.mes));
   const [lema, setLema] = useState(ini.fiesta?.lema ?? '');
+  const [cuentaDias, setCuentaDias] = useState(ini.fiesta?.cuentaDesdeDias === undefined ? '' : String(ini.fiesta.cuentaDesdeDias));
 
   const [actualizadoEn, setActualizadoEn] = useState(props.actualizadoEn);
   const [errores, setErrores] = useState(props.errores);
@@ -243,9 +250,19 @@ export function FormularioIdentidad(props: {
       logos: { ...ini.logos, blanco: imagenOCero(logoBlanco), color: imagenOCero(logoColor) },
       fachada: imagenOCero(fachada) ?? null,
       patrono: { ...ini.patrono, nombre: patronoNombre.trim(), corto: patronoCorto.trim(), imagen: imagenOCero(patronoImagen) },
-      fiesta: { ...ini.fiesta, dia: numero(dia), mes: numero(mes), lema: lema.trim() || undefined },
+      // Vacío = la clave no va (las pantallas usan 60 días por defecto, ver vicaria/tipos.js).
+      fiesta: { ...ini.fiesta, dia: numero(dia), mes: numero(mes), lema: lema.trim() || undefined, cuentaDesdeDias: numero(cuentaDias) },
     };
   }
+
+  // ¿Hay cambios sin guardar? Se compara con lo último que se guardó (o con lo que trajo la página).
+  const enFormulario = JSON.stringify(armarCambios());
+  const [ultimoGuardado, setUltimoGuardado] = useState(enFormulario);
+  const sinGuardar = enFormulario !== ultimoGuardado;
+  const { alCambiarSinGuardar } = props;
+  useEffect(() => {
+    alCambiarSinGuardar?.(sinGuardar);
+  }, [sinGuardar, alCambiarSinGuardar]);
 
   // Lo que se ve en la vista previa: el borrador tal como está en el formulario, sin guardar.
   // Las URLs firmadas salen del servidor (las del borrador) y de cada subida nueva; nunca se piden desde aquí.
@@ -258,18 +275,21 @@ export function FormularioIdentidad(props: {
     setError(undefined); // se vuelve a anunciar y enfocar aunque el mensaje sea el mismo
     setGuardado(undefined);
     setOcupado(true);
+    const enviado = enFormulario; // si se escribe algo mientras se guarda, eso queda como cambio sin guardar
     try {
       const r = await fetch(`/editor/api/${props.slug}/borrador`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ cambios: armarCambios(), actualizadoEn }),
+        body: JSON.stringify({ cambios: JSON.parse(enviado), actualizadoEn }),
       });
       const cuerpo = (await r.json().catch(() => ({}))) as { actualizadoEn?: string; errores?: string[] };
       if (r.ok && cuerpo.actualizadoEn) {
         setActualizadoEn(cuerpo.actualizadoEn);
+        setUltimoGuardado(enviado);
         setErrores(cuerpo.errores ?? []);
         setGuardado('Borrador guardado.');
       } else if (r.status === 401) setError(MENSAJE_SESION_VENCIDA);
+      else if (r.status === 503) setError(MENSAJE_SIN_CONEXION);
       else if (r.status === 403) setError(MENSAJE_SIN_PERMISO);
       else if (r.status === 409) setError(MENSAJE_CONFLICTO);
       else setError(MENSAJE_FALLO);
@@ -330,6 +350,15 @@ export function FormularioIdentidad(props: {
           </select>
         </div>
         <Texto id="fiesta-lema" etiqueta="Lema de la fiesta (opcional)" valor={lema} alCambiar={setLema} />
+        <Texto
+          id="fiesta-cuenta"
+          etiqueta="Días de cuenta regresiva antes de la fiesta (opcional)"
+          tipo="number"
+          min={1}
+          valor={cuentaDias}
+          alCambiar={setCuentaDias}
+          ayuda="Déjalo vacío para 60 días."
+        />
       </fieldset>
 
       {guardado && (

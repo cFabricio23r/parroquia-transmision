@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { estadoDeLlegada } from '../../lib/llegada';
+import { AVISO_HOOK_FALLO, AVISO_HOOK_SIN_CONFIGURAR, avisoDeHook, estadoDeLlegada } from '../../lib/llegada';
 import { erroresDeMedios, prepararPublicacion } from '../../lib/publicar';
 import { validarConfig } from '../../lib/validar';
 
@@ -68,6 +68,15 @@ describe('erroresDeMedios', () => {
     }
     expect(erroresDeMedios({ fondo: { src: 'img/fondo.png' } })).toEqual([]);
   });
+
+  it('un src MEDIOS/… (en mayúsculas, que validarConfig admite) también da error: misma regla que el build', () => {
+    for (const malo of ['MEDIOS/fachada-0a1b2c3d.png', 'Medios/Fachada.PNG', 'medios/fachada-0a1b2c3d.PNG']) {
+      const errores = erroresDeMedios({ galeria: [{ src: malo, alt: 'x' }] });
+      expect(errores, malo).toHaveLength(1);
+      expect(errores[0]).toContain(malo);
+    }
+    expect(() => prepararPublicacion({ fachada: { src: 'MEDIOS/fachada-0a1b2c3d.png' } }, 'ciudad-arce', 1, AHORA)).toThrow(/src inesperado/);
+  });
 });
 
 describe('estadoDeLlegada', () => {
@@ -83,5 +92,17 @@ describe('estadoDeLlegada', () => {
   });
   it('las pantallas no responden', () => {
     expect(estadoDeLlegada(null, 5)).toBe('Publicaste la versión 5; las pantallas todavía no la tienen');
+  });
+});
+
+describe('avisoDeHook', () => {
+  it("'fallo' avisa siempre; 'sin-configurar' avisa fuera de desarrollo; 'ok' no avisa", () => {
+    expect(avisoDeHook('fallo', 'production')).toBe(AVISO_HOOK_FALLO);
+    expect(avisoDeHook('fallo', 'development')).toBe(AVISO_HOOK_FALLO);
+    expect(avisoDeHook('sin-configurar', 'production')).toBe(AVISO_HOOK_SIN_CONFIGURAR);
+    expect(avisoDeHook('sin-configurar', 'test')).toBe(AVISO_HOOK_SIN_CONFIGURAR);
+    expect(avisoDeHook('sin-configurar', 'development')).toBeUndefined();
+    expect(avisoDeHook('ok', 'production')).toBeUndefined();
+    expect(AVISO_HOOK_SIN_CONFIGURAR).toMatch(/no se van a actualizar hasta que se configure el aviso de despliegue/);
   });
 });

@@ -3,7 +3,7 @@
 // navegador: la lógica del servidor vive en lib/publicar.ts (no se importa aquí).
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { estadoDeLlegada } from '../../../../lib/llegada';
+import { avisoDeHook, estadoDeLlegada } from '../../../../lib/llegada';
 import { Resumen } from '../../formularios';
 
 export interface VersionPublicada {
@@ -16,10 +16,19 @@ export interface VersionPublicada {
 
 type Cuerpo = { numero?: number; hook?: string; errores?: string[]; error?: string };
 
-const AVISO_HOOK =
-  'La versión quedó publicada, pero no se pudo avisar para que las pantallas se actualicen. Avisa al administrador.';
+export const MENSAJE_SIN_GUARDAR = 'Tienes cambios sin guardar. Guarda antes de publicar';
+const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento';
 
-export function Versiones({ slug, versiones }: { slug: string; versiones: VersionPublicada[] }) {
+export function Versiones({
+  slug,
+  versiones,
+  sinGuardar = false,
+}: {
+  slug: string;
+  versiones: VersionPublicada[];
+  /** El formulario de identidad tiene cambios que no se guardaron: publicar subiría el borrador viejo. */
+  sinGuardar?: boolean;
+}) {
   const router = useRouter();
   const ultima = versiones.length ? Math.max(...versiones.map((v) => v.numero)) : null;
   // undefined: todavía comprobando; null: las pantallas no respondieron o dieron 404.
@@ -56,6 +65,7 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
 
   async function enviar(ruta: 'publicar' | 'restaurar', cuerpo?: object) {
     if (ocupado) return; // aria-disabled no bloquea el clic: se evita aquí (y el botón no pierde el foco)
+    if (ruta === 'publicar' && sinGuardar) return; // el aviso junto al botón ya dice por qué
     setError(undefined);
     setAviso(undefined);
     setOcupado(true);
@@ -67,8 +77,10 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
       });
       const datos = (await r.json().catch(() => ({}))) as Cuerpo;
       if (r.ok) {
-        if (datos.hook === 'fallo') setAviso(AVISO_HOOK);
+        setAviso(avisoDeHook(datos.hook, process.env.NODE_ENV));
         router.refresh();
+      } else if (r.status === 503) {
+        setError(datos.error ?? MENSAJE_SIN_CONEXION);
       } else if (datos.errores?.length) {
         setError(`No se puede ${ruta === 'publicar' ? 'publicar' : 'volver a esa versión'} todavía. ${datos.errores.join(' ')}`);
       } else {
@@ -103,9 +115,20 @@ export function Versiones({ slug, versiones }: { slug: string; versiones: Versio
       <h2 id="publicar-titulo">Publicar</h2>
       <p className="ayuda">Se publica lo último que guardaste como borrador. Si escribiste algo y no lo guardaste, guárdalo antes.</p>
       <Resumen mensaje={error} />
-      <button className="boton" type="button" onClick={() => void enviar('publicar')} aria-disabled={ocupado}>
+      <button
+        className="boton"
+        type="button"
+        onClick={() => void enviar('publicar')}
+        aria-disabled={ocupado || sinGuardar}
+        aria-describedby={sinGuardar ? 'publicar-sin-guardar' : undefined}
+      >
         {ocupado ? 'Publicando…' : 'Publicar'}
       </button>
+      {sinGuardar && (
+        <p id="publicar-sin-guardar" className="aviso-sin-guardar">
+          {MENSAJE_SIN_GUARDAR}
+        </p>
+      )}
 
       <div role="status" className="aviso estado-llegada">
         <p>{estado}</p>

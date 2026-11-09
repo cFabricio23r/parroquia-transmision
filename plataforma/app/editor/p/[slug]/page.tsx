@@ -5,8 +5,9 @@ import { validarBorrador } from '../../../../lib/validar';
 import { recogerMedios } from '../../../../lib/vista-previa';
 import { clienteServicio } from '../../../../lib/supabase/servicio';
 import { clienteServidor } from '../../../../lib/supabase/servidor';
-import { FormularioIdentidad, type IdentidadInicial } from './FormularioIdentidad';
-import { Versiones, type VersionPublicada } from './Versiones';
+import { EditorParroquia } from './EditorParroquia';
+import type { IdentidadInicial } from './FormularioIdentidad';
+import type { VersionPublicada } from './Versiones';
 
 export const metadata = { title: 'Identidad de la parroquia' };
 export const dynamic = 'force-dynamic';
@@ -78,14 +79,14 @@ export default async function EditarIdentidad({ params }: { params: Promise<{ sl
       </p>
       <h1>Identidad de {config.nombre || parroquia.nombre}</h1>
       <p className="ayuda">Lo que cambies aquí se guarda como borrador. Todavía no se publica.</p>
-      <FormularioIdentidad
+      <EditorParroquia
         slug={slug}
         inicial={config}
         actualizadoEn={borrador.actualizado_en}
         errores={validarBorrador(borrador.config, slug).errores}
         urls={urls}
+        versiones={versiones}
       />
-      <Versiones slug={slug} versiones={versiones} />
     </main>
   );
 }

@@ -13,3 +13,18 @@ export function estadoDeLlegada(enPantallas: number | null, ultima: number | nul
   }
   return `Publicado y en las pantallas (versión ${enPantallas})`;
 }
+
+export const AVISO_HOOK_FALLO =
+  'La versión quedó publicada, pero no se pudo avisar para que las pantallas se actualicen. Avisa al administrador.';
+export const AVISO_HOOK_SIN_CONFIGURAR =
+  'La versión quedó publicada, pero las pantallas no se van a actualizar hasta que se configure el aviso de despliegue (deploy hook). Avisa al administrador.';
+
+/**
+ * El aviso que acompaña una publicación según lo que respondió el hook de Vercel. En desarrollo
+ * (`next dev`, sin hook) no se avisa de 'sin-configurar': ahí no hay despliegue que avisar.
+ */
+export function avisoDeHook(hook: string | undefined, entorno: string | undefined): string | undefined {
+  if (hook === 'fallo') return AVISO_HOOK_FALLO;
+  if (hook === 'sin-configurar' && entorno !== 'development') return AVISO_HOOK_SIN_CONFIGURAR;
+  return undefined;
+}

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { copiarVicaria } from '../../herramientas/copiar-vicaria.mjs';
 
 const origen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'vicaria');
@@ -30,5 +30,13 @@ describe('copiarVicaria', () => {
     expect(r.slugsDelRepo).toEqual(['ciudad-arce', 'san-jose-ejemplo']);
     const json = JSON.parse(readFileSync(path.join(destino, 'lib', 'generado', 'slugs-del-repo.json'), 'utf8'));
     expect(json).toEqual(['ciudad-arce', 'san-jose-ejemplo']);
+  });
+
+  it('escribe lib/generado/fuentes-vicaria.mjs con el texto exacto de parroquia.js, tipos.js y comun.js', async () => {
+    copiarVicaria(origen, path.join(destino, 'public'));
+    const generado = path.join(destino, 'lib', 'generado', 'fuentes-vicaria.mjs');
+    const m = await import(pathToFileURL(generado).href);
+    expect(m.ARCHIVOS).toEqual(['parroquia.js', 'tipos.js', 'comun.js']);
+    expect(m.FUENTES).toEqual(m.ARCHIVOS.map((a: string) => readFileSync(path.join(origen, a), 'utf8')));
   });
 });

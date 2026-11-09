@@ -6,13 +6,14 @@
   Usa solo la clave publicable: el bucket `publicado` es de lectura pública y el build no necesita
   la clave secreta (nunca debe tenerla).
 
-  Qué falla y qué se omite:
-   - FALLA (código ≠ 0, Vercel conserva el despliegue anterior): faltan las variables, Supabase no
-     responde o contesta un error (listar, bajar un config.json o una imagen), o un slug publicado
-     existe también en vicaria/.
-   - SE OMITE esa parroquia, con una línea `AVISO:` y su motivo: el slug no es válido o está
-     reservado, el config.json no existe o no valida, nombra una imagen con forma rara, o una imagen
-     que nombra no existe (404). El resto de las parroquias sigue.
+  Todo lo que no se puede traer FALLA (código ≠ 0 y una línea `ERROR:` con el motivo; Vercel conserva
+  el despliegue anterior). Nunca se omite una parroquia: cada build parte de un public/ limpio, así que
+  una parroquia que se saltara perdería su config.json y sus imágenes en el despliegue nuevo y sus pantallas
+  dejarían de funcionar. Falla si:
+   - faltan las variables, Supabase no responde o contesta un error (listar, bajar un config.json o
+     una imagen), o un slug publicado existe también en vicaria/;
+   - una parroquia (el error la nombra) tiene un slug que no es válido o está reservado, no tiene
+     config.json o no valida, nombra una imagen con forma rara, o una imagen que nombra no existe (404).
 */
 import { createClient } from '@supabase/supabase-js';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -27,7 +28,8 @@ export const RESERVADOS = ['editor', 'api', 'auth', '_next', 'fuentes', 'img', '
 const RE_MEDIO = /^medios\/v\d+-[a-z0-9-]+-[0-9a-f]{8}\.(png|jpg|webp|svg)$/;
 const TAM_PAGINA = 100;
 
-class Omitir extends Error {}
+/** Una parroquia publicada que no se puede traer. Siempre hace fallar el build (ver arriba). */
+class ParroquiaRota extends Error {}
 
 const motivoDeSlug = (slug) =>
   slug.length < 3 || slug.length > 40 || !RE_SLUG.test(slug)
@@ -60,30 +62,30 @@ async function bajar(bucket, ruta, que) {
   return Buffer.from(await data.arrayBuffer());
 }
 
-/** Descarga una parroquia a memoria. Lanza `Omitir` si no se puede publicar; cualquier otro error es fatal. */
+/** Descarga una parroquia a memoria. Lanza `ParroquiaRota` (con el motivo) si no se puede publicar; los dos casos hacen fallar el build. */
 async function traer(bucket, slug) {
   const motivo = motivoDeSlug(slug);
-  if (motivo) throw new Omitir(motivo);
+  if (motivo) throw new ParroquiaRota(motivo);
 
   const texto = await bajar(bucket, `${slug}/config.json`, `${slug}/config.json`);
-  if (!texto) throw new Omitir('no tiene config.json');
+  if (!texto) throw new ParroquiaRota('no tiene config.json');
   let config;
   try {
     config = JSON.parse(texto.toString('utf8'));
   } catch {
-    throw new Omitir('su config.json no es JSON válido');
+    throw new ParroquiaRota('su config.json no es JSON válido');
   }
   const { errores } = validarConfig(config, slug);
-  if (errores.length) throw new Omitir(`su config.json no es válido: ${errores.join(' · ')}`);
+  if (errores.length) throw new ParroquiaRota(`su config.json no es válido: ${errores.join(' · ')}`);
 
   const imagenes = [];
   const medios = [...mediosDe(config)];
   for (const m of medios) {
-    if (!RE_MEDIO.test(m)) throw new Omitir(`nombra la imagen «${m}», que no tiene el formato de lo publicado (medios/v<N>-…)`);
+    if (!RE_MEDIO.test(m)) throw new ParroquiaRota(`nombra la imagen «${m}», que no tiene el formato de lo publicado (medios/v<N>-…)`);
   }
   for (const m of medios) {
     const contenido = await bajar(bucket, `${slug}/${m}`, `la imagen ${slug}/${m}`);
-    if (!contenido) throw new Omitir(`nombra la imagen «${m}», que no está en publicado/`);
+    if (!contenido) throw new ParroquiaRota(`nombra la imagen «${m}», que no está en publicado/`);
     imagenes.push({ nombre: m, contenido });
   }
   return { texto, imagenes };
@@ -121,32 +123,31 @@ export async function descargarPublicado({ url, clave, destino, slugsDelRepo }) 
   const repetidos = slugs.filter((s) => slugsDelRepo.includes(s));
   if (repetidos.length) throw new Error(`el slug ${repetidos[0]} existe en vicaria/ y en Supabase: renombra o borra una de las dos.`);
 
-  const parroquias = [];
-  const omitidas = [];
+  // Primero se baja todo a memoria y solo después se escribe: si una parroquia falla, no queda nada a medias.
+  const traidas = [];
   for (const slug of slugs) {
     try {
-      escribir(destino, slug, await traer(bucket, slug));
-      parroquias.push(slug);
+      traidas.push([slug, await traer(bucket, slug)]);
     } catch (e) {
-      if (!(e instanceof Omitir)) throw e;
-      omitidas.push({ slug, motivo: e.message });
-      console.warn(`AVISO: se omite la parroquia «${slug}»: ${e.message}`);
+      if (e instanceof ParroquiaRota) throw new Error(`la parroquia «${slug}» no se puede traer: ${e.message.replace(/\.$/, '')}. Corrígela o bórrala de publicado/.`);
+      throw e;
     }
   }
-  return { parroquias, omitidas };
+  for (const [slug, datos] of traidas) escribir(destino, slug, datos);
+  return { parroquias: traidas.map(([slug]) => slug) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   try {
     const { default: slugsDelRepo } = await import('../lib/generado/slugs-del-repo.json', { with: { type: 'json' } });
-    const { parroquias, omitidas } = await descargarPublicado({
+    const { parroquias } = await descargarPublicado({
       url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       clave: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       destino: path.join(raiz, 'public'),
       slugsDelRepo,
     });
-    console.log(`publicado/ traído a public/ (${parroquias.join(', ') || 'ninguna parroquia'}; omitidas: ${omitidas.length})`);
+    console.log(`publicado/ traído a public/ (${parroquias.join(', ') || 'ninguna parroquia'})`);
   } catch (e) {
     console.error(`ERROR: ${e instanceof Error ? e.message : e}`);
     process.exit(1);

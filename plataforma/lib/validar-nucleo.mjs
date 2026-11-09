@@ -2,21 +2,11 @@
 // dentro de un `vm`, con el mismo esquema que pruebas/vicaria/cargar.js, para reutilizar
 // `validarConfig` sin duplicarla. Es JS plano (ESM) para que un script .mjs también pueda importarlo.
 import vm from 'node:vm';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// Texto de parroquia.js, tipos.js y comun.js (en ese orden), generado por herramientas/copiar-vicaria.mjs.
+// Import estático (no readFileSync): así el texto viaja dentro del bundle de las funciones de Vercel.
+import { ARCHIVOS, FUENTES } from './generado/fuentes-vicaria.mjs';
 
-const RAIZ_VICARIA = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'vicaria');
-// Orden de las páginas: parroquia.js, tipos.js, comun.js (CLAVES_TEXTOS necesita comun.js).
-const ARCHIVOS = ['parroquia.js', 'tipos.js', 'comun.js'];
-
-let fuentes = null;
-function leerFuentes() {
-  if (fuentes === null) {
-    fuentes = ARCHIVOS.map((a) => fs.readFileSync(path.join(RAIZ_VICARIA, a), 'utf8'));
-  }
-  return fuentes;
-}
+const leerFuentes = () => FUENTES;
 
 /** Crea un contexto `vm` nuevo, con la página simulada en /<slug>/pantalla.html. */
 function crearContexto(slug) {

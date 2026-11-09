@@ -9,8 +9,11 @@
     "prebuild": "node herramientas/copiar-vicaria.mjs && node herramientas/descargar-publicado.mjs",
     "build": "next build",
     "start": "next start",
+    "pretest": "node herramientas/copiar-vicaria.mjs",
     "test": "vitest run --config vitest.config.ts pruebas/unidad",
+    "pretest:integracion": "node herramientas/copiar-vicaria.mjs",
     "test:integracion": "node herramientas/integracion.mjs",
+    "pretest:navegador": "node herramientas/copiar-vicaria.mjs",
     "test:navegador": "node herramientas/navegador.mjs"
   },
   "dependencies": {

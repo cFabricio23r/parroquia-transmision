@@ -25,6 +25,8 @@
 .boton { width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; color: #fff; background: var(--rey); border: 0; border-radius: 6px; cursor: pointer; }
 .boton:hover { background: var(--oscuro); }
 .boton:disabled, .boton[aria-disabled="true"] { opacity: 0.7; cursor: progress; }
+.boton[aria-describedby="publicar-sin-guardar"] { cursor: not-allowed; }
+.aviso-sin-guardar { border-left: 4px solid var(--rojo); background: #fff4f4; color: #7a0200; padding: 8px 12px; margin: 8px 0 16px; font-weight: 700; }
 .editor a { color: var(--rey); }
 .enlaces { margin-top: 16px; text-align: center; }
 .tarjeta.ancha { max-width: 900px; }

@@ -50,9 +50,24 @@ async function entrar(pagina, correo) {
   await pagina.getByRole('button', { name: 'Entrar' }).click();
 }
 
+/** Borra todo lo que hay en `bucket` bajo `carpeta` (recorre subcarpetas): lo publicado que quede en la base local lo bajaría el build local. */
+async function borrarCarpeta(bucket, carpeta) {
+  const rutas = [];
+  const recorrer = async (c) => {
+    const { data } = await servicio.storage.from(bucket).list(c, { limit: 1000 });
+    for (const e of data ?? []) {
+      if (e.id === null) await recorrer(`${c}/${e.name}`);
+      else rutas.push(`${c}/${e.name}`);
+    }
+  };
+  await recorrer(carpeta);
+  if (rutas.length) await servicio.storage.from(bucket).remove(rutas);
+}
+
 const navegador = await chromium.launch();
+let P;
 try {
-  const P = await preparar();
+  P = await preparar();
   const contexto = await navegador.newContext({ viewport: { width: 1000, height: 1400 } });
   const pagina = await contexto.newPage();
   const erroresJs = [];
@@ -126,6 +141,47 @@ try {
   revisar(isDeepStrictEqual(guardada.pantallas, P.pantallas), 'las pantallas de la 1b siguen igual');
   igual(guardada.colores?.principal, '#1155a4', 'los colores quedaron guardados');
 
+  console.log('Días de cuenta regresiva (fiesta.cuentaDesdeDias)');
+  const cuenta = pagina.getByLabel('Días de cuenta regresiva antes de la fiesta (opcional)');
+  igual(await cuenta.getAttribute('type'), 'number', 'el campo de días es numérico');
+  igual(await cuenta.getAttribute('min'), '1', 'el campo de días tiene min=1');
+  const ayudaCuenta = await cuenta.getAttribute('aria-describedby');
+  igual(ayudaCuenta ? await pagina.locator(`#${ayudaCuenta}`).innerText() : null, 'Déjalo vacío para 60 días.', 'la ayuda dice «Déjalo vacío para 60 días» y está ligada al campo');
+  igual(await cuenta.inputValue(), '', 'sin valor en el borrador, el campo está vacío (60 por defecto)');
+  await cuenta.fill('30');
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await pagina.getByText('Borrador guardado.').waitFor();
+  igual((await leerConfig(P.id)).fiesta?.cuentaDesdeDias, 30, 'guarda fiesta.cuentaDesdeDias = 30 (número)');
+  await cuenta.fill('0');
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await pagina.locator('.falta li').filter({ hasText: 'fiesta.cuentaDesdeDias' }).waitFor();
+  revisar(true, 'con 0, «Para poder publicar falta» dice que los días deben ser un entero desde 1');
+  await cuenta.fill('');
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await pagina.locator('.falta li').filter({ hasText: 'fiesta.cuentaDesdeDias' }).waitFor({ state: 'detached' });
+  const sinCuenta = await leerConfig(P.id);
+  revisar(sinCuenta.fiesta !== undefined && !('cuentaDesdeDias' in sinCuenta.fiesta), 'vacío quita la clave (vuelve a los 60 días por defecto) y no da error');
+
+  console.log('Supabase sin responder (503): no se confunde con una sesión vencida');
+  await pagina.route('**/editor/api/*/borrador', (ruta) =>
+    ruta.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'No se pudo conectar con el servidor. Intenta de nuevo en un momento' }),
+    }),
+  );
+  await pagina.getByLabel('Lugar').fill('Escrito con el servidor caído');
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  const alerta503 = pagina.getByRole('alert').filter({ hasText: 'No se pudo conectar con el servidor. Intenta de nuevo en un momento' });
+  await alerta503.waitFor();
+  revisar(!/sesión/i.test(await alerta503.innerText()), 'el mensaje del 503 no habla de la sesión');
+  igual(await pagina.evaluate(() => document.activeElement?.getAttribute('role')), 'alert', 'el resumen del 503 recibe el foco');
+  igual(await pagina.getByLabel('Lugar').inputValue(), 'Escrito con el servidor caído', 'con el 503 el campo conserva el texto');
+  await pagina.unroute('**/editor/api/*/borrador');
+  await pagina.getByLabel('Lugar').fill('Ciudad Arce');
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await pagina.getByText('Borrador guardado.').waitFor();
+
   console.log('Subir imágenes');
   const png = await sharp({ create: { width: 40, height: 20, channels: 3, background: '#336699' } }).png().toBuffer();
   await pagina.locator('#logo-blanco-archivo').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: png });
@@ -171,6 +227,15 @@ try {
   igual(await pagina.getByLabel('Lugar').inputValue(), 'Mi cambio tardío', 'el 409 tampoco borra lo escrito');
   igual((await leerConfig(P.id)).lugar, 'Cambio de otra persona', 'el cambio tardío no pisó el de la otra persona');
 
+  console.log('Protección contra enmarcado: el editor sí, las pantallas no');
+  for (const ruta of [`/editor/p/${P.slug}`, '/editor/entrar', '/editor']) {
+    const r = await contexto.request.get(`${BASE}${ruta}`, { maxRedirects: 0 });
+    igual(r.headers()['content-security-policy'], "frame-ancestors 'self'", `${ruta} manda frame-ancestors 'self'`);
+  }
+  const respPantalla = await contexto.request.get(`${BASE}/${P.slug}/pantalla.html?tipo=inicio`);
+  igual(respPantalla.status(), 200, 'la pantalla responde');
+  revisar(!/frame-ancestors/.test(respPantalla.headers()['content-security-policy'] ?? ''), 'la pantalla no lleva frame-ancestors (la vista previa la enmarca y OBS la abre suelta)');
+
   console.log('La API responde 401 en JSON, no redirige, sin sesión');
   const anonimo = await navegador.newContext();
   const put = await anonimo.request.put(`${BASE}/editor/api/${P.slug}/borrador`, {
@@ -193,6 +258,10 @@ try {
   fallos++;
 } finally {
   await navegador.close();
+  if (P) {
+    await borrarCarpeta('borradores', P.id);
+    await borrarCarpeta('publicado', P.slug);
+  }
 }
 
 console.log(fallos === 0 ? '\nPruebas de navegador del editor: todo bien.' : `\n${fallos} comprobaciones fallaron.`);

@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { clienteServicio, crearParroquia, crearUsuario, hacerMiembro, sufijo, type UsuarioPrueba } from './ayudas';
+import { clienteServicio, crearParroquia, crearUsuario, hacerMiembro, limpiarStorage, sufijo, type UsuarioPrueba } from './ayudas';
 import { publicar } from '../../lib/publicar';
 import { RESERVADOS, descargarPublicado, escribir } from '../../herramientas/descargar-publicado.mjs';
 
@@ -23,7 +23,14 @@ void esquema, void version, void publicado, void _slug;
 let png: Buffer;
 let usuario: UsuarioPrueba;
 let destino: string;
-const subidos: string[] = []; // rutas en `publicado` que esta prueba escribió a mano
+const subidos: string[] = []; // rutas en `publicado` que esta prueba escribió a mano (las parroquias publicadas las borra limpiarStorage)
+async function quitarSubidos(): Promise<void> {
+  const rutas = subidos.splice(0);
+  if (rutas.length) {
+    const { error } = await servicio.storage.from('publicado').remove(rutas);
+    expect(error).toBeNull();
+  }
+}
 const servidores: Server[] = [];
 
 const ENTRADA = (slugsDelRepo: string[] = ['ciudad-arce', 'san-jose-ejemplo']) => ({
@@ -56,7 +63,6 @@ async function parroquiaPublicada(): Promise<{ slug: string; config: any }> {
   expect(r.estado).toBe(200);
   const { data } = await servicio.storage.from('publicado').download(`${p.slug}/config.json`);
   const publicada = JSON.parse(await data!.text());
-  subidos.push(`${p.slug}/config.json`, ...[...new Set<string>(JSON.stringify(publicada).match(/medios\/v\d+-[a-z0-9.-]+/g) ?? [])].map((m) => `${p.slug}/${m}`));
   return { slug: p.slug, config: publicada };
 }
 
@@ -87,35 +93,48 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  if (subidos.length) await servicio.storage.from('publicado').remove(subidos);
+  await quitarSubidos();
+  await limpiarStorage(); // publicado/<slug>/ y borradores/<id>/ de las parroquias creadas aquí
   await Promise.all(servidores.map((s) => new Promise((ok) => s.close(ok))));
-});
+}, 60_000);
 
 describe('descargar-publicado', () => {
-  const avisos = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-  // Limpieza aunque una aserción falle: la carpeta temporal y el espía de la consola.
-  afterEach(() => {
+  // Limpieza aunque una aserción falle: la carpeta temporal y lo subido a mano en publicado/ (algo roto
+  // que quedara haría fallar las pruebas siguientes y el build local).
+  afterEach(async () => {
     vi.restoreAllMocks();
     if (destino) rmSync(destino, { recursive: true, force: true });
-  });
+    await quitarSubidos();
+  }, 60_000);
 
   const nuevoDestino = () => {
     destino = mkdtempSync(path.join(tmpdir(), 'descargar-'));
     return destino;
   };
+  /** Espera que falle nombrando la parroquia y el motivo, sin escribir nada en el destino. */
+  async function fallaNombrando(slug: string, motivo: string | RegExp) {
+    const error = await descargarPublicado(ENTRADA()).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(error, 'tenía que fallar').toBeInstanceOf(Error);
+    expect(error!.message).toContain(`la parroquia «${slug}» no se puede traer`);
+    if (typeof motivo === 'string') expect(error!.message).toContain(motivo);
+    else expect(error!.message).toMatch(motivo);
+    expect(readdirSync(destino)).toEqual([]); // ni la parroquia rota ni las buenas: todo o nada
+  }
 
   it('escribe public/<slug>/config.json y sus imágenes', async () => {
     const p = await parroquiaPublicada();
     nuevoDestino();
     const r = await descargarPublicado(ENTRADA());
     expect(r.parroquias).toContain(p.slug);
-    expect(r.omitidas.find((o: { slug: string }) => o.slug === p.slug)).toBeUndefined();
     expect(JSON.parse(readFileSync(path.join(destino, p.slug, 'config.json'), 'utf8'))).toEqual(p.config);
     const archivos = readdirSync(path.join(destino, p.slug, 'medios')).sort();
     expect(archivos).toHaveLength(3);
     for (const a of archivos) expect(a).toMatch(/^v1-/);
-    expect(readFileSync(path.join(destino, p.slug, p.config.fachada.src)).equals(png)).toBe(true);
+    const { data } = await servicio.storage.from('publicado').download(`${p.slug}/${p.config.fachada.src}`);
+    expect(readFileSync(path.join(destino, p.slug, p.config.fachada.src)).equals(Buffer.from(await data!.arrayBuffer()))).toBe(true);
   }, 60_000);
 
   it('al repetirse borra lo viejo de la parroquia y no toca otras carpetas del destino', async () => {
@@ -130,65 +149,71 @@ describe('descargar-publicado', () => {
     expect(readFileSync(path.join(destino, 'ciudad-arce', 'config.json'), 'utf8')).toBe('del repo');
   }, 60_000);
 
-  it('omite un config.json inválido con aviso y sigue con los demás', async () => {
-    const buena = await parroquiaPublicada();
+  it('falla y nombra la parroquia si un config.json publicado no es válido', async () => {
+    await parroquiaPublicada();
     const mala = `inv-${sufijo()}`;
     await subirConfig(mala, { esquema: 1, slug: mala, nombre: '' });
-    const espia = avisos();
     nuevoDestino();
-    const r = await descargarPublicado(ENTRADA());
-    expect(r.parroquias).toContain(buena.slug);
-    expect(r.parroquias).not.toContain(mala);
-    expect(r.omitidas.find((o: { slug: string }) => o.slug === mala)?.motivo).toBeTruthy();
-    expect(espia.mock.calls.some((c) => String(c[0]).startsWith('AVISO:') && String(c[0]).includes(mala))).toBe(true);
-    expect(existsSync(path.join(destino, mala))).toBe(false);
-    expect(existsSync(path.join(destino, buena.slug, 'config.json'))).toBe(true);
+    await fallaNombrando(mala, /config\.json no es válido/);
   }, 60_000);
 
-  it('omite una parroquia cuyo config nombra una imagen que no tiene el formato de lo publicado (no la baja)', async () => {
+  it('falla y nombra la parroquia si su config.json no es JSON', async () => {
+    const mala = `json-${sufijo()}`;
+    const { error } = await servicio.storage
+      .from('publicado')
+      .upload(`${mala}/config.json`, Buffer.from('{ no es json'), { contentType: 'application/json' });
+    expect(error).toBeNull();
+    subidos.push(`${mala}/config.json`);
+    nuevoDestino();
+    await fallaNombrando(mala, /no es JSON válido/);
+  }, 60_000);
+
+  it('falla y nombra la parroquia si su carpeta no tiene config.json', async () => {
+    const sola = `solo-${sufijo()}`;
+    const ruta = `${sola}/medios/v1-fachada-0a1b2c3d.png`;
+    const { error } = await servicio.storage.from('publicado').upload(ruta, png, { contentType: 'image/png' });
+    expect(error).toBeNull();
+    subidos.push(ruta);
+    nuevoDestino();
+    await fallaNombrando(sola, /no tiene config\.json/);
+  }, 60_000);
+
+  it('falla y nombra la parroquia si su config nombra una imagen que no tiene el formato de lo publicado (no la baja)', async () => {
     const buena = await parroquiaPublicada();
     const slug = `src-${sufijo()}`;
     await subirConfig(slug, { ...structuredClone(buena.config), slug, fachada: { src: 'medios/fachada.png', alt: 'Fachada' } });
-    const espia = avisos();
     nuevoDestino();
-    const r = await descargarPublicado(ENTRADA());
-    expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toContain('medios/fachada.png');
-    expect(existsSync(path.join(destino, slug))).toBe(false);
+    await fallaNombrando(slug, 'medios/fachada.png');
   }, 60_000);
 
-  it('omite una parroquia cuyo src es MEDIOS/… (validarConfig no distingue mayúsculas, el formato publicado sí)', async () => {
+  it('falla y nombra la parroquia si un src es MEDIOS/… (validarConfig no distingue mayúsculas, el formato publicado sí)', async () => {
     const buena = await parroquiaPublicada();
     const slug = `may-${sufijo()}`;
     await subirConfig(slug, { ...structuredClone(buena.config), slug, fachada: { src: 'MEDIOS/Fachada.PNG', alt: 'Fachada' } });
-    avisos();
     nuevoDestino();
-    const r = await descargarPublicado(ENTRADA());
-    expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toContain('MEDIOS/Fachada.PNG');
-    expect(existsSync(path.join(destino, slug))).toBe(false);
+    await fallaNombrando(slug, 'MEDIOS/Fachada.PNG');
   }, 60_000);
 
-  it('omite una parroquia cuya imagen no existe en publicado (404) y sigue con las demás', async () => {
+  it('falla y nombra la parroquia si una imagen que nombra no existe en publicado (404)', async () => {
     const buena = await parroquiaPublicada();
     const slug = `sinimg-${sufijo()}`;
     await subirConfig(slug, { ...structuredClone(buena.config), slug }); // sus medios/v1-… no existen bajo este slug
-    const espia = avisos();
     nuevoDestino();
-    const r = await descargarPublicado(ENTRADA());
-    expect(r.parroquias).toContain(buena.slug);
-    expect(r.parroquias).not.toContain(slug);
-    expect(r.omitidas.find((o: { slug: string }) => o.slug === slug)?.motivo).toMatch(/imagen/i);
-    expect(existsSync(path.join(destino, slug))).toBe(false);
+    await fallaNombrando(slug, /imagen.*no está en publicado/);
   }, 60_000);
 
-  it('omite una carpeta cuyo nombre no es un slug válido o es una ruta reservada', async () => {
+  it('falla y nombra la carpeta si su nombre no es un slug válido o es una ruta reservada', async () => {
     const buena = await parroquiaPublicada();
-    for (const carpeta of ['Mal_Slug', 'img']) await subirConfig(carpeta, { ...structuredClone(buena.config), slug: carpeta });
-    const espia = avisos();
-    nuevoDestino();
-    const r = await descargarPublicado(ENTRADA());
-    for (const carpeta of ['Mal_Slug', 'img']) {
-      expect(r.omitidas.map((o: { slug: string }) => o.slug)).toContain(carpeta);
-      expect(existsSync(path.join(destino, carpeta))).toBe(false);
+    const casos: Array<[string, RegExp]> = [
+      ['Mal_Slug', /no es un slug válido/],
+      ['img', /ruta reservada/],
+    ];
+    for (const [carpeta, motivo] of casos) {
+      await subirConfig(carpeta, { ...structuredClone(buena.config), slug: carpeta });
+      nuevoDestino();
+      await fallaNombrando(carpeta, motivo);
+      await quitarSubidos();
+      rmSync(destino, { recursive: true, force: true });
     }
   }, 60_000);
 

@@ -55,9 +55,24 @@ async function preparar() {
 const leerBorrador = async (id) => (await servicio.from('borradores').select('config, actualizado_en').eq('parroquia_id', id).single()).data;
 const numeros = async (id) => ((await servicio.from('versiones').select('numero').eq('parroquia_id', id).order('numero')).data ?? []).map((v) => v.numero);
 
+/** Borra todo lo que hay en `bucket` bajo `carpeta` (recorre subcarpetas): lo publicado que quede en la base local lo bajaría el build local. */
+async function borrarCarpeta(bucket, carpeta) {
+  const rutas = [];
+  const recorrer = async (c) => {
+    const { data } = await servicio.storage.from(bucket).list(c, { limit: 1000 });
+    for (const e of data ?? []) {
+      if (e.id === null) await recorrer(`${c}/${e.name}`);
+      else rutas.push(`${c}/${e.name}`);
+    }
+  };
+  await recorrer(carpeta);
+  if (rutas.length) await servicio.storage.from(bucket).remove(rutas);
+}
+
 const navegador = await chromium.launch();
+let P;
 try {
-  const P = await preparar();
+  P = await preparar();
   const contexto = await navegador.newContext({ viewport: { width: 1000, height: 1400 } });
   const pagina = await contexto.newPage();
   const erroresJs = [];
@@ -79,6 +94,34 @@ try {
   await pagina.getByText('Todavía no publicaste').waitFor();
   revisar(true, 'sin versiones dice «Todavía no publicaste»');
   revisar(await pagina.getByText('Todavía no has publicado ninguna versión.').isVisible(), 'la lista de versiones está vacía');
+
+  console.log('Con cambios sin guardar, «Publicar» queda bloqueado');
+  const botonPublicar = pagina.getByRole('button', { name: 'Publicar', exact: true });
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'sin cambios, «Publicar» no está bloqueado');
+  const lugarOriginal = await pagina.getByLabel('Lugar').inputValue();
+  await pagina.getByLabel('Lugar').fill(lugarOriginal + ' (cambio)');
+  const avisoSinGuardar = pagina.getByText('Tienes cambios sin guardar. Guarda antes de publicar');
+  await avisoSinGuardar.waitFor();
+  revisar(await avisoSinGuardar.isVisible(), 'aparece «Tienes cambios sin guardar. Guarda antes de publicar»');
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'true', '«Publicar» tiene aria-disabled="true"');
+  const descrito = await botonPublicar.getAttribute('aria-describedby');
+  revisar(!!descrito && (await pagina.locator(`#${descrito}`).innerText()).includes('Tienes cambios sin guardar'), 'el aviso está ligado al botón con aria-describedby');
+  await botonPublicar.click({ force: true }); // aria-disabled no bloquea el clic real: lo frena la guarda del componente
+  await pagina.waitForTimeout(500);
+  igual(JSON.stringify(await numeros(P.id)), '[]', 'el clic con cambios sin guardar no publica nada');
+  await pagina.getByLabel('Lugar').fill(lugarOriginal);
+  await avisoSinGuardar.waitFor({ state: 'detached' });
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'volver a lo guardado desbloquea «Publicar»');
+  await pagina.getByLabel('Lugar').fill(lugarOriginal + ' (cambio)');
+  await avisoSinGuardar.waitFor();
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await pagina.getByText('Borrador guardado.').waitFor();
+  await avisoSinGuardar.waitFor({ state: 'detached' });
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'al guardar, «Publicar» se desbloquea');
+  await pagina.getByLabel('Lugar').fill(lugarOriginal);
+  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
+  await avisoSinGuardar.waitFor({ state: 'detached' });
+  await pagina.waitForFunction(() => document.querySelector('[role="status"].aviso')?.textContent === 'Borrador guardado.');
   const antes = await leerBorrador(P.id);
 
   console.log('Publicar');
@@ -145,6 +188,10 @@ try {
   fallos++;
 } finally {
   await navegador.close();
+  if (P) {
+    await borrarCarpeta('borradores', P.id);
+    await borrarCarpeta('publicado', P.slug);
+  }
 }
 
 console.log(fallos === 0 ? '\nPruebas de navegador de publicar: todo bien.' : `\n${fallos} comprobaciones fallaron.`);

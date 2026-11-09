@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   clienteAnonimo,
   clienteServicio,
@@ -6,6 +6,7 @@ import {
   crearUsuario,
   hacerAdmin,
   hacerMiembro,
+  limpiarStorage,
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
@@ -18,6 +19,9 @@ let B: { id: string; slug: string };
 let cA: UsuarioPrueba;
 let cB: UsuarioPrueba;
 let admin: UsuarioPrueba;
+
+// Lo que este archivo subió a Storage no queda en la base local (el build local lo bajaría).
+afterAll(() => limpiarStorage(), 60_000);
 
 beforeAll(async () => {
   A = await crearParroquia('rls-a');
@@ -118,9 +122,11 @@ describe('RLS', () => {
 
   it('storage: cA sube a borradores/<A>/ y no a borradores/<B>/; nadie sin service_role escribe en publicado; anon lee publicado', async () => {
     const cuerpo = new Blob(['hola'], { type: 'text/plain' });
-    const propio = await cA.cliente.storage.from('borradores').upload(`${A.id}/a-${sufijo()}.txt`, cuerpo);
+    // borradores solo admite tipos de imagen (migración 0006): la prueba de permisos sube "image/png".
+    const comoImagen = new Blob(['hola'], { type: 'image/png' });
+    const propio = await cA.cliente.storage.from('borradores').upload(`${A.id}/a-${sufijo()}.png`, comoImagen);
     expect(propio.error).toBeNull();
-    const ajeno = await cA.cliente.storage.from('borradores').upload(`${B.id}/a-${sufijo()}.txt`, cuerpo);
+    const ajeno = await cA.cliente.storage.from('borradores').upload(`${B.id}/a-${sufijo()}.png`, comoImagen);
     expect(ajeno.error).not.toBeNull();
 
     for (const quien of [cA.cliente, admin.cliente, clienteAnonimo()]) {
@@ -136,6 +142,17 @@ describe('RLS', () => {
     expect(await lee.data!.text()).toBe('hola');
     const lista = await clienteAnonimo().storage.from('publicado').list(A.slug);
     expect(lista.data?.some((o) => ruta.endsWith(o.name))).toBe(true);
+  });
+
+  it('el bucket borradores rechaza tipos que no son imagen y archivos de más de 3 MB, también a un miembro con sesión', async () => {
+    const subir = (nombre: string, cuerpo: Blob) => cA.cliente.storage.from('borradores').upload(`${A.id}/${nombre}-${sufijo()}.png`, cuerpo);
+    expect((await subir('t', new Blob(['hola'], { type: 'text/plain' }))).error).not.toBeNull();
+    expect((await subir('h', new Blob(['<p>x</p>'], { type: 'text/html' }))).error).not.toBeNull();
+    expect((await subir('g', new Blob([new Uint8Array(3 * 1024 * 1024 + 1)], { type: 'image/png' }))).error).not.toBeNull();
+    expect((await subir('j', new Blob([new Uint8Array(3 * 1024 * 1024)], { type: 'image/png' }))).error).toBeNull();
+    for (const tipo of ['image/jpeg', 'image/webp', 'image/svg+xml']) {
+      expect((await subir('k', new Blob(['x'], { type: tipo }))).error, tipo).toBeNull();
+    }
   });
 
   it('reservar_version da 1, 2, 3 aunque se llame en paralelo', async () => {

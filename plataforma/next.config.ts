@@ -15,7 +15,10 @@ const config: NextConfig = {
     return reglas.rewrites ?? [];
   },
   async headers() {
-    return reglas.headers ?? [];
+    // El editor solo se deja enmarcar por el propio sitio (contra clickjacking). Solo /editor: las
+    // pantallas /<slug>/pantalla.html las enmarca la vista previa del editor y OBS las abre sueltas.
+    const editor = [{ key: 'Content-Security-Policy', value: "frame-ancestors 'self'" }];
+    return [...(reglas.headers ?? []), { source: '/editor', headers: editor }, { source: '/editor/:path*', headers: editor }];
   },
 };
 

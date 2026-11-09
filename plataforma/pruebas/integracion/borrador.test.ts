@@ -1,5 +1,5 @@
 // Guardar el borrador y subir imágenes, contra el Supabase LOCAL, con clientes con sesión real.
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import sharp from 'sharp';
 import {
   clienteAnonimo,
@@ -8,6 +8,7 @@ import {
   crearUsuario,
   hacerAdmin,
   hacerMiembro,
+  limpiarStorage,
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
@@ -43,6 +44,9 @@ async function archivosDe(p: Parroquia): Promise<string[]> {
   expect(error).toBeNull();
   return (data ?? []).map((f) => f.name);
 }
+
+// Lo que este archivo subió a Storage no queda en la base local (el build local lo bajaría).
+afterAll(() => limpiarStorage(), 60_000);
 
 beforeAll(async () => {
   A = await crearParroquia('bor-a');
