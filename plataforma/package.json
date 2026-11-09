@@ -1,0 +1,28 @@
+{
+  "name": "plataforma",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma multiparroquia: sirve las pantallas de vicaria/ y el editor",
+  "scripts": {
+    "predev": "node herramientas/copiar-vicaria.mjs",
+    "dev": "next dev",
+    "prebuild": "node herramientas/copiar-vicaria.mjs",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run --config vitest.config.ts pruebas/unidad",
+    "test:integracion": "vitest run --config vitest.config.ts --passWithNoTests pruebas/integracion"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "type": "module"
+}
