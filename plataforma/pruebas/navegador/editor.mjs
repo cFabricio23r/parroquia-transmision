@@ -28,14 +28,16 @@ async function preparar() {
   if (error) throw error;
   const avisos = [{ texto: 'Misa especial', desde: '2026-12-01', hasta: '2026-12-02' }];
   const pantallas = { inicio: {} };
-  await servicio.from('borradores').insert({
+  const { error: errorBorrador } = await servicio.from('borradores').insert({
     parroquia_id: p.id,
     config: { nombre: `Parroquia ${slug}`, lugar: 'Lugar inicial', avisos, pantallas },
   });
+  if (errorBorrador) throw errorBorrador;
   const correo = `nav-${sufijo()}@prueba.test`;
   const { data: u, error: errorUsuario } = await servicio.auth.admin.createUser({ email: correo, password: CLAVE, email_confirm: true });
   if (errorUsuario) throw errorUsuario;
-  await servicio.from('miembros').insert({ parroquia_id: p.id, usuario_id: u.user.id });
+  const { error: errorMiembro } = await servicio.from('miembros').insert({ parroquia_id: p.id, usuario_id: u.user.id });
+  if (errorMiembro) throw errorMiembro;
   return { id: p.id, slug, correo, avisos, pantallas };
 }
 
@@ -73,6 +75,38 @@ try {
   );
   igual(sinEtiqueta.length, 0, 'todo campo tiene su label' + (sinEtiqueta.length ? ': ' + sinEtiqueta.join(', ') : ''));
 
+  console.log('Vista previa con las pantallas reales');
+  const pedidosConfig = [];
+  pagina.on('request', (q) => {
+    if (/\/config\.json(\?|$)/.test(q.url())) pedidosConfig.push(q.url());
+  });
+  const marcoInicio = pagina.locator('iframe[title="Vista previa: inicio"]');
+  const marcoPortada = pagina.locator('iframe[title="Vista previa: portada"]');
+  await marcoInicio.waitFor();
+  await marcoPortada.waitFor();
+  igual(await marcoInicio.getAttribute('width'), '480', 'la vista previa de inicio mide 480 de ancho');
+  igual(await marcoInicio.getAttribute('height'), '270', 'la vista previa de inicio mide 270 de alto');
+  revisar((await marcoInicio.getAttribute('src')).endsWith(`/${P.slug}/pantalla.html?tipo=inicio&vista-previa=1`), 'el iframe de inicio carga la pantalla real con ?vista-previa=1');
+  revisar((await marcoPortada.getAttribute('src')).endsWith(`/${P.slug}/pantalla.html?tipo=portada&vista-previa=1`), 'el iframe de portada carga la pantalla real con ?vista-previa=1');
+  const textoDe = (titulo) => pagina.frameLocator(`iframe[title="${titulo}"]`).locator('body').innerText();
+  await pagina.waitForFunction(
+    (n) => document.querySelector('iframe[title="Vista previa: inicio"]')?.contentDocument?.body?.innerText.includes(n),
+    `Parroquia ${P.slug}`,
+  );
+  revisar((await textoDe('Vista previa: inicio')).includes(`Parroquia ${P.slug}`), 'al cargar, la vista previa ya muestra el nombre del borrador');
+  const nombreNuevo = `Parroquia Nueva ${sufijo()}`;
+  await pagina.getByLabel('Nombre de la parroquia', { exact: true }).fill(nombreNuevo);
+  await pagina.waitForFunction(
+    (n) => document.querySelector('iframe[title="Vista previa: inicio"]')?.contentDocument?.body?.innerText.includes(n),
+    nombreNuevo,
+  );
+  revisar((await textoDe('Vista previa: inicio')).includes(nombreNuevo), 'cambiar el nombre se ve en la vista previa');
+  igual((await leerConfig(P.id)).nombre, `Parroquia ${P.slug}`, 'la vista previa no guardó nada en la base');
+  igual(pedidosConfig.length, 0, 'la vista previa no pidió config.json' + (pedidosConfig.length ? ': ' + pedidosConfig.join(', ') : ''));
+  const clavesPev = await pagina.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('pev_')));
+  revisar(clavesPev.every((k) => k.startsWith('pev_vistaprevia_')), 'solo hay claves pev_vistaprevia_ en localStorage' + (clavesPev.length ? ': ' + clavesPev.join(', ') : ''));
+  await pagina.getByLabel('Nombre de la parroquia', { exact: true }).fill(`Parroquia ${P.slug}`);
+
   console.log('Contraste de los colores');
   await pagina.getByLabel('Color principal').fill('#3d9be0');
   revisar(/no se lee: elige uno más oscuro/.test(await pagina.locator('#color-principal-contraste').innerText()), 'un celeste claro dice «no se lee: elige uno más oscuro»');
@@ -95,6 +129,8 @@ try {
   await pagina.locator('fieldset:has(#logo-blanco-archivo) .miniatura img').waitFor();
   await pagina.locator('#logo-blanco-alt').fill('Logo de prueba en blanco');
   revisar((await pagina.locator('fieldset:has(#logo-blanco-archivo) .miniatura img').getAttribute('src')).includes('/storage/v1/object/sign/borradores/'), 'la miniatura usa una URL firmada del bucket borradores');
+  await pagina.waitForFunction(() => document.querySelector('iframe[title="Vista previa: inicio"]')?.contentDocument?.getElementById('marca-logo')?.src.includes('/storage/v1/object/sign/borradores/'));
+  revisar(true, 'la vista previa recibe el logo recién subido con su URL firmada');
   await pagina.locator('#fachada-archivo').setInputFiles({ name: 'mala.png', mimeType: 'image/png', buffer: Buffer.from('esto no es una imagen') });
   await pagina.locator('#fachada-error').waitFor();
   revisar(/no es una imagen/.test(await pagina.locator('#fachada-error').innerText()), 'un archivo que no es imagen muestra el error junto al campo');

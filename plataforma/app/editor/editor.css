@@ -60,3 +60,9 @@
 .miniatura img { max-height: 96px; max-width: 100%; border: 1px solid #c9d3de; background: #8a94a0; border-radius: 4px; }
 .falta { margin-top: 28px; }
 .falta ul { padding-left: 20px; }
+
+/* Vista previa con las pantallas reales (dos iframes de 480x270) */
+.vista-previa { margin: 0 0 20px; }
+.vista-previa h2 { margin-top: 0; }
+.vista-previa-marcos { display: flex; flex-wrap: wrap; gap: 12px; }
+.vista-previa iframe { border: 1px solid #c9d3de; border-radius: 8px; background: #000; max-width: 100%; }

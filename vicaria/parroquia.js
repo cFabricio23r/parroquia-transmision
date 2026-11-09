@@ -16,8 +16,15 @@ function slugDe(ruta) {
 
 const SLUG = slugDe(location.pathname);
 
-/* claveDe('estado_v1') -> 'pev_ciudad-arce_estado_v1'. Con SLUG nulo da 'pev__estado_v1' (clave que nadie lee). */
+/* Vista previa del editor: la pantalla va dentro de un iframe del editor y con ?vista-previa=1.
+   Solo así. Una pantalla de OBS (sin iframe o sin la marca) nunca entra en este modo. */
+const VISTA_PREVIA = /(^|[?&])vista-previa=1(&|$)/.test(String(location.search || '')) &&
+  !!window.parent && window.parent !== window;
+
+/* claveDe('estado_v1') -> 'pev_ciudad-arce_estado_v1'. Con SLUG nulo da 'pev__estado_v1' (clave que nadie lee).
+   En vista previa lleva otro prefijo: no toca el estado ni la copia guardada del OBS real en este navegador. */
 function claveDe(nombre) {
+  if (VISTA_PREVIA) return 'pev_vistaprevia_' + (SLUG === null ? '' : SLUG) + '_' + nombre;
   return 'pev_' + (SLUG === null ? '' : SLUG) + '_' + nombre;
 }
 
@@ -515,7 +522,7 @@ function _avisoCopia(fecha) {
 }
 
 /* La configuración en uso. Al cargar el script: la copia guardada válida de este slug, o la neutra. */
-let PARROQUIA = _leerCopia() || CONFIG_NEUTRA;
+let PARROQUIA = (VISTA_PREVIA ? null : _leerCopia()) || CONFIG_NEUTRA;
 
 /* origen: 'servidor' | 'copia' | 'neutra'. fecha: «7 de noviembre de 2026» o null. aviso: texto para el panel ('' si todo bien). */
 let ESTADO_CONFIG = PARROQUIA === CONFIG_NEUTRA
@@ -571,7 +578,7 @@ let _pedidoEnVuelo = null;
 /* Pide config.json (relativo a la página: /<slug>/config.json). Nunca rechaza: cualquier fallo deja lo que había.
    Avisa a los oyentes si cambia la versión, PARROQUIA_NO_EXISTE o ESTADO_CONFIG; si nada cambió, no avisa. */
 async function _cargarParroquia() {
-  if (SLUG === null) return;
+  if (SLUG === null || VISTA_PREVIA) return; // en vista previa la configuración llega por postMessage
   const antes = JSON.stringify([PARROQUIA.version, PARROQUIA_NO_EXISTE, ESTADO_CONFIG]);
 
   let noExiste = false;
@@ -631,4 +638,17 @@ function cargarParroquia() {
 function vigilarParroquia(ms = 60000) {
   cargarParroquia();
   setInterval(cargarParroquia, ms);
+}
+
+/* Vista previa: el editor manda el borrador por postMessage. Solo se acepta del mismo origen y de la ventana padre.
+   No se valida ni se guarda copia: valida el editor. */
+if (VISTA_PREVIA) {
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent) return;
+    const d = e.data;
+    if (!d || d.tipo !== 'pev-vista-previa' || !d.config || typeof d.config !== 'object') return;
+    PARROQUIA = { ...CONFIG_NEUTRA, ...d.config, version: 1 };
+    ESTADO_CONFIG = { origen: 'vista-previa', fecha: null, aviso: '' };
+    _avisarParroquia();
+  });
 }

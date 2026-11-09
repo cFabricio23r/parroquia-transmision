@@ -4,6 +4,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { mensajeContraste, MIN_CONTRASTE, contraste } from '../../../../lib/contraste';
 import { Resumen } from '../../formularios';
+import { VistaPrevia } from './VistaPrevia';
 
 export interface Imagen {
   src: string;
@@ -246,6 +247,12 @@ export function FormularioIdentidad(props: {
     };
   }
 
+  // Lo que se ve en la vista previa: el borrador tal como está en el formulario, sin guardar.
+  // Las URLs firmadas salen del servidor (las del borrador) y de cada subida nueva; nunca se piden desde aquí.
+  const borradorEnPantalla = { ...(ini as object), ...armarCambios() };
+  const urlsFirmadas = { ...props.urls };
+  for (const i of [logoBlanco, logoColor, fachada, patronoImagen]) if (i.src && i.url) urlsFirmadas[i.src] = i.url;
+
   async function guardar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(undefined); // se vuelve a anunciar y enfocar aunque el mensaje sea el mismo
@@ -278,6 +285,8 @@ export function FormularioIdentidad(props: {
   return (
     <form onSubmit={guardar} noValidate>
       <Resumen mensaje={error} />
+
+      <VistaPrevia slug={props.slug} borrador={borradorEnPantalla} urls={urlsFirmadas} />
 
       <fieldset className="grupo">
         <legend>La parroquia</legend>

@@ -2071,6 +2071,90 @@ grupo('tipos propios y apagados', () => {
   });
 });
 
+/* ---------- Vista previa del editor (Etapa 2a) ---------- */
+
+grupo('vista previa', () => {
+  /* Carga parroquia.js con ?vista-previa=1 y una ventana que guarda sus oyentes de «message». */
+  function cargarVista(dentroDeIframe, almacen = {}) {
+    const oyentes = [];
+    const ventana = { innerWidth: 1920, innerHeight: 1080, addEventListener: (t, f) => { if (t === 'message') oyentes.push(f); } };
+    ventana.parent = dentroDeIframe ? { marca: 'padre' } : ventana;
+    const loc = { pathname: '/ciudad-arce/pantalla.html', search: '?tipo=inicio&vista-previa=1', origin: 'http://editor.test' };
+    const c = cargar(['parroquia.js'], almacen, { location: loc, window: ventana });
+    return { c, ventana, oyentes, enviar: (e) => oyentes.forEach((f) => f(e)) };
+  }
+  const vivo = (c, nombre) => vm.runInContext(nombre, c);
+  const mensaje = (ventana, extra) => Object.assign({
+    origin: 'http://editor.test', source: ventana.parent, data: { tipo: 'pev-vista-previa', config: { nombre: 'Parroquia de Prueba' } }
+  }, extra);
+
+  prueba('vista previa: sin iframe se ignora ?vista-previa=1', () => {
+    const v = cargarVista(false);
+    assert.equal(v.c.VISTA_PREVIA, false);
+    assert.equal(v.c.claveDe('estado_v1'), 'pev_ciudad-arce_estado_v1');
+    assert.equal(v.oyentes.length, 0);
+  });
+  prueba('vista previa: sin ?vista-previa=1 tampoco, aunque haya padre', () => {
+    const ventana = { addEventListener() {} };
+    ventana.parent = { marca: 'padre' };
+    const c = cargar(['parroquia.js'], {}, { location: { pathname: '/ciudad-arce/pantalla.html', search: '?tipo=inicio', origin: 'http://editor.test' }, window: ventana });
+    assert.equal(c.VISTA_PREVIA, false);
+  });
+  prueba('vista previa: claves con pev_vistaprevia_', () => {
+    const v = cargarVista(true);
+    assert.equal(v.c.VISTA_PREVIA, true);
+    assert.equal(v.c.claveDe('estado_v1'), 'pev_vistaprevia_ciudad-arce_estado_v1');
+    assert.equal(v.c.claveDe('config_v1'), 'pev_vistaprevia_ciudad-arce_config_v1');
+  });
+  prueba('vista previa: no lee la copia guardada del OBS real y arranca neutra', () => {
+    const copia = JSON.stringify(Object.assign({}, CONFIG_CIUDAD_ARCE));
+    const v = cargarVista(true, { 'pev_ciudad-arce_config_v1': copia });
+    assert.equal(vivo(v.c, 'PARROQUIA'), v.c.CONFIG_NEUTRA);
+    assert.equal(vivo(v.c, 'ESTADO_CONFIG').origen, 'neutra');
+  });
+  prueba('vista previa: cargarParroquia no pide config.json', async () => {
+    let pedidos = 0;
+    const ventana = { addEventListener() {} };
+    ventana.parent = { marca: 'padre' };
+    const c = cargar(['parroquia.js'], {}, {
+      location: { pathname: '/ciudad-arce/pantalla.html', search: '?vista-previa=1', origin: 'http://editor.test' },
+      window: ventana, fetch: () => { pedidos++; return Promise.reject(new Error('no debía pedir')); }
+    });
+    await c.cargarParroquia();
+    c.vigilarParroquia();
+    assert.equal(pedidos, 0);
+  });
+  prueba('vista previa: un mensaje del padre y del mismo origen cambia PARROQUIA y avisa', () => {
+    const v = cargarVista(true);
+    const avisos = [];
+    v.c.alCambiarParroquia((p) => avisos.push(p.nombre));
+    v.enviar(mensaje(v.ventana));
+    assert.equal(vivo(v.c, 'PARROQUIA').nombre, 'Parroquia de Prueba');
+    assert.equal(vivo(v.c, 'PARROQUIA').version, 1);
+    assert.equal(vivo(v.c, 'PARROQUIA').colores.principal, '#1155a4');
+    assert.equal(vivo(v.c, 'ESTADO_CONFIG').origen, 'vista-previa');
+    assert.deepEqual(avisos, ['Parroquia de Prueba']);
+    assert.equal(Object.keys(v.c.__almacen).filter((k) => k.includes('config_v1')).length, 0, 'no guarda copia');
+  });
+  prueba('vista previa: un mensaje de otro origen no cambia PARROQUIA', () => {
+    const v = cargarVista(true);
+    v.enviar(mensaje(v.ventana, { origin: 'http://otro.test' }));
+    assert.equal(vivo(v.c, 'PARROQUIA'), v.c.CONFIG_NEUTRA);
+  });
+  prueba('vista previa: un mensaje de otra ventana no cambia PARROQUIA', () => {
+    const v = cargarVista(true);
+    v.enviar(mensaje(v.ventana, { source: { marca: 'otra' } }));
+    assert.equal(vivo(v.c, 'PARROQUIA'), v.c.CONFIG_NEUTRA);
+  });
+  prueba('vista previa: un mensaje de otro tipo o vacío no cambia PARROQUIA ni falla', () => {
+    const v = cargarVista(true);
+    v.enviar(mensaje(v.ventana, { data: { tipo: 'otra-cosa', config: { nombre: 'X' } } }));
+    v.enviar(mensaje(v.ventana, { data: null }));
+    v.enviar(mensaje(v.ventana, { data: { tipo: 'pev-vista-previa', config: null } }));
+    assert.equal(vivo(v.c, 'PARROQUIA').nombre, '');
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

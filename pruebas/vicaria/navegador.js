@@ -808,6 +808,41 @@ async function casoPlaceholdersTextos() {
   await ctx.close();
 }
 
+/* Etapa 2a · Vista previa: una página padre del mismo origen (como el editor) con la pantalla en un iframe. */
+async function casoVistaPrevia() {
+  console.log('2a · Vista previa dentro de un iframe del mismo origen');
+  const ctx = await nuevoContexto();
+  const pedidosConfig = [];
+  await ctx.route(/\/config\.json(\?|$)/, (r) => { pedidosConfig.push(r.request().url()); return r.abort(); });
+  await ctx.route(base + '/padre-de-prueba.html', (r) => r.fulfill({
+    status: 200, contentType: 'text/html',
+    body: `<!doctype html><title>padre</title><iframe id="vp" title="Vista previa: inicio" width="480" height="270" src="/${CA}/pantalla.html?tipo=inicio&vista-previa=1"></iframe>`
+  }));
+  const padre = await ctx.newPage();
+  padre.on('pageerror', (e) => errores.push('padre: ' + e.message));
+  await padre.goto(base + '/padre-de-prueba.html');
+  const marco = padre.frameLocator('#vp');
+  await marco.locator('#marca').waitFor({ state: 'attached' });
+  await padre.evaluate(() => {
+    const f = document.getElementById('vp');
+    f.contentWindow.postMessage({ tipo: 'pev-vista-previa', config: { nombre: 'Parroquia de Prueba', lugar: 'Lugar de Prueba', colores: { principal: '#7a3b12', oscuro: '#4a2008' } } }, location.origin);
+  });
+  await padre.waitForFunction(() => document.getElementById('vp').contentDocument.body.innerText.includes('Parroquia de Prueba'));
+  revisar(true, 'el iframe muestra el nombre que manda el padre');
+  igual(await padre.evaluate(() => getComputedStyle(document.getElementById('vp').contentDocument.documentElement).getPropertyValue('--rey').trim()), '#7a3b12', 'el iframe usa el color mandado');
+  const clavesFrame = await padre.evaluate(() => Object.keys(localStorage));   // mismo origen: el almacenamiento es el mismo
+  revisar(!clavesFrame.some((k) => k.startsWith('pev_' + CA + '_')), 'localStorage no tiene ninguna clave pev_' + CA + '_ (' + clavesFrame.join(', ') + ')');
+  revisar(clavesFrame.every((k) => !k.startsWith('pev_') || k.startsWith('pev_vistaprevia_')), 'las claves de la vista previa llevan pev_vistaprevia_');
+
+  // Un mensaje de otro tipo se ignora
+  await padre.evaluate(() => document.getElementById('vp').contentWindow.postMessage({ tipo: 'otra-cosa', config: { nombre: 'Intruso' } }, location.origin));
+  await padre.waitForTimeout(300);
+  revisar(!(await padre.evaluate(() => document.getElementById('vp').contentDocument.body.innerText)).includes('Intruso'), 'un mensaje de otro tipo no cambia nada');
+
+  igual(pedidosConfig.length, 0, 'no hubo pedido a config.json (' + pedidosConfig.join(', ') + ')');
+  await ctx.close();
+}
+
 async function casoSanJoseCompleto() {
   console.log('1b · San José completo (las 5 vistas, rótulos y panel)');
   const ctx = await nuevoContexto();
@@ -963,6 +998,7 @@ async function comparacion() {
     await casoPanelNeutroConservaPropio();
     await casoPlaceholdersTextos();
     await casoSanJoseCompleto();
+    await casoVistaPrevia();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
