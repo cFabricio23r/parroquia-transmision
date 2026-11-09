@@ -1,0 +1,29 @@
+/* Tema claro del editor. Los tokens salen de :root de vicaria/estilos.css. */
+:root {
+  --oscuro: #0c3562;
+  --rey: #1155a4;
+  --medio: #157ec1;
+  --celeste: #3d9be0;
+  --claro: #8cc0ef;
+  --palido: #e6f1fb;
+  --rojo: #dd0300;
+}
+.editor { font-family: system-ui, sans-serif; color: #1a1a1a; background: var(--palido); min-height: 100vh; margin: 0; padding: 24px 16px; box-sizing: border-box; }
+.editor * { box-sizing: border-box; }
+.tarjeta { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px 24px; box-shadow: 0 2px 12px rgba(12, 53, 98, 0.15); }
+.tarjeta h1 { color: var(--oscuro); font-size: 1.5rem; margin: 0 0 16px; }
+.campo { margin-bottom: 16px; }
+.campo label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--oscuro); }
+.campo input { width: 100%; padding: 10px 12px; font-size: 1rem; border: 2px solid #5b6b7d; border-radius: 6px; }
+.campo input[aria-invalid='true'] { border-color: var(--rojo); }
+.campo input:focus-visible, .boton:focus-visible, .editor a:focus-visible { outline: 3px solid var(--medio); outline-offset: 2px; }
+.ayuda { color: #444; font-size: 0.9rem; margin: 4px 0 0; }
+.error-campo { color: var(--rojo); font-size: 0.9rem; margin: 4px 0 0; }
+.resumen-error { border: 2px solid var(--rojo); background: #fff4f4; color: #7a0200; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+.resumen-error:focus { outline: 3px solid var(--rojo); outline-offset: 2px; }
+.aviso { border: 2px solid var(--rey); background: var(--palido); color: var(--oscuro); padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+.boton { width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; color: #fff; background: var(--rey); border: 0; border-radius: 6px; cursor: pointer; }
+.boton:hover { background: var(--oscuro); }
+.boton:disabled { opacity: 0.7; cursor: progress; }
+.editor a { color: var(--rey); }
+.enlaces { margin-top: 16px; text-align: center; }
