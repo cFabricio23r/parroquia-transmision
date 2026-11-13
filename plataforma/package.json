@@ -1,0 +1,39 @@
+{
+  "name": "plataforma",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma multiparroquia: sirve las pantallas de vicaria/ y el editor",
+  "scripts": {
+    "predev": "node herramientas/copiar-vicaria.mjs",
+    "dev": "next dev",
+    "prebuild": "node herramientas/copiar-vicaria.mjs && node herramientas/descargar-publicado.mjs",
+    "build": "next build",
+    "start": "next start",
+    "pretest": "node herramientas/copiar-vicaria.mjs",
+    "test": "vitest run --config vitest.config.ts pruebas/unidad",
+    "pretest:integracion": "node herramientas/copiar-vicaria.mjs",
+    "test:integracion": "node herramientas/integracion.mjs",
+    "pretest:navegador": "node herramientas/copiar-vicaria.mjs",
+    "test:navegador": "node herramientas/navegador.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.0",
+    "next": "16.4.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "resend": "6.37.0",
+    "server-only": "0.0.1",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "playwright": "1.65.0",
+    "supabase": "3.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "type": "module"
+}

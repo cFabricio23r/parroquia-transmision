@@ -64,8 +64,14 @@ describe('avisosActivos', () => {
     );
   });
 
-  it('termico 2 da calor ámbar', () => {
-    expect(avisosActivos({ ...BIEN, termico: 2 })).toEqual([
+  // Prueba del 2026-11-07: Android marcó «moderado» con la batería a 32–35 °C. Solo cuentan los grados.
+  it('termico 2 sin temperatura alta no da aviso', () => {
+    expect(ids({ termico: 2, temperatura: 35 })).toEqual([]);
+    expect(ids({ termico: 2, temperatura: null })).toEqual([]);
+  });
+
+  it('termico 2 con temperatura >= 42 da calor ámbar', () => {
+    expect(avisosActivos({ ...BIEN, termico: 2, temperatura: 42 })).toEqual([
       { id: 'calor', nivel: 'ambar', titulo: 'El celular está caliente', detalle: 'Sáquelo del sol o quítele la funda.' },
     ]);
   });
@@ -92,7 +98,7 @@ describe('avisosActivos', () => {
   });
 
   it('con varios a la vez salen en el orden sin_red, senal, bateria, calor', () => {
-    expect(ids({ hayRed: false, conexion: 'reconectando', bateria: 0.1, termico: 2 })).toEqual([
+    expect(ids({ hayRed: false, conexion: 'reconectando', bateria: 0.1, temperatura: 42 })).toEqual([
       'sin_red',
       'senal',
       'bateria',

@@ -17,7 +17,7 @@ export type EntradaAvisos = {
   bateria: number | null;
   /** Temperatura de la batería en °C (el nativo no tiene otra). */
   temperatura: number | null;
-  /** PowerManager.getCurrentThermalStatus(): 2 moderado, 3 severo. null antes de Android 10. */
+  /** PowerManager.getCurrentThermalStatus(): solo cuenta 3 (severo) o más. null antes de Android 10. */
   termico: number | null;
   hayRed: boolean;
   /** Si es 1080p, el aviso rojo de calor sugiere bajar a 720p. */
@@ -25,7 +25,8 @@ export type EntradaAvisos = {
 };
 
 const TERMICO_SEVERO = 3;
-const TERMICO_MODERADO = 2;
+// El ámbar sale solo por los grados de la batería. El «moderado» de Android (2) mira el procesador
+// y en la prueba del 2026-11-07 avisaba con la batería a 32–35 °C, sin problema real.
 const TEMPERATURA_ALTA = 42;
 const BATERIA_BAJA = 0.15;
 
@@ -61,7 +62,7 @@ export function avisosActivos(e: EntradaAvisos): Aviso[] {
       titulo: 'El celular está muy caliente',
       detalle: e.calidad === '1080p' ? `${detalle} Pase a 720p en Ajustes.` : detalle,
     });
-  } else if ((numero(e.termico) && e.termico >= TERMICO_MODERADO) || (numero(e.temperatura) && e.temperatura >= TEMPERATURA_ALTA)) {
+  } else if (numero(e.temperatura) && e.temperatura >= TEMPERATURA_ALTA) {
     r.push({ id: 'calor', nivel: 'ambar', titulo: 'El celular está caliente', detalle: 'Sáquelo del sol o quítele la funda.' });
   }
   return r;

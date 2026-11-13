@@ -1,10 +1,19 @@
-<!-- Fondo del ícono adaptativo de Android: el degradado del ícono A, a sangre (108 dp). -->
+<!-- Fondo del ícono adaptativo de Android (108 dp, a sangre): el degradado y el brillo del ícono 2.0,
+     opción 1 (Tarea 9f). El degradado se calcula sobre los 72 dp del centro, que es lo que muestra
+     el launcher, para que se vea como en el lienzo; afuera sigue con el color de cada punta. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
   <defs>
-    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="fondo" gradientUnits="userSpaceOnUse" x1="29.41" y1="11.41" x2="78.59" y2="96.59">
       <stop offset="0" stop-color="#0c3562"/>
+      <stop offset="0.55" stop-color="#1155a4"/>
       <stop offset="1" stop-color="#1f6fc4"/>
     </linearGradient>
+    <!-- El brillo del lienzo llevado a los 72 dp visibles (escala 72/220 desde el punto 18, 18). -->
+    <radialGradient id="brillo" gradientUnits="userSpaceOnUse" cx="39.6" cy="36" r="50.91">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.65" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect width="108" height="108" fill="url(#fondo)"/>
+  <rect width="108" height="108" fill="url(#brillo)"/>
 </svg>

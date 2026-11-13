@@ -1,0 +1,170 @@
+{
+  "esquema": 1,
+  "version": 2,
+  "publicado": "2026-11-08T12:00:00Z",
+  "slug": "san-jose-ejemplo",
+  "nombre": "Parroquia San José (ejemplo)",
+  "lugar": "Ciudad de ejemplo",
+  "colores": {
+    "principal": "#8a1c2b",
+    "oscuro": "#4b0f18"
+  },
+  "logos": {
+    "blanco": {
+      "src": "medios/logo-blanco.svg",
+      "alt": "Logo de ejemplo de la Parroquia San José, en blanco"
+    }
+  },
+  "fachada": {
+    "src": "medios/fachada.svg",
+    "alt": "Dibujo de ejemplo de la fachada de un templo"
+  },
+  "patrono": {
+    "nombre": "San José",
+    "corto": "San José"
+  },
+  "fiesta": {
+    "dia": 19,
+    "mes": 3
+  },
+  "galeria": [
+    {
+      "id": "taller",
+      "src": "medios/taller.svg",
+      "alt": "Dibujo de ejemplo de una escuadra, un martillo y un lirio",
+      "etiquetas": [
+        "patrono",
+        "ejemplo"
+      ]
+    }
+  ],
+  "pantallas": {
+    "inicio": {
+      "modo": "personalizada",
+      "fondo": {
+        "tipo": "color",
+        "color": "#6b1523"
+      },
+      "distribucion": "derecha",
+      "ocultar": [
+        "chispas"
+      ],
+      "textos": {
+        "inicio_cursiva": "Bienvenidos a {parroquia}"
+      }
+    },
+    "portada": {
+      "modo": "como-viene"
+    },
+    "gracias": {
+      "modo": "personalizada",
+      "imagen": "fachada",
+      "distribucion": "centro",
+      "ocultar": [
+        "rayos"
+      ],
+      "textos": {
+        "gracias_titulo": "¡Dios les bendiga!"
+      }
+    },
+    "avisos": {
+      "modo": "personalizada",
+      "textos": {
+        "avisos_titulo": "Avisos de la semana"
+      }
+    },
+    "horarios": {
+      "modo": "personalizada",
+      "textos": {
+        "horarios_titulo": "Misas en San José"
+      }
+    }
+  },
+  "rotulos": {
+    "tipografia": "montserrat",
+    "esquinas": "rectas",
+    "posicion": "izquierda",
+    "colorLado": "#4b0f18",
+    "cargos": [
+      "CELEBRANTE",
+      "PREDICADOR",
+      "DIÁCONO",
+      "LECTOR",
+      "MONAGUILLO"
+    ]
+  },
+  "tipos": {
+    "apagados": [
+      "procesion"
+    ],
+    "propios": [
+      {
+        "clave": "misa-de-ninos",
+        "nombre": "Misa de niños",
+        "descripcion": "Misa familiar de {parroquia} con los niños.",
+        "titulo": "MISA DE NIÑOS",
+        "ceja": "EN HONOR A {patronoCorto}",
+        "cursiva": "Dejen que los niños vengan a mí",
+        "franja": "Venid, niños, a la casa del Señor",
+        "imagen": "galeria:taller",
+        "esquina": "hoy",
+        "rotulos": [
+          "persona",
+          "lectura1",
+          "evangelio"
+        ]
+      }
+    ]
+  },
+  "horarios": [
+    {
+      "dia": "Sábado",
+      "hora": "6:00 p. m.",
+      "nota": "Misa de vigilia"
+    },
+    {
+      "dia": "Domingo",
+      "hora": "7:00 a. m."
+    },
+    {
+      "dia": "Domingo",
+      "hora": "10:00 a. m.",
+      "nota": "Misa con niños"
+    },
+    {
+      "dia": "Domingo",
+      "hora": "6:00 p. m."
+    }
+  ],
+  "redes": [
+    {
+      "red": "facebook",
+      "url": "https://www.facebook.com/parroquia.san.jose.ejemplo",
+      "texto": "/ParroquiaSanJoseEjemplo"
+    },
+    {
+      "red": "youtube",
+      "url": "https://www.youtube.com/@parroquia-san-jose-ejemplo",
+      "texto": "@ParroquiaSanJoseEjemplo"
+    },
+    {
+      "red": "whatsapp",
+      "url": "https://wa.me/50300000000",
+      "texto": "0000-0000"
+    }
+  ],
+  "avisos": [
+    {
+      "texto": "Ensayo del coro",
+      "detalle": "Jueves · 7:00 p. m.",
+      "orden": 1
+    },
+    {
+      "texto": "Colecta para el techo del salón",
+      "detalle": "Hasta fin de año",
+      "desde": "2026-11-01",
+      "hasta": "2026-12-31",
+      "orden": 2
+    }
+  ]
+}

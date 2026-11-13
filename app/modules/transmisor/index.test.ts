@@ -7,7 +7,9 @@ function cargar() {
   let alEvento: ((n: Nativo) => void) | null = null;
   let alServicio: ((n: { ok: boolean }) => void) | null = null;
   const modulo = {
-    medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40 })),
+    medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40, fpsVideo: 30 })),
+    rangoZoom: jest.fn(() => Promise.resolve({ min: 1, max: 8 })),
+    ponerZoom: jest.fn((_nivel: number) => Promise.resolve()),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
@@ -278,8 +280,17 @@ describe('servicio en primer plano (review M4)', () => {
 describe('medirAvisos (review M5)', () => {
   it('usa la medición liviana del nativo, sin la memoria', async () => {
     const { api, modulo } = cargar();
-    await expect(api.medirAvisos()).resolves.toEqual({ termico: 2, temperatura: 40 });
+    await expect(api.medirAvisos()).resolves.toEqual({ termico: 2, temperatura: 40, fpsVideo: 30 });
     expect(modulo.medirAvisos).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('zoom (Tarea 9g)', () => {
+  it('rangoZoom y ponerZoom pasan directo al nativo', async () => {
+    const { api, modulo } = cargar();
+    await expect(api.rangoZoom()).resolves.toEqual({ min: 1, max: 8 });
+    await api.ponerZoom(2.5);
+    expect(modulo.ponerZoom).toHaveBeenCalledWith(2.5);
   });
 });
 

@@ -16,3 +16,11 @@ app/modules/*/android/.cxx/
 
 # PNG y APK exportados (Tarea 9d): no van a git ni a la app
 exportados/
+
+# plataforma/: copia generada de vicaria/, salida de Next y datos generados
+plataforma/public/
+plataforma/.next/
+plataforma/lib/generado/
+plataforma/next-env.d.ts
+!.env.example
+plataforma/tsconfig.tsbuildinfo

@@ -121,8 +121,18 @@ export function medir() {
 }
 
 /** Lo que usan los avisos (cada 10 s): sin la memoria, que es lenta de leer (review M5). */
-export function medirAvisos(): Promise<{ termico: number | null; temperatura: number | null }> {
+export function medirAvisos(): Promise<{ termico: number | null; temperatura: number | null; fpsVideo: number | null }> {
   return Modulo.medirAvisos();
+}
+
+/** Rango del zoom de la cámara, o null (Tarea 9g). */
+export function rangoZoom(): Promise<{ min: number; max: number } | null> {
+  return Modulo.rangoZoom();
+}
+
+/** Pone el zoom de la cámara. Sale al aire. */
+export function ponerZoom(nivel: number): Promise<void> {
+  return Modulo.ponerZoom(nivel);
 }
 
 /**

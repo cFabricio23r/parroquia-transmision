@@ -33,11 +33,14 @@ import {
   zonasSeguras,
   type ZonasSeguras,
   iniciar,
+  ponerZoom,
   prepararVista,
+  rangoZoom,
   terminar,
 } from './modules/transmisor';
 import BarraSuperior from './src/componentes/BarraSuperior';
 import ColumnaPanel, { type PanelWeb } from './src/componentes/ColumnaPanel';
+import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES, M } from './src/componentes/tema';
 import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
 import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
@@ -51,6 +54,7 @@ import {
 import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
 import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './src/estado/orientacion';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
+import { limitarZoom, rangoValido, rectCompleta, type RangoZoom } from './src/estado/zoom';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
@@ -116,6 +120,21 @@ function armarLugares(anchoVentana: number, altoVentana: number, z: ZonasSeguras
   return { vertical: false, lienzo, barra, vista, capa, tira: capa, listo: capa, panel };
 }
 
+/** Los lugares en pantalla completa: la vista en 16:9 y el panel corrido fuera de la pantalla. */
+function lugaresCompletos(
+  anchoVentana: number,
+  altoVentana: number,
+  z: ZonasSeguras,
+  normales: ReturnType<typeof armarLugares>,
+): ReturnType<typeof armarLugares> {
+  const ancho = anchoVentana - z.left - z.right;
+  const alto = altoVentana - z.top - z.bottom;
+  const lienzo: Rect = { left: z.left, top: z.top, width: ancho, height: alto };
+  const vista = rectCompleta(ancho, alto);
+  const fuera: Rect = { left: anchoVentana + 100, top: 0, width: normales.panel.width, height: normales.panel.height };
+  return { ...normales, lienzo, vista, capa: vista, tira: vista, listo: vista, panel: fuera, barra: { ...fuera, height: 0 } };
+}
+
 async function pedirPermisos(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   // Notificaciones (Android 13 o más): para la notificación fija del servicio en primer plano.
@@ -174,10 +193,18 @@ export default function App() {
   const listo = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(tienda.suscribir, tienda.obtener);
 
-  // Apertura: splash del sistema, después la portada de React mientras carga el panel (Tarea 9b).
+  // Apertura: splash del sistema, después la portada animada hasta que termine (o se toque) y el
+  // panel haya cargado (Tareas 9b y 9f, src/portada/portada.ts).
   const [panelCargado, setPanelCargado] = useState(false);
   const [esperaVencida, setEsperaVencida] = useState(false);
-  const fase = fasePortada({ fuentesListas: listo, panelCargado, vencida: esperaVencida });
+  const [animacionLista, setAnimacionLista] = useState(false);
+  const alTerminarPortada = useCallback(() => setAnimacionLista(true), []);
+  const fase = fasePortada({
+    fuentesListas: listo,
+    panelCargado,
+    animacionTerminada: animacionLista,
+    vencida: esperaVencida,
+  });
   useEffect(() => {
     const t = setTimeout(() => setEsperaVencida(true), ESPERA_MAXIMA_MS);
     return () => clearTimeout(t);
@@ -200,6 +227,11 @@ export default function App() {
   const [cargando, setCargando] = useState<boolean | null>(null);
   const [termico, setTermico] = useState<number | null>(null);
   const [temperatura, setTemperatura] = useState<number | null>(null);
+  const [fpsVideo, setFpsVideo] = useState<number | null>(null);
+  // Zoom y pantalla completa (Tarea 9g).
+  const [rangoDeZoom, setRangoDeZoom] = useState<RangoZoom | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [completa, setCompleta] = useState(false);
   const [hayRed, setHayRed] = useState(true);
   const [noMolestar, setNoMolestar] = useState<boolean | null>(null);
   const [calidad, setCalidad] = useState<Calidad | undefined>(undefined);
@@ -246,9 +278,9 @@ export default function App() {
       clearTimeout(t);
     };
   }, [ventana.width, ventana.height]);
-  const lugares = armarLugares(ventana.width, ventana.height, zonas);
+  const lugaresNormales = armarLugares(ventana.width, ventana.height, zonas);
   // Mientras gira, la ventana todavía tiene la forma vieja: las pantallas se ponen al terminar.
-  const formaLista = lugares.vertical === (orientacion === 'vertical');
+  const formaLista = lugaresNormales.vertical === (orientacion === 'vertical');
   // Si la ventana no gira en 1,5 s (fijarOrientacion falló o el sistema no hizo caso), la pantalla se
   // muestra igual, según la forma real de la ventana, en vez de quedar vacía (review m3 de la 9c).
   // Se anota para qué orientación venció la espera: un pedido nuevo vuelve a esperar.
@@ -258,7 +290,7 @@ export default function App() {
     const t = setTimeout(() => setGiroVencidoPara(orientacion), ESPERA_GIRO_MS);
     return () => clearTimeout(t);
   }, [formaLista, orientacion]);
-  const visible = pantallaVisible(pantallaActual, lugares.vertical, giroVencidoPara === orientacion);
+  const visible = pantallaVisible(pantallaActual, lugaresNormales.vertical, giroVencidoPara === orientacion);
 
   const panelRef = useRef<PanelWeb | null>(null);
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
@@ -266,6 +298,33 @@ export default function App() {
   const preparandoAhora = useRef(false);
 
   const alAire = enAire(estado);
+
+  // Pantalla completa (Tarea 9g): solo al aire y acostado. La vista previa ocupa la pantalla en
+  // 16:9; el panel queda montado pero fuera de la pantalla, así no se recarga.
+  const enCompleta = completa && visible === 'aire' && !lugaresNormales.vertical;
+  const lugares = enCompleta ? lugaresCompletos(ventana.width, ventana.height, zonas, lugaresNormales) : lugaresNormales;
+
+  // Al dejar el aire: el zoom vuelve a 1× (el nativo también lo hace) y se sale de pantalla completa.
+  useEffect(() => {
+    if (!alAire) {
+      setCompleta(false);
+      setZoom(1);
+      return;
+    }
+    rangoZoom().then(
+      (r) => {
+        const v = rangoValido(r);
+        setRangoDeZoom(v);
+        if (v) setZoom(limitarZoom(1, v));
+      },
+      () => setRangoDeZoom(null),
+    );
+  }, [alAire]);
+
+  const cambiarZoom = useCallback((z: number) => {
+    setZoom(z);
+    ponerZoom(z).catch(() => undefined);
+  }, []);
   // En Preparar la capa muestra la escena elegida en la tira, solo para verla. En Antes de iniciar
   // muestra Cámara (para encuadrar). En los dos el panel cree estar en Inicio, así no queda ningún
   // rótulo encendido. Al aire, las dos siguen la escena del estado.
@@ -374,13 +433,14 @@ export default function App() {
     return () => r.remove();
   }, []);
 
-  // Estado térmico y temperatura de la batería, cada 10 s.
+  // Estado térmico, temperatura de la batería y fps del video, cada 10 s.
   useEffect(() => {
     const leer = () =>
       medirAvisos().then(
         (m) => {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
+          setFpsVideo(m.fpsVideo ?? null);
         },
         () => undefined,
       );
@@ -483,18 +543,21 @@ export default function App() {
           estilo={[estilos.zona, lugares.panel]}
         />
         <View style={[estilos.zona, lugares.barra]}>
-          <BarraSuperior
-            fase={estado.fase}
-            segundos={estado.segundos}
-            cuentaFinal={estado.cuentaFinal}
-            mbps={mbps}
-            bateria={bateria}
-            temperatura={temperatura}
-            ajustesDisponible={!alAire}
-            onAjustes={() => setEnAjustes(true)}
-            onTerminar={() => setConfirmar(true)}
-            onCancelar={orq.cancelar}
-          />
+          {enCompleta ? null : (
+            <BarraSuperior
+              fase={estado.fase}
+              segundos={estado.segundos}
+              cuentaFinal={estado.cuentaFinal}
+              mbps={mbps}
+              bateria={bateria}
+              temperatura={temperatura}
+              fps={fpsVideo}
+              ajustesDisponible={!alAire}
+              onAjustes={() => setEnAjustes(true)}
+              onTerminar={() => setConfirmar(true)}
+              onCancelar={orq.cancelar}
+            />
+          )}
         </View>
         {visible === null ? null : visible === 'preparar' ? (
           <PrepararVertical
@@ -517,6 +580,7 @@ export default function App() {
                 mensaje={mensajeVivo}
                 avisos={avisos}
                 onEscena={(escena) => tienda.despachar({ tipo: 'escena', escena })}
+                completa={enCompleta ? { ancho: lugares.vista.width, alto: lugares.vista.height } : null}
               />
             ) : (
               <AntesDeIniciar
@@ -535,6 +599,20 @@ export default function App() {
             )}
           </View>
         )}
+        {visible === 'aire' ? (
+          <View style={[estilos.zona, lugares.vista]} pointerEvents="box-none">
+            <ControlesCamara
+              rango={rangoDeZoom}
+              zoom={zoom}
+              onZoom={cambiarZoom}
+              completa={enCompleta}
+              onCompleta={setCompleta}
+              fase={estado.fase}
+              segundos={estado.segundos}
+              fps={fpsVideo}
+            />
+          </View>
+        ) : null}
       </View>
 
       {enAjustes && !alAire ? (
@@ -572,7 +650,7 @@ export default function App() {
         }}
         onCerrar={() => setConfirmar(false)}
       />
-      <Portada visible={fase === 'portada'} zonas={zonas} />
+      <Portada visible={fase === 'portada'} zonas={zonas} onTerminada={alTerminarPortada} />
       <StatusBar hidden />
     </View>
   );

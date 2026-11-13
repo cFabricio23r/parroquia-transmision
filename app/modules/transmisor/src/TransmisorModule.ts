@@ -17,8 +17,12 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   actualizarEstado(json: string): Promise<void>;
   /** Datos del sistema para los avisos y el registro (Tarea 9). */
   medir(): Promise<MedidaNativa>;
-  /** Solo el estado térmico y la temperatura, sin leer la memoria (para los avisos, cada 10 s). */
-  medirAvisos(): Promise<{ termico: number | null; temperatura: number | null }>;
+  /** El estado térmico, la temperatura y los fps, sin leer la memoria (para los avisos, cada 10 s). */
+  medirAvisos(): Promise<{ termico: number | null; temperatura: number | null; fpsVideo: number | null }>;
+  /** Rango del zoom de la cámara; null si la cámara está apagada o no tiene zoom (Tarea 9g). */
+  rangoZoom(): Promise<{ min: number; max: number } | null>;
+  /** Pone el zoom; el nativo lo deja dentro del rango. */
+  ponerZoom(nivel: number): Promise<void>;
   /** Archivo nuevo del registro (deja los últimos 10). */
   abrirRegistro(nombre: string, encabezado: string): Promise<void>;
   anotarRegistro(linea: string): Promise<void>;

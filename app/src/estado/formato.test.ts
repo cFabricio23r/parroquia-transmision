@@ -1,4 +1,4 @@
-import { formatoDuracion, formatoMbps, formatoReloj } from './formato';
+import { formatoDuracion, formatoFps, formatoMbps, formatoReloj, fpsBajo } from './formato';
 
 describe('formatoReloj', () => {
   it('da hh:mm:ss con ceros', () => {
@@ -39,5 +39,25 @@ describe('formatoDuracion', () => {
   it('horas y minutos', () => {
     expect(formatoDuracion(3600)).toBe('1 h');
     expect(formatoDuracion(3600 + 18 * 60 + 52)).toBe('1 h 18 min');
+  });
+});
+
+describe('formatoFps y fpsBajo (prueba del 2026-11-07: hacía falta ver los fps)', () => {
+  it('muestra los fps redondeados', () => {
+    expect(formatoFps(30)).toBe('30 fps');
+    expect(formatoFps(29.6)).toBe('30 fps');
+  });
+
+  it('sin dato muestra una raya', () => {
+    expect(formatoFps(null)).toBe('— fps');
+    expect(formatoFps(Number.NaN)).toBe('— fps');
+  });
+
+  it('menos de 25 fps es bajo; 25 o más, no; sin dato, no', () => {
+    expect(fpsBajo(24)).toBe(true);
+    expect(fpsBajo(25)).toBe(false);
+    expect(fpsBajo(30)).toBe(false);
+    expect(fpsBajo(null)).toBe(false);
+    expect(fpsBajo(Number.NaN)).toBe(false);
   });
 });
