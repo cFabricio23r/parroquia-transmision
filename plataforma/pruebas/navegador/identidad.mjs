@@ -96,6 +96,35 @@ try {
   console.log('Lo que Identidad no edita');
   const final = await leerConfig(P.id);
   igual(JSON.stringify([final.avisos, final.pantallas, final.tipos]), JSON.stringify([CONFIG.avisos, CONFIG.pantallas, CONFIG.tipos]), 'avisos, pantallas y tipos siguen iguales');
+
+  console.log('Patrono y fiesta');
+  const F = await prepararParroquia({
+    config: { ...CONFIG_BASE, fiesta: { dia: 31, mes: 1, lema: 'José, hombre justo y fiel', cuentaDesdeDias: 45 } },
+  });
+  const pf = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
+  await entrar(pf, F.correo);
+  await pf.goto(`${BASE}/editor/p/${F.slug}/patrono`);
+  for (const e of ['Nombre del patrono', 'Título corto', 'Día de la fiesta', 'Mes', 'Lema de la fiesta', 'Cuenta regresiva']) {
+    revisar(await pf.getByLabel(e, { exact: true }).isVisible(), `está «${e}»`);
+  }
+  revisar(await grupo(pf, 'Imagen principal del patrono').getByLabel('Descripción para lectores de pantalla (alt)').isVisible(), 'la imagen del patrono tiene su alt');
+  igual((await camposSinEtiqueta(pf)).length, 0, 'todo campo de Patrono tiene etiqueta');
+  igual(await pf.getByLabel('Cuenta regresiva', { exact: true }).locator('option:checked').innerText(), 'Desde 45 días antes', 'un valor raro (45) se muestra');
+  await pf.getByLabel('Mes', { exact: true }).selectOption({ label: 'abril' });
+  igual(await pf.getByLabel('Día de la fiesta', { exact: true }).inputValue(), '30', 'al elegir abril, el 31 baja a 30');
+  const enAbril = await esperarEnBase(F.id, (c) => c.fiesta.mes === 4);
+  igual(JSON.stringify([enAbril.fiesta.dia, enAbril.fiesta.mes]), '[30,4]', 'la base tiene { dia: 30, mes: 4 }');
+  igual(enAbril.fiesta.cuentaDesdeDias, 45, 'sin tocar la cuenta, sigue en 45');
+  await pf.getByLabel('Mes', { exact: true }).selectOption({ label: 'febrero' });
+  igual(await pf.getByLabel('Día de la fiesta', { exact: true }).locator('option').last().innerText(), '29', 'febrero llega a 29');
+  await pf.getByLabel('Cuenta regresiva', { exact: true }).selectOption({ label: 'Desde 9 días antes (la novena)' });
+  igual((await esperarEnBase(F.id, (c) => c.fiesta.cuentaDesdeDias === 9)).fiesta.cuentaDesdeDias, 9, '«Desde 9 días antes (la novena)» guarda 9');
+  revisar(
+    await pf.getByText('«José, hombre justo y fiel» aparece como franja abajo, con el color de acento.').isVisible(),
+    'la nota de la vista previa trae el lema',
+  );
+  await pf.getByLabel('Lema de la fiesta', { exact: true }).fill('Santo varón');
+  revisar(await pf.getByText('«Santo varón» aparece como franja abajo, con el color de acento.').isVisible(), 'y cambia al escribir otro lema');
 } finally {
   await navegador.close();
   await limpiar();
