@@ -17,7 +17,7 @@ export const borradorArtboard = {
   fiesta: { dia: 19, mes: 3, lema: 'José, hombre justo y fiel' },
   pantallas: { inicio: { modo: 'personalizada', distribucion: 'derecha' }, avisos: { modo: 'personalizada' }, gracias: { modo: 'como-viene' } },
   tipos: {
-    apagados: ['semana', 'sector', 'patronalsector', 'procesion', 'otros', 'prenovena', 'evento'],
+    apagados: ['semana', 'sector', 'patronalsector', 'evento', 'procesion'],
     propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora' }],
   },
   galeria: [
@@ -106,7 +106,10 @@ describe('reglas sueltas', () => {
     expect(estadoDeSeccion({ rotulos: { tipografia: 'lora', esquinas: 'redondeadas' } }, 'rotulos', [], hoy).frase).toBe(
       'Tipografía Lora, esquinas suaves.',
     );
-    expect(estadoDeSeccion({}, 'tipos', [], hoy).frase).toBe('11 activos, sin propios.');
+    expect(estadoDeSeccion({}, 'tipos', [], hoy).frase).toBe('9 activos, sin propios.');
+    // Plan 4, Decisión 16: cuenta filas; el grupo de la novena es una sola fila.
+    expect(estadoDeSeccion({ tipos: { apagados: ['prenovena', 'novena'] } }, 'tipos', [], hoy).frase).toBe('9 activos, sin propios.');
+    expect(estadoDeSeccion({ tipos: { apagados: ['prenovena', 'novena', 'patronal'] } }, 'tipos', [], hoy).frase).toBe('8 activos, sin propios.');
     expect(estadoDeSeccion({}, 'pantallas', [], hoy).frase).toBe('Las 7, como vienen.');
     expect(estadoDeSeccion({ patrono: { nombre: 'San X', corto: '' }, fiesta: { dia: 1, mes: 2 } }, 'patrono', [], hoy).frase).toBe(
       'San X · 1 de febrero · sin lema.',

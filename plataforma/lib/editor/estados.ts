@@ -6,6 +6,7 @@ import { contraste, MIN_CONTRASTE } from '../contraste';
 import { MESES } from '../fecha';
 import { bloqueDeError, limpiarMensaje } from './errores';
 import { avisoImagenPatrono } from './pantallas';
+import { filasActivas } from './tipos';
 import { SECCIONES, type IdSeccion } from './secciones';
 
 export interface Problema {
@@ -159,10 +160,10 @@ function fraseLista(borrador: Config, id: IdSeccion): string {
       return `Tipografía ${tipo}, esquinas ${esquinas}.`;
     }
     case 'tipos': {
+      // Plan 4, Decisión 16: cuenta filas de la tabla (el grupo de la novena es una), más los propios.
       const t = esObjeto(borrador.tipos) ? borrador.tipos : {};
-      const apagados = new Set(lista(t.apagados).filter((k) => (CLAVES_TIPOS_COMUNES as readonly unknown[]).includes(k)));
       const propios = lista(t.propios).length;
-      const n = CLAVES_TIPOS_COMUNES.length - apagados.size + propios;
+      const n = filasActivas(t);
       const m = propios === 0 ? 'sin propios' : plural(propios, 'propio', 'propios');
       return `${n} activos, ${m}.`;
     }
