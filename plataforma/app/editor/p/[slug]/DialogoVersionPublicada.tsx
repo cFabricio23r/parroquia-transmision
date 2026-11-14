@@ -23,7 +23,7 @@ export function DialogoVersionPublicada({
 }) {
   const marco = useRef<HTMLIFrameElement | null>(null);
   return (
-    <Dialogo abierto={abierto} titulo={`Versión ${numero} publicada`} onCerrar={onCerrar} ancho={504}>
+    <Dialogo abierto={abierto} titulo={`Versión ${numero} publicada`} onCerrar={onCerrar} ancho={520}>
       {abierto && (
         <iframe
           ref={marco}

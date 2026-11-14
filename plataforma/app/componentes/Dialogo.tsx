@@ -15,8 +15,8 @@ export function Dialogo({
   abierto: boolean;
   titulo: string;
   onCerrar: () => void;
-  /** Ancho total en px (con el relleno de 28); sin él, 500. */
-  ancho?: number;
+  /** 500 (por defecto, relleno 28) o 520 (relleno 26 y separación 14, como los diálogos de la Galería). */
+  ancho?: 500 | 520;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -35,9 +35,8 @@ export function Dialogo({
   return (
     <dialog
       ref={ref}
-      className="pv-dialogo"
+      className={ancho === 520 ? 'pv-dialogo pv-dialogo--520' : 'pv-dialogo'}
       aria-labelledby={id}
-      style={ancho ? { width: `min(${ancho}px, 100% - 32px)` } : undefined}
       onCancel={(e) => {
         e.preventDefault();
         onCerrar();

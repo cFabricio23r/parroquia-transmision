@@ -97,13 +97,13 @@ describe('Dialogo', () => {
     const id = h.match(/aria-labelledby="([^"]+)"/)![1];
     expect(h).toContain(`<h2 id="${id}"`);
   });
-  it('con ancho fija el ancho total y sin él no lleva estilo', () => {
+  it('ancho 520 suma su clase; sin ancho, solo pv-dialogo', () => {
     const con = html(
-      <Dialogo abierto={false} titulo="Versión 1 publicada" onCerrar={nada} ancho={504}>
+      <Dialogo abierto={false} titulo="Subir imagen" onCerrar={nada} ancho={520}>
         <p>x</p>
       </Dialogo>,
     );
-    expect(con).toContain('style="width:min(504px, 100% - 32px)"');
-    expect(html(<Dialogo abierto={false} titulo="x" onCerrar={nada}><p>x</p></Dialogo>)).not.toContain('style=');
+    expect(con).toContain('class="pv-dialogo pv-dialogo--520"');
+    expect(html(<Dialogo abierto={false} titulo="x" onCerrar={nada}><p>x</p></Dialogo>)).toContain('class="pv-dialogo"');
   });
 });
