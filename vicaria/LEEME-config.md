@@ -65,15 +65,32 @@ Los cambios sin una `version` nueva **no llegan** a las pantallas que ya tienen 
 | `nombreCorto` | Nombre corto | Opcional; si está, no puede estar vacío. |
 | `lugar` | Ciudad o población | Texto, no vacío. |
 | `colores.principal`, `colores.oscuro` | Los dos colores de la parroquia | `#rrggbb`, contraste con blanco de 4.5 o más. |
-| `colores.acento` | Opcional: tercer color (dorado, por ejemplo) para filetes y líneas | `#rrggbb`. No exige contraste. Los rótulos pueden pedirlo por su nombre: `acento`. En las pantallas pinta la línea de la franja del lema, sus adornos (✦) y el filete de la caja de horarios y redes. Sin él, todo se ve como siempre. |
+| `colores.acento` | Opcional: tercer color (dorado, por ejemplo) para filetes y líneas | `#rrggbb`. No exige contraste. Los rótulos pueden pedirlo por su nombre: `acento`. En las pantallas pinta la línea de la franja del lema (con un tono más claro del mismo acento al centro, que se calcula solo), sus adornos (✦) y el filete de la caja de horarios y redes. Sin él, la franja usa los colores de la paleta. |
 | `logos.blanco` | Logo para fondos de color | Obligatorio: `{ "src", "alt" }`. |
-| `logos.color` | Logo a color | Opcional: `{ "src", "alt" }`. |
+| `logos.color` | Logo a color | Opcional: `{ "src", "alt" }`. Solo lo usa el lateral claro de los rótulos (`rotulos.colorLado`); Avisos, Horarios y Producción usan el blanco, dentro de un círculo del color principal. |
 | `fachada` | Foto o dibujo del templo | Obligatorio: `{ "src", "alt" }`. |
 | `patrono.nombre`, `patrono.corto` | Nombre del patrono y su forma corta | Texto, no vacío. |
 | `patrono.imagen` | Imagen del patrono | Opcional: `{ "src", "alt" }`. |
 | `fiesta.dia`, `fiesta.mes` | Fecha de la fiesta patronal | Día que exista en ese mes; mes de 1 a 12. |
 | `fiesta.lema` | Frase de la fiesta | Opcional; texto. Sin lema no hay franja. |
 | `fiesta.cuentaDesdeDias` | Desde cuántos días antes cuenta regresiva | Opcional; entero desde 1 (por defecto 60). |
+
+### Colores que salen de la paleta
+
+La parroquia escribe solo `colores.principal`, `colores.oscuro` y, si quiere, `colores.acento`. Los demás colores de las pantallas, los rótulos y la producción **se calculan solos** a partir de ellos, con el mismo tratamiento que el diseño da a la identidad vino: se toma cada color del diseño, se le aplica el tono y la saturación del principal de la parroquia y se conserva su claridad. No se escriben en el `config.json`.
+
+| Color | Dónde se ve | Con la identidad vino del diseño (principal `#8a1c2b`) |
+|---|---|---|
+| vivo | Final del degradado del fondo, el cargo del rótulo (kicker), el sub de Avisos y de Producción | `#c0485a` |
+| tenue | Cejas, sub de la portada, días y redes de la caja de abajo, destello del título, rayas de Producción azul | `#f2d6da` |
+| velo | Fondo de las filas de Avisos y Horarios, frase en cursiva, filete de las redes | `#fbeef0` |
+| tinta | Ceja de Producción claro | `#3a2a2c` |
+| gris | Pie de Producción claro | `#5a4a4c` |
+| papel | Fondo de Producción claro | `#faf6f3` |
+| texto de fila | Detalle de las filas (día y hora) | el principal (`#8a1c2b`) |
+| acento claro | Centro de la línea de la franja (solo con `colores.acento`) | `#f0d08f` con acento `#d9a441` |
+
+Dos cuidados de lectura se aplican solos: el «vivo» se oscurece lo necesario para leerse sobre blanco (4.5 a 1), y si el principal no se lee sobre el fondo de las filas, el detalle de las filas usa el color oscuro.
 
 ## Segunda parte: los bloques opcionales
 
@@ -133,7 +150,7 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta 
 | `fondo.imagen` | `id` de una imagen de la `galeria`. Obligatorio si el tipo es `imagen`. |
 | `imagen` | La imagen grande de la pantalla: `automatica` (la de siempre, según la transmisión), `patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna`, o `galeria:<id>` con un `id` existente. |
 | `distribucion` | Dónde va la imagen: `izquierda` (por defecto), `derecha` o `centro`. El texto ocupa el otro lado. |
-| `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. |
+| `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. `chispas`, `rayos` y `fachada` (la silueta del templo) siguen valiendo, pero ya no cambian nada: el diseño no los dibuja (ver «Cómo se ve cada pantalla»). |
 | `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Sin `mostrar` (o con `modo` `como-viene`) no se muestran: la pantalla se ve como siempre. En `avisos`, `horarios` agrega las filas de horarios después de los avisos (día y notas, y las horas), siempre dentro del máximo de 6 filas, y `redes` pone las redes debajo de las filas. En `inicio` y `gracias`, los horarios y las redes van en una caja debajo del texto, sin tapar la franja ni sacar el título del cuadro: en `gracias` van como mucho 6 filas de horarios; si aun así no caben, la caja se achica y deja fuera horarios desde el final (y, solo con textos muy largos, redes). En `avisos`, con `redes` las filas y las redes van más compactas para caber en la tarjeta. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
 
@@ -145,6 +162,15 @@ En `produccion` y `envivo` se aceptan `fondo`, `imagen` y `distribucion`, pero n
 Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo. Igual con `fondo.color` y `fondo.imagen`: se validan siempre que estén escritos, aunque `fondo.tipo` sea otro (un `color` mal escrito o una `imagen` que no está en la galería rechaza el archivo aunque el tipo sea `degradado`).
 
 Si una imagen de la galería ya no existe, la pantalla usa la automática (o el degradado, en un fondo). Una imagen que no carga se oculta sin dejar el ícono roto.
+
+#### Cómo se ve cada pantalla
+
+- **Fondo:** un degradado diagonal liso de los colores de la parroquia (oscuro → principal → vivo) con un brillo suave arriba a la izquierda. La silueta del templo, los rayos y las chispas de antes ya no se ven, y ninguna opción los vuelve a prender. Para una foto de fondo se usa `fondo: { "tipo": "imagen", … }`.
+- **Imagen grande:** va en un marco de arco (redondo arriba, esquinas suaves abajo) que baja hasta la franja; la imagen llena el arco y se recorta lo que sobra. El logo (`imagen: "logo"`) no va en el arco.
+- **Marca** (arriba a la izquierda): el logo y, al lado, el nombre y el lugar de la parroquia en dos líneas. La capa del logo de `rotulos.html` también los pone en dos líneas.
+- **Gracias:** no muestra el cartel EN VIVO (la transmisión ya terminó).
+- **Avisos y Horarios:** el logo blanco va en un círculo del color principal, junto al EN VIVO; las filas se reparten en la tarjeta. Si la parroquia no tiene logo, o no carga, no queda el círculo vacío.
+- **Producción claro:** el logo blanco en un círculo del color principal, a la izquierda del texto, y todo el grupo centrado. `ocultar: ["marca"]` quita el círculo y el texto queda centrado.
 
 #### Claves de `textos`
 
@@ -171,11 +197,11 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 | Campo | Valores y límites |
 |---|---|
 | `tipografia` | `montserrat` (por defecto), `lora` o `source-sans`. |
-| `esquinas` | `redondeadas` (por defecto), `rectas` o `suaves`. |
+| `esquinas` | `rectas`, `suaves` (por defecto: 24 px en el rótulo, 18 en la capa del logo y 16 en la barra) o `redondas` (valor provisional: 48, 36 y 32 px, hasta que el diseño lo confirme). **Valores de antes:** `redondeadas` sigue aceptado y se ve como `suaves` (mide lo mismo); un `suaves` escrito antes de este cambio también se ve a 24 px. |
 | `posicion` | `izquierda` (por defecto) o `centro`. |
 | `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
 | `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
-| `logoEsquina` | Opcional; `true` (por defecto: el logo de la esquina sigue visible mientras hay rótulo, como siempre) o `false` (se esconde mientras hay rótulo). |
+| `logoEsquina` | Opcional; `true` (por defecto) o `false`. Mientras hay un rótulo, la capa del logo (con su caja y el nombre) se aparta; con `true` queda en la esquina el logo blanco solo, sin caja y un poco transparente. Con `false` no queda nada. |
 | `cargos` | Hasta 12 textos (no vacíos, hasta 200 caracteres) que reemplazan la lista sugerida de cargos del panel. |
 
 ### `tipos`: tipos de transmisión
