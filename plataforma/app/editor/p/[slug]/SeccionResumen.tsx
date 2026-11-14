@@ -2,12 +2,13 @@
 // F1 · Resumen (AB/VicEdResumen): una tarjeta por sección con su estado y su frase, los links para
 // OBS con «Copiar», «Revisar y publicar» y la última versión publicada.
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { hrefSeccion, SECCIONES } from '../../../../lib/editor/secciones';
 import { Boton } from '../../../componentes/Boton';
 import { PuntoEstado, TEXTO_ESTADO } from '../../../componentes/PuntoEstado';
 import { CabezaSeccion } from './CabezaSeccion';
 import { DialogoVersionPublicada } from './DialogoVersionPublicada';
+import { LinksObs } from './LinksObs';
 import { useBorrador } from './ProveedorBorrador';
 
 export const TEXTO_RESUMEN = 'Así va la configuración. Cada parte se puede dejar como viene y cambiarla después.';
@@ -18,42 +19,9 @@ export const LINKS_OBS = [
   { etiqueta: 'Rótulos', archivo: 'rotulos.html' },
 ] as const;
 
-type EstadoCopia = 'listo' | 'copiado' | 'fallo';
-
-function FilaLink({ slug, etiqueta, archivo, anunciar }: { slug: string; etiqueta: string; archivo: string; anunciar(t: string): void }) {
-  const [copia, setCopia] = useState<EstadoCopia>('listo');
-  const reloj = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(reloj.current), []);
-  const copiar = async () => {
-    let estado: EstadoCopia = 'copiado';
-    try {
-      await navigator.clipboard.writeText(`${location.origin}/${slug}/${archivo}`);
-      anunciar('Link copiado.');
-    } catch {
-      estado = 'fallo';
-      anunciar('No se pudo copiar');
-    }
-    setCopia(estado);
-    window.clearTimeout(reloj.current);
-    reloj.current = window.setTimeout(() => setCopia('listo'), 2000);
-  };
-  return (
-    <div className="pv-resumen-link">
-      <div className="pv-resumen-link-texto">
-        <span className="pv-resumen-link-etiqueta">{etiqueta}</span>
-        <code className="pv-resumen-link-ruta">{`…/${slug}/${archivo}`}</code>
-      </div>
-      <Boton variante="secundario" compacto className="pv-resumen-copiar" onClick={copiar}>
-        {copia === 'copiado' ? 'Copiado' : copia === 'fallo' ? 'No se pudo copiar' : 'Copiar'}
-      </Boton>
-    </div>
-  );
-}
-
 export function SeccionResumen() {
   const { borrador, datos, estados } = useBorrador();
   const nombre = (typeof borrador.nombre === 'string' && borrador.nombre.trim()) || datos.nombreParroquia;
-  const [anuncio, setAnuncio] = useState('');
   const [verVersion, setVerVersion] = useState(false);
   const tarjetas = SECCIONES.filter((s) => s.conPunto && s.id !== 'resumen' && s.id !== 'publicar');
 
@@ -79,20 +47,7 @@ export function SeccionResumen() {
           );
         })}
       </ul>
-      <section className="pv-resumen-links" aria-labelledby="pv-resumen-links-titulo">
-        <h2 id="pv-resumen-links-titulo" className="pv-subtitulo">
-          Links para OBS y la app
-        </h2>
-        <div className="pv-resumen-links-lista">
-          {LINKS_OBS.map((l) => (
-            <FilaLink key={l.archivo} slug={datos.slug} etiqueta={l.etiqueta} archivo={l.archivo} anunciar={setAnuncio} />
-          ))}
-        </div>
-        <p className="pv-resumen-nota">{NOTA_LINKS}</p>
-        <span className="pv-solo-lectores pv-resumen-anuncio" role="status">
-          {anuncio}
-        </span>
-      </section>
+      <LinksObs slug={datos.slug} links={LINKS_OBS} titulo="Links para OBS y la app" nota={NOTA_LINKS} idTitulo="pv-resumen-links-titulo" />
       <div className="pv-resumen-botones">
         <Boton href={hrefSeccion(datos.slug, 'publicar')}>Revisar y publicar</Boton>
         {datos.publicada && (

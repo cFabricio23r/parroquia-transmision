@@ -5,14 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { avisoDeHook, estadoDeLlegada } from '../../../../lib/llegada';
 import { Resumen } from '../../formularios';
-
-export interface VersionPublicada {
-  numero: number;
-  /** Ya formateada en el servidor (hora de El Salvador): así no hay diferencias al hidratar. */
-  fecha: string;
-  quien: string;
-  origen: number | null;
-}
+import type { VersionPublicada } from './ProveedorBorrador';
 
 type Cuerpo = { numero?: number; hook?: string; errores?: string[]; error?: string };
 

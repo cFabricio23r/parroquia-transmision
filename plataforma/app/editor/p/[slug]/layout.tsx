@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { SEGUNDOS_URL_FIRMADA } from '../../../../lib/borrador';
 import { clasificarErrores } from '../../../../lib/editor/validacion';
-import { formatearFecha } from '../../../../lib/fecha';
-import { etiquetaUsuario, inicial } from '../../../../lib/persona';
+import { siguienteVersion } from '../../../../lib/editor/revision';
+import { cuandoVersion } from '../../../../lib/fecha';
+import { autorDeVersion, etiquetaUsuario, inicial } from '../../../../lib/persona';
 import { clienteServicio } from '../../../../lib/supabase/servicio';
 import { clienteServidor } from '../../../../lib/supabase/servidor';
 import { usuarioActual } from '../../../../lib/usuario-actual';
@@ -11,8 +12,7 @@ import { tiposComunes } from '../../../../lib/validar';
 import { recogerMedios } from '../../../../lib/vista-previa';
 import { MarcoEditor } from './MarcoEditor';
 import { NoEncontrada } from './NoEncontrada';
-import { ProveedorBorrador, type DatosEditor } from './ProveedorBorrador';
-import type { VersionPublicada } from './Versiones';
+import { ProveedorBorrador, type DatosEditor, type VersionPublicada } from './ProveedorBorrador';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +29,7 @@ export default async function LayoutEditorParroquia({ children, params }: { chil
   const usuario = { etiqueta: etiquetaUsuario(u, true), inicial: inicial(u.nombre, u.correo) };
 
   // RLS: solo devuelve la parroquia a sus miembros y a los administradores.
-  const { data: parroquia } = await sesion.from('parroquias').select('id, nombre').eq('slug', slug).maybeSingle();
+  const { data: parroquia } = await sesion.from('parroquias').select('id, nombre, ultima_version, desactivada_en').eq('slug', slug).maybeSingle();
   if (!parroquia) return <NoEncontrada usuario={usuario} />;
   const { data: borrador } = await sesion
     .from('borradores')
@@ -77,25 +77,36 @@ export default async function LayoutEditorParroquia({ children, params }: { chil
     }
   }
 
-  // El correo de quien publicó solo lo puede leer el servidor; ya se comprobó arriba que la persona ve la parroquia.
-  const correos = new Map<string, string>();
+  // Quién publicó: el correo solo lo lee el servidor, y el nombre (`perfiles`) y si es admin
+  // (`administradores`) se leen con el servicio. Ya se comprobó arriba que la persona ve la parroquia.
+  const autores = new Map<string, { esAdmin: boolean; nombre: string | null; correo: string | null }>();
   const ids = [...new Set((filas ?? []).map((f) => f.publicada_por as string | null).filter((id): id is string => !!id))];
   if (ids.length) {
     const servicio = clienteServicio();
+    const [perfiles, admins] = await Promise.all([
+      servicio.from('perfiles').select('usuario_id, nombre').in('usuario_id', ids),
+      servicio.from('administradores').select('usuario_id').in('usuario_id', ids),
+    ]);
+    if (perfiles.error) console.error('[editor] no se pudieron leer los perfiles de quien publicó:', perfiles.error.message);
+    if (admins.error) console.error('[editor] no se pudo leer quién es admin:', admins.error.message);
+    const nombres = new Map((perfiles.data ?? []).map((p) => [p.usuario_id as string, (p.nombre as string | null) ?? null]));
+    const esAdmin = new Set((admins.data ?? []).map((a) => a.usuario_id as string));
     await Promise.all(
       ids.map(async (id) => {
         const { data, error } = await servicio.auth.admin.getUserById(id);
         if (error) console.error('[editor] no se pudo leer quién publicó:', error.message);
-        if (data.user?.email) correos.set(id, data.user.email);
+        if (!data.user) return;
+        autores.set(id, { esAdmin: esAdmin.has(id), nombre: nombres.get(id) ?? null, correo: data.user.email ?? null });
       }),
     );
   }
   const versiones: VersionPublicada[] = (filas ?? []).map((f) => ({
     numero: f.numero as number,
-    fecha: formatearFecha(f.publicada_en as string),
-    quien: correos.get(f.publicada_por as string) ?? '—',
+    fecha: cuandoVersion(f.publicada_en as string),
+    quien: autorDeVersion(autores.get(f.publicada_por as string) ?? null),
     origen: (f.origen_numero as number | null) ?? null,
   }));
+  const mayorPublicada = filas?.length ? Math.max(...filas.map((f) => f.numero as number)) : null;
 
   const datos: DatosEditor = {
     slug,
@@ -107,6 +118,8 @@ export default async function LayoutEditorParroquia({ children, params }: { chil
     urls,
     publicada,
     versiones,
+    siguienteVersion: siguienteVersion((parroquia.ultima_version as number | null) ?? null, mayorPublicada),
+    desactivada: parroquia.desactivada_en != null,
     tiposComunes: tiposComunes(),
     usuario,
   };

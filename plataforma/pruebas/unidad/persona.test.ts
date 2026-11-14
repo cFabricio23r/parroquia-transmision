@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { etiquetaRol, etiquetaUsuario, inicial, nombreVisible, primerNombre, ROL_ADMIN, ROL_COORDINADOR } from '../../lib/persona';
+import { autorDeVersion, etiquetaRol, etiquetaUsuario, inicial, nombreVisible, primerNombre, ROL_ADMIN, ROL_COORDINADOR } from '../../lib/persona';
 
 describe('persona', () => {
   it('persona: nombre, primer nombre, inicial y rol', () => {
@@ -23,5 +23,13 @@ describe('persona', () => {
   });
   it('un emoji al principio no se parte por la mitad', () => {
     expect(inicial('🙏 José', 'j@x.org')).toBe('🙏');
+  });
+
+  it('autorDeVersion: «Pastoral (admin)», el nombre o el correo, o «—»', () => {
+    expect(autorDeVersion({ esAdmin: true, nombre: 'María', correo: 'm@x' })).toBe('Pastoral (admin)');
+    expect(autorDeVersion({ esAdmin: false, nombre: null, correo: 'p@x' })).toBe('p@x');
+    expect(autorDeVersion({ esAdmin: false, nombre: ' Ana  Pérez ', correo: 'a@x' })).toBe('Ana Pérez');
+    expect(autorDeVersion({ esAdmin: false, nombre: null, correo: null })).toBe('—');
+    expect(autorDeVersion(null)).toBe('—');
   });
 });

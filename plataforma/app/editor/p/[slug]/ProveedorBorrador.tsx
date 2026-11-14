@@ -14,7 +14,16 @@ import {
 import type { Bloque, IdSeccion } from '../../../../lib/editor/secciones';
 import { hoyIso } from '../../../../lib/fecha';
 import type { TipoComun } from '../../../../lib/validar-nucleo.mjs';
-import type { VersionPublicada } from './Versiones';
+
+/** Una fila de «Versiones publicadas» (F12). Fecha y autor ya armados en el servidor: así no hay diferencias al hidratar. */
+export interface VersionPublicada {
+  numero: number;
+  /** `cuandoVersion(publicada_en)`: «hoy 18:42», «ayer 20:05», «2 nov». */
+  fecha: string;
+  /** `autorDeVersion(…)`: «Pastoral (admin)», el nombre o el correo, o «—». */
+  quien: string;
+  origen: number | null;
+}
 
 export interface DatosEditor {
   slug: string;
@@ -26,6 +35,10 @@ export interface DatosEditor {
   urls: Record<string, string>;
   publicada: { numero: number; config: Record<string, unknown>; urls: Record<string, string> } | null;
   versiones: VersionPublicada[];
+  /** El número que va a tener la próxima publicación (Review Focus 5 del plan 5). */
+  siguienteVersion: number;
+  /** La parroquia está desactivada: no se puede publicar (Decisión 3 del plan 5). */
+  desactivada: boolean;
   tiposComunes: TipoComun[];
   usuario: { etiqueta: string; inicial: string };
 }

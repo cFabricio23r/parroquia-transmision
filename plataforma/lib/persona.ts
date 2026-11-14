@@ -32,3 +32,13 @@ export function etiquetaUsuario(u: { nombre: string | null; correo: string; esAd
   const quien = completo ? nombreVisible(u.nombre, u.correo) : primerNombre(u.nombre, u.correo);
   return `${quien} · ${etiquetaRol(u.esAdmin)}`;
 }
+
+/**
+ * Quién publicó una versión (Decisión 24 del plan 5): «Pastoral (admin)» si hoy es administrador; si
+ * no, su nombre o su correo; «—» si la cuenta ya no existe.
+ */
+export function autorDeVersion(p: { esAdmin: boolean; nombre: string | null; correo: string | null } | null): string {
+  if (!p) return '—';
+  if (p.esAdmin) return 'Pastoral (admin)';
+  return limpio(p.nombre) || (p.correo ?? '').trim() || '—';
+}
