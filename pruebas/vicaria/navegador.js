@@ -799,7 +799,7 @@ async function casoPantallasRediseno() {
   const textos = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].map((e) => e.innerText.replace(/\s+/g, ' ').trim()), sel);
 
   // Inicio: sin cuenta, con redes; la línea de la franja es el acento
-  const ini = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`, 1920, 1080, estado({ tipo: 'novena', cuenta: true }));
+  const ini = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`, 1920, 1080, estado({ tipo: 'dominical', cuenta: true }));
   await ini.waitForTimeout(1500);
   igual(await ini.evaluate(() => getComputedStyle(document.getElementById('i-cuenta')).display), 'none', 'Inicio: la cuenta regresiva se oculta');
   revisar(await visibleEl(ini, '#v-inicio .extra'), 'Inicio: la caja de redes se ve');
@@ -1379,6 +1379,113 @@ async function casoRevisionFinal() {
   }
 }
 
+/* ---------- Diseño (plan 1.1): los artboards F4, F5 y F6 ----------
+   configDiseno(slug): la configuración real con lo que dibujan los artboards. San José: lema, acento, pantallas
+   «como vienen» y rótulos Lora con esquinas suaves y línea del acento (sin colorLado: la vista previa de F6 pinta el
+   lado con el degradado rey→oscuro). Ciudad Arce: pantallas «como vienen» y rótulos Lora suaves.
+   El reloj queda fijo a 5 días de la fiesta, como la cuenta del artboard: San José el domingo 14 de marzo de 2027
+   (fiesta el 19), Ciudad Arce el jueves 3 de diciembre de 2026 (fiesta el 8). */
+const FECHA_DISENO = { [SJ]: '2027-03-14T10:00:00', [CA]: '2026-12-03T10:00:00' };
+function configDiseno(slug) {
+  const c = JSON.parse(JSON.stringify(CONFIG[slug]));
+  c.pantallas = {};
+  if (slug === SJ) {
+    c.fiesta = Object.assign({}, c.fiesta, { lema: 'JOSÉ, HOMBRE JUSTO Y FIEL' });
+    c.colores = Object.assign({}, c.colores, { acento: '#d9a441' });
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLinea: 'acento', cargos: CONFIG[SJ].rotulos.cargos.slice() };
+  } else {
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves' };
+  }
+  return c;
+}
+/* Abre `ruta` de `slug` a 1920×1080 con la configuración `cfg` (por defecto configDiseno), el estado y el reloj
+   fijo; comprueba que la configuración pase validarConfig, espera las fuentes y congela las animaciones.
+   Devuelve { ctx, p }. */
+async function abrirDiseno(slug, ruta, estado, opciones = {}) {
+  const cfg = opciones.cfg || configDiseno(slug);
+  const fecha = opciones.fecha || FECHA_DISENO[slug];
+  const ctx = await nuevoContexto();
+  await ctx.route(`**/${slug}/config.json`, servirConfig(cfg));
+  const p = await abrir(ctx, `/${slug}/${ruta}`, 1920, 1080, async (pg) => {
+    await pg.clock.setFixedTime(new Date(fecha));
+    if (estado) await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${slug}_estado_v1`, JSON.stringify(estado)]);
+  });
+  await p.waitForLoadState('networkidle');
+  await p.waitForTimeout(1600);
+  const r = await p.evaluate((c) => validarConfig(c), cfg);
+  if (!r.ok) revisar(false, slug + ' ' + ruta + ': la configuración del caso pasa validarConfig (' + r.errores.join(' / ') + ')');
+  await p.evaluate(() => document.fonts.ready);
+  await p.addStyleTag({ content: CONGELAR });
+  await p.waitForTimeout(300);
+  return { ctx, p };
+}
+/* Estilos calculados { prop: valor } del primer elemento que coincide con `sel` (null si no hay). */
+const estilosDe = (p, sel, props) => p.evaluate(([s, l]) => {
+  const e = document.querySelector(s);
+  if (!e) return null;
+  const cs = getComputedStyle(e);
+  const o = {};
+  for (const k of l) o[k] = cs[k];
+  return o;
+}, [sel, props]);
+
+/* R4 (sección B y A5 del informe): lema, cuenta, día de la semana y colores de Producción salen de los datos. */
+async function casoDisenoDatos() {
+  console.log('Diseño · Lema, cuenta, día de la semana y Producción salen de los datos');
+  // Inicio de San José, dominical (F4:25)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual(await texto(p, '#frase'), '«JOSÉ, HOMBRE JUSTO Y FIEL»', 'San José, Inicio: el lema en la franja');
+    igual((await estilosDe(p, '.franja .frase', ['visibility'])).visibility, 'visible', 'San José, Inicio: la franja se ve');
+    igual(await texto(p, '#f-num'), '14', 'San José, Inicio: la fecha de la franja es el 14');
+    igual(await texto(p, '#f-txt'), 'DOMINGO\nMARZO', 'San José, Inicio: la franja dice DOMINGO / MARZO');
+    igual((await estilosDe(p, '#i-cuenta', ['display'])).display, 'flex', 'San José, Inicio: la cuenta regresiva se ve');
+    igual(await texto(p, '#i-dias'), '5', 'San José, Inicio: faltan 5 días');
+    igual((await estilosDe(p, '.franja .frase i', ['color'])).color, 'rgb(217, 164, 65)', 'San José, Inicio: las estrellas del lema son el acento');
+    await captura(p, `diseno_${SJ}_inicio`);
+    await ctx.close();
+  }
+  // Portada de la fiesta de San José (F4:27)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+    igual(await texto(p, '#f-num'), '19', 'San José, portada: la franja dice 19');
+    igual(await texto(p, '#f-txt'), 'DE\nMARZO', 'San José, portada: la franja dice DE / MARZO');
+    await captura(p, `diseno_${SJ}_portada`);
+    await ctx.close();
+  }
+  // Inicio de Ciudad Arce, dominical
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual(await texto(p, '#f-txt'), 'JUEVES\nDICIEMBRE', 'Ciudad Arce, Inicio: la franja dice JUEVES / DICIEMBRE');
+    igual(await texto(p, '#i-dias'), '5', 'Ciudad Arce, Inicio: faltan 5 días');
+    igual(await texto(p, '#frase'), '«TODA HERMOSA ERES, MARÍA»', 'Ciudad Arce, Inicio: el lema en la franja');
+    await captura(p, `diseno_${CA}_inicio`);
+    await ctx.close();
+  }
+  // Avisos y Gracias, para las capturas (F4:31 y F4:33)
+  for (const slug of [SJ, CA]) {
+    for (const vista of ['avisos', 'gracias']) {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=' + vista, { tipo: 'dominical' });
+      await captura(p, `diseno_${slug}_${vista}`);
+      await ctx.close();
+    }
+  }
+  // Rótulo de persona (F6:24)
+  for (const slug of [SJ, CA]) {
+    const { ctx, p } = await abrirDiseno(slug, 'rotulos.html', { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', cargo: 'Párroco', mostrarLogo: true, mostrarEnVivo: true });
+    await captura(p, `diseno_${slug}_rotulo`);
+    await ctx.close();
+  }
+  // Producción claro de San José, sin pantallas.produccion (F4:35): el color sale de la paleta
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null);
+    revisar(await visibleEl(p, '#claro'), 'San José, Producción claro: la lámina se ve');
+    igual(await reyDe(p), '#8a1c2b', 'San José, Producción claro: --rey es el principal de su paleta');
+    await captura(p, `diseno_${SJ}_produccion_claro`);
+    await ctx.close();
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1436,7 +1543,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -1470,6 +1577,7 @@ async function casoLineaBase() {
     await casoPanelRediseno();
     await casoVistaPreviaEstado();
     await casoRevisionFinal();
+    await casoDisenoDatos();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
