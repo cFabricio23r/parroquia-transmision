@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, prepararVistaPrevia, recogerMedios, srcVistaPrevia, tiposParaVistaPrevia } from '../../lib/vista-previa';
+import { configParaVistaPrevia, ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, prepararVistaPrevia, recogerMedios, srcVistaPrevia, tiposParaVistaPrevia } from '../../lib/vista-previa';
 
 const urls = { 'medios/logo.png': 'http://x/firmada-logo?token=1', 'medios/fachada.jpg': 'http://x/firmada-fachada?token=2' };
 
@@ -95,5 +95,29 @@ describe('vista previa continua (plan 3)', () => {
     });
     expect(mensajeVistaPrevia(b, urls, null)).toEqual({ tipo: 'pev-vista-previa', config: prepararVistaPrevia(b, urls) });
     expect(ESPERA_VISTA_PREVIA_MS).toBe(400);
+  });
+});
+
+describe('vista previa por pantalla (plan 4, Tarea 1)', () => {
+  const comunes = ['dominical', 'semana', 'patronal', 'evento'];
+  it('saca el tipo fijo común de los apagados, solo en la copia', () => {
+    const b = { tipos: { apagados: ['patronal', 'semana'] } };
+    const c = configParaVistaPrevia(b, 'patronal', comunes) as typeof b;
+    expect(c.tipos.apagados).toEqual(['semana']);
+    expect(b.tipos.apagados).toEqual(['patronal', 'semana']);
+  });
+
+  it('con un tipo propio o sin tipo devuelve el mismo objeto', () => {
+    const b = { tipos: { apagados: ['patronal'] } };
+    expect(configParaVistaPrevia(b, 'rosario-aurora', comunes)).toBe(b);
+    expect(configParaVistaPrevia(b, undefined, comunes)).toBe(b);
+    expect(configParaVistaPrevia(b, 'semana', comunes)).toBe(b);
+  });
+
+  it('mensajeVistaPrevia junta el estado extra con el tipo', () => {
+    const b = { nombre: 'X' };
+    expect(mensajeVistaPrevia(b, {}, 'dominical', { rotulo: 'persona' }).estado).toEqual({ rotulo: 'persona', tipo: 'dominical' });
+    expect(mensajeVistaPrevia(b, {}, null, { rotulo: 'ninguno' }).estado).toEqual({ rotulo: 'ninguno' });
+    expect('estado' in mensajeVistaPrevia(b, {}, null, undefined)).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '../../../../lib/editor/guardado';
 import type { Bloque, IdSeccion } from '../../../../lib/editor/secciones';
 import { hoyIso } from '../../../../lib/fecha';
+import type { TipoComun } from '../../../../lib/validar-nucleo.mjs';
 import type { VersionPublicada } from './Versiones';
 
 export interface DatosEditor {
@@ -25,7 +26,7 @@ export interface DatosEditor {
   urls: Record<string, string>;
   publicada: { numero: number; config: Record<string, unknown>; urls: Record<string, string> } | null;
   versiones: VersionPublicada[];
-  tiposComunes: { clave: string; nombre: string }[];
+  tiposComunes: TipoComun[];
   usuario: { etiqueta: string; inicial: string };
 }
 
@@ -55,6 +56,17 @@ export interface ContextoBorrador {
    */
   formularios: Record<string, FormularioPendiente>;
   recordarFormulario(clave: string, f: FormularioPendiente | undefined): void;
+  /**
+   * Un borrador y un tipo propios de la página para la vista previa (plan 4, Decisión 24): F8 muestra
+   * el tipo que se está escribiendo antes de «Guardar tipo». `null` vuelve al borrador.
+   */
+  vistaPreviaExtra: VistaPreviaExtra | null;
+  ponerVistaPreviaExtra(v: VistaPreviaExtra | null): void;
+}
+
+export interface VistaPreviaExtra {
+  config?: Record<string, unknown>;
+  tipo?: string;
 }
 
 export interface FormularioPendiente {
@@ -103,6 +115,7 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
   const [notaVistaPrevia, ponerNotaVistaPrevia] = useState<ReactNode>(null);
   const [tipoVistaPrevia, elegirTipoVistaPrevia] = useState<string | null>(null);
   const [formularios, setFormularios] = useState<Record<string, FormularioPendiente>>({});
+  const [vistaPreviaExtra, ponerVistaPreviaExtra] = useState<VistaPreviaExtra | null>(null);
   const formulariosSucios = useRef(false);
   formulariosSucios.current = Object.values(formularios).some((f) => f.sucio);
 
@@ -142,6 +155,8 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
     tipoVistaPrevia,
     elegirTipoVistaPrevia,
     formularios,
+    vistaPreviaExtra,
+    ponerVistaPreviaExtra,
     recordarFormulario: (clave, f) =>
       setFormularios((x) => {
         if (f === undefined) {

@@ -78,8 +78,19 @@ export function contraste(hexA, hexB) {
   return contextoDe('contraste').contraste(hexA, hexB);
 }
 
-/** Los 11 tipos de transmisión comunes, en el orden del panel, con su nombre (de vicaria/tipos.js). */
+/**
+ * Los 11 tipos de transmisión comunes, en el orden del panel (de vicaria/tipos.js): su nombre, el
+ * nombre del botón del panel y sus rótulos (id y nombre), en su orden.
+ */
 export function tiposComunes() {
   const c = contextoDe('tipos');
-  return Array.from(c.ORDEN_TIPOS, (k) => ({ clave: String(k), nombre: String(c.TIPOS[k].nombre) }));
+  return Array.from(c.ORDEN_TIPOS, (k) => {
+    const t = c.TIPOS[k];
+    return {
+      clave: String(k),
+      nombre: String(t.nombre),
+      nombrePanel: String(t.nombrePanel || t.nombre),
+      rotulos: Array.from(t.rotulos || [], (r) => ({ id: String(r.id), nombre: String(r.nombre) })),
+    };
+  });
 }

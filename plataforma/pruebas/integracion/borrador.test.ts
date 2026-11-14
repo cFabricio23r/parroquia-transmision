@@ -232,6 +232,70 @@ describe('guardarBorrador: cualquier bloque y el 422 de forma', () => {
   });
 });
 
+describe('guardarBorrador: bloques de estilo (plan 4)', () => {
+  const COLORES = { principal: '#8a1c2b', oscuro: '#4b0f18', acento: '#d9a441' };
+  const poner = (config: Record<string, unknown>) => servicio.from('borradores').update({ config }).eq('parroquia_id', A.id);
+  const guardar = async (cambios: Record<string, unknown>) => {
+    const antes = await leer(A);
+    return { antes, r: await guardarBorrador(cA.cliente, A.slug, { cambios, actualizadoEn: antes.actualizado_en }) };
+  };
+  afterAll(() => poner({ nombre: 'Original', lugar: 'Lugar original', ...BLOQUES }));
+
+  it('guarda pantallas, rótulos y tipos juntos', async () => {
+    await poner({ nombre: 'Original', lugar: 'Lugar original', colores: COLORES });
+    const pantallas = {
+      inicio: { modo: 'personalizada', distribucion: 'derecha', ocultar: ['franja'], mostrar: ['redes'], textos: { inicio_titulo: 'En breve comenzamos' } },
+    };
+    const rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: 'oscuro', colorLinea: 'acento', logoEsquina: false, cargos: ['Párroco', 'Vicario'] };
+    const tipos = {
+      apagados: ['procesion'],
+      ajustes: { horasanta: { nombrePanel: 'Hora Santa', ocultarRotulos: ['bendicion'] } },
+      propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', portada: 'fiesta', rotulos: ['persona', 'rosario'] }],
+    };
+    const { r } = await guardar({ pantallas, rotulos, tipos });
+    expect(r.estado).toBe(200);
+    const c = (await leer(A)).config;
+    expect(c.pantallas).toEqual(pantallas);
+    expect(c.rotulos).toEqual(rotulos);
+    expect(c.tipos).toEqual(tipos);
+  });
+
+  it('rechaza con 422 un fondo de color sin contraste y la base no cambia', async () => {
+    const { antes, r } = await guardar({ pantallas: { avisos: { modo: 'personalizada', fondo: { tipo: 'color', color: '#ffff00' } } } });
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores.join(' ')).toContain('El texto blanco no se lee sobre el color (pantallas.avisos.fondo.color)');
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('rechaza con 422 el acento como fondo del rótulo sin colores.acento', async () => {
+    await poner({ nombre: 'Original', lugar: 'Lugar original', colores: { principal: '#8a1c2b', oscuro: '#4b0f18' } });
+    const { antes, r } = await guardar({ rotulos: { colorLado: 'acento' } });
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores.join(' ')).toContain('usa el acento, pero falta colores.acento');
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('rechaza con 422 un rótulo que el tipo común no tiene', async () => {
+    const { antes, r } = await guardar({ tipos: { ajustes: { dominical: { ocultarRotulos: ['santisimo'] } } } });
+    expect(r.estado).toBe(422);
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('rechaza con 422 los 11 comunes apagados sin propios', async () => {
+    const apagados = ['dominical', 'semana', 'horasanta', 'sector', 'patronalsector', 'procesion', 'otros', 'prenovena', 'novena', 'patronal', 'evento'];
+    const { antes, r } = await guardar({ tipos: { apagados } });
+    expect(r.estado).toBe(422);
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('con el acento ya usado en la base y sin acento, guardar otro bloque da 200 (Review Focus 3)', async () => {
+    await poner({ nombre: 'Original', lugar: 'Lugar original', colores: { principal: '#8a1c2b', oscuro: '#4b0f18' }, rotulos: { colorLado: 'acento' } });
+    const { r } = await guardar({ lugar: 'X' });
+    expect(r.estado).toBe(200);
+    expect((await leer(A)).config.lugar).toBe('X');
+  });
+});
+
 describe('leerBorrador', () => {
   it('devuelve el borrador y su actualizadoEn a un miembro', async () => {
     const enBase = await leer(A);

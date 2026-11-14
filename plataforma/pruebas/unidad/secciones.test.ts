@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOQUES, SECCIONES, hrefSeccion, seccionDeBloque, seccionDeRuta } from '../../lib/editor/secciones';
+import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloque, seccionDeRuta, vistaPreviaDeRuta } from '../../lib/editor/secciones';
 import { bloqueDeError, limpiarMensaje } from '../../lib/editor/errores';
 
 describe('catálogo de secciones', () => {
@@ -56,5 +56,51 @@ describe('mensajes de error', () => {
     expect(limpiarMensaje('Falta la descripción (alt) de el logo blanco (logos.blanco).')).toBe(
       'Falta la descripción (alt) de el logo blanco.',
     );
+  });
+});
+
+describe('vistaPreviaDeRuta (plan 4, Tarea 1)', () => {
+  const r = (resto: string) => vistaPreviaDeRuta(`/editor/p/s${resto}`, 's');
+
+  it('la lista de pantallas no tiene vista previa', () => {
+    expect(r('/pantallas')).toMatchObject({ vistaPrevia: null, disposicion: 'una-columna' });
+    expect(r('/tipos')).toMatchObject({ vistaPrevia: null, disposicion: 'una-columna' });
+  });
+
+  it('una pantalla muestra esa pantalla', () => {
+    const g = r('/pantallas/gracias');
+    expect(g.vistaPrevia).toMatchObject({ pagina: 'pantalla', vista: 'gracias', conSelectorTipo: true });
+    expect(g).toMatchObject({ disposicion: 'dos-columnas', anchoFormulario: 520 });
+    expect(r('/pantallas/evento').vistaPrevia).toMatchObject({ vista: 'portada', tipoFijo: 'evento', conSelectorTipo: false });
+    expect(r('/pantallas/portada').vistaPrevia).toMatchObject({ vista: 'portada', tipoFijo: 'patronal' });
+    expect(r('/pantallas/produccion').vistaPrevia).toMatchObject({ pagina: 'produccion' });
+    const ev = r('/pantallas/envivo').vistaPrevia;
+    expect(ev?.pagina).toBe('rotulos');
+    expect(ev?.estado?.mostrarBarra).toBe(true);
+  });
+
+  it('una vista que no se ofrece no tiene vista previa', () => {
+    expect(r('/pantallas/horarios')).toMatchObject({ vistaPrevia: null, disposicion: 'una-columna' });
+    expect(r('/pantallas/nada')).toMatchObject({ vistaPrevia: null });
+  });
+
+  it('rótulos muestra el rótulo de persona', () => {
+    const ro = r('/rotulos');
+    expect(ro.anchoFormulario).toBe(540);
+    expect(ro.vistaPrevia).toMatchObject({ pagina: 'rotulos', titulo: 'Vista previa · Rótulo de persona', tipoFijo: 'dominical' });
+    expect(ro.vistaPrevia?.estado?.rotulo).toBe('persona');
+    expect(ro.vistaPrevia?.estado?.celebrante).toBe('P. Juan Pérez');
+  });
+
+  it('editar un tipo muestra Inicio', () => {
+    const t = r('/tipos/nuevo');
+    expect(t.anchoFormulario).toBe(560);
+    expect(t.vistaPrevia).toMatchObject({ pagina: 'pantalla', vista: 'inicio', titulo: 'Vista previa · Inicio', conSelectorTipo: false });
+  });
+
+  it('las secciones del plan 3 no cambian', () => {
+    expect(r('/identidad')).toEqual({ vistaPrevia: seccion('identidad').vistaPrevia, disposicion: 'dos-columnas', anchoFormulario: 560 });
+    expect(r('').vistaPrevia).toBeNull();
+    expect(VISTAS_EDITOR).toEqual(['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo']);
   });
 });

@@ -29,7 +29,7 @@
 
 .pv-editor-main--dos-columnas {
   display: grid;
-  grid-template-columns: 560px minmax(0, 1fr);
+  grid-template-columns: var(--pv-ancho-form, 560px) minmax(0, 1fr);
   column-gap: 28px;
   grid-template-areas: 'aviso aviso' 'form previa';
   align-content: start;

@@ -4,8 +4,14 @@
 // queda oculto con `hidden`, así no se recarga al volver. El borrador va por postMessage, nunca por la red.
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { seccionDeRuta, type VistaPreviaSeccion } from '../../../../lib/editor/secciones';
-import { ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, srcVistaPrevia, tiposParaVistaPrevia } from '../../../../lib/vista-previa';
+import { vistaPreviaDeRuta, type VistaPreviaSeccion } from '../../../../lib/editor/secciones';
+import {
+  configParaVistaPrevia,
+  ESPERA_VISTA_PREVIA_MS,
+  mensajeVistaPrevia,
+  srcVistaPrevia,
+  tiposParaVistaPrevia,
+} from '../../../../lib/vista-previa';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { CampoSelect } from '../../../componentes/CampoSelect';
 import { useBorrador } from './ProveedorBorrador';
@@ -14,35 +20,39 @@ import { useBorrador } from './ProveedorBorrador';
 const SIN_VISTA: VistaPreviaSeccion = { pagina: 'pantalla', vista: 'inicio', titulo: 'Vista previa', conSelectorTipo: false };
 
 export function PanelVistaPrevia() {
-  const { datos, borrador, urls, notaVistaPrevia, tipoVistaPrevia, elegirTipoVistaPrevia } = useBorrador();
+  const { datos, borrador, urls, notaVistaPrevia, tipoVistaPrevia, elegirTipoVistaPrevia, vistaPreviaExtra } = useBorrador();
   const pathname = usePathname() ?? '';
-  const seccion = seccionDeRuta(pathname, datos.slug);
-  const visible = seccion.vistaPrevia !== null;
+  const ruta = vistaPreviaDeRuta(pathname, datos.slug);
+  const visible = ruta.vistaPrevia !== null;
 
   // Mientras está oculto se queda con la última vista, para no recargar el iframe.
-  const ultimaVista = useRef<VistaPreviaSeccion>(seccion.vistaPrevia ?? SIN_VISTA);
-  if (seccion.vistaPrevia) ultimaVista.current = seccion.vistaPrevia;
+  const ultimaVista = useRef<VistaPreviaSeccion>(ruta.vistaPrevia ?? SIN_VISTA);
+  if (ruta.vistaPrevia) ultimaVista.current = ruta.vistaPrevia;
   const vp = ultimaVista.current;
   const src = srcVistaPrevia(datos.slug, vp);
 
   const tipos = useMemo(() => tiposParaVistaPrevia(borrador, datos.tiposComunes), [borrador, datos.tiposComunes]);
   const elegido = tipoVistaPrevia && tipos.some((t) => t.clave === tipoVistaPrevia) ? tipoVistaPrevia : null;
-  const tipo = vp.conSelectorTipo ? (elegido ?? tipos[0]?.clave ?? null) : (vp.tipoFijo ?? tipos[0]?.clave ?? null);
+  const tipo =
+    vistaPreviaExtra?.tipo ?? (vp.conSelectorTipo ? (elegido ?? tipos[0]?.clave ?? null) : (vp.tipoFijo ?? tipos[0]?.clave ?? null));
+  const claves = useMemo(() => datos.tiposComunes.map((t) => t.clave), [datos.tiposComunes]);
+  const config = configParaVistaPrevia(vistaPreviaExtra?.config ?? borrador, tipo ?? undefined, claves);
+  const extra = vp.estado;
 
   const marco = useRef<HTMLIFrameElement | null>(null);
   const cargado = useRef(false);
   // Siempre lo último, para el envío al cargar el iframe.
-  const ultimo = useRef({ borrador, urls, tipo });
-  ultimo.current = { borrador, urls, tipo };
+  const ultimo = useRef({ config, urls, tipo, extra });
+  ultimo.current = { config, urls, tipo, extra };
 
   const enviar = useCallback(() => {
     if (!cargado.current) return;
-    const { borrador: b, urls: u, tipo: t } = ultimo.current;
-    marco.current?.contentWindow?.postMessage(mensajeVistaPrevia(b, u, t), location.origin);
+    const { config: c, urls: u, tipo: t, extra: x } = ultimo.current;
+    marco.current?.contentWindow?.postMessage(mensajeVistaPrevia(c, u, t, x), location.origin);
   }, []);
 
   // A 400 ms de cada cambio del borrador o del tipo elegido.
-  const instantanea = JSON.stringify([borrador, urls, tipo]);
+  const instantanea = JSON.stringify([config, urls, tipo, extra]);
   useEffect(() => {
     const t = setTimeout(enviar, ESPERA_VISTA_PREVIA_MS);
     return () => clearTimeout(t);

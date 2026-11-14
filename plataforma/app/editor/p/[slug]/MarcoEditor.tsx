@@ -2,9 +2,9 @@
 // Marco del editor (todos los artboards F): encabezado con el estado del guardado y el chip del
 // borrador, menú lateral con el punto de cada sección y el <main> con la disposición de la sección.
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { textoChipBorrador } from '../../../../lib/editor/cambios';
-import { hrefSeccion, SECCIONES, seccionDeRuta } from '../../../../lib/editor/secciones';
+import { hrefSeccion, SECCIONES, seccionDeRuta, vistaPreviaDeRuta } from '../../../../lib/editor/secciones';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
@@ -32,6 +32,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
   const formularioSinGuardar = Object.values(formularios).some((f) => f.sucio);
   const pathname = usePathname() ?? '';
   const actual = seccionDeRuta(pathname, datos.slug);
+  const ruta = vistaPreviaDeRuta(pathname, datos.slug);
   const nombre = (typeof borrador.nombre === 'string' && borrador.nombre.trim()) || datos.nombreParroquia;
   const chip = textoChipBorrador(cambios.length, datos.publicada?.numero ?? null);
 
@@ -61,7 +62,10 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
           }))}
           pie={NOTA_MENU}
         />
-        <main className={`pv-editor-main pv-editor-main--${actual.disposicion}`}>
+        <main
+          className={`pv-editor-main pv-editor-main--${ruta.disposicion}`}
+          style={{ '--pv-ancho-form': `${ruta.anchoFormulario}px` } as CSSProperties}
+        >
           <div className="pv-editor-celular">
             <CajaInfo>{AVISO_CELULAR}</CajaInfo>
           </div>

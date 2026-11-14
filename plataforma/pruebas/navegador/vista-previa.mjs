@@ -75,6 +75,31 @@ try {
   revisar(cerca(cajaAvisos.width, 560) && cerca(cajaAvisos.height, 315), `en Avisos mide 560 × 315 (mide ${cajaAvisos.width} × ${cajaAvisos.height})`);
   igual(await pagina.locator('#pv-previa-titulo').innerText(), 'Vista previa · Avisos', 'el título es «Vista previa · Avisos»');
 
+  console.log('Pantallas, una pantalla y rótulos (plan 4)');
+  await pagina.getByRole('link', { name: /^Pantallas/ }).click();
+  await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/pantallas`);
+  revisar(!(await pagina.locator('section.pv-previa').isVisible()), 'en Pantallas la vista previa está oculta');
+  await pagina.getByRole('link', { name: 'Editar Gracias' }).click();
+  await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/pantallas/gracias`);
+  await pagina.waitForFunction(() => document.querySelector('iframe.pv-previa-marco')?.getAttribute('src')?.includes('tipo=gracias'));
+  igual(await marco.getAttribute('data-montado'), montado, 'en Gracias es el mismo iframe');
+  revisar((await marco.getAttribute('src')).endsWith('pantalla.html?tipo=gracias&vista-previa=1'), 'el iframe muestra Gracias');
+  const cajaGracias = await marco.boundingBox();
+  revisar(cerca(cajaGracias.width, 592) && cerca(cajaGracias.height, 333), `en Gracias mide 592 × 333 (mide ${cajaGracias.width} × ${cajaGracias.height})`);
+  revisar(await pagina.getByLabel('Ver con el tipo').isVisible(), 'hay «Ver con el tipo»');
+  await pagina.getByRole('link', { name: /^Rótulos y estilo/ }).click();
+  await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/rotulos`);
+  await pagina.waitForFunction(() => document.querySelector('iframe.pv-previa-marco')?.getAttribute('src')?.includes('rotulos.html'));
+  const cajaRotulos = await marco.boundingBox();
+  revisar(cerca(cajaRotulos.width, 572) && cerca(cajaRotulos.height, 322), `en Rótulos mide 572 × 322 (mide ${cajaRotulos.width} × ${cajaRotulos.height})`);
+  const conCelebrante = await dentro
+    .locator('body')
+    .getByText('P. Juan Pérez')
+    .first()
+    .waitFor({ timeout: 8000 })
+    .then(() => true, () => false);
+  revisar(conCelebrante, 'el rótulo de persona muestra «P. Juan Pérez»');
+
   console.log('Ancho menor');
   await pagina.setViewportSize({ width: 1000, height: 900 });
   await pagina.goto(`${BASE}/editor/p/${P.slug}/identidad`);
@@ -87,6 +112,23 @@ try {
   const claves = await dentro.locator('body').evaluate(() => Object.keys(localStorage));
   revisar(claves.every((k) => k.startsWith('pev_vistaprevia_')), `el iframe solo usa claves pev_vistaprevia_ (${claves.join(', ')})`);
   igual(pedidosConfig.length, 0, 'ningún iframe pidió config.json');
+
+  console.log('Portada con el tipo patronal apagado (plan 4, Review Focus 2)');
+  const Q = await prepararParroquia({ config: { ...CONFIG_BASE, tipos: { apagados: ['patronal'] } } });
+  const ctx2 = await navegador.newContext({ viewport: VIEWPORT });
+  const p2 = await ctx2.newPage();
+  await entrar(p2, Q.correo);
+  await p2.goto(`${BASE}/editor/p/${Q.slug}/pantallas/portada`);
+  // La ceja de la portada patronal sale de comun.js (portada_ceja: «FIESTAS PATRONALES <año>»).
+  const conPortada = await p2
+    .frameLocator('iframe.pv-previa-marco')
+    .locator('body')
+    .getByText(/FIESTAS PATRONALES/i)
+    .first()
+    .waitFor({ timeout: 10_000 })
+    .then(() => true, () => false);
+  revisar(conPortada, 'con «patronal» apagado, la vista previa de la portada muestra la portada patronal');
+  igual(JSON.stringify((await leerConfig(Q.id)).tipos), JSON.stringify({ apagados: ['patronal'] }), 'y la base sigue con «patronal» apagado');
 } finally {
   await navegador.close();
   await limpiar();

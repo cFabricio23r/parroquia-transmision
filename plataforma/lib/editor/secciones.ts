@@ -55,6 +55,8 @@ export interface VistaPreviaSeccion {
   titulo: string;
   conSelectorTipo: boolean;
   tipoFijo?: string;
+  /** Estado extra para la página (rótulo, celebrante, capas…), además del `tipo` (plan 4, Decisión 6). */
+  estado?: Record<string, unknown>;
 }
 
 export type Disposicion = 'una-columna' | 'dos-columnas' | 'avisos';
@@ -150,4 +152,87 @@ export function seccionDeBloque(b: Bloque): IdSeccion {
 export function hrefSeccion(slug: string, id: IdSeccion): string {
   const r = seccion(id).ruta;
   return r ? `/editor/p/${slug}/${r}` : `/editor/p/${slug}`;
+}
+
+// ---- Vista previa por ruta (plan 4, Tarea 1) ----
+
+/** Las 7 pantallas que el editor deja personalizar, en el orden de F4. */
+export const VISTAS_EDITOR: readonly string[] = ['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo'];
+
+export interface VistaDeRuta {
+  vistaPrevia: VistaPreviaSeccion | null;
+  disposicion: Disposicion;
+  /** Ancho de la columna del formulario en `dos-columnas`. */
+  anchoFormulario: number;
+}
+
+const CAPAS_VISIBLES = { mostrarLogo: true, mostrarEnVivo: true, mostrarBarra: true };
+
+/** Decisión 6: la vista previa de cada pantalla de F5 (y de su miniatura en F4). */
+function vistaPreviaDePantalla(vista: string): VistaPreviaSeccion | null {
+  const titulo = 'Vista previa';
+  switch (vista) {
+    case 'inicio':
+    case 'avisos':
+    case 'gracias':
+      return { pagina: 'pantalla', vista, titulo, conSelectorTipo: true };
+    case 'portada':
+      return { pagina: 'pantalla', vista: 'portada', titulo, conSelectorTipo: false, tipoFijo: 'patronal' };
+    case 'evento':
+      return { pagina: 'pantalla', vista: 'portada', titulo, conSelectorTipo: false, tipoFijo: 'evento' };
+    case 'produccion':
+      return { pagina: 'produccion', vista: '', titulo, conSelectorTipo: false };
+    case 'envivo':
+      return {
+        pagina: 'rotulos',
+        vista: '',
+        titulo,
+        conSelectorTipo: false,
+        tipoFijo: 'dominical',
+        estado: { rotulo: 'ninguno', ...CAPAS_VISIBLES },
+      };
+    default:
+      return null;
+  }
+}
+
+/** Decisión 7: el rótulo de persona con un celebrante de ejemplo. */
+const VISTA_ROTULOS: VistaPreviaSeccion = {
+  pagina: 'rotulos',
+  vista: '',
+  titulo: 'Vista previa · Rótulo de persona',
+  conSelectorTipo: false,
+  tipoFijo: 'dominical',
+  estado: { rotulo: 'persona', celebrante: 'P. Juan Pérez', celebranteRol: 'CELEBRANTE', ...CAPAS_VISIBLES },
+};
+
+const VISTA_TIPO: VistaPreviaSeccion = { pagina: 'pantalla', vista: 'inicio', titulo: 'Vista previa · Inicio', conSelectorTipo: false };
+
+const SIN_VISTA_PREVIA = (): VistaDeRuta => ({ vistaPrevia: null, disposicion: 'una-columna', anchoFormulario: 560 });
+
+/**
+ * La vista previa, la disposición y el ancho del formulario según la ruta completa: `/pantallas` no
+ * tiene vista previa, `/pantallas/gracias` muestra Gracias, `/tipos/<x>` muestra Inicio con ese tipo.
+ */
+export function vistaPreviaDeRuta(pathname: string, slug: string): VistaDeRuta {
+  const base = `/editor/p/${slug}`;
+  const resto = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\/+/, '').replace(/\/+$/, '') : '';
+  const [primero = '', segundo] = resto.split('/');
+  if (primero === 'pantallas') {
+    if (segundo === undefined) return SIN_VISTA_PREVIA();
+    const vp = VISTAS_EDITOR.includes(segundo) ? vistaPreviaDePantalla(segundo) : null;
+    return vp ? { vistaPrevia: vp, disposicion: 'dos-columnas', anchoFormulario: 520 } : SIN_VISTA_PREVIA();
+  }
+  if (primero === 'rotulos') return { vistaPrevia: VISTA_ROTULOS, disposicion: 'dos-columnas', anchoFormulario: 540 };
+  if (primero === 'tipos') {
+    if (segundo === undefined) return SIN_VISTA_PREVIA();
+    return { vistaPrevia: VISTA_TIPO, disposicion: 'dos-columnas', anchoFormulario: 560 };
+  }
+  const s = seccionDeRuta(pathname, slug);
+  return { vistaPrevia: s.vistaPrevia, disposicion: s.disposicion, anchoFormulario: 560 };
+}
+
+/** La vista previa de la miniatura de una pantalla en F4 (la misma de F5). */
+export function vistaPreviaDeVista(vista: string): VistaPreviaSeccion | null {
+  return VISTAS_EDITOR.includes(vista) ? vistaPreviaDePantalla(vista) : null;
 }

@@ -73,12 +73,32 @@ export function tiposParaVistaPrevia(borrador: object, comunes: TipoVistaPrevia[
 export interface MensajeVistaPrevia {
   tipo: 'pev-vista-previa';
   config: unknown;
-  estado?: { tipo: string };
+  estado?: Record<string, unknown>;
 }
 
-/** El mensaje que entiende `parroquia.js` en modo vista previa; con `estado` la pantalla muestra ese tipo. */
-export function mensajeVistaPrevia(borrador: object, urls: Record<string, string>, tipo: string | null): MensajeVistaPrevia {
+/**
+ * El mensaje que entiende `parroquia.js` en modo vista previa. `estado` junta el estado extra de la
+ * página (rótulo, celebrante, capas) con el `tipo`; sin ninguno de los dos, no va.
+ */
+export function mensajeVistaPrevia(
+  borrador: object,
+  urls: Record<string, string>,
+  tipo: string | null,
+  extra?: Record<string, unknown>,
+): MensajeVistaPrevia {
   const m: MensajeVistaPrevia = { tipo: 'pev-vista-previa', config: prepararVistaPrevia(borrador, urls) };
-  if (tipo) m.estado = { tipo };
+  if (tipo || extra) m.estado = { ...extra, ...(tipo ? { tipo } : {}) };
   return m;
+}
+
+/**
+ * Decisión 6: si la vista previa usa un tipo común que la parroquia tiene apagado (la portada con
+ * `patronal`), lo saca de `tipos.apagados` solo en la copia que va al iframe. Si no, el mismo objeto.
+ */
+export function configParaVistaPrevia(borrador: object, tipoFijo: string | undefined, comunes: string[]): object {
+  if (!tipoFijo || !comunes.includes(tipoFijo)) return borrador;
+  const b = borrador as Record<string, unknown>;
+  const tipos = objeto(b.tipos);
+  if (!Array.isArray(tipos.apagados) || !tipos.apagados.includes(tipoFijo)) return borrador;
+  return { ...b, tipos: { ...tipos, apagados: tipos.apagados.filter((k) => k !== tipoFijo) } };
 }

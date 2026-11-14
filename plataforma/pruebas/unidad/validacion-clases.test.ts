@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
   clasificarErrores,
@@ -80,9 +83,28 @@ describe('tiposComunes', () => {
   it('lista los 11 tipos comunes en el orden del panel', () => {
     const t = tiposComunes();
     expect(t).toHaveLength(11);
-    expect(t[0]).toEqual({ clave: 'dominical', nombre: 'Misa dominical' });
-    expect(t).toContainEqual({ clave: 'horasanta', nombre: 'Hora Santa' });
-    expect(t[10]).toEqual({ clave: 'evento', nombre: 'Evento especial' });
+    expect(t[0]).toMatchObject({ clave: 'dominical', nombre: 'Misa dominical' });
+    expect(t.find((x) => x.clave === 'horasanta')).toMatchObject({ clave: 'horasanta', nombre: 'Hora Santa' });
+    expect(t[10]).toMatchObject({ clave: 'evento', nombre: 'Evento especial' });
     expect(t.map((x) => x.clave)).toEqual([...CLAVES_TIPOS_COMUNES]);
+  });
+});
+
+describe('tiposComunes con rótulos y nombre del panel (plan 4, Tarea 1)', () => {
+  it('trae los rótulos de cada tipo con su nombre', () => {
+    const hs = tiposComunes().find((t) => t.clave === 'horasanta');
+    expect(hs?.rotulos.map((r) => r.nombre)).toEqual(['Guía', 'Exposición del Santísimo', 'Lectura', 'Oración', 'Bendición']);
+  });
+
+  it('trae el nombre del panel', () => {
+    expect(tiposComunes().find((t) => t.clave === 'patronalsector')?.nombrePanel).toBe('Patronal de sector');
+  });
+
+  it('los ids de rótulo de los 11 son los de IDS_ROTULO_COMUN de vicaria/parroquia.js', () => {
+    const fuente = readFileSync(resolve(__dirname, '..', '..', '..', 'vicaria', 'parroquia.js'), 'utf8');
+    const literal = /const IDS_ROTULO_COMUN = (\{[\s\S]*?\n\});/.exec(fuente)?.[1];
+    expect(literal).toBeTruthy();
+    const ids = vm.runInNewContext('(' + literal + ')') as Record<string, string[]>;
+    for (const t of tiposComunes()) expect(t.rotulos.map((r) => r.id), t.clave).toEqual([...ids[t.clave]]);
   });
 });
