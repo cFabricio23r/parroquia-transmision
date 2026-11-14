@@ -396,6 +396,8 @@ try {
   revisar((await filaInv.locator('[role="cell"]').nth(1).textContent()).endsWith('(admin)'), 'el quién termina en «(admin)»');
   revisar(!(await p.locator('main').textContent()).includes('guardar_borrador'), 'ninguna fila dice «guardar_borrador»');
   igual(await estilo(filaInv, 'padding'), '14px 18px', 'relleno de fila 14 18');
+  const altoFila = await filaInv.evaluate((e) => e.getBoundingClientRect().height);
+  revisar(altoFila >= 45 && altoFila <= 49, `la fila mide como el artboard, unos 47 px (mide ${altoFila})`);
   igual(
     await p.locator('.pv-admin-nota').last().textContent(),
     'Solo quién hizo qué y cuándo. No guarda contraseñas ni datos de las transmisiones.',
