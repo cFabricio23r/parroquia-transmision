@@ -103,7 +103,7 @@ Imágenes que luego se eligen por su `id` en pantallas y tipos propios.
 | `nombre` | Opcional; texto corto de hasta 200 caracteres para reconocer la imagen. |
 | `etiquetas` | Opcional; hasta 10 textos de hasta 200 caracteres. |
 
-El panel ofrece cada imagen de la galería como opción de imagen, con su `alt` como nombre.
+El panel ofrece cada imagen de la galería como opción de imagen, con su `nombre`; si no tiene, con su `alt`.
 
 ### `pantallas`: personalizar cada pantalla
 

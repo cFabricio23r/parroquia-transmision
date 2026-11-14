@@ -1157,6 +1157,42 @@ async function comparacion() {
 
 /* ---------- Línea base de compatibilidad ---------- */
 
+/* Rediseño · Panel: nombre corto de los tipos, rótulos ocultados por ajuste, portada de evento del propio y nombre de la galería. */
+async function casoPanelRediseno() {
+  console.log('Rediseño · Panel con nombres cortos, ajustes y nombres de galería');
+  const ctx = await nuevoContexto();
+  const cfg = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  cfg.galeria = (cfg.galeria || []).concat([{ id: 'custodia-dorada', src: 'medios/logo-blanco.svg', alt: 'Custodia sobre el altar', nombre: 'Custodia dorada' }]);
+  cfg.tipos = Object.assign({}, cfg.tipos, {
+    ajustes: { horasanta: { nombrePanel: 'Adoración', ocultarRotulos: ['bendicion'] } },
+    propios: ((cfg.tipos && cfg.tipos.propios) || []).concat([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', nombrePanel: 'Rosario', portada: 'evento', rotulos: ['persona', 'rosario'] }])
+  });
+  await ctx.route(`**/${SJ}/config.json`, (r) => servirConfig(cfg)(r));
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250);
+  await panel.waitForSelector('[data-tipo="rosario-aurora"]', { state: 'attached' });
+  const nombreBoton = (clave) => panel.evaluate((k) => document.querySelector(`[data-tipo="${k}"] .nom`).textContent, clave);
+  igual(await nombreBoton('horasanta'), 'Adoración', 'el botón de Hora Santa usa el nombre corto del ajuste');
+  igual(await nombreBoton('rosario-aurora'), 'Rosario', 'el botón del propio usa su nombre corto');
+  igual(await nombreBoton('dominical'), 'Misa dominical', 'un tipo sin ajuste conserva su nombre');
+
+  await elegirTipo(panel, 'horasanta');
+  await panel.click('[data-hoja="vivo"]');
+  const rotulos = () => panel.evaluate(() => [...document.querySelectorAll('#rotulos [data-rotulo]')].map((b) => b.dataset.rotulo));
+  let ids = await rotulos();
+  revisar(ids.length > 0 && !ids.includes('bendicion'), 'Hora Santa sin el control de Bendición (' + ids.join(', ') + ')');
+
+  await elegirTipo(panel, 'rosario-aurora');
+  const visibles = await panel.evaluate(() => ['evento', 'fecha', 'lugar', 'sector', 'santo'].filter((d) => !document.getElementById('caja-' + d).hidden));
+  igual(visibles.join(','), 'evento,fecha,lugar', 'el propio con portada de evento pide evento, fecha y lugar');
+  await panel.click('[data-hoja="vivo"]');
+  ids = await rotulos();
+  igual(ids.join(','), 'persona,rosario', 'los rótulos del propio');
+
+  await panel.click('[data-hoja="preparar"]');
+  igual((await panel.textContent('[data-imagen="galeria:custodia-dorada"]')).trim(), 'Custodia dorada', 'el selector de imagen ofrece el nombre de la galería');
+  await ctx.close();
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1233,6 +1269,7 @@ async function casoLineaBase() {
     await casoVistaPrevia();
     await casoPantallasRediseno();
     await casoRotulosRediseno();
+    await casoPanelRediseno();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
