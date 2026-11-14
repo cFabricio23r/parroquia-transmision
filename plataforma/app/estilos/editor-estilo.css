@@ -24,3 +24,28 @@
 @media (max-width: 760px) {
   .pv-pantallas-grilla { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Migas (F5 y F8) ---- */
+.pv-migas { font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
+.pv-migas-enlace { font-size: 14px; font-weight: 700; color: var(--pv-primario); }
+.pv-migas-enlace:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; border-radius: 4px; }
+.pv-migas-actual { color: var(--pv-texto); }
+
+/* ---- Grupos de F5 y F6 ---- */
+.pv-estilo-grupo { display: flex; flex-direction: column; gap: 10px; }
+
+/* Tarjeta «Qué se muestra» (F5) y «Rótulos que se ofrecen en el panel» (F8). */
+.pv-tarjeta-opciones {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pv-tarjeta-opciones > .pv-subtitulo { margin-bottom: 4px; }
+.pv-opcion-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.pv-opcion-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pv-opcion-etiqueta { font-size: 14px; font-weight: 700; }
+.pv-opcion-ayuda { font-size: 12px; font-weight: 500; color: var(--pv-texto-suave); }

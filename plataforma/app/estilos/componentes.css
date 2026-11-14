@@ -208,7 +208,8 @@ button.pv-enlace {
   background: #fff;
 }
 .pv-interruptor[aria-checked='true'] .pv-interruptor-perilla { left: auto; right: 3px; }
-.pv-interruptor:disabled { opacity: .6; cursor: not-allowed; }
+.pv-interruptor:disabled,
+.pv-interruptor[aria-disabled='true'] { opacity: .6; cursor: not-allowed; }
 
 /* ---- Segmentado ---- */
 .pv-segmentado { display: flex; flex-direction: column; gap: 6px; }

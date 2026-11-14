@@ -96,7 +96,169 @@ try {
     'page',
     'en Gracias, «Pantallas» sigue siendo la actual en el menú',
   );
-  // F5 (Tarea 4)
+
+  console.log('F5 · Editar una pantalla: etiquetas y estado inicial');
+  const Q = await prepararParroquia({ config: CONFIG_BASE });
+  const p1 = await nuevaPagina(Q.correo);
+  await p1.goto(`${BASE}/editor/p/${Q.slug}/pantallas/inicio`);
+  const migas = p1.getByRole('navigation', { name: 'Migas' });
+  igual(await migas.getByRole('link', { name: 'Pantallas' }).getAttribute('href'), `/editor/p/${Q.slug}/pantallas`, 'la miga «Pantallas» lleva a la lista');
+  igual(await migas.locator('[aria-current="page"]').innerText(), 'Inicio', 'la miga actual es «Inicio»');
+  igual(await p1.locator('h1').innerText(), 'Pantalla de Inicio', 'el título es «Pantalla de Inicio»');
+  const botones = async (grupo) => p1.getByRole('group', { name: grupo, exact: true }).locator('button').allInnerTexts();
+  igual(JSON.stringify(await botones('Fondo')), JSON.stringify(['Colores de la parroquia', 'Foto de la galería', 'Color liso']), 'los botones de «Fondo»');
+  igual(
+    JSON.stringify(await botones('Imagen grande')),
+    JSON.stringify(['La del tipo de transmisión', 'Siempre la misma', 'Sin imagen']),
+    'los botones de «Imagen grande»',
+  );
+  igual(
+    JSON.stringify(await botones('Distribución')),
+    JSON.stringify(['Imagen a la derecha', 'Imagen a la izquierda', 'Centrado']),
+    'los botones de «Distribución»',
+  );
+  igual(await apretado(p1, 'Fondo'), 'Colores de la parroquia', 'apretado «Colores de la parroquia»');
+  igual(await apretado(p1, 'Imagen grande'), 'La del tipo de transmisión', 'apretado «La del tipo de transmisión»');
+  igual(await apretado(p1, 'Distribución'), 'Imagen a la izquierda', 'apretado «Imagen a la izquierda»');
+  igual(await interruptor(p1, 'Logo').getAttribute('aria-checked'), 'true', '«Logo» encendido');
+  igual(await interruptor(p1, 'Cuenta regresiva').getAttribute('aria-checked'), 'true', '«Cuenta regresiva» encendido');
+  igual(await interruptor(p1, 'Franja del lema').getAttribute('aria-checked'), 'true', '«Franja del lema» encendido');
+  igual(await interruptor(p1, 'Redes sociales').getAttribute('aria-checked'), 'false', '«Redes sociales» apagado');
+  revisar(
+    await p1.getByText('Cada tipo de transmisión puede tener el suyo; este es el que se usa si no.').isVisible(),
+    '«Texto de arriba» tiene su ayuda',
+  );
+  igual(await p1.getByRole('button', { name: 'Volver a como venía' }).count(), 0, 'sin personalizar no hay «Volver a como venía»');
+  igual((await camposSinEtiqueta(p1)).length, 0, 'todo campo tiene etiqueta');
+
+  console.log('F5 · Escritura en la base y vista previa');
+  await p1.getByRole('button', { name: 'Imagen a la derecha' }).click();
+  await interruptor(p1, 'Franja del lema').click();
+  await interruptor(p1, 'Redes sociales').click();
+  await p1.getByLabel('Texto de arriba').fill('En breve comenzamos');
+  await esperarGuardado(p1);
+  const esperado = { modo: 'personalizada', distribucion: 'derecha', ocultar: ['franja'], mostrar: ['redes'], textos: { inicio_titulo: 'En breve comenzamos' } };
+  const c1 = await esperarEnBase(Q.id, (c) => iguales(c.pantallas?.inicio, esperado));
+  revisar(iguales(c1.pantallas?.inicio, esperado), `la base tiene pantallas.inicio (${JSON.stringify(c1.pantallas?.inicio)})`);
+  const visto = await p1
+    .frameLocator('iframe.pv-previa-marco')
+    .locator('body')
+    .getByText(/En breve comenzamos/i)
+    .first()
+    .waitFor({ timeout: 8000 })
+    .then(() => true, () => false);
+  revisar(visto, 'la vista previa muestra «En breve comenzamos»');
+  revisar(await p1.getByRole('button', { name: 'Volver a como venía' }).isVisible(), 'aparece «Volver a como venía»');
+
+  console.log('F5 · Galería vacía');
+  await p1.getByRole('button', { name: 'Foto de la galería' }).click();
+  revisar(await p1.getByText('Todavía no hay fotos en la galería.').isVisible(), 'sin galería avisa «Todavía no hay fotos en la galería.»');
+  revisar(await p1.getByRole('link', { name: 'Ir a Galería' }).isVisible(), 'con el enlace «Ir a Galería»');
+  igual(await apretado(p1, 'Fondo'), 'Colores de la parroquia', '«Foto de la galería» no queda apretado');
+
+  console.log('F5 · Volver a como venía');
+  await p1.getByRole('button', { name: 'Volver a como venía' }).click();
+  const dialogo = p1.getByRole('dialog', { name: 'Volver a como venía' });
+  revisar(
+    await dialogo.getByText('La pantalla de Inicio vuelve a verse como viene. Lo que cambiaste aquí se borra.').isVisible(),
+    'el diálogo explica qué pasa',
+  );
+  await dialogo.getByRole('button', { name: 'Sí, volver' }).click();
+  await esperarGuardado(p1);
+  const c2 = await esperarEnBase(Q.id, (c) => !c.pantallas);
+  igual(c2.pantallas, undefined, '«Sí, volver» quita pantallas.inicio (y el bloque, que quedó vacío)');
+
+  console.log('F5 · Producción y Capa EN VIVO');
+  await p1.goto(`${BASE}/editor/p/${Q.slug}/pantallas/produccion`);
+  igual(await p1.getByRole('group', { name: 'Fondo', exact: true }).count(), 0, 'Producción no tiene «Fondo»');
+  igual(await p1.getByRole('group', { name: 'Imagen grande', exact: true }).count(), 0, 'ni «Imagen grande»');
+  igual(await p1.getByRole('group', { name: 'Distribución', exact: true }).count(), 0, 'ni «Distribución»');
+  revisar(await interruptor(p1, 'Logo').isVisible(), 'tiene «Logo»');
+  revisar(
+    (await p1.getByLabel('Texto de arriba').isVisible()) && (await p1.getByLabel('Nombre del equipo').isVisible()),
+    'tiene «Texto de arriba» y «Nombre del equipo»',
+  );
+  revisar((await p1.locator('iframe.pv-previa-marco').getAttribute('src')).includes('produccion.html'), 'la vista previa es produccion.html');
+  await p1.getByLabel('Nombre del equipo').fill('Pastoral juvenil');
+  const vistoProd = await p1
+    .frameLocator('iframe.pv-previa-marco')
+    .locator('body')
+    .getByText(/Pastoral juvenil/i)
+    .first()
+    .waitFor({ timeout: 10_000 })
+    .then(() => true, () => false);
+  revisar(vistoProd, '«Pastoral juvenil» se ve en la vista previa');
+  await esperarGuardado(p1);
+  await p1.goto(`${BASE}/editor/p/${Q.slug}/pantallas/envivo`);
+  await interruptor(p1, 'EN VIVO').click();
+  await esperarGuardado(p1);
+  const c3 = await esperarEnBase(Q.id, (c) => c.pantallas?.envivo?.ocultar?.includes('envivo'));
+  igual(JSON.stringify(c3.pantallas?.envivo?.ocultar), JSON.stringify(['envivo']), 'apagar «EN VIVO» escribe ocultar: [envivo]');
+
+  console.log('F5 · Vista inválida');
+  await p1.goto(`${BASE}/editor/p/${Q.slug}/pantallas/horarios`);
+  revisar(await p1.getByRole('heading', { name: 'Esa pantalla no existe' }).isVisible(), '/pantallas/horarios dice «Esa pantalla no existe»');
+
+  console.log('F5 · «Siempre la misma», «Color liso» y el punto del menú');
+  const R = await prepararParroquia({
+    config: { ...CONFIG_BASE, galeria: [{ id: 'img-virgen', src: 'medios/virgen.png', alt: 'Virgen', nombre: 'Virgen del Rosario' }] },
+  });
+  const p2 = await nuevaPagina(R.correo);
+  await p2.goto(`${BASE}/editor/p/${R.slug}/pantallas/inicio`);
+  await p2.getByRole('button', { name: 'Siempre la misma' }).click();
+  await esperarGuardado(p2);
+  let c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.imagen === 'fachada');
+  igual(c4.pantallas?.inicio?.imagen, 'fachada', 'sin imagen del patrono, «Siempre la misma» escribe la fachada');
+  await p2.getByLabel('¿Cuál imagen?').selectOption({ label: 'Virgen del Rosario' });
+  await esperarGuardado(p2);
+  c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.imagen === 'galeria:img-virgen');
+  igual(c4.pantallas?.inicio?.imagen, 'galeria:img-virgen', 'elegir «Virgen del Rosario» escribe galeria:<id>');
+  await p2.getByLabel('¿Cuál imagen?').selectOption({ label: 'Imagen del patrono' });
+  await p2
+    .waitForFunction(
+      () =>
+        [...document.querySelectorAll('nav[aria-label="Secciones del editor"] a')]
+          .find((a) => a.textContent.startsWith('Pantallas'))
+          ?.textContent.includes('Revisar'),
+      null,
+      { timeout: 5000 },
+    )
+    .catch(() => {});
+  igual(
+    await p2.getByRole('navigation', { name: 'Secciones del editor' }).getByRole('link', { name: /^Pantallas/ }).locator('.pv-solo-lectores').innerText(),
+    'Revisar',
+    'con el patrono sin imagen, el punto de «Pantallas» dice «Revisar»',
+  );
+  await p2.getByRole('button', { name: 'Color liso' }).click();
+  await esperarGuardado(p2);
+  c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.tipo === 'color');
+  revisar(iguales(c4.pantallas?.inicio?.fondo, { tipo: 'color', color: '#4b0f18' }), `«Color liso» escribe el oscuro (${JSON.stringify(c4.pantallas?.inicio?.fondo)})`);
+  await p2.getByLabel('Color del fondo').fill('#ffff00');
+  revisar(await p2.getByText('El texto blanco no se lee sobre este color. Elige uno más oscuro.').isVisible(), 'un color claro muestra el error');
+  await p2.waitForTimeout(1500);
+  igual((await leerConfig(R.id)).pantallas?.inicio?.fondo?.color, '#4b0f18', 'y la base sigue con el oscuro');
+  igual((await camposSinEtiqueta(p2)).length, 0, 'todo campo tiene etiqueta (con los selects a la vista)');
+
+  console.log('F5 · Config viejo');
+  const viejo = { modo: 'personalizada', ocultar: ['chispas'], imagen: 'santo' };
+  const V = await prepararParroquia({ config: { ...CONFIG_BASE, pantallas: { gracias: viejo } } });
+  const p3 = await nuevaPagina(V.correo);
+  const antesV = await leerConfig(V.id);
+  await p3.goto(`${BASE}/editor/p/${V.slug}/pantallas/gracias`);
+  await p3.waitForTimeout(1500);
+  revisar(iguales(await leerConfig(V.id), antesV), 'abrir la pantalla no cambió la base');
+  igual(
+    await p3.getByLabel('¿Cuál imagen?').locator('option:checked').innerText(),
+    'La del santo del día (se elige en el panel)',
+    'el select muestra la del santo',
+  );
+  await interruptor(p3, 'Horarios').click();
+  await esperarGuardado(p3);
+  const c5 = await esperarEnBase(V.id, (c) => c.pantallas?.gracias?.mostrar?.includes('horarios'));
+  revisar(
+    iguales(c5.pantallas?.gracias, { modo: 'personalizada', ocultar: ['chispas'], imagen: 'santo', mostrar: ['horarios'] }),
+    `encender «Horarios» conserva chispas y santo (${JSON.stringify(c5.pantallas?.gracias)})`,
+  );
 } finally {
   await navegador.close();
   await limpiar();
