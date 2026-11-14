@@ -1,6 +1,7 @@
 // Textos y estados de la administración (D1 y D2), puros: sin Supabase ni Next, así los usan también
 // los componentes de cliente. lib/admin-parroquias.ts y lib/admin-coordinadores.ts los reexportan.
 import type { TonoChip } from '../app/componentes/Chip';
+import { revisarSlug } from './slug';
 
 export const compararEs = (a: string, b: string) => a.localeCompare(b, 'es');
 
@@ -51,6 +52,31 @@ export function sugerirSlug(nombre: string): string {
     .replace(/^-+|-+$/g, '');
   const corto = base.slice(0, 40).replace(/-+$/, '');
   return corto.length >= 3 ? corto : '';
+}
+
+export const MAX_LUGAR = 200;
+export type CampoNuevaParroquia = 'nombre' | 'slug' | 'lugar';
+
+/**
+ * Errores de «Nueva parroquia» en el orden del formulario (nombre, link, lugar), todos a la vez (ronda 2
+ * del plan 5). Con nombre y link vacíos no culpa al link: sale del nombre, que ya tiene su error.
+ */
+export function validarNuevaParroquia(
+  nombreCrudo: string,
+  slugCrudo: string,
+  lugarCrudo: string,
+  slugsDelRepo: string[],
+): { campo: CampoNuevaParroquia; texto: string }[] {
+  const nombre = nombreCrudo.trim();
+  const slug = slugCrudo.trim().toLowerCase();
+  const lugar = lugarCrudo.trim();
+  const errores: { campo: CampoNuevaParroquia; texto: string }[] = [];
+  if (!nombre) errores.push({ campo: 'nombre', texto: 'Escribe el nombre de la parroquia.' });
+  const errorSlug = !nombre && !slug ? null : revisarSlug(slug, slugsDelRepo);
+  if (errorSlug) errores.push({ campo: 'slug', texto: errorSlug });
+  if (!lugar) errores.push({ campo: 'lugar', texto: 'Escribe el lugar.' });
+  else if (lugar.length > MAX_LUGAR) errores.push({ campo: 'lugar', texto: `El lugar puede tener hasta ${MAX_LUGAR} caracteres.` });
+  return errores;
 }
 
 export interface FilaParroquia {

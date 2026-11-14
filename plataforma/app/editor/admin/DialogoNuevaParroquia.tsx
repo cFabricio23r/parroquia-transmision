@@ -27,7 +27,10 @@ export function DialogoNuevaParroquia({
   const [slug, setSlug] = useState('');
   const [slugTocado, setSlugTocado] = useState(false);
   const [lugar, setLugar] = useState('');
-  const [error, setError] = useState<{ texto: string; campo?: Campo }>();
+  // Error general (sin campo) y los de cada campo; escribir en un campo borra el suyo (ronda 2).
+  const [error, setError] = useState<string>();
+  const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
+  const limpiar = (c: Campo) => setErrores((e) => (e[c] ? { ...e, [c]: undefined } : e));
   const { ocupado, enviar } = useEnvio();
 
   function cerrar() {
@@ -36,6 +39,7 @@ export function DialogoNuevaParroquia({
     setSlugTocado(false);
     setLugar('');
     setError(undefined);
+    setErrores({});
     onCerrar();
   }
 
@@ -43,21 +47,28 @@ export function DialogoNuevaParroquia({
     e.preventDefault();
     const r = await enviar(() => crearParroquia(nombre, slug, lugar));
     if (r.tipo === 'ocupado') return;
-    if (r.tipo === 'fallo') return setError({ texto: MENSAJE_SIN_CONEXION });
-    if (r.valor.error) return setError({ texto: r.valor.error, campo: r.valor.campo });
+    if (r.tipo === 'fallo') {
+      setErrores({});
+      return setError(MENSAJE_SIN_CONEXION);
+    }
+    if (r.valor.error) {
+      const porCampo = r.valor.errores ?? (r.valor.campo ? { [r.valor.campo]: r.valor.error } : {});
+      setErrores(porCampo);
+      return setError(r.valor.campo ? undefined : r.valor.error);
+    }
     const creado = r.valor.slug ?? slug;
     const nombreCreado = nombre.trim();
     cerrar();
     alCrear(nombreCreado, creado);
   }
 
-  const errorDe = (c: Campo) => (error?.campo === c ? error.texto : undefined);
+  const errorDe = (c: Campo) => errores[c];
   return (
     <Dialogo abierto={abierto} titulo="Nueva parroquia" onCerrar={cerrar}>
       <form className="pv-admin-formulario" onSubmit={crear} noValidate>
-        {error && !error.campo && (
+        {error && (
           <p role="alert" className="pv-alerta">
-            {error.texto}
+            {error}
           </p>
         )}
         <CampoTexto
@@ -68,7 +79,11 @@ export function DialogoNuevaParroquia({
           autoComplete="off"
           onChange={(e) => {
             setNombre(e.target.value);
-            if (!slugTocado) setSlug(sugerirSlug(e.target.value));
+            limpiar('nombre');
+            if (!slugTocado) {
+              setSlug(sugerirSlug(e.target.value));
+              limpiar('slug');
+            }
           }}
         />
         <CampoTexto
@@ -82,6 +97,7 @@ export function DialogoNuevaParroquia({
           onChange={(e) => {
             setSlugTocado(true);
             setSlug(e.target.value);
+            limpiar('slug');
           }}
         />
         <CampoTexto
@@ -91,7 +107,10 @@ export function DialogoNuevaParroquia({
           error={errorDe('lugar')}
           maxLength={200}
           ayuda="Por ejemplo: Ciudad Arce, La Libertad."
-          onChange={(e) => setLugar(e.target.value)}
+          onChange={(e) => {
+            setLugar(e.target.value);
+            limpiar('lugar');
+          }}
         />
         <div className="pv-dialogo-acciones">
           <Boton variante="secundario" onClick={cerrar}>

@@ -59,3 +59,26 @@ describe('textoCoordinadores (Decisión 8)', () => {
     expect(textoCoordinadores(fila([], false))).toBe('—');
   });
 });
+
+describe('validarNuevaParroquia (plan 5, ronda 2)', () => {
+  it('revisa en el orden del formulario (nombre, link, lugar) y devuelve todos los errores', async () => {
+    const { validarNuevaParroquia } = await import('../../lib/admin-textos');
+    expect(validarNuevaParroquia('Santa Ana', 'ab', '', [])).toEqual([
+      { campo: 'slug', texto: 'La dirección debe tener entre 3 y 40 caracteres.' },
+      { campo: 'lugar', texto: 'Escribe el lugar.' },
+    ]);
+    expect(validarNuevaParroquia(' ', 'santa-ana', 'x'.repeat(201), [])).toEqual([
+      { campo: 'nombre', texto: 'Escribe el nombre de la parroquia.' },
+      { campo: 'lugar', texto: 'El lugar puede tener hasta 200 caracteres.' },
+    ]);
+    expect(validarNuevaParroquia('Santa Ana', 'santa-ana', 'Chalchuapa', [])).toEqual([]);
+  });
+
+  it('con el formulario vacío no culpa al link, que sale del nombre', async () => {
+    const { validarNuevaParroquia } = await import('../../lib/admin-textos');
+    expect(validarNuevaParroquia('', '', '', [])).toEqual([
+      { campo: 'nombre', texto: 'Escribe el nombre de la parroquia.' },
+      { campo: 'lugar', texto: 'Escribe el lugar.' },
+    ]);
+  });
+});

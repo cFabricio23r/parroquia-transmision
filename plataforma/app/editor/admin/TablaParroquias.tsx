@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { chipParroquia, textoCoordinadores, type FilaParroquia } from '../../../lib/admin-textos';
 import type { EstadoHook } from '../../../lib/despliegue';
 import { Boton } from '../../componentes/Boton';
@@ -34,7 +34,18 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
   const [aDesactivar, setADesactivar] = useState<FilaParroquia | null>(null);
   const [anuncio, setAnuncio] = useState<ReactNode>(null);
   const [error, setError] = useState<string | null>(null);
+  // Ronda 2: al desactivar o reactivar, el botón que se usó desaparece (la fila cambia y se mueve).
+  // El foco va al botón nuevo de esa fila en cuanto la tabla refrescada lo trae, en vez de caer al <body>.
+  const [enfocar, setEnfocar] = useState<string | null>(null);
   const { ocupado, enviar } = useEnvio();
+
+  useEffect(() => {
+    if (!enfocar) return;
+    const boton = [...document.querySelectorAll<HTMLElement>('main [aria-label]')].find((e) => e.getAttribute('aria-label') === enfocar);
+    if (!boton) return;
+    boton.focus();
+    setEnfocar(null);
+  }, [enfocar, filas]);
 
   async function cambiar(f: FilaParroquia, apagar: boolean) {
     setError(null);
@@ -48,6 +59,7 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
       anuncioHook(r.valor.hook, apagar) ??
         (apagar ? `${f.nombre} quedó desactivada.` : `${f.nombre} está activa otra vez. Vuelve a salir en OBS después del próximo despliegue.`),
     );
+    setEnfocar(`${apagar ? 'Reactivar' : 'Desactivar'} ${f.nombre}`);
     router.refresh();
   }
 

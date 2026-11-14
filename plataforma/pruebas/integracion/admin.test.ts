@@ -86,11 +86,19 @@ describe('crearParroquia con lugar (plan 5)', () => {
     const admin = await unAdmin();
     const d = deps(admin.cliente);
     const slug = `lugar-${sufijo()}`;
-    expect(await crearParroquia(d, slug, 'Santa Ana', '')).toEqual({ error: 'Escribe el lugar.', campo: 'lugar' });
-    expect(await crearParroquia(d, slug, 'Santa Ana', '  ')).toEqual({ error: 'Escribe el lugar.', campo: 'lugar' });
+    const sinLugar = { error: 'Escribe el lugar.', campo: 'lugar', errores: { lugar: 'Escribe el lugar.' } };
+    expect(await crearParroquia(d, slug, 'Santa Ana', '')).toEqual(sinLugar);
+    expect(await crearParroquia(d, slug, 'Santa Ana', '  ')).toEqual(sinLugar);
     expect(await crearParroquia(d, slug, 'Santa Ana', 'x'.repeat(201))).toEqual({
       error: 'El lugar puede tener hasta 200 caracteres.',
       campo: 'lugar',
+      errores: { lugar: 'El lugar puede tener hasta 200 caracteres.' },
+    });
+    // Ronda 2: en el orden del formulario y todos a la vez; con todo vacío no culpa al link.
+    expect(await crearParroquia(d, '', '', '')).toEqual({
+      error: 'Escribe el nombre de la parroquia.',
+      campo: 'nombre',
+      errores: { nombre: 'Escribe el nombre de la parroquia.', lugar: 'Escribe el lugar.' },
     });
     const ok = await crearParroquia(d, slug, 'Santa Ana', ' Chalchuapa ');
     expect(ok).toEqual({ slug });

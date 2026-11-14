@@ -28,6 +28,12 @@
 
 /* Anuncios tras una acción (role=status) */
 .pv-admin-anuncio {
+  /* Pegado arriba (ronda 2): tras desactivar, la fila se va al final y el foco la sigue; el anuncio
+     tiene que seguir a la vista. */
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(18, 32, 51, 0.12);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
@@ -44,6 +50,7 @@
 .pv-tabla--registro .pv-tabla-fila:not(.pv-tabla-cabecera) [role='cell']:first-child { color: var(--pv-texto-suave); }
 /* En el artboard el chip va en línea dentro de la celda: su relleno no agranda la fila (alto ≈ 47 px). */
 .pv-tabla--registro .pv-chip { display: inline; }
+.pv-admin-filtro-lugar { display: flex; align-items: center; gap: 10px; }
 .pv-admin-lugar { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .pv-admin-lugar select {
   border: 1.5px solid var(--pv-borde);

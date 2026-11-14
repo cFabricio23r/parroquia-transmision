@@ -85,6 +85,39 @@ try {
   revisar((await pc.locator('main').getByRole('alert').textContent()).includes('Solo un administrador puede hacer esto'), 'un coordinador ve el aviso de solo admin');
   revisar(await pc.getByRole('link', { name: 'Volver' }).isVisible(), 'y el botón Volver');
   igual(await pc.locator('nav[aria-label="Secciones"]').count(), 0, 'sin pestañas para el coordinador');
+  {
+    // Ronda 2: el aviso del layout no basta; las páginas tampoco pueden mandar datos en el HTML ni en el RSC.
+    const ajena = await crearParroquia('Ajena');
+    const victima = await crearUsuario('adm-victima', 'Víctima Ajena');
+    await hacerMiembro(ajena.id, victima.id);
+    const invitada = `adm-invitada-${sufijo()}@prueba.test`;
+    creadas.correos.push(invitada);
+    {
+      const { error } = await servicio.from('invitaciones').insert({
+        correo: invitada,
+        rol: 'coordinador',
+        parroquia_id: ajena.id,
+        token_hash: `prueba-${sufijo()}`,
+        vence_en: new Date(Date.now() + 86_400_000).toISOString(),
+      });
+      if (error) throw error;
+      const { error: er } = await servicio.from('registro').insert({ parroquia_id: ajena.id, usuario_id: null, accion: 'invitar', detalle: { correo: invitada } });
+      if (er) throw er;
+    }
+    for (const ruta of ['/editor/admin', '/editor/admin/coordinadores', '/editor/admin/registro']) {
+      for (const [modo, headers] of [
+        ['HTML', {}],
+        ['RSC', { RSC: '1' }],
+      ]) {
+        const r = await pc.request.get(`${BASE}${ruta}`, { headers });
+        const cuerpo = await r.text();
+        revisar(
+          ![victima.correo, invitada, ajena.slug].some((t) => cuerpo.includes(t)),
+          `${modo} de ${ruta} para un coordinador: sin correos ni parroquias ajenas`,
+        );
+      }
+    }
+  }
   await pc.context().close();
 
   const anonima = await nuevaPagina();
@@ -146,6 +179,16 @@ try {
   await botonNueva.click();
   const dlgNueva = p.getByRole('dialog', { name: 'Nueva parroquia' });
   revisar(await dlgNueva.isVisible(), 'abre el diálogo «Nueva parroquia»');
+  await dlgNueva.getByRole('button', { name: 'Crear parroquia' }).click();
+  await dlgNueva.locator('#nueva-nombre-error').waitFor({ timeout: 15_000 }).catch(() => {});
+  igual(
+    (await dlgNueva.locator('.pv-campo-error').allTextContents()).join('|'),
+    'Escribe el nombre de la parroquia.|Escribe el lugar.',
+    'vacío: errores en Nombre y Lugar, en orden, sin culpar al Link',
+  );
+  await dlgNueva.getByLabel('Nombre de la parroquia').fill('Santa Lucía Mártir');
+  igual(await dlgNueva.locator('#nueva-nombre-error').count(), 0, 'escribir el nombre quita su error');
+  await dlgNueva.getByLabel('Nombre de la parroquia').fill('');
   const suf = sufijo();
   await dlgNueva.getByLabel('Nombre de la parroquia').fill(`Parroquia Santa Lucía ${suf}`);
   igual(await dlgNueva.getByLabel('Link').inputValue(), `santa-lucia-${suf}`, 'el link se sugiere del nombre');
@@ -157,6 +200,7 @@ try {
   await p.waitForTimeout(800);
   revisar((await dlgNueva.locator('#nueva-lugar-error').count()) === 1, 'sin lugar: error en el campo Lugar');
   await dlgNueva.getByLabel('Lugar').fill('Chalchuapa, Santa Ana');
+  igual(await dlgNueva.locator('#nueva-lugar-error').count(), 0, 'escribir el lugar quita su error');
   await dlgNueva.getByRole('button', { name: 'Crear parroquia' }).click();
   await p.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 15_000 });
   const filaNueva = p.locator('[role="row"]', { hasText: `santa-lucia-${suf}` });
@@ -201,6 +245,16 @@ try {
     );
   await chipEs(deAna.slug, 'Desactivada');
   revisar(true, 'chip «Desactivada»');
+  const enPantalla = (loc) =>
+    loc.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
+    });
+  const focoEn = (n) =>
+    p.waitForFunction((x) => document.activeElement?.getAttribute('aria-label') === x, n, { timeout: 15_000 }).catch(() => {});
+  await focoEn(`Reactivar ${deAna.nombre}`);
+  igual(await p.evaluate(() => document.activeElement?.getAttribute('aria-label')), `Reactivar ${deAna.nombre}`, 'tras desactivar, el foco va a «Reactivar» de esa fila');
+  revisar(await enPantalla(p.getByRole('status').filter({ hasText: 'quedó desactivada' })), 'el anuncio de la desactivación se ve en pantalla');
   igual((await fila(deAna).getByRole('button').allTextContents()).join('|'), 'Reactivar', 'solo el botón «Reactivar»');
   igual(await estilo(fila(deAna).locator('b').first(), 'color'), 'rgb(74, 85, 104)', 'nombre en gris');
 
@@ -225,6 +279,9 @@ try {
   igual(await anuncio.textContent(), `${deAna.nombre} está activa otra vez. Vuelve a salir en OBS después del próximo despliegue.`, 'anuncia la reactivación');
   await chipEs(deAna.slug, 'Borrador');
   revisar(true, 'vuelve a «Borrador»');
+  await focoEn(`Desactivar ${deAna.nombre}`);
+  igual(await p.evaluate(() => document.activeElement?.getAttribute('aria-label')), `Desactivar ${deAna.nombre}`, 'tras reactivar, el foco va a «Desactivar» de esa fila');
+  revisar(await enPantalla(anuncio), 'el anuncio de la reactivación se ve en pantalla');
   await pa.goto(`${BASE}/editor/p/${deAna.slug}`);
   revisar(!(await pa.locator('body').textContent()).includes('No encontramos esa parroquia'), 'Ana vuelve a entrar al editor');
   await pa.context().close();
@@ -403,13 +460,34 @@ try {
     'Solo quién hizo qué y cuándo. No guarda contraseñas ni datos de las transmisiones.',
     'la nota de D3',
   );
-  await lugar.selectOption({ label: A.nombre });
+  // Ronda 2 (WCAG 3.2.2): con el teclado, recorrer las opciones no navega; Enter o «Filtrar» sí.
+  await lugar.focus();
+  await p.keyboard.press('ArrowDown');
+  await p.waitForTimeout(1500);
+  igual(new URL(p.url()).search, '', 'una flecha en «Lugar» no cambia la página');
+  await p.keyboard.press('Tab');
+  const filtrar = p.getByRole('button', { name: 'Filtrar' });
+  revisar(await filtrar.evaluate((e) => e === document.activeElement), 'Tab lleva a «Filtrar»');
+  {
+    const caja = await filtrar.boundingBox();
+    revisar(Boolean(caja && caja.width >= 44 && caja.height >= 24), `«Filtrar» se ve con el foco (mide ${caja?.width}x${caja?.height})`);
+  }
+  await lugar.focus();
+  await lugar.selectOption({ label: A.nombre }); // sin puntero: como el teclado
+  await p.waitForTimeout(800);
+  igual(new URL(p.url()).search, '', 'elegir sin puntero tampoco navega');
+  await p.keyboard.press('Enter');
   await p.waitForURL((u) => u.searchParams.get('parroquia') === A.id, { timeout: 15_000 });
-  revisar(true, '«Lugar» lleva a ?parroquia=<id de A>');
+  revisar(true, 'Enter en «Lugar» lleva a ?parroquia=<id de A>');
   await p.locator('[role="row"]:not(.pv-tabla-cabecera)').first().waitFor({ timeout: 15_000 });
   const frasesA = await p.locator('[role="row"]:not(.pv-tabla-cabecera) [role="cell"]:nth-child(3)').allTextContents();
   revisar(frasesA.length > 0 && frasesA.every((t) => t.includes(A.nombre)), 'con «Lugar», solo filas de A');
   igual(await p.getByLabel('Lugar').evaluate((s) => s.options[s.selectedIndex].text), A.nombre, '«Lugar» muestra A');
+  // Con el ratón (el puntero toca el select antes del cambio) sigue navegando al elegir (Decisión 19).
+  await p.getByLabel('Lugar').dispatchEvent('pointerdown', { pointerType: 'mouse' });
+  await p.getByLabel('Lugar').selectOption({ label: 'Todos' });
+  await p.waitForURL((u) => !u.searchParams.has('parroquia'), { timeout: 15_000 });
+  revisar(true, 'con el ratón, elegir «Todos» quita el filtro');
   igual((await camposSinEtiqueta(p)).length, 0, 'D3 sin campos sin etiqueta');
 } catch (e) {
   revisar(false, `error inesperado: ${e instanceof Error ? e.stack : e}`);

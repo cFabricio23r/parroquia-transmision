@@ -18,3 +18,13 @@ input, select, button, textarea { font-family: inherit; }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* Un control solo para lectores que se ve al recibir el foco (ronda 2 del plan 5): oculto no ocupa
+   lugar aunque tenga clases de botón; con el foco recupera su tamaño. */
+.pv-solo-lectores.pv-solo-lectores--foco:not(:focus) { position: absolute; min-height: 0; padding: 0; border: 0; }
+.pv-solo-lectores.pv-solo-lectores--foco:focus {
+  position: relative;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}

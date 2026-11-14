@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { correoInvitacion, type Mensaje } from './correo';
 import { validarNombre } from './perfiles';
 import { MENSAJE_CLAVES_DISTINTAS, MENSAJE_CLAVE_CORTA, MINIMO_CLAVE } from './sesion';
-import { revisarSlug } from './slug';
+import { MAX_LUGAR, validarNuevaParroquia } from './admin-textos';
 import { DIAS_INVITACION, hashDe, nuevoToken } from './tokens';
 
 export const MENSAJE_SOLO_ADMIN = 'Solo un administrador puede hacer esto';
@@ -20,6 +20,8 @@ export type Campo = 'nombre' | 'slug' | 'correo' | 'clave' | 'lugar';
 export interface Resultado {
   error?: string;
   campo?: Campo;
+  /** Todos los errores de campo, en el orden del formulario (`error`/`campo` son el primero). */
+  errores?: Partial<Record<Campo, string>>;
 }
 
 export interface DepsAdmin {
@@ -60,7 +62,7 @@ export async function registrar(
   if (error) throw error;
 }
 
-export const MAX_LUGAR = 200;
+export { MAX_LUGAR };
 
 /** Crea la parroquia y su borrador `{ nombre, lugar }`. El lugar es obligatorio (vicaria lo exige para publicar). Solo administradores. */
 export async function crearParroquia(
@@ -73,12 +75,11 @@ export async function crearParroquia(
   if (!quien) return { error: MENSAJE_SOLO_ADMIN };
   const slug = slugCrudo.trim().toLowerCase();
   const nombre = nombreCrudo.trim();
-  const errorSlug = revisarSlug(slug, deps.slugsDelRepo);
-  if (errorSlug) return { error: errorSlug, campo: 'slug' };
-  if (!nombre) return { error: 'Escribe el nombre de la parroquia.', campo: 'nombre' };
   const lugar = lugarCrudo.trim();
-  if (!lugar) return { error: 'Escribe el lugar.', campo: 'lugar' };
-  if (lugar.length > MAX_LUGAR) return { error: `El lugar puede tener hasta ${MAX_LUGAR} caracteres.`, campo: 'lugar' };
+  const errores = validarNuevaParroquia(nombre, slug, lugar, deps.slugsDelRepo);
+  if (errores.length > 0) {
+    return { error: errores[0].texto, campo: errores[0].campo, errores: Object.fromEntries(errores.map((e) => [e.campo, e.texto])) };
+  }
   try {
     const { data, error } = await deps.servicio
       .from('parroquias')
