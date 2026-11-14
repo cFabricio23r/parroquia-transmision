@@ -14,7 +14,9 @@
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
+const assert = require('node:assert');
 const { crearServidor } = require('../../herramientas/servidor-vicaria');
+const { huella: huellaBase, CASOS: CASOS_BASE } = require('./linea-base');
 
 const CAPTURAS = path.join(__dirname, '..', 'capturas', 'vicaria');
 const RAIZ = path.join(__dirname, '..', '..', 'vicaria');
@@ -969,6 +971,53 @@ async function comparacion() {
   return resultados;
 }
 
+
+/* ---------- Línea base de compatibilidad ---------- */
+
+const rutaLineaBase = path.join(__dirname, 'linea-base.json');
+const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
+
+/* Con --grabar-linea-base escribe linea-base.json; sin la marca compara caso por caso. */
+async function casoLineaBase() {
+  const grabar = process.argv.includes('--grabar-linea-base');
+  console.log('Línea base de compatibilidad' + (grabar ? ' (grabando)' : ''));
+  const guardada = grabar ? null : JSON.parse(fs.readFileSync(rutaLineaBase, 'utf8'));
+  const nuevo = {};
+  for (const c of CASOS_BASE) {
+    const nombre = nombreCaso(c);
+    const ctx = await nuevoContexto();
+    const p = await abrir(ctx, '/' + c.slug + '/' + c.pagina + c.query, 1920, 1080, async (pg) => {
+      await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+      await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), ['pev_' + c.slug + '_estado_v1', JSON.stringify(c.estado)]);
+    });
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1800);
+    const h = await huellaBase(p);
+    await ctx.close();
+    if (grabar) { nuevo[nombre] = h; continue; }
+    let primero = null;
+    try { assert.deepStrictEqual(h, guardada[nombre]); } catch (e) {
+      const esp = guardada[nombre] || {};
+      for (const grupo of Object.keys(h)) {
+        try { assert.deepStrictEqual(h[grupo], esp[grupo]); } catch (e2) {
+          const a = h[grupo] || {}; const b = esp[grupo] || {};
+          const k = Array.isArray(a) ? null : [...new Set([...Object.keys(a), ...Object.keys(b)])].find((x) => JSON.stringify(a[x]) !== JSON.stringify(b[x]));
+          primero = grupo + (k ? '.' + k + ' era ' + JSON.stringify(a[k]) + ', se esperaba ' + JSON.stringify(b[k]) : ' era ' + JSON.stringify(a) + ', se esperaba ' + JSON.stringify(b));
+          break;
+        }
+      }
+      primero = primero || 'distinto';
+    }
+    revisar(primero === null, nombre + (primero ? ': ' + primero : ''));
+  }
+  if (grabar) {
+    fs.writeFileSync(rutaLineaBase, JSON.stringify(nuevo, null, 2) + '\n');
+    console.log('  grabados ' + Object.keys(nuevo).length + ' casos en linea-base.json');
+  } else {
+    igual(Object.keys(guardada).length, CASOS_BASE.length, 'la línea base tiene todos los casos');
+  }
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -999,6 +1048,7 @@ async function comparacion() {
     await casoPlaceholdersTextos();
     await casoSanJoseCompleto();
     await casoVistaPrevia();
+    await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

@@ -1,0 +1,54 @@
+/*
+  Línea base de compatibilidad de vicaria/: una «huella» del DOM de cada pantalla con las
+  configuraciones que ya existen. Las etapas siguientes añaden campos opcionales; esta huella
+  prueba que lo de antes se sigue pintando IGUAL. Se graba una vez sobre el código sin cambios
+  (node pruebas/vicaria/navegador.js --grabar-linea-base) y después solo se compara.
+  Nunca lee #chispas: sus partículas son aleatorias.
+*/
+const SLUGS = ['ciudad-arce', 'san-jose-ejemplo'];
+const VISTAS = ['inicio', 'portada', 'gracias', 'avisos', 'horarios'];
+const TIPOS = ['dominical', 'horasanta', 'novena', 'evento'];
+
+const CASOS = [];
+for (const slug of SLUGS) {
+  for (const vista of VISTAS) {
+    for (const tipo of TIPOS) {
+      CASOS.push({ slug, pagina: 'pantalla.html', query: '?tipo=' + vista, estado: { tipo } });
+    }
+  }
+  CASOS.push({ slug, pagina: 'rotulos.html', query: '', estado: { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Prueba' } });
+  CASOS.push({ slug, pagina: 'produccion.html', query: '?estilo=claro', estado: {} });
+  CASOS.push({ slug, pagina: 'produccion.html', query: '?estilo=azul', estado: {} });
+}
+
+/* Se evalúa dentro de la página. */
+async function huella(page) {
+  return page.evaluate(() => {
+    const oculto = (e) => {
+      for (let n = e; n && n.nodeType === 1; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return true;
+      }
+      return false;
+    };
+    const esc = document.getElementById('escenario');
+    const variables = {};
+    for (const el of [document.documentElement, esc]) {
+      for (let i = 0; i < el.style.length; i++) {
+        const k = el.style[i];
+        if (k.startsWith('--')) variables[k] = el.style.getPropertyValue(k).trim();
+      }
+    }
+    for (const k of ['--rey', '--oscuro', '--celeste']) variables[k] = getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+    const textos = {}; const ocultos = {}; const imagenes = {};
+    for (const e of document.querySelectorAll('[id]')) {
+      if (e.id === 'chispas' || e.id === 'escenario') continue;
+      textos[e.id] = e.textContent.replace(/\s+/g, ' ').trim();
+      ocultos[e.id] = oculto(e);
+      if (e.tagName === 'IMG') imagenes[e.id] = { src: e.getAttribute('src'), alt: e.getAttribute('alt') };
+    }
+    return { clasesEscenario: [...esc.classList].sort(), variables, textos, ocultos, imagenes };
+  });
+}
+
+module.exports = { huella, CASOS };
