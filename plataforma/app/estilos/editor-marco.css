@@ -41,7 +41,7 @@
   column-gap: 20px;
   /* Sin row-gap: la fila «aviso» está vacía casi siempre y sumaría 16 px; la separación va en margin-top. */
   row-gap: 0;
-  grid-template-areas: 'aviso aviso' 'cabeza cabeza' 'lista lista' 'form previa';
+  grid-template-areas: 'aviso aviso' 'cabeza cabeza' 'revisar revisar' 'lista lista' 'form previa';
   align-content: start;
   align-items: start;
 }
@@ -53,6 +53,7 @@
 .pv-editor-main--avisos > .pv-aviso-guardado { margin-bottom: 16px; }
 .pv-editor-main--avisos .pv-avisos-lista,
 .pv-editor-main--avisos .pv-avisos-form,
+.pv-editor-main--avisos .pv-revisar,
 .pv-editor-main--avisos > .pv-previa { margin-top: 16px; }
 .pv-editor-main > .pv-previa { grid-area: previa; min-width: 0; }
 
@@ -112,7 +113,7 @@
   }
   .pv-editor-main--avisos {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'aviso' 'cabeza' 'lista' 'form' 'previa';
+    grid-template-areas: 'aviso' 'cabeza' 'revisar' 'lista' 'form' 'previa';
   }
 }
 @media (max-width: 760px) {
@@ -403,6 +404,10 @@
 .pv-aviso-titulo { font-size: 14px; font-weight: 700; }
 .pv-aviso-detalle { font-size: 13px; color: var(--pv-texto-suave); }
 .pv-aviso-rango { font-size: 13px; color: var(--pv-texto-suave); white-space: nowrap; }
+/* Revisar (spec, sección 8): un aviso que ya terminó lleva la fecha en ámbar, como su caja. */
+.pv-aviso-rango--vencido { color: var(--pv-ambar-oscuro); font-weight: 700; }
+.pv-editor-main--avisos .pv-revisar { grid-area: revisar; }
+.pv-avisos-sin-guardar { font-size: 13px; color: var(--pv-ambar-oscuro); font-weight: 600; }
 .pv-aviso-interruptor { justify-self: end; display: flex; }
 .pv-avisos-form {
   grid-area: form;
@@ -420,3 +425,4 @@
   .pv-aviso-rango { grid-column: 2; grid-row: 2; white-space: normal; }
   .pv-avisos-cabeza { flex-direction: column; align-items: stretch; }
 }
+.pv-avisos-acciones { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

@@ -3,10 +3,12 @@
 // interruptor por aviso y el formulario «Editar aviso» / «Nuevo aviso» junto a la vista previa.
 // Al cargar no se reescribe nada: la lista se muestra ordenada y se numera al primer cambio.
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoRango, type AvisoFijo } from '../../../../../lib/editor/avisos';
+import { erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoRango, vencido, type AvisoFijo } from '../../../../../lib/editor/avisos';
 import { hoyIso } from '../../../../../lib/fecha';
 import { Boton } from '../../../../componentes/Boton';
+import { CajaRevisar } from '../../../../componentes/CajaRevisar';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
+import { Dialogo } from '../../../../componentes/Dialogo';
 import { Interruptor } from '../../../../componentes/Interruptor';
 import { useBorrador, useNotaVistaPrevia } from '../ProveedorBorrador';
 
@@ -115,42 +117,85 @@ function MenuTirador({
   );
 }
 
+export const CLAVE_FORMULARIO_AVISOS = 'avisos';
+export const TEXTO_SIN_GUARDAR = 'Este aviso tiene cambios sin guardar.';
+
+/** Lo que se recuerda del formulario al cambiar de sección (vive en el proveedor). */
+type Recuerdo = { seleccion: Seleccion; formulario: Formulario; original: Formulario };
+
+const mismo = (a: Formulario, b: Formulario) => a.texto === b.texto && a.detalle === b.detalle && a.desde === b.desde && a.hasta === b.hasta;
+
+/** El texto de la confirmación de «Borrar aviso». */
+export const textoBorrarAviso = (texto: string) => `¿Borrar el aviso «${texto}»?`;
+
+/** El texto del diálogo de cambios sin guardar al elegir otro aviso. */
+export function textoSinGuardar(texto: string): string {
+  const t = texto.trim();
+  return t ? `Lo que escribiste en «${t}» todavía no está guardado.` : 'Lo que escribiste en el aviso nuevo todavía no está guardado.';
+}
+
 export function SeccionAvisos() {
-  const { borrador, cambiar, guardarYa } = useBorrador();
+  const { borrador, cambiar, guardarYa, estados, formularios, recordarFormulario } = useBorrador();
   useNotaVistaPrevia(null, 'avisos');
   const crudos = Array.isArray(borrador.avisos) ? (borrador.avisos as AvisoFijo[]) : [];
   const lista = ordenarAvisos(crudos.filter((a) => a && typeof a === 'object'));
   const hoy = hoyIso();
   const lleno = lista.length >= MAX_AVISOS;
 
-  const [seleccion, setSeleccion] = useState<Seleccion>(null);
+  // Lo escrito y no guardado vuelve al volver a la sección (spec, sección 3: lo escrito no se pierde).
+  const recuerdo = formularios[CLAVE_FORMULARIO_AVISOS]?.valor as Recuerdo | undefined;
+  const [seleccion, setSeleccion] = useState<Seleccion>(() => recuerdo?.seleccion ?? null);
   // Sin elección: el primero; con la lista vacía, «Nuevo aviso».
   const efectiva: number | 'nuevo' = seleccion === 'nuevo' || lista.length === 0 ? 'nuevo' : seleccion !== null && seleccion < lista.length ? seleccion : 0;
-  const [formulario, setFormulario] = useState<Formulario>(() => aFormulario(lista[0]));
+  const [formulario, setFormulario] = useState<Formulario>(() => recuerdo?.formulario ?? aFormulario(lista[0]));
+  // Lo que el formulario tenía al cargarse: si lo escrito difiere, está sin guardar.
+  const [original, setOriginal] = useState<Formulario>(() => recuerdo?.original ?? aFormulario(lista[0]));
+  const sucio = !mismo(formulario, original);
   const [errores, setErrores] = useState<ReturnType<typeof erroresAviso>>({});
   const [arrastrando, setArrastrando] = useState<number | null>(null);
   const [sobre, setSobre] = useState<number | null>(null);
+  const [pendiente, setPendiente] = useState<Seleccion>(null);
+  const [borrando, setBorrando] = useState<number | null>(null);
 
-  // El formulario se carga al elegir otro aviso (no con cada cambio del borrador: no pisa lo escrito).
-  const claveElegida = efectiva === 'nuevo' ? 'nuevo' : `${efectiva}:${lista[efectiva]?.texto ?? ''}`;
+  useEffect(() => {
+    recordarFormulario(CLAVE_FORMULARIO_AVISOS, sucio ? { valor: { seleccion, formulario, original } satisfies Recuerdo, sucio: true } : undefined);
+    // recordarFormulario hace siempre lo mismo, pero cambia de identidad en cada render del proveedor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sucio, seleccion, formulario, original]);
+
+  const clave = (s: number | 'nuevo', l: AvisoFijo[]) => (s === 'nuevo' ? 'nuevo' : `${s}:${l[s]?.texto ?? ''}`);
+
+  // El formulario se carga al elegir otro aviso, o si el elegido cambia desde afuera (por ejemplo
+  // «Ver lo suyo»), pero nunca pisa lo escrito sin guardar.
+  const claveElegida = clave(efectiva, lista);
   const ultimaClave = useRef(claveElegida);
   useEffect(() => {
     if (ultimaClave.current === claveElegida) return;
     ultimaClave.current = claveElegida;
-    setFormulario(efectiva === 'nuevo' ? VACIO : aFormulario(lista[efectiva]));
+    if (sucio) return;
+    const f = efectiva === 'nuevo' ? VACIO : aFormulario(lista[efectiva]);
+    setFormulario(f);
+    setOriginal(f);
     setErrores({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveElegida]);
 
   const escribir = (nueva: AvisoFijo[]) => cambiar('avisos', nueva.length ? numerar(nueva) : undefined);
 
-  const elegir = (s: number | 'nuevo') => {
+  /** Carga en el formulario el aviso `s` de `l` (o el formulario vacío), descartando lo escrito. */
+  const cargar = (s: number | 'nuevo', l: AvisoFijo[] = lista) => {
+    const f = s === 'nuevo' ? VACIO : aFormulario(l[s]);
     setSeleccion(s);
-    if (s === 'nuevo' || s !== efectiva) {
-      setFormulario(s === 'nuevo' ? VACIO : aFormulario(lista[s]));
-      setErrores({});
-      ultimaClave.current = s === 'nuevo' ? 'nuevo' : `${s}:${lista[s]?.texto ?? ''}`;
-    }
+    setFormulario(f);
+    setOriginal(f);
+    setErrores({});
+    ultimaClave.current = clave(s, l);
+  };
+
+  const elegir = (s: number | 'nuevo') => {
+    if (s === efectiva) return;
+    if (sucio) setPendiente(s);
+    else cargar(s);
   };
 
   const reordenar = (nueva: AvisoFijo[], desde: number, hasta: number) => {
@@ -165,31 +210,52 @@ export function SeccionAvisos() {
   };
 
   const borrar = (i: number) => {
-    escribir(lista.filter((_, j) => j !== i));
-    setSeleccion(null);
+    const nueva = lista.filter((_, j) => j !== i);
+    escribir(nueva);
+    setBorrando(null);
+    if (efectiva === i) cargar(nueva.length ? 0 : 'nuevo', nueva);
+    else if (typeof efectiva === 'number' && i < efectiva) {
+      // El aviso que se está editando sube un lugar: el formulario lo sigue, con lo escrito.
+      setSeleccion(efectiva - 1);
+      ultimaClave.current = clave(efectiva - 1, nueva);
+    }
   };
 
-  const guardar = () => {
+  /** Guarda el formulario en el borrador; `false` si tiene errores. */
+  const guardar = (): boolean => {
     const aviso: AvisoFijo = { texto: formulario.texto.trim() };
     if (formulario.detalle.trim()) aviso.detalle = formulario.detalle.trim();
     if (formulario.desde) aviso.desde = formulario.desde;
     if (formulario.hasta) aviso.hasta = formulario.hasta;
     const e = erroresAviso(aviso);
     setErrores(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) return false;
     if (efectiva === 'nuevo') {
-      if (lleno) return;
+      if (lleno) return false;
       escribir([...lista, aviso]);
       setSeleccion(lista.length);
       ultimaClave.current = `${lista.length}:${aviso.texto}`;
     } else {
-      const original = lista[efectiva];
+      const anterior = lista[efectiva];
       const actualizado: AvisoFijo = { ...aviso };
-      if (original?.activo === false) actualizado.activo = false;
+      if (anterior?.activo === false) actualizado.activo = false;
       escribir(lista.map((a, i) => (i === efectiva ? actualizado : a)));
       ultimaClave.current = `${efectiva}:${aviso.texto}`;
     }
+    // El formulario queda como quedó en el borrador (recortado): ya no está sin guardar.
+    const f = aFormulario(aviso);
+    setFormulario(f);
+    setOriginal(f);
     void guardarYa();
+    return true;
+  };
+
+  const resolverPendiente = (accion: 'guardar' | 'descartar') => {
+    const destino = pendiente;
+    setPendiente(null);
+    if (destino === null) return;
+    if (accion === 'guardar' && !guardar()) return;
+    cargar(destino);
   };
 
   return (
@@ -210,58 +276,62 @@ export function SeccionAvisos() {
           )}
         </div>
       </div>
+      <CajaRevisar problemas={estados.avisos.avisos} etiqueta="Avisos para revisar" />
       <ul className="pv-avisos-lista" aria-label="Avisos fijos">
         {lista.length === 0 && <li className="pv-avisos-vacia">Todavía no hay avisos fijos.</li>}
-        {lista.map((a, i) => (
-          <li
-            key={`${i}-${a.texto}`}
-            className={['pv-aviso-fila', efectiva === i && 'pv-aviso-fila--elegido', sobre === i && arrastrando !== null && arrastrando !== i && 'pv-aviso-fila--sobre']
-              .filter(Boolean)
-              .join(' ')}
-            onDragOver={(e) => {
-              if (arrastrando === null) return;
-              e.preventDefault();
-              setSobre(i);
-            }}
-            onDragLeave={() => setSobre((s) => (s === i ? null : s))}
-            onDrop={(e) => {
-              e.preventDefault();
-              if (arrastrando !== null && arrastrando !== i) reordenar(moverA(lista, arrastrando, i), arrastrando, i);
-              setArrastrando(null);
-              setSobre(null);
-            }}
-          >
-            <MenuTirador
-              texto={a.texto}
-              onSubir={() => reordenar(mover(lista, i, -1), i, Math.max(0, i - 1))}
-              onBajar={() => reordenar(mover(lista, i, 1), i, Math.min(lista.length - 1, i + 1))}
-              onBorrar={() => borrar(i)}
-              arrastre={{ onDragStart: () => setArrastrando(i), onDragEnd: () => (setArrastrando(null), setSobre(null)) }}
-            />
-            <button type="button" className="pv-aviso-editar" aria-label={`Editar ${a.texto}`} aria-pressed={efectiva === i} onClick={() => elegir(i)}>
-              <span className="pv-aviso-titulo">{a.texto}</span>
-              {a.detalle && <span className="pv-aviso-detalle">{a.detalle}</span>}
-            </button>
-            <span className="pv-aviso-rango">{textoRango(a, hoy)}</span>
-            <span className="pv-aviso-interruptor">
-              <Interruptor
-                etiqueta={`Mostrar ${a.texto}`}
-                activo={a.activo !== false}
-                onCambiar={(v) =>
-                  escribir(
-                    lista.map((x, j) => {
-                      if (j !== i) return x;
-                      const copia: AvisoFijo = { ...x };
-                      if (v) delete copia.activo;
-                      else copia.activo = false;
-                      return copia;
-                    }),
-                  )
-                }
+        {lista.map((a, i) => {
+          const termino = a.activo !== false && vencido(a, hoy);
+          return (
+            <li
+              key={`${i}-${a.texto}`}
+              className={['pv-aviso-fila', efectiva === i && 'pv-aviso-fila--elegido', sobre === i && arrastrando !== null && arrastrando !== i && 'pv-aviso-fila--sobre']
+                .filter(Boolean)
+                .join(' ')}
+              onDragOver={(e) => {
+                if (arrastrando === null) return;
+                e.preventDefault();
+                setSobre(i);
+              }}
+              onDragLeave={() => setSobre((s) => (s === i ? null : s))}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (arrastrando !== null && arrastrando !== i) reordenar(moverA(lista, arrastrando, i), arrastrando, i);
+                setArrastrando(null);
+                setSobre(null);
+              }}
+            >
+              <MenuTirador
+                texto={a.texto}
+                onSubir={() => reordenar(mover(lista, i, -1), i, Math.max(0, i - 1))}
+                onBajar={() => reordenar(mover(lista, i, 1), i, Math.min(lista.length - 1, i + 1))}
+                onBorrar={() => setBorrando(i)}
+                arrastre={{ onDragStart: () => setArrastrando(i), onDragEnd: () => (setArrastrando(null), setSobre(null)) }}
               />
-            </span>
-          </li>
-        ))}
+              <button type="button" className="pv-aviso-editar" aria-label={`Editar ${a.texto}`} aria-pressed={efectiva === i} onClick={() => elegir(i)}>
+                <span className="pv-aviso-titulo">{a.texto}</span>
+                {a.detalle && <span className="pv-aviso-detalle">{a.detalle}</span>}
+              </button>
+              <span className={termino ? 'pv-aviso-rango pv-aviso-rango--vencido' : 'pv-aviso-rango'}>{textoRango(a, hoy)}</span>
+              <span className="pv-aviso-interruptor">
+                <Interruptor
+                  etiqueta={`Mostrar ${a.texto}`}
+                  activo={a.activo !== false}
+                  onCambiar={(v) =>
+                    escribir(
+                      lista.map((x, j) => {
+                        if (j !== i) return x;
+                        const copia: AvisoFijo = { ...x };
+                        if (v) delete copia.activo;
+                        else copia.activo = false;
+                        return copia;
+                      }),
+                    )
+                  }
+                />
+              </span>
+            </li>
+          );
+        })}
       </ul>
       <section className="pv-avisos-form" aria-labelledby="pv-avisos-form-titulo">
         <h2 id="pv-avisos-form-titulo" className="pv-subtitulo">
@@ -286,10 +356,38 @@ export function SeccionAvisos() {
             onChange={(e) => setFormulario({ ...formulario, hasta: e.target.value })}
           />
         </div>
-        <div>
-          <Boton onClick={guardar}>Guardar aviso</Boton>
+        <div className="pv-avisos-acciones">
+          <Boton onClick={() => void guardar()}>Guardar aviso</Boton>
+          {sucio && (
+            <span className="pv-avisos-sin-guardar" role="status">
+              {TEXTO_SIN_GUARDAR}
+            </span>
+          )}
         </div>
       </section>
+      <Dialogo abierto={pendiente !== null} titulo="Cambios sin guardar" onCerrar={() => setPendiente(null)}>
+        <p className="pv-dialogo-texto">{textoSinGuardar(formulario.texto)}</p>
+        <div className="pv-dialogo-acciones">
+          <Boton variante="secundario" onClick={() => setPendiente(null)}>
+            Seguir editando
+          </Boton>
+          <Boton variante="secundario" onClick={() => resolverPendiente('descartar')}>
+            Descartar cambios
+          </Boton>
+          <Boton onClick={() => resolverPendiente('guardar')}>Guardar aviso</Boton>
+        </div>
+      </Dialogo>
+      <Dialogo abierto={borrando !== null} titulo="Borrar aviso" onCerrar={() => setBorrando(null)}>
+        <p className="pv-dialogo-texto">{borrando !== null ? textoBorrarAviso(lista[borrando]?.texto ?? '') : ''}</p>
+        <div className="pv-dialogo-acciones">
+          <Boton variante="secundario" onClick={() => setBorrando(null)}>
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" onClick={() => borrando !== null && borrar(borrando)}>
+            Sí, borrar
+          </Boton>
+        </div>
+      </Dialogo>
     </>
   );
 }

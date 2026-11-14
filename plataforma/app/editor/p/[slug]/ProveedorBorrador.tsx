@@ -48,6 +48,18 @@ export interface ContextoBorrador {
   /** Tipo elegido en «Ver con el tipo»: persiste entre secciones. */
   tipoVistaPrevia: string | null;
   elegirTipoVistaPrevia(t: string): void;
+  /**
+   * Formularios que todavía no entraron al borrador (por ejemplo «Editar aviso»): lo escrito se
+   * recuerda aquí al cambiar de sección, y mientras esté sin guardar el encabezado dice «Sin guardar»
+   * y cerrar la pestaña pide confirmación. `undefined` lo olvida.
+   */
+  formularios: Record<string, FormularioPendiente>;
+  recordarFormulario(clave: string, f: FormularioPendiente | undefined): void;
+}
+
+export interface FormularioPendiente {
+  valor: unknown;
+  sucio: boolean;
 }
 
 const Contexto = createContext<ContextoBorrador | null>(null);
@@ -90,11 +102,14 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
   const [urls, setUrls] = useState(datos.urls);
   const [notaVistaPrevia, ponerNotaVistaPrevia] = useState<ReactNode>(null);
   const [tipoVistaPrevia, elegirTipoVistaPrevia] = useState<string | null>(null);
+  const [formularios, setFormularios] = useState<Record<string, FormularioPendiente>>({});
+  const formulariosSucios = useRef(false);
+  formulariosSucios.current = Object.values(formularios).some((f) => f.sucio);
 
   // Cerrar la pestaña o recargar con cambios sin guardar pide confirmación (Decisión 26).
   useEffect(() => {
     const antesDeSalir = (e: BeforeUnloadEvent) => {
-      if (!g.hayCambiosSinGuardar()) return;
+      if (!g.hayCambiosSinGuardar() && !formulariosSucios.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -126,6 +141,17 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
     ponerNotaVistaPrevia,
     tipoVistaPrevia,
     elegirTipoVistaPrevia,
+    formularios,
+    recordarFormulario: (clave, f) =>
+      setFormularios((x) => {
+        if (f === undefined) {
+          if (!(clave in x)) return x;
+          const copia = { ...x };
+          delete copia[clave];
+          return copia;
+        }
+        return { ...x, [clave]: f };
+      }),
   };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

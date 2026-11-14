@@ -16,15 +16,20 @@ export const NOTA_MENU = 'Todo se guarda solo como borrador. En OBS no cambia na
 export const AVISO_CELULAR =
   'El editor está pensado para una computadora. Desde el celular puedes mirar, pero para editar usa una pantalla más grande.';
 
-/** Decisión 6: «Guardando…» mientras hay algo por guardar, «Guardado» al día, «Sin guardar» si falló. */
-export function textoGuardado(estado: string): string {
+/**
+ * Decisión 6: «Guardando…» mientras hay algo por guardar, «Guardado» al día, «Sin guardar» si falló
+ * o si un formulario (como «Editar aviso») tiene lo escrito sin guardar.
+ */
+export function textoGuardado(estado: string, formularioSinGuardar = false): string {
+  if (formularioSinGuardar) return 'Sin guardar';
   if (estado === 'guardado') return 'Guardado';
   if (estado === 'guardando' || estado === 'pendiente') return 'Guardando…';
   return 'Sin guardar';
 }
 
 export function MarcoEditor({ children }: { children: ReactNode }) {
-  const { datos, borrador, guardado, estados, cambios } = useBorrador();
+  const { datos, borrador, guardado, estados, cambios, formularios } = useBorrador();
+  const formularioSinGuardar = Object.values(formularios).some((f) => f.sucio);
   const pathname = usePathname() ?? '';
   const actual = seccionDeRuta(pathname, datos.slug);
   const nombre = (typeof borrador.nombre === 'string' && borrador.nombre.trim()) || datos.nombreParroquia;
@@ -40,7 +45,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
         chip={
           <>
             <span className="pv-guardado" role="status">
-              {textoGuardado(guardado.estado)}
+              {textoGuardado(guardado.estado, formularioSinGuardar)}
             </span>
             <span className={chip.tono === 'verde' ? 'pv-chip-borrador pv-chip-borrador--verde' : 'pv-chip-borrador'}>{chip.texto}</span>
           </>

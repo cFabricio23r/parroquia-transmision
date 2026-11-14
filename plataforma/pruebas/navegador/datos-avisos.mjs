@@ -144,6 +144,8 @@ try {
 
   console.log('F11 · Nuevo');
   await pa.getByRole('button', { name: '+ Nuevo aviso' }).click();
+  // La fecha rechazada quedó escrita sin guardar: antes de cambiar, se pregunta (ronda 2).
+  await pa.getByRole('dialog', { name: 'Cambios sin guardar' }).getByRole('button', { name: 'Descartar cambios' }).click();
   igual(await pa.locator('#pv-avisos-form-titulo').innerText(), 'Nuevo aviso', 'el formulario dice «Nuevo aviso»');
   await pa.getByRole('button', { name: 'Guardar aviso' }).click();
   revisar(await pa.getByText('Escribe el título.').isVisible(), 'sin título: «Escribe el título.»');
@@ -156,6 +158,8 @@ try {
   console.log('F11 · Borrar');
   await pa.getByRole('button', { name: 'Mover Bautizos' }).click();
   await pa.getByRole('menuitem', { name: 'Borrar aviso' }).click();
+  // Borrar pide confirmación, como en la Galería (ronda 2).
+  await pa.getByRole('dialog', { name: 'Borrar aviso' }).getByRole('button', { name: 'Sí, borrar' }).click();
   igual(await pa.getByRole('button', { name: 'Editar Bautizos' }).count(), 0, '«Borrar aviso» lo quita');
   await esperarEnBase(A.id, (c) => c.avisos.length === 3);
 } finally {
