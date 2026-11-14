@@ -1,0 +1,36 @@
+/* Variables del sistema visual de la plataforma (spec, sección 1). Valores tomados de los artboards
+   del lienzo «Vicaría · multi-parroquia». Prefijo --pv- para no chocar con editor.css (--oscuro, --rey…). */
+:root {
+  --pv-fondo: #f4f7fb;
+  --pv-texto: #14223a;
+  --pv-texto-suave: #56657a;
+  --pv-borde: #d5e0ee;
+  --pv-primario: #1155a4;
+  --pv-encabezado: #0c3562;
+  --pv-encabezado-sub: #b4cbe8;
+  --pv-avatar: #1f6fc4;
+  --pv-menu-activo: #e6eef8;
+  --pv-info-fondo: #e6f1fb;
+  --pv-info-texto: #0c3562;
+  --pv-miniatura: #dfe6ef;
+  --pv-campo-lectura: #eef2f7;
+  --pv-interruptor-apagado: #c3ccd8;
+  --pv-sombra-acceso: 0 12px 32px rgba(12,53,98,.08);
+
+  --pv-verde: #1f8a55;
+  --pv-verde-chip: #e2f6ec;
+  --pv-verde-chip-texto: #11643c;
+  --pv-ambar: #b07d00;
+  --pv-ambar-chip: #fff4d6;
+  --pv-ambar-chip-texto: #6b4f00;
+  /* Los puntos de los mensajes de acceso (A5) usan un ámbar más oscuro. */
+  --pv-ambar-oscuro: #8a6500;
+  --pv-rojo: #c0392b;
+  --pv-rojo-texto: #a3231a;
+  --pv-rojo-borde: #e3b4ae;
+  --pv-gris: #8a97a8;
+  --pv-gris-chip: #eceff3;
+  --pv-gris-chip-texto: #4a5568;
+  --pv-velo: rgba(12,30,60,.35);
+  --pv-sombra-dialogo: 0 20px 50px rgba(0,0,0,.25);
+}

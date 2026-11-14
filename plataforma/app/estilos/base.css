@@ -1,0 +1,20 @@
+/* Base de la plataforma: cuerpo, cajas, fuente heredada en los controles y foco visible. */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--pv-fondo);
+  color: var(--pv-texto);
+  font-family: 'Montserrat', sans-serif;
+}
+input, select, button, textarea { font-family: inherit; }
+:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+
+/* Texto solo para lectores de pantalla. */
+.pv-solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
