@@ -295,7 +295,7 @@ button.pv-enlace {
   color: var(--pv-texto);
 }
 .pv-dialogo[open] { display: flex; flex-direction: column; gap: 16px; }
-.pv-dialogo--520 { width: min(520px, 100% - 32px); padding: 26px; }
+.pv-dialogo--520 { width: min(572px, 100% - 32px); padding: 26px; } /* 520 de contenido + 2 × 26, como el artboard */
 .pv-dialogo--520[open] { gap: 14px; }
 .pv-dialogo::backdrop { background: var(--pv-velo); }
 .pv-dialogo-titulo { margin: 0; font-size: 20px; font-weight: 800; }
