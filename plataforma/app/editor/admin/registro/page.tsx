@@ -1,7 +1,7 @@
 import { compararEs } from '../../../../lib/admin-textos';
 import { todasLasFilas } from '../../../../lib/admin-parroquias';
 import { listarRegistro } from '../../../../lib/registro';
-import { clienteServicio } from '../../../../lib/supabase/servicio';
+import { servicioDeAdmin } from '../guardia';
 import { Chip } from '../../../componentes/Chip';
 import { Tabla } from '../../../componentes/Tabla';
 import { FiltroLugar } from './FiltroLugar';
@@ -17,12 +17,13 @@ const COLUMNAS = [
 ];
 
 /**
- * D3 · Registro de cambios (AB/VicAdminRegistro). El layout ya comprobó que quien entra es admin.
+ * D3 · Registro de cambios (AB/VicAdminRegistro). Sin admin no lee nada (el layout muestra el aviso).
  * `?parroquia=<uuid>` filtra por parroquia; un valor que no es una parroquia conocida se ignora.
  */
 export default async function Registro({ searchParams }: { searchParams: Promise<{ parroquia?: string }> }) {
   const { parroquia } = await searchParams;
-  const servicio = clienteServicio();
+  const servicio = await servicioDeAdmin();
+  if (!servicio) return null;
   const parroquias = (
     await todasLasFilas<{ id: string; nombre: string }>((d, h) => servicio.from('parroquias').select('id, nombre').order('id').range(d, h))
   ).sort((a, b) => compararEs(a.nombre, b.nombre));

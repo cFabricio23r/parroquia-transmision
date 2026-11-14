@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Marco de la administración (D1–D3): encabezado y pestañas. Sin sesión va a entrar; quien no es admin
- * ve el aviso (Decisión 26 del plan 5). Las páginas no repiten esta comprobación, pero cada acción de
+ * ve el aviso (Decisión 26 del plan 5). Cambiar `children` no impide que Next ejecute las páginas y
+ * mande su resultado, así que cada página lee solo con servicioDeAdmin() (ronda 2) y cada acción de
  * servidor sigue llamando a exigirAdmin.
  */
 export default async function LayoutAdmin({ children }: { children: ReactNode }) {
