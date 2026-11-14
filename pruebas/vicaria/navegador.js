@@ -1382,10 +1382,13 @@ async function casoRevisionFinal() {
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
-/* Con --grabar-linea-base escribe linea-base.json; sin la marca compara caso por caso. */
+/* Con --grabar-linea-base escribe linea-base.json; con --grabar-linea-base=<ruta>, escribe en esa ruta y no toca
+   linea-base.json (para comparar con diferencias-linea-base.js antes de grabar). Sin la marca compara caso por caso. */
 async function casoLineaBase() {
-  const grabar = process.argv.includes('--grabar-linea-base');
-  console.log('Línea base de compatibilidad' + (grabar ? ' (grabando)' : ''));
+  const marca = process.argv.find((a) => a === '--grabar-linea-base' || a.startsWith('--grabar-linea-base='));
+  const grabar = !!marca;
+  const destino = marca && marca.includes('=') ? path.resolve(marca.slice(marca.indexOf('=') + 1)) : rutaLineaBase;
+  console.log('Línea base de compatibilidad' + (grabar ? ' (grabando en ' + destino + ')' : ''));
   const guardada = grabar ? null : JSON.parse(fs.readFileSync(rutaLineaBase, 'utf8'));
   const nuevo = {};
   for (const c of CASOS_BASE) {
@@ -1416,8 +1419,8 @@ async function casoLineaBase() {
     revisar(primero === null, nombre + (primero ? ': ' + primero : ''));
   }
   if (grabar) {
-    fs.writeFileSync(rutaLineaBase, JSON.stringify(nuevo, null, 2) + '\n');
-    console.log('  grabados ' + Object.keys(nuevo).length + ' casos en linea-base.json');
+    fs.writeFileSync(destino, JSON.stringify(nuevo, null, 2) + '\n');
+    console.log('  grabados ' + Object.keys(nuevo).length + ' casos en ' + destino);
   } else {
     igual(Object.keys(guardada).length, CASOS_BASE.length, 'la línea base tiene todos los casos');
   }
