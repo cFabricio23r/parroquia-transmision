@@ -72,3 +72,23 @@
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ---- F7 Tipos de transmisión (AB/VicEdTipos) ---- */
+.pv-tipos-cabeza { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.pv-tipos-cabeza > :first-child { min-width: 0; }
+.pv-tipos-nuevo { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pv-tabla-tipos .pv-tabla-fila { gap: 14px; padding: 12px 18px; }
+.pv-tabla-tipos .pv-tabla-cabecera { background: #f4f7fb; padding: 11px 18px; }
+.pv-tabla-tipos .pv-tabla-cabecera > :last-child { text-align: right; }
+.pv-tabla-tipos [role='cell']:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pv-tabla-tipos [role='cell']:nth-child(2) { justify-self: start; }
+.pv-tabla-tipos [role='cell']:last-child { justify-self: end; }
+.pv-tabla-tipos .pv-boton { font-size: 13px; min-height: 40px; padding: 0 12px; }
+.pv-tipo-nombre { font-size: 15px; }
+.pv-tipo-descripcion { font-size: 13px; color: var(--pv-texto-suave); }
+.pv-tipos-ultimo { margin: 0; }
+@media (max-width: 760px) {
+  .pv-tipos-cabeza { flex-direction: column; align-items: stretch; }
+  .pv-tipos-nuevo { align-items: flex-start; }
+  .pv-tabla-tipos .pv-tabla-fila { grid-template-columns: minmax(0, 1fr) auto !important; }
+}
