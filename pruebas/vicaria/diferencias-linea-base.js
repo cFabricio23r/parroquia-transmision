@@ -57,7 +57,11 @@ const ESPERADOS = [
   { n: 21, caso: C, ruta: /^(estilos|textos|ocultos|imagenes)\.logo-claro-caja(\.\w+)?$/, motivo: 'C5: círculo nuevo del logo del Claro' },
   { n: 22, caso: A, ruta: /^estilos\.azul\.backgroundImage$/,
     valor: (a, d) => typeof d === 'string' && a.replace(/rgb\([^)]*\) 100%/, '') === d.replace(/rgb\([^)]*\) 100%/, ''),
-    motivo: 'R1: la parada del 100% del degradado del Azul pasa de --celeste a --vivo' }
+    motivo: 'R1: la parada del 100% del degradado del Azul pasa de --celeste a --vivo' },
+  // 23 (agregada en la Ronda 2 de verificación): relleno del arco, el del marcador del artboard
+  { n: 23, caso: P, ruta: /^estilos\.virgen\.backgroundColor$/,
+    valor: (a, d) => a === 'rgba(0, 0, 0, 0)' && d === 'rgba(0, 0, 0, 0.12)',
+    motivo: 'A2, Ronda 2: el arco lleva el relleno del artboard (rgba(0,0,0,.12)) para que se lea con un recorte sin fondo' }
 ];
 
 /* Lista de cambios [{caso, ruta, antes, despues}] entre dos huellas del mismo caso. */

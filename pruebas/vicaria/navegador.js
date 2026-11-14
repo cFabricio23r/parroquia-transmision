@@ -1378,6 +1378,46 @@ async function casoRevisionFinal() {
     await captura(p, 'revision_avisos_redes_' + dist);
     await ctx.close();
   }
+
+  // 7. Ronda 2: Avisos que pintar() no compacta (4 filas sin redes, 2 con redes) con texto largo y detalle normal,
+  // vacío o de una palabra sin espacios: las filas quedan en la tarjeta y ni el aviso ni el detalle se salen de su caja
+  const LARGO = 'Inscripciones para la catequesis de confirmación';
+  const casosAvisos = [
+    { nombre: '4 avisos largos, detalle normal', n: 4, detalle: 'Sábado · 9:00 a. m.' },
+    { nombre: '4 avisos largos, sin detalle', n: 4, detalle: '' },
+    // con 420 de detalle el aviso se va a tres líneas y no cabe: la tarjeta compacta la lista (encajarRedesAvisos)
+    { nombre: '4 avisos largos, detalle sin espacios', n: 4, detalle: 'parroquiasanjoseejemplo.org/inscripciones', compacta: true },
+    { nombre: '2 avisos largos con 6 redes, detalle sin espacios', n: 2, detalle: 'parroquiasanjoseejemplo.org/inscripciones', redes: true }
+  ];
+  for (const c of casosAvisos) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { avisos: { modo: 'personalizada', mostrar: c.redes ? ['redes'] : [] } });
+    cfg.avisos = Array.from({ length: c.n }, (_, i) => Object.assign({ texto: LARGO, orden: i + 1 }, c.detalle ? { detalle: c.detalle } : {}));
+    if (c.redes) cfg.redes = REDES6;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=avisos`, { tipo: 'dominical' });
+    const nombre = 'Avisos (' + c.nombre + ')';
+    await valida(p, cfg, nombre);
+    const m = await p.evaluate(() => {
+      const t = document.getElementById('v-avisos'); const rt = t.getBoundingClientRect(); const cs = getComputedStyle(t);
+      const fondo = rt.bottom - parseFloat(cs.paddingBottom); const derecha = rt.right - parseFloat(cs.paddingRight);
+      const filas = [...document.querySelectorAll('#a-filas .fila')];
+      const sale = (e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > e.parentElement.getBoundingClientRect().right + 0.5;
+      return {
+        compacta: document.getElementById('a-filas').classList.contains('compacta'),
+        filas: filas.length,
+        fuera: [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > fondo + 0.5 || r.right > derecha + 0.5; }).length,
+        saleA: filas.filter((f) => sale(f.querySelector('.a'))).length,
+        saleF: filas.filter((f) => sale(f.querySelector('.f'))).length
+      };
+    });
+    igual(m.compacta, !!c.compacta, nombre + (c.compacta ? ': la lista se compacta para caber' : ': la lista no se compacta'));
+    igual(m.filas, c.n, nombre + ': todas las filas');
+    igual(m.fuera, 0, nombre + ': filas y redes caben en la tarjeta');
+    igual(m.saleA, 0, nombre + ': el aviso no se sale de su fila');
+    igual(m.saleF, 0, nombre + ': el detalle no se sale de su fila');
+    await captura(p, 'revision_avisos_largos_' + (casosAvisos.indexOf(c) + 1));
+    await ctx.close();
+  }
 }
 
 /* ---------- Diseño (plan 1.1): los artboards F4, F5 y F6 ----------
@@ -1498,6 +1538,7 @@ async function casoDisenoDatos() {
 async function casoDisenoFondo() {
   console.log('Diseño · Fondo, marco de arco y sin sombras');
   const ARCO = '300px 300px 40px 40px';
+  const RELLENO = 'rgba(0, 0, 0, 0.12)';
   const geometria = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s); return e ? { x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight } : null; }, sel);
   const sinSombra = async (p, sels, nombre) => {
     for (const sel of sels) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', nombre + ': ' + sel + ' sin sombra');
@@ -1506,8 +1547,10 @@ async function casoDisenoFondo() {
     for (const sel of ['.rayos', '.fachada', '#chispas']) igual((await estilosDe(p, sel, ['display'])).display, 'none', nombre + ': ' + sel + ' no se ve');
   };
   const arco = async (p, nombre, x, y, w, h) => {
-    const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter']);
+    const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter', 'backgroundColor']);
     igual(e.borderRadius, ARCO, nombre + ': la imagen va en el arco');
+    // Ronda 2: el arco lleva el relleno del artboard, así su forma se lee también con una imagen recortada (PNG sin fondo)
+    igual(e.backgroundColor, RELLENO, nombre + ': el arco lleva el relleno del artboard');
     igual(e.objectFit, 'cover', nombre + ': la imagen llena el arco');
     igual(e.borderTopWidth, '0px', nombre + ': el arco no tiene borde');
     igual(e.filter, 'none', nombre + ': la imagen no tiene sombra');
@@ -1544,6 +1587,23 @@ async function casoDisenoFondo() {
     igual((await estilosDe(p, '#lienzo', ['backgroundImage'])).backgroundImage, 'linear-gradient(135deg, rgb(12, 53, 98) 0%, rgb(17, 85, 164) 48%, rgb(49, 118, 195) 100%)', 'Ciudad Arce, Inicio: el degradado de su paleta');
     await decoracion(p, 'Ciudad Arce, Inicio');
     await arco(p, 'Ciudad Arce, Inicio', 150, 80, 620, 960);
+    // Ronda 2: la Virgen de Ciudad Arce es un PNG sin fondo. Dentro del arco, donde no hay figura, tiene que verse el
+    // relleno: se mide el mismo punto (entre el manto y el pie, transparente en el PNG) con y sin el relleno.
+    revisar(await imagenVisible(p, '#virgen'), 'Ciudad Arce, Inicio: la imagen cargó');
+    const luzEn = async (x, y) => {
+      const b64 = (await p.screenshot({ clip: { x, y, width: 1, height: 1 } })).toString('base64');
+      return p.evaluate(async (d) => {
+        const im = new Image(); im.src = 'data:image/png;base64,' + d; await im.decode();
+        const c = document.createElement('canvas'); c.width = 1; c.height = 1;
+        const g = c.getContext('2d'); g.drawImage(im, 0, 0); const v = g.getImageData(0, 0, 1, 1).data;
+        return v[0] + v[1] + v[2];
+      }, b64);
+    };
+    const conRelleno = await luzEn(170, 633);
+    await p.addStyleTag({ content: '#virgen{background:none !important}' });
+    const sinRelleno = await luzEn(170, 633);
+    revisar(conRelleno < sinRelleno - 20, 'Ciudad Arce, Inicio: el relleno se ve detrás de la figura y deja leer el arco (' + conRelleno + ' con relleno, ' + sinRelleno + ' sin)');
+    await p.addStyleTag({ content: '#virgen{background:rgba(0,0,0,.12) !important}' });
     await captura(p, `diseno_${CA}_inicio`);
     await ctx.close();
   }
@@ -1565,13 +1625,36 @@ async function casoDisenoFondo() {
   }
   {
     const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ imagen: 'logo' }) });
-    igual((await estilosDe(p, '#virgen', ['borderRadius'])).borderRadius, '0px', 'imagen logo: sin arco');
+    const e = await estilosDe(p, '#virgen', ['borderRadius', 'backgroundColor']);
+    igual(e.borderRadius, '0px', 'imagen logo: sin arco');
+    igual(e.backgroundColor, 'rgba(0, 0, 0, 0)', 'imagen logo: sin relleno');
     await ctx.close();
   }
 }
 
 /* A3, A4, C6 y C7: tintes de la paleta en las pantallas, marca en dos líneas, Gracias sin EN VIVO y Avisos con
    logo redondo y filas del velo (F4:25, 27, 31 y 33). */
+/* Ronda 2: el logo blanco (#a-logo o #h-logo) cabe en su círculo de 78 sea cual sea su forma: su lado mayor mide
+   de 50 a 60, su caja queda dentro de la del círculo y, si no es cuadrado, sus cuatro esquinas dentro del redondel
+   (el cuadrado de 56 del artboard tiene las esquinas fuera, pero el dibujo no llega a ellas). */
+async function logoEnCirculo(p, x, nombre) {
+  const m = await p.evaluate((v) => {
+    const c = document.getElementById(v + '-logo-caja').getBoundingClientRect(); const i = document.getElementById(v + '-logo').getBoundingClientRect();
+    const cx = c.left + c.width / 2; const cy = c.top + c.height / 2; const r = c.width / 2;
+    const esquinas = [[i.left, i.top], [i.right, i.top], [i.left, i.bottom], [i.right, i.bottom]];
+    return {
+      w: i.width, h: i.height, cw: c.width,
+      caja: i.left >= c.left - 0.5 && i.right <= c.right + 0.5 && i.top >= c.top - 0.5 && i.bottom <= c.bottom + 0.5,
+      redondel: esquinas.every(([a, b]) => Math.hypot(a - cx, b - cy) <= r + 0.5)
+    };
+  }, x);
+  const lado = Math.round(Math.max(m.w, m.h));
+  revisar(lado >= 50 && lado <= 60, nombre + ': el lado mayor del logo mide de 50 a 60 (' + Math.round(m.w) + '×' + Math.round(m.h) + ')');
+  revisar(m.caja, nombre + ': el logo queda dentro del círculo de ' + m.cw);
+  // un logo apaisado o alto llena su caja hasta los bordes: sus esquinas no pueden salir del redondel
+  if (Math.max(m.w, m.h) / Math.min(m.w, m.h) > 1.2) revisar(m.redondel, nombre + ': las esquinas del logo apaisado quedan dentro del redondel');
+}
+
 async function casoDisenoColores() {
   console.log('Diseño · Colores de la paleta, marca, Gracias y Avisos');
   const color = async (p, sel) => { const e = await estilosDe(p, sel, ['color']); return e && e.color; };
@@ -1628,7 +1711,7 @@ async function casoDisenoColores() {
       const caja = await estilosDe(p, '#a-logo-caja', ['width', 'height', 'borderRadius', 'backgroundColor']);
       igual(caja && [caja.width, caja.height, caja.borderRadius, caja.backgroundColor].join(' '), '78px 78px 50% ' + t.rey, n + ', Avisos: el logo va en un círculo de 78 del principal');
       revisar(await imagenVisible(p, '#a-logo'), n + ', Avisos: el logo se ve');
-      igual(await p.evaluate(() => document.getElementById('a-logo').offsetHeight), 56, n + ', Avisos: el logo mide 56 de alto');
+      await logoEnCirculo(p, 'a', n + ', Avisos');
       igual(await p.getAttribute('#a-logo', 'src'), t.logo, n + ', Avisos: el logo es el blanco');
       revisar(await p.evaluate(() => { const c = document.getElementById('a-logo-caja'); return !!c && c.getBoundingClientRect().right <= document.querySelector('#v-avisos .envivo').getBoundingClientRect().left; }), n + ', Avisos: el logo queda a la izquierda del EN VIVO');
       const ev = await estilosDe(p, '#v-avisos .envivo', ['fontSize', 'padding']);
@@ -1636,10 +1719,23 @@ async function casoDisenoColores() {
       igual((await estilosDe(p, '#a-filas', ['justifyContent'])).justifyContent, 'space-between', n + ', Avisos: las filas se reparten');
       const fila = await estilosDe(p, '#a-filas .fila', ['backgroundColor', 'gridTemplateColumns']);
       igual(fila.backgroundColor, t.velo, n + ', Avisos: la fila es --velo');
-      revisar(/^120px .* 420px$/.test(fila.gridTemplateColumns), n + ', Avisos: columnas 120px … 420px (' + fila.gridTemplateColumns + ')');
+      // Ronda 2: los 420 px del artboard son el máximo del detalle, no una columna fija (la columna sigue al detalle)
+      const cols = fila.gridTemplateColumns.split(' ').map(parseFloat);
+      revisar(cols.length === 3 && cols[0] === 120 && cols[2] <= 420, n + ', Avisos: columnas 120px … hasta 420px (' + fila.gridTemplateColumns + ')');
+      igual((await estilosDe(p, '#a-filas .fila .f', ['maxWidth'])).maxWidth, '420px', n + ', Avisos: el detalle mide como mucho 420');
       igual(await color(p, '#a-filas .fila .a'), t.oscuro, n + ', Avisos: el aviso es el oscuro');
       igual(await color(p, '#a-filas .fila .f'), t.fila, n + ', Avisos: el detalle es --fila-texto');
       await captura(p, `diseno_${slug}_avisos`);
+      await ctx.close();
+    }
+    // Horarios: el mismo círculo del logo (Ronda 2)
+    {
+      const cfg = configDiseno(slug);
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=horarios', { tipo: 'dominical' }, { cfg });
+      revisar(await imagenVisible(p, '#h-logo'), n + ', Horarios: el logo se ve');
+      await logoEnCirculo(p, 'h', n + ', Horarios');
+      await captura(p, `diseno_${slug}_horarios`);
       await ctx.close();
     }
     // Ninguna pantalla con el celeste #bfe0ff

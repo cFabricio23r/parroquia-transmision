@@ -27,8 +27,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 /* Decoración de antes (silueta de la fachada, rayos y chispas): el diseño no la lleva, así que no se ve. Ninguna
    opción la pide; ocultar con rayos, fachada o chispas sigue validando, pero ya no cambia nada. */
 .fachada,.rayos,#chispas{display:none}
-/* Marco de arco (F4:25): la imagen baja hasta la franja, sin borde ni sombra. El logo (.virgen.logo) no va en arco. */
-.virgen{position:absolute;left:150px;bottom:40px;width:620px;height:960px;object-fit:cover;object-position:50% 20%;border-radius:300px 300px 40px 40px;border:0;filter:none}
+/* Marco de arco (F4:25): la imagen baja hasta la franja, sin borde ni sombra. El logo (.virgen.logo) no va en arco.
+   El relleno es el del marcador del artboard: con una foto no se ve (la tapa); con un recorte sin fondo (la Virgen de
+   Ciudad Arce) se ve detrás de la figura y deja leer la forma del arco, en vez de un corte suelto en el manto. */
+.virgen{position:absolute;left:150px;bottom:40px;width:620px;height:960px;object-fit:cover;object-position:50% 20%;border-radius:300px 300px 40px 40px;border:0;filter:none;background:rgba(0,0,0,.12)}
 
 .marca{position:absolute;left:60px;top:48px;display:flex;align-items:center;gap:16px}
 .marca img{height:70px;display:block}
@@ -68,14 +70,17 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .tarjeta h1{margin:0;font-weight:900;font-size:84px;line-height:1;text-transform:uppercase;color:var(--rey)}
 .tarjeta .sub{font-weight:800;font-size:20px;letter-spacing:6px;color:var(--vivo)}
 .filas{display:flex;flex-direction:column;flex-grow:1;justify-content:flex-start;gap:18px;padding-top:6px}
-.fila{display:grid;grid-template-columns:120px minmax(0,1fr) 420px;gap:28px;align-items:center;padding:18px 26px;background:var(--velo);border-radius:20px}
+.fila{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:28px;align-items:center;padding:18px 26px;background:var(--velo);border-radius:20px}
 .fila .n{width:84px;height:84px;border-radius:20px;background:var(--rey);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:40px}
 .fila .a{font-weight:800;font-size:38px;color:var(--oscuro)}
-.fila .f{font-weight:600;font-size:28px;color:var(--fila-texto);text-align:right}
+/* Detalle (F4:31): los 420 px del artboard son su ancho máximo; la columna sigue al detalle (vacío, no ocupa) y una
+   dirección sin espacios se parte en vez de salirse de la tarjeta. */
+.fila .f{font-weight:600;font-size:28px;color:var(--fila-texto);text-align:right;max-width:420px;overflow-wrap:anywhere}
 /* Avisos (F4:31): las filas se reparten en la tarjeta; el logo blanco va en un círculo del principal junto al EN VIVO chico */
 #a-filas{justify-content:space-between}
 .logo-redondo{width:78px;height:78px;border-radius:50%;background:var(--rey);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.logo-redondo img{height:56px;display:block}
+/* El logo cabe en el círculo sea cual sea su forma: cuadrado, 56 (F4:31); apaisado (Ciudad Arce, 225×141), 60 de ancho. */
+.logo-redondo img{display:block;width:auto;height:auto;max-width:60px;max-height:56px;object-fit:contain}
 .envivo.chico{position:static;font-size:22px;padding:8px 16px 8px 12px}
 .envivo.chico i{width:12px;height:12px}
 
@@ -162,7 +167,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 
 /* ---------- Tipos de transmisión (S2InicioProcesion, S2PortadaEvento, S2InicioHoraSanta…) ---------- */
 /* El logo no va en el arco: suelto y entero, como siempre */
-.virgen.logo{left:150px;bottom:360px;height:auto;width:420px;object-fit:contain;border-radius:0}
+.virgen.logo{left:150px;bottom:360px;height:auto;width:420px;object-fit:contain;border-radius:0;background:none}
 /* Avisos y Horarios: el arco queda a la izquierda de la tarjeta (empieza en x=600), F4:31 */
 body.avisos .virgen,body.horarios .virgen{left:40px;bottom:120px;width:500px;height:820px}
 body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}

@@ -166,10 +166,10 @@ Si una imagen de la galería ya no existe, la pantalla usa la automática (o el 
 #### Cómo se ve cada pantalla
 
 - **Fondo:** un degradado diagonal liso de los colores de la parroquia (oscuro → principal → vivo) con un brillo suave arriba a la izquierda. La silueta del templo, los rayos y las chispas de antes ya no se ven, y ninguna opción los vuelve a prender. Para una foto de fondo se usa `fondo: { "tipo": "imagen", … }`.
-- **Imagen grande:** va en un marco de arco (redondo arriba, esquinas suaves abajo) que baja hasta la franja; la imagen llena el arco y se recorta lo que sobra. El logo (`imagen: "logo"`) no va en el arco.
+- **Imagen grande:** va en un marco de arco (redondo arriba, esquinas suaves abajo) que baja hasta la franja; la imagen llena el arco y se recorta lo que sobra. El arco tiene un relleno oscuro suave (el del diseño): con una foto no se ve, y con un recorte sin fondo (un PNG transparente, como la Virgen de Ciudad Arce) queda detrás de la figura y deja ver la forma del arco. El logo (`imagen: "logo"`) no va en el arco ni lleva relleno.
 - **Marca** (arriba a la izquierda): el logo y, al lado, el nombre y el lugar de la parroquia en dos líneas. La capa del logo de `rotulos.html` también los pone en dos líneas.
 - **Gracias:** no muestra el cartel EN VIVO (la transmisión ya terminó).
-- **Avisos y Horarios:** el logo blanco va en un círculo del color principal, junto al EN VIVO; las filas se reparten en la tarjeta. Si la parroquia no tiene logo, o no carga, no queda el círculo vacío.
+- **Avisos y Horarios:** el logo blanco va en un círculo del color principal, junto al EN VIVO; las filas se reparten en la tarjeta. El logo cabe en el círculo sea cual sea su forma (cuadrado, 56 px; apaisado, hasta 60 px de ancho). Si la parroquia no tiene logo, o no carga, no queda el círculo vacío. En Avisos, el detalle de cada fila («Sábado · 9:00 a. m.») ocupa lo que mide, hasta 420 px; una dirección larga sin espacios se parte en dos líneas. Si con avisos largos la tarjeta no cabe, la lista se compacta (y, con redes, después deja redes fuera desde el final).
 - **Producción claro:** el logo blanco en un círculo del color principal, a la izquierda del texto, y todo el grupo centrado. `ocultar: ["marca"]` quita el círculo y el texto queda centrado.
 
 #### Claves de `textos`

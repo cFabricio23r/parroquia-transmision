@@ -199,21 +199,26 @@ function encajarExtra(vistaEl, horarios, redes) {
     pintarExtra(caja, h, r);
   }
 }
-/* Redes de Avisos (#a-redes) dentro de la tarjeta: van compactas (clase con-redes en la tarjeta) y, si aún no
-   caben (textos muy largos), se dejan fuera desde el final. */
-function encajarRedesAvisos(redes) {
+/* Tarjeta de Avisos que no cabe. Redes (#a-redes): van compactas (clase con-redes en la tarjeta). Pasos, en orden,
+   hasta que quepa: 1. una lista sin compactar (avisos largos, detalle de 420) se compacta; 2. se dejan redes fuera
+   desde el final. `compactaAntes` es lo que decidió pintar() por la cantidad de filas. */
+function encajarRedesAvisos(redes, compactaAntes) {
   const t = $('v-avisos');
+  const filas = $('a-filas');
+  if (compactaAntes === undefined) compactaAntes = filas.classList.contains('compacta');
+  filas.classList.toggle('compacta', compactaAntes);
   let caja = $('a-redes');
   if (redes.length && !caja) {
     caja = document.createElement('div'); caja.className = 'redes'; caja.id = 'a-redes';
     t.append(caja);
   }
   t.classList.toggle('con-redes', redes.length > 0);
-  reencajar = () => encajarRedesAvisos(redes);
-  if (!caja) return;
+  reencajar = () => encajarRedesAvisos(redes, compactaAntes);
   const r = redes.slice();
-  llenarRedes(caja, r); caja.hidden = !r.length;
+  if (caja) { llenarRedes(caja, r); caja.hidden = !r.length; }
   const abajo = parseFloat(getComputedStyle(t).paddingBottom) || 0;
+  if (!compactaAntes && seSale(t, abajo)) filas.classList.add('compacta');
+  if (!caja) return;
   while (r.length && seSale(t, abajo)) { r.pop(); llenarRedes(caja, r); }
   caja.hidden = !r.length;
 }
