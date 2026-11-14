@@ -41,6 +41,7 @@
 
 /* D3: filas con relleno 14 18 */
 .pv-tabla--registro .pv-tabla-fila { padding: 14px 18px; }
+.pv-tabla--registro .pv-tabla-fila:not(.pv-tabla-cabecera) [role='cell']:first-child { color: var(--pv-texto-suave); }
 .pv-admin-lugar { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .pv-admin-lugar select {
   border: 1.5px solid var(--pv-borde);

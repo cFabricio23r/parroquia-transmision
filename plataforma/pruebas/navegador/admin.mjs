@@ -82,7 +82,7 @@ try {
   const pc = await nuevaPagina();
   await entrar(pc, coord.correo);
   await pc.goto(`${BASE}/editor/admin`);
-  revisar((await pc.getByRole('alert').textContent()).includes('Solo un administrador puede hacer esto'), 'un coordinador ve el aviso de solo admin');
+  revisar((await pc.locator('main').getByRole('alert').textContent()).includes('Solo un administrador puede hacer esto'), 'un coordinador ve el aviso de solo admin');
   revisar(await pc.getByRole('link', { name: 'Volver' }).isVisible(), 'y el botón Volver');
   igual(await pc.locator('nav[aria-label="Secciones"]').count(), 0, 'sin pestañas para el coordinador');
   await pc.context().close();
@@ -368,6 +368,47 @@ try {
   );
   await p.getByRole('dialog', { name: 'Invitar coordinador' }).getByRole('button', { name: 'Cancelar' }).click();
   igual((await camposSinEtiqueta(p)).length, 0, 'D2 sin campos sin etiqueta');
+
+  // ---------------- D3 · Registro ----------------
+  console.log('D3 · Registro');
+  await p.goto(`${BASE}/editor/admin/registro`);
+  igual(await p.locator('main h1').textContent(), 'Registro de cambios', 'h1 de D3');
+  const lugar = p.getByLabel('Lugar');
+  revisar(await lugar.isVisible(), 'control «Lugar»');
+  igual(await lugar.evaluate((s) => s.options[s.selectedIndex].text), 'Todos', '«Lugar» empieza en «Todos»');
+  igual(
+    (await p.locator('[role="table"] [role="columnheader"]').allInnerTexts()).join('|'),
+    'CUÁNDO|QUIÉN|QUÉ HIZO|TIPO',
+    'cabecera de D3',
+  );
+  const filaReg = (texto) => p.locator('[role="row"]', { hasText: texto }).first();
+  const filaDes = filaReg(`Desactivó ${deAna.nombre}`);
+  igual(await filaDes.locator('.pv-chip').textContent(), 'Parroquia', '«Desactivó …» con el chip «Parroquia»');
+  const filaInv = filaReg(`Invitó a ${nuevo} a ${B.nombre}`);
+  igual(await filaInv.locator('.pv-chip').textContent(), 'Acceso', '«Invitó a …» con el chip «Acceso»');
+  igual(await estilo(filaInv.locator('.pv-chip'), 'background-color'), 'rgb(230, 241, 251)', '«Invitó» en azul');
+  const filaQui = filaReg(`Quitó el acceso de Ana Pérez a ${B.nombre}`);
+  igual(await filaQui.locator('.pv-chip').textContent(), 'Acceso', '«Quitó el acceso…» con el chip «Acceso»');
+  igual(await estilo(filaQui.locator('.pv-chip'), 'background-color'), 'rgb(255, 244, 214)', '«Quitó» en ámbar');
+  const primeraCelda = filaInv.locator('[role="cell"]').first();
+  revisar((await primeraCelda.textContent()).startsWith('Hoy '), 'el cuándo empieza con «Hoy »');
+  igual(await estilo(primeraCelda, 'color'), 'rgb(86, 101, 122)', 'el cuándo en gris');
+  revisar((await filaInv.locator('[role="cell"]').nth(1).textContent()).endsWith('(admin)'), 'el quién termina en «(admin)»');
+  revisar(!(await p.locator('main').textContent()).includes('guardar_borrador'), 'ninguna fila dice «guardar_borrador»');
+  igual(await estilo(filaInv, 'padding'), '14px 18px', 'relleno de fila 14 18');
+  igual(
+    await p.locator('.pv-admin-nota').last().textContent(),
+    'Solo quién hizo qué y cuándo. No guarda contraseñas ni datos de las transmisiones.',
+    'la nota de D3',
+  );
+  await lugar.selectOption({ label: A.nombre });
+  await p.waitForURL((u) => u.searchParams.get('parroquia') === A.id, { timeout: 15_000 });
+  revisar(true, '«Lugar» lleva a ?parroquia=<id de A>');
+  await p.locator('[role="row"]:not(.pv-tabla-cabecera)').first().waitFor({ timeout: 15_000 });
+  const frasesA = await p.locator('[role="row"]:not(.pv-tabla-cabecera) [role="cell"]:nth-child(3)').allTextContents();
+  revisar(frasesA.length > 0 && frasesA.every((t) => t.includes(A.nombre)), 'con «Lugar», solo filas de A');
+  igual(await p.getByLabel('Lugar').evaluate((s) => s.options[s.selectedIndex].text), A.nombre, '«Lugar» muestra A');
+  igual((await camposSinEtiqueta(p)).length, 0, 'D3 sin campos sin etiqueta');
 } catch (e) {
   revisar(false, `error inesperado: ${e instanceof Error ? e.stack : e}`);
 } finally {
