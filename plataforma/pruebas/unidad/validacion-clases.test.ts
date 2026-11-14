@@ -6,6 +6,7 @@ import {
   erroresDeFormaEn,
 } from '../../lib/editor/validacion';
 import { tiposComunes } from '../../lib/validar-nucleo.mjs';
+import { CLAVES_TIPOS_COMUNES } from '../../lib/editor/estados';
 
 const slug = 'prueba-clases';
 
@@ -82,5 +83,6 @@ describe('tiposComunes', () => {
     expect(t[0]).toEqual({ clave: 'dominical', nombre: 'Misa dominical' });
     expect(t).toContainEqual({ clave: 'horasanta', nombre: 'Hora Santa' });
     expect(t[10]).toEqual({ clave: 'evento', nombre: 'Evento especial' });
+    expect(t.map((x) => x.clave)).toEqual([...CLAVES_TIPOS_COMUNES]);
   });
 });

@@ -15,3 +15,25 @@ export function formatearDiaMes(iso: string): string {
   if (Number.isNaN(f.getTime())) return '—';
   return f.toLocaleDateString('es', { day: 'numeric', month: 'long', timeZone: ZONA_HORARIA });
 }
+
+export const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
+
+/** Hoy como 'AAAA-MM-DD' en la hora de la parroquia (El Salvador). */
+export function hoyIso(fecha: Date = new Date()): string {
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(fecha);
+  const v = (t: string) => partes.find((p) => p.type === t)?.value ?? '';
+  return `${v('year')}-${v('month')}-${v('day')}`;
+}
