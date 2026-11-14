@@ -15,6 +15,8 @@ import {
   type DepsAdmin,
 } from '../../lib/admin';
 import { hashDe, nuevoToken } from '../../lib/tokens';
+import { guardarBorrador } from '../../lib/borrador';
+import { listarRegistro } from '../../lib/registro';
 import type { Mensaje } from '../../lib/correo';
 
 const SITIO = 'http://localhost:3000';
@@ -398,5 +400,32 @@ describe('invitación: nombre y vencimiento (plan 2, tarea 11)', () => {
     expect(await consultarInvitacion(deps(), token)).toEqual({ estado: 'no-sirve' });
 
     expect(await consultarInvitacion(deps(), 'token-inventado')).toEqual({ estado: 'no-sirve' });
+  });
+});
+
+describe('listarRegistro (D3, plan 5)', () => {
+  it('frases y quién con (admin); sin guardar_borrador', async () => {
+    const admin = await unAdmin();
+    await servicio.from('perfiles').insert({ usuario_id: admin.id, nombre: 'Admin De Prueba' });
+    const d = deps(admin.cliente);
+    const slug = `lreg-${sufijo()}`;
+    await crearParroquia(d, slug, 'Registro Nuevo', 'Lugar');
+    const { data: p } = await servicio.from('parroquias').select('id').eq('slug', slug).single();
+    const correo = `lreg-${sufijo()}@ejemplo.test`;
+    await invitar(d, correo, p!.id);
+    const { data: b } = await servicio.from('borradores').select('actualizado_en').eq('parroquia_id', p!.id).single();
+    const g = await guardarBorrador(admin.cliente, slug, { cambios: { nombre: 'Registro Nuevo' }, actualizadoEn: b!.actualizado_en });
+    expect(g.estado).toBe(200);
+    const { count } = await servicio.from('registro').select('id', { count: 'exact', head: true }).eq('parroquia_id', p!.id).eq('accion', 'guardar_borrador');
+    expect(count).toBe(1);
+
+    const filas = await listarRegistro(servicio, p!.id);
+    expect(filas.map((f) => f.frase)).toEqual([`Invitó a ${correo} a Registro Nuevo`, 'Creó Registro Nuevo']);
+    for (const f of filas) {
+      expect(f.quien).toBe('Admin De Prueba (admin)');
+      expect(f.cuando).toMatch(/^Hoy \d\d:\d\d$/);
+    }
+    expect(filas[0].chip).toEqual({ texto: 'Acceso', tono: 'azul' });
+    expect(filas[1].chip).toEqual({ texto: 'Parroquia', tono: 'gris' });
   });
 });
