@@ -40,14 +40,18 @@ async function huella(page) {
       }
     }
     for (const k of ['--rey', '--oscuro', '--celeste']) variables[k] = getComputedStyle(document.documentElement).getPropertyValue(k).trim();
-    const textos = {}; const ocultos = {}; const imagenes = {};
+    const textos = {}; const ocultos = {}; const imagenes = {}; const estilos = {};
+    const PROPS = ['color', 'backgroundColor', 'backgroundImage', 'fontFamily', 'fontSize', 'fontWeight', 'display', 'borderRadius', 'borderTopColor', 'borderTopWidth', 'textAlign', 'justifyContent'];
+    const estilo = (e) => { const cs = getComputedStyle(e); const o = {}; for (const p of PROPS) o[p] = cs[p]; return o; };
+    estilos.escenario = estilo(esc);
     for (const e of document.querySelectorAll('[id]')) {
       if (e.id === 'chispas' || e.id === 'escenario') continue;
+      estilos[e.id] = estilo(e);
       textos[e.id] = e.textContent.replace(/\s+/g, ' ').trim();
       ocultos[e.id] = oculto(e);
       if (e.tagName === 'IMG') imagenes[e.id] = { src: e.getAttribute('src'), alt: e.getAttribute('alt') };
     }
-    return { clasesEscenario: [...esc.classList].sort(), variables, textos, ocultos, imagenes };
+    return { clasesEscenario: [...esc.classList].sort(), clasesDocumento: { html: [...document.documentElement.classList].sort(), body: [...document.body.classList].sort() }, variables, textos, ocultos, imagenes, estilos };
   });
 }
 
