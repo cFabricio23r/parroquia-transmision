@@ -313,7 +313,7 @@ button.pv-enlace {
 .pv-dialogo--520[open] { gap: 14px; }
 .pv-dialogo::backdrop { background: var(--pv-velo); }
 .pv-dialogo-titulo { margin: 0; font-size: 20px; font-weight: 800; }
-.pv-dialogo-acciones { display: flex; gap: 10px; justify-content: flex-end; }
+.pv-dialogo-acciones { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 
 /* ---- Alerta de texto (errores del servidor sin mensaje de A5) ---- */
 .pv-alerta {
