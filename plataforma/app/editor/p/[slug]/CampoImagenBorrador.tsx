@@ -36,6 +36,10 @@ export function CampoImagenBorrador({
   const [altSinImagen, setAltSinImagen] = useState('');
   const src = valor?.src ?? '';
   const alt = src ? (valor?.alt ?? '') : altSinImagen;
+  // La subida tarda: al terminar se usa lo último escrito y el último onCambiar (que lee el borrador
+  // de ese momento), no lo que había al elegir el archivo. Lo escrito durante «Subiendo…» no se pierde.
+  const ultimo = useRef({ alt, onCambiar });
+  ultimo.current = { alt, onCambiar };
 
   const subir = async (archivo: File | undefined) => {
     if (!archivo) return;
@@ -46,7 +50,7 @@ export function CampoImagenBorrador({
     if (entrada.current) entrada.current.value = '';
     if ('error' in r) return setError(r.error);
     agregarUrl(r.src, r.url);
-    onCambiar({ src: r.src, alt });
+    ultimo.current.onCambiar({ src: r.src, alt: ultimo.current.alt });
   };
 
   return (
