@@ -186,6 +186,24 @@ describe('formulario y aplicar', () => {
     expect((r.tipos!.propios as unknown[])[1]).toEqual({ clave: 's', nombre: 'S' });
   });
 
+  it('editar otra cosa de un propio viejo no toca sus rótulos (ronda 2)', () => {
+    const tipos = congelar({ propios: [{ clave: 'v', nombre: 'Viejo', rotulos: ['evangelio', 'persona'] }] });
+    const f = { ...formularioDeTipo({ tipos }, 'v', comunes)!, nombrePanel: 'V' };
+    expect((aplicarTipo(tipos, f, comunes, ['v']).tipos!.propios as Record<string, unknown>[])[0].rotulos).toEqual(['evangelio', 'persona']);
+  });
+
+  it('una casilla que cambia toca solo sus bases y respeta el orden (ronda 2)', () => {
+    const base = ['evangelio', 'santisimo', 'persona'];
+    const marcadas = casillasDe(base);
+    expect(rotulosDeCasillas(marcadas, base)).toEqual(base);
+    expect(rotulosDeCasillas({ ...marcadas, oracion: true }, base)).toEqual(['evangelio', 'santisimo', 'persona', 'oracion']);
+    expect(rotulosDeCasillas({ ...marcadas, persona: false }, base)).toEqual(['evangelio', 'santisimo']);
+    expect(rotulosDeCasillas({ ...marcadas, lectura: false }, base)).toEqual(['santisimo', 'persona']);
+    const vacio = congelar({ propios: [{ clave: 'w', nombre: 'W', rotulos: [] }] });
+    const g = { ...formularioDeTipo({ tipos: vacio }, 'w', comunes)!, nombrePanel: 'Doble' };
+    expect((aplicarTipo(vacio, g, comunes, ['w']).tipos!.propios as Record<string, unknown>[])[0].rotulos).toEqual([]);
+  });
+
   it('un común escribe el ajuste en todas sus claves y omite lo que es igual a vicaria', () => {
     const g = { ...formularioDeTipo({}, 'novena', comunes)!, textoInicio: 'En breve' };
     expect(aplicarTipo({}, g, comunes, []).tipos).toEqual({

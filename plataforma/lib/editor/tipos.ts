@@ -133,12 +133,27 @@ export function casillasDe(rotulos: unknown): Record<string, boolean> {
   return Object.fromEntries(CASILLAS_PROPIO.map((c) => [c.id, c.bases.some((b) => l.includes(b))]));
 }
 
-/** Las bases marcadas en su orden y, al final, las que no están en ninguna casilla (`santisimo`). */
+/**
+ * Las bases que quedan con las casillas marcadas. Parte de `anteriores` y solo toca las casillas
+ * que cambiaron (ronda 2): una que se desmarca quita sus bases; una que se marca agrega las que
+ * faltan, en el orden de `ORDEN_BASES`, detrás de la última base de casilla que ya estaba (o al
+ * principio). Lo demás queda como estaba, en su orden, y una base que no es de ninguna casilla
+ * (`santisimo`) se conserva. Sin cambios, devuelve los rótulos de antes tal cual.
+ */
 export function rotulosDeCasillas(marcadas: Record<string, boolean>, anteriores: unknown): string[] {
-  const elegidas = new Set(CASILLAS_PROPIO.filter((c) => marcadas[c.id]).flatMap((c) => c.bases));
+  const antes = lista(anteriores).filter((b): b is string => typeof b === 'string');
+  const previas = casillasDe(antes);
+  const cambiadas = CASILLAS_PROPIO.filter((c) => Boolean(marcadas[c.id]) !== previas[c.id]);
+  const quitar = new Set(cambiadas.filter((c) => !marcadas[c.id]).flatMap((c) => c.bases));
+  const agregar = new Set(cambiadas.filter((c) => marcadas[c.id]).flatMap((c) => c.bases));
+  const quedan = antes.filter((b, i, a) => !quitar.has(b) && a.indexOf(b) === i);
+  const nuevas = ORDEN_BASES.filter((b) => agregar.has(b) && !quedan.includes(b));
   const cubiertas = new Set(CASILLAS_PROPIO.flatMap((c) => c.bases));
-  const resto = lista(anteriores).filter((b): b is string => typeof b === 'string' && !cubiertas.has(b));
-  return [...ORDEN_BASES.filter((b) => elegidas.has(b)), ...resto.filter((b, i, a) => a.indexOf(b) === i)];
+  let donde = 0;
+  quedan.forEach((b, i) => {
+    if (cubiertas.has(b)) donde = i + 1;
+  });
+  return [...quedan.slice(0, donde), ...nuevas, ...quedan.slice(donde)];
 }
 
 export type Portada = 'ninguna' | 'fiesta' | 'evento';
@@ -285,7 +300,7 @@ export function aplicarTipo(
   if (f.imagen !== undefined) p.imagen = f.imagen;
   if (f.portada !== 'ninguna') p.portada = f.portada;
   const rotulos = rotulosDeCasillas(f.casillas, f.base.rotulos);
-  if (rotulos.length) p.rotulos = rotulos;
+  if (rotulos.length || Array.isArray(f.base.rotulos)) p.rotulos = rotulos;
   const propios = lista(t.propios);
   const i = f.clase === 'propio' ? propios.findIndex((x) => objeto(x).clave === f.id) : -1;
   t.propios = i >= 0 ? propios.map((x, j) => (j === i ? p : x)) : [...propios, p];
