@@ -110,6 +110,17 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
   // «Parroquia de <ciudad>» y «<patrono> · <departamento>» se arman con el lugar «Ciudad, Departamento».
   var lamina = document.getElementById(estilo);
   function poner(el, texto) { el.textContent = texto; el.hidden = texto === ''; }
+  // pantallas.produccion (personalizada) cambia la ceja y el nombre grande, sin plantillas, y puede ocultar la
+  // marca (el logo). Sin texto propio queda el que trae la lámina, guardado la primera vez en data-base.
+  function textoPropio(b, clave) {
+    var t = b && b.textos && typeof b.textos === 'object' ? b.textos[clave] : undefined;
+    return typeof t === 'string' ? t.trim() : '';
+  }
+  function ponerPropio(el, b, clave) {
+    if (!el) return;
+    if (el.dataset.base === undefined) el.dataset.base = el.textContent;
+    el.textContent = textoPropio(b, clave) || el.dataset.base;
+  }
   function imagen(img, im) {
     if (!img.dataset.vigilada) {
       img.dataset.vigilada = '1';
@@ -138,8 +149,12 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
     if (pie) poner(pie, [nombre, c.lugar || ''].filter(Boolean).join(' · '));
     var banda = lamina.querySelector('#banda');
     if (banda) poner(banda, [patrono.toUpperCase(), depto.toUpperCase()].filter(Boolean).join(' · '));
-    imagen(document.getElementById('logo-claro') || document.getElementById('logo-azul'),
-      estilo === 'claro' ? (c.logos && c.logos.color) : (c.logos && c.logos.blanco));
+    var b = bloquePantalla('produccion');
+    ponerPropio(lamina.querySelector('.ceja'), b, 'prod_ceja');
+    ponerPropio(lamina.querySelector('.grande'), b, 'prod_nombre');
+    var logo = document.getElementById('logo-claro') || document.getElementById('logo-azul');
+    imagen(logo, estilo === 'claro' ? (c.logos && c.logos.color) : (c.logos && c.logos.blanco));
+    if (b && Array.isArray(b.ocultar) && b.ocultar.indexOf('marca') !== -1) logo.hidden = true;
   }
   aplicarParroquia(PARROQUIA);
   alCambiarParroquia(aplicarParroquia);

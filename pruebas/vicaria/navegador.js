@@ -869,6 +869,94 @@ async function casoPantallasRediseno() {
   await ctx2.close();
 }
 
+async function casoRotulosRediseno() {
+  console.log('Rediseño · Rótulos, capa EN VIVO y producción');
+  const ACENTO = 'rgb(217, 164, 65)';
+  const cfg = conBloques((c) => {
+    c.colores.acento = '#d9a441';
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: 'blanco', colorLinea: 'acento', logoEsquina: false };
+    c.pantallas = {
+      envivo: { modo: 'personalizada', ocultar: ['envivo'], textos: { capa_logo: 'Pastoral' } },
+      produccion: { modo: 'personalizada', ocultar: ['marca'], textos: { prod_ceja: 'UN TRABAJO DE', prod_nombre: 'Pastoral' } }
+    };
+  });
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarLogo: true, mostrarEnVivo: true }));
+  await r.waitForSelector('#rotulo.en');
+  await r.waitForTimeout(1500);
+  const m = await r.evaluate(async () => {
+    await document.fonts.ready;
+    const cs = (sel) => getComputedStyle(document.querySelector(sel));
+    return {
+      familia: cs('#r-t').fontFamily,
+      chequeo: document.fonts.check('700 52px Lora'),
+      cargada: [...document.fonts].some((f) => f.family.replace(/["']/g, '') === 'Lora' && f.status === 'loaded'),
+      fuentes: [...document.fonts].filter((f) => /Lora/.test(f.family)).map((f) => f.family + ' ' + f.weight + ' ' + f.status).join(' / '),
+      radio: cs('#rotulo').borderRadius,
+      linea: cs('#rotulo .cuerpo').borderTopColor,
+      lado: cs('#rotulo .lado').backgroundColor,
+      ladoLogo: document.getElementById('lado-logo').getAttribute('src'),
+      logoOculto: document.getElementById('logo').classList.contains('oculto'),
+      envivoOculto: document.getElementById('envivo').classList.contains('oculto'),
+      logoTxt: document.getElementById('logo-txt').textContent,
+      clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).sort().join(' ')
+    };
+  });
+  revisar(/^"?Lora"?/.test(m.familia), 'rótulo: la font-family del nombre empieza con Lora (' + m.familia + ')');
+  revisar(m.chequeo && m.cargada, 'rótulo: la fuente Lora 700 está cargada (check ' + m.chequeo + ', ' + m.fuentes + ')');
+  igual(m.clases, 'esquinas-suaves tipo-lora', 'rótulo: clases de tipografía y esquinas en el escenario');
+  igual(m.radio, '12px', 'rótulo: esquinas suaves (12px)');
+  igual(m.linea, ACENTO, 'rótulo: la línea del cuerpo es el acento');
+  igual(m.lado, 'rgb(255, 255, 255)', 'rótulo: el lado es blanco');
+  igual(m.ladoLogo, 'medios/logo-color.png', 'rótulo: con el lado claro, el logo del lado es el de color');
+  revisar(m.logoOculto, 'capa: sin logoEsquina, el logo se oculta mientras hay rótulo');
+  revisar(m.envivoOculto, 'capa: el EN VIVO se oculta (pantallas.envivo.ocultar)');
+  igual(m.logoTxt, 'Pastoral', 'capa: el texto del logo sale de pantallas.envivo.textos');
+  igual((await imagenesRotas(r)).length, 0, 'rótulos: ninguna imagen rota');
+  await captura(r, 'rediseno_rotulo');
+
+  // Sin rótulo vuelve el logo de la capa; el EN VIVO sigue oculto
+  await r.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' })));
+  await r.waitForTimeout(600);
+  revisar(!(await r.evaluate(() => document.getElementById('logo').classList.contains('oculto'))), 'capa: sin rótulo, el logo vuelve');
+  revisar(await r.evaluate(() => document.getElementById('envivo').classList.contains('oculto')), 'capa: sin rótulo, el EN VIVO sigue oculto');
+
+  // Source Sans y vuelta a lo de siempre
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { tipografia: 'source-sans' } }); aplicarParroquia(PARROQUIA); });
+  const ss = await r.evaluate(() => ({
+    familia: getComputedStyle(document.getElementById('r-t')).fontFamily,
+    clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).join(' '),
+    ladoLogo: document.getElementById('lado-logo').getAttribute('src')
+  }));
+  revisar(/^"?SourceSans"?/.test(ss.familia), 'rótulo: con source-sans, la font-family empieza con SourceSans (' + ss.familia + ')');
+  igual(ss.clases, 'tipo-source-sans', 'rótulo: se quitan tipo-lora y esquinas-suaves');
+  igual(ss.ladoLogo, 'medios/logo-blanco.png', 'rótulo: sin lado claro, el logo del lado vuelve a ser el blanco');
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined, colores: { principal: '#1155a4', oscuro: '#0c3562' } }); aplicarParroquia(PARROQUIA); });
+  const sin = await r.evaluate(() => ({
+    clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).join(' '),
+    linea: document.getElementById('escenario').style.getPropertyValue('--linea')
+  }));
+  igual(sin.clases, '', 'sin bloque ni acento: ninguna clase nueva');
+  igual(sin.linea, '', 'sin bloque ni acento: --linea vacía');
+
+  // Producción: textos y marca de pantallas.produccion
+  for (const estilo of ['azul', 'claro']) {
+    const p = await abrir(ctx, `/${CA}/produccion.html?estilo=${estilo}`, 1280, 800);
+    await p.waitForTimeout(800);
+    const pr = await p.evaluate(() => ({
+      ceja: document.querySelector('.lamina [data-texto]').textContent,
+      grande: document.querySelector('.lamina .grande').textContent,
+      logo: document.querySelector('.lamina img').hidden
+    }));
+    igual(pr.ceja, 'UN TRABAJO DE', 'producción ' + estilo + ': la ceja sale de prod_ceja');
+    igual(pr.grande, 'Pastoral', 'producción ' + estilo + ': el nombre sale de prod_nombre');
+    revisar(pr.logo, 'producción ' + estilo + ': con ocultar marca, el logo no se ve');
+    await captura(p, 'rediseno_produccion_' + estilo);
+  }
+  await ctx.close();
+}
+
 async function casoPanelNeutroConservaPropio() {
   console.log('1b · Panel con configuración neutra al arrancar conserva el tipo propio');
   const ctx = await nuevoContexto();
@@ -1144,6 +1232,7 @@ async function casoLineaBase() {
     await casoSanJoseCompleto();
     await casoVistaPrevia();
     await casoPantallasRediseno();
+    await casoRotulosRediseno();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

@@ -139,6 +139,9 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta 
 
 En `produccion` y `envivo` se aceptan `fondo`, `imagen` y `distribucion`, pero no se aplican: ahí solo cuentan `ocultar` y `textos`.
 
+- `envivo` es la capa de `rotulos.html` (el logo de la esquina, el EN VIVO y la barra). `ocultar: ["marca"]` esconde el logo de la esquina y `ocultar: ["envivo"]` el cartel EN VIVO, aunque el panel los tenga prendidos. Sus textos son `capa_logo` (el nombre junto al logo) y `barra_y` (la segunda parte de la barra).
+- `produccion` es `produccion.html`. `ocultar: ["marca"]` esconde el logo. Sus textos son `prod_ceja` y `prod_nombre`, y van **tal cual**: ahí los huecos `{…}` no se rellenan.
+
 Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo. Igual con `fondo.color` y `fondo.imagen`: se validan siempre que estén escritos, aunque `fondo.tipo` sea otro (un `color` mal escrito o una `imagen` que no está en la galería rechaza el archivo aunque el tipo sea `degradado`).
 
 Si una imagen de la galería ya no existe, la pantalla usa la automática (o el degradado, en un fondo). Una imagen que no carga se oculta sin dejar el ícono roto.

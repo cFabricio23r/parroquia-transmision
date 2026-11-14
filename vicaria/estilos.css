@@ -4,6 +4,9 @@
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
 @font-face{font-family:Mont;src:url(fuentes/montserrat-latin-900-normal.woff2) format('woff2');font-weight:900}
 @font-face{font-family:Vibes;src:url(fuentes/great-vibes-latin-400-normal.woff2) format('woff2')}
+/* Tipografías de los rótulos (rotulos.tipografia). Licencias en fuentes/LICENCIAS.md. */
+@font-face{font-family:Lora;src:url(fuentes/lora-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:SourceSans;src:url(fuentes/source-sans-3-latin-700-normal.woff2) format('woff2');font-weight:700}
 
 :root{
   --oscuro:#0c3562; --rey:#1155a4; --medio:#157ec1; --celeste:#3d9be0; --claro:#8cc0ef; --palido:#e6f1fb; --rojo:#dd0300;
@@ -80,7 +83,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .rotulo.visible{transform:none;opacity:1}
 .rotulo .lado{width:160px;background:var(--lado,linear-gradient(160deg,var(--rey),var(--oscuro)));display:flex;align-items:center;justify-content:center}
 .rotulo .lado img{width:104px;display:block}
-.rotulo .cuerpo{background:#fff;padding:22px 64px 24px 40px;min-width:640px;max-width:1500px;display:flex;flex-direction:column;gap:6px;border-top:8px solid var(--celeste)}
+.rotulo .cuerpo{background:#fff;padding:22px 64px 24px 40px;min-width:640px;max-width:1500px;display:flex;flex-direction:column;gap:6px;border-top:8px solid var(--celeste);border-top-color:var(--linea,var(--celeste))}
 .rotulo .k{font-weight:800;font-size:18px;letter-spacing:5px;color:var(--medio)}
 .rotulo .t{font-weight:900;font-size:52px;line-height:1.05;color:var(--oscuro);white-space:nowrap}
 .rotulo .s{font-weight:600;font-size:24px;color:var(--rey)}
@@ -249,6 +252,11 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
    pos-centro centra con márgenes automáticos (sin transform) para no pisar las animaciones .en/.sale. */
 .esquinas-rectas .rotulo,.esquinas-rectas .capa-logo,.esquinas-rectas .barra{border-radius:0}
 .pos-centro .rotulo{left:0;right:0;margin-left:auto;margin-right:auto;width:max-content}
+/* Esquinas suaves: 12px en el rótulo, la capa del logo y la barra (como rectas, pero redondeadas apenas). */
+.esquinas-suaves .rotulo,.esquinas-suaves .capa-logo,.esquinas-suaves .barra{border-radius:12px}
+/* Tipografía del nombre del rótulo: Lora («clásica») o Source Sans («sencilla»), en 700. */
+.tipo-lora .rotulo .t{font-family:Lora,Georgia,serif;font-weight:700}
+.tipo-source-sans .rotulo .t{font-family:SourceSans,Mont,sans-serif;font-weight:700}
 
 /* ================= Rediseño =================
    Acento: solo con colores.acento (clase con-acento en <html>); sin él, la franja se ve como siempre. */

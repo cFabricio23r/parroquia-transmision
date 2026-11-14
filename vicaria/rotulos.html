@@ -88,15 +88,17 @@ function aplicar(s) {
 function pintar(s) {
   if (PARROQUIA_NO_EXISTE) return;
   estado = s;
-  $('logo').classList.toggle('oculto', !s.mostrarLogo);
-  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo);
-  $('logo-txt').textContent = tx(s, 'capa_logo');
+  const hayRotulo = !!contenido(s) && !(s.rotuloHasta && Date.now() > s.rotuloHasta);
+  // La capa EN VIVO se personaliza con pantallas.envivo: marca y EN VIVO ocultables, textos propios.
+  // Sin logoEsquina, el logo de la capa se aparta mientras hay rótulo.
+  $('logo').classList.toggle('oculto', !s.mostrarLogo || (!estiloRotulos().logoEsquina && hayRotulo) || !visible('envivo', 'marca'));
+  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo || !visible('envivo', 'envivo'));
+  $('logo-txt').textContent = textoDe(s, 'envivo', 'capa_logo');
 
   aplicar(s);
 
-  const hayRotulo = !!contenido(s) && !(s.rotuloHasta && Date.now() > s.rotuloHasta);
   $('barra-x').textContent = (s.barraTexto || '').trim() || tituloCelebracion(s);
-  $('barra-y').textContent = tx(s, 'barra_y');
+  $('barra-y').textContent = textoDe(s, 'envivo', 'barra_y');
   $('barra').classList.toggle('oculto', !s.mostrarBarra || hayRotulo);
 }
 
@@ -107,13 +109,19 @@ function aplicarParroquia(c) {
   $('no-existe').hidden = !no;
   if (no) return;
   aplicarPaleta(c);
-  const e = estiloRotulos();   // clases y --lado se reponen en cada cambio y se quitan al volver a lo de siempre
-  $('escenario').classList.toggle('esquinas-rectas', e.esquinas === 'rectas');
-  $('escenario').classList.toggle('pos-centro', e.posicion === 'centro');
-  if (e.colorLado) $('escenario').style.setProperty('--lado', e.colorLado);
-  else $('escenario').style.removeProperty('--lado');
+  const e = estiloRotulos();   // clases, --lado y --linea se reponen en cada cambio y se quitan al volver a lo de siempre
+  const esc = $('escenario');
+  // Solo los valores que no son los de hoy llevan clase: Montserrat y redondeadas no agregan nada.
+  TIPOGRAFIAS.forEach((t) => esc.classList.toggle('tipo-' + t, t !== 'montserrat' && e.tipografia === t));
+  ESQUINAS_ROTULO.forEach((q) => esc.classList.toggle('esquinas-' + q, q !== 'redondeadas' && e.esquinas === q));
+  esc.classList.toggle('pos-centro', e.posicion === 'centro');
+  if (e.colorLado) esc.style.setProperty('--lado', e.colorLado);
+  else esc.style.removeProperty('--lado');
+  if (e.colorLinea) esc.style.setProperty('--linea', e.colorLinea);
+  else esc.style.removeProperty('--linea');
   ponerImagen($('logo-img'), c.logos && c.logos.blanco);
-  ponerImagen($('lado-logo'), c.logos && c.logos.blanco);
+  // Sobre un lateral claro el logo blanco no se ve: va el de color, si la parroquia lo tiene.
+  ponerImagen($('lado-logo'), c.logos && (e.ladoClaro && c.logos.color ? c.logos.color : c.logos.blanco));
   pintar(leerEstado());   // mismo rótulo y mismo texto: no se reanima
 }
 aplicarParroquia(PARROQUIA);
