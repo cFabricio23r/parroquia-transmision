@@ -44,6 +44,8 @@ const entorno = {
   SITIO_URL: BASE,
   // Las pruebas nunca avisan a Vercel, aunque el entorno de quien las corre tenga el aviso configurado.
   VERCEL_DEPLOY_HOOK_URL: '',
+  // Ni correos de verdad (Decisión 28 del plan 5): sin la llave, lib/correo.ts solo los escribe en la consola.
+  RESEND_API_KEY: '',
   BASE_URL: BASE,
 };
 

@@ -1,0 +1,60 @@
+/* Administración (D1–D3, plan 5). Valores de AB/VicAdminParroquias, VicAdminCoordinadores y VicAdminRegistro. */
+.pv-admin {
+  padding: 26px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pv-admin--solo { max-width: calc(560px + 80px); }
+.pv-admin-solo { display: flex; flex-direction: column; gap: 14px; }
+.pv-admin-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pv-admin-titulo { margin: 0; font-size: 24px; font-weight: 800; }
+.pv-admin-filtro { margin: -8px 0 0; font-size: 13px; color: var(--pv-texto-suave); }
+.pv-admin-nota { margin: 0; font-size: 13px; color: var(--pv-texto-suave); }
+
+/* Celdas */
+.pv-admin-nombre { display: flex; flex-direction: column; }
+.pv-admin-nombre b { font-weight: 700; }
+.pv-admin-nombre--apagada b { color: var(--pv-gris-chip-texto); }
+.pv-admin-sub { font-size: 12px; color: var(--pv-texto-suave); }
+.pv-admin-slug { font-family: monospace; color: var(--pv-texto-suave); overflow-wrap: anywhere; }
+.pv-admin-acciones { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.pv-admin-cuando { color: var(--pv-texto-suave); }
+
+/* Anuncios tras una acción (role=status) */
+.pv-admin-anuncio {
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--pv-verde-chip);
+  color: var(--pv-verde-chip-texto);
+  font-weight: 600;
+}
+.pv-admin-anuncio:empty { display: none; }
+.pv-admin-anuncio a { color: inherit; font-weight: 700; margin-left: 6px; }
+
+/* D3: filas con relleno 14 18 */
+.pv-tabla--registro .pv-tabla-fila { padding: 14px 18px; }
+.pv-admin-lugar { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
+.pv-admin-lugar select {
+  border: 1.5px solid var(--pv-borde);
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--pv-texto);
+  background: #fff;
+  font-family: inherit;
+}
+
+@media (max-width: 900px) {
+  .pv-admin { padding: 20px 16px; }
+  .pv-admin .pv-tabla { overflow-x: auto; }
+  .pv-admin .pv-tabla-fila { min-width: 860px; }
+}

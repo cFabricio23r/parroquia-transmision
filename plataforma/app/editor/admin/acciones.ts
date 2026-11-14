@@ -1,6 +1,7 @@
 'use server';
-// Envoltorios finos: la lógica está en lib/admin.ts (se prueba con clientes inyectados).
-// Los argumentos de una Server Action llegan del cliente sin garantía de tipo: se coaccionan aquí.
+// Envoltorios finos: la lógica está en lib/admin.ts, lib/admin-parroquias.ts y lib/admin-coordinadores.ts
+// (se prueba con clientes inyectados). Los argumentos de una Server Action llegan del cliente sin
+// garantía de tipo: se coaccionan aquí. Cada función de lib vuelve a comprobar que quien actúa es admin.
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import slugsDelRepo from '../../../lib/generado/slugs-del-repo.json';
@@ -12,7 +13,10 @@ import {
   type DepsAdmin,
   type Resultado,
 } from '../../../lib/admin';
+import { anularInvitacion, asignar, reenviarInvitacion } from '../../../lib/admin-coordinadores';
+import { desactivarParroquia, reactivarParroquia } from '../../../lib/admin-parroquias';
 import { enviarCorreo } from '../../../lib/correo';
+import type { EstadoHook } from '../../../lib/despliegue';
 import { resolverSitioUrl } from '../../../lib/sesion';
 import { clienteServicio } from '../../../lib/supabase/servicio';
 import { clienteServidor } from '../../../lib/supabase/servidor';
@@ -24,26 +28,50 @@ async function deps(): Promise<DepsAdmin> {
     enviar: enviarCorreo,
     sitioUrl: resolverSitioUrl(process.env),
     slugsDelRepo,
+    hookUrl: process.env.VERCEL_DEPLOY_HOOK_URL,
   };
 }
 
-export async function crearParroquia(slug: string, nombre: string, lugar?: string): Promise<Resultado> {
-  const r = await crearLogica(await deps(), String(slug ?? ''), String(nombre ?? ''), String(lugar ?? ''));
-  if (r.error || !r.slug) return { error: r.error, campo: r.campo };
-  revalidatePath('/editor/admin');
-  redirect(`/editor/admin/parroquia/${r.slug}`);
+const texto = (x: unknown) => String(x ?? '');
+/** Todo lo que cambia algo refresca las tres pestañas (y C1, que muestra el chip «Desactivada»). */
+function refrescar<T extends Resultado>(r: T): T {
+  if (!r.error) {
+    revalidatePath('/editor/admin', 'layout');
+    revalidatePath('/editor');
+  }
+  return r;
+}
+
+export async function crearParroquia(nombre: string, slug: string, lugar: string): Promise<Resultado & { slug?: string }> {
+  return refrescar(await crearLogica(await deps(), texto(slug), texto(nombre), texto(lugar)));
+}
+
+export async function desactivar(parroquiaId: string): Promise<Resultado & { hook?: EstadoHook }> {
+  return refrescar(await desactivarParroquia(await deps(), texto(parroquiaId)));
+}
+
+export async function reactivar(parroquiaId: string): Promise<Resultado & { hook?: EstadoHook }> {
+  return refrescar(await reactivarParroquia(await deps(), texto(parroquiaId)));
 }
 
 export async function invitar(correo: string, parroquiaId: string): Promise<Resultado> {
-  const r = await invitarLogica(await deps(), String(correo ?? ''), String(parroquiaId ?? ''));
-  if (!r.error) revalidatePath('/editor/admin/parroquia/[slug]', 'page');
-  return r;
+  return refrescar(await invitarLogica(await deps(), texto(correo), texto(parroquiaId)));
+}
+
+export async function reenviar(invitacionId: string): Promise<Resultado & { correo?: string }> {
+  return refrescar(await reenviarInvitacion(await deps(), texto(invitacionId)));
+}
+
+export async function anular(invitacionId: string): Promise<Resultado> {
+  return refrescar(await anularInvitacion(await deps(), texto(invitacionId)));
+}
+
+export async function asignarParroquia(usuarioId: string, parroquiaId: string): Promise<Resultado> {
+  return refrescar(await asignar(await deps(), texto(usuarioId), texto(parroquiaId)));
 }
 
 export async function quitarAcceso(parroquiaId: string, usuarioId: string): Promise<Resultado> {
-  const r = await quitarLogica(await deps(), String(parroquiaId ?? ''), String(usuarioId ?? ''));
-  if (!r.error) revalidatePath('/editor/admin/parroquia/[slug]', 'page');
-  return r;
+  return refrescar(await quitarLogica(await deps(), texto(parroquiaId), texto(usuarioId)));
 }
 
 export async function aceptarInvitacion(
@@ -52,10 +80,10 @@ export async function aceptarInvitacion(
   repetida: string,
   nombre: string,
 ): Promise<Resultado & { aviso?: string }> {
-  const r = await aceptarLogica(await deps(), String(token ?? ''), {
-    clave: String(clave ?? ''),
-    repetida: String(repetida ?? ''),
-    nombre: String(nombre ?? ''),
+  const r = await aceptarLogica(await deps(), texto(token), {
+    clave: texto(clave),
+    repetida: texto(repetida),
+    nombre: texto(nombre),
   });
   if (r.error) return { error: r.error, campo: r.campo };
   if (r.aviso) return { aviso: r.aviso }; // la cuenta quedó creada pero no se pudo iniciar la sesión

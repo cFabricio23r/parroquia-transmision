@@ -13,14 +13,16 @@ export function Tabla({
   etiqueta,
   columnas,
   filas,
+  className,
 }: {
   etiqueta: string;
+  className?: string;
   columnas: ColumnaTabla[];
   filas: { clave: string; celdas: ReactNode[] }[];
 }) {
   const grilla = { gridTemplateColumns: columnas.map((c) => c.ancho).join(' ') };
   return (
-    <div role="table" aria-label={etiqueta} className="pv-tabla">
+    <div role="table" aria-label={etiqueta} className={['pv-tabla', className].filter(Boolean).join(' ')}>
       <div role="row" className="pv-tabla-fila pv-tabla-cabecera" style={grilla}>
         {columnas.map((c, i) => (
           <span key={i} role="columnheader">
