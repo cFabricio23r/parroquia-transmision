@@ -1747,6 +1747,74 @@ async function casoDisenoRotulo() {
   }
 }
 
+/* C5, B3 y A3 en produccion.html: el Claro de F4:35 (papel, halo --vivo, logo blanco en un círculo del principal a
+   la izquierda del texto, grupo centrado) y el Azul con los tintes de la paleta. */
+async function casoDisenoProduccion() {
+  console.log('Diseño · Producción claro y azul');
+  const centro = (p) => p.evaluate(() => { const r = document.querySelector('#claro .fila').getBoundingClientRect(); return r.left + r.width / 2; });
+  // San José, claro (F4:35)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null);
+    igual((await estilosDe(p, '#claro', ['backgroundColor'])).backgroundColor, 'rgb(250, 246, 243)', 'San José, claro: el papel del artboard');
+    const halo = await estilosDe(p, '#claro .halo', ['backgroundImage', 'width']);
+    igual(halo.backgroundImage, 'radial-gradient(circle, rgba(192, 72, 90, 0.14) 0%, rgba(192, 72, 90, 0) 60%)', 'San José, claro: el halo es --vivo');
+    igual(halo.width, '1500px', 'San José, claro: el halo mide 1500');
+    const ceja = await estilosDe(p, '#claro .ceja', ['color', 'fontSize', 'letterSpacing']);
+    igual([ceja.color, ceja.fontSize, ceja.letterSpacing].join(' '), 'rgb(58, 42, 44) 40px 10px', 'San José, claro: la ceja es --tinta, 40/10');
+    const caja = await estilosDe(p, '#logo-claro-caja', ['width', 'height', 'borderRadius', 'backgroundColor']);
+    igual(caja && [caja.width, caja.height, caja.borderRadius, caja.backgroundColor].join(' '), '300px 300px 50% rgb(138, 28, 43)', 'San José, claro: el logo va en un círculo de 300 del principal');
+    revisar(await imagenVisible(p, '#logo-claro'), 'San José, claro: el logo se ve');
+    igual(await p.evaluate(() => document.getElementById('logo-claro').offsetWidth), 200, 'San José, claro: el logo mide 200 de ancho');
+    igual(await p.getAttribute('#logo-claro', 'src'), 'medios/logo-blanco.svg', 'San José, claro: el logo es el blanco');
+    revisar(await p.evaluate(() => { const c = document.getElementById('logo-claro-caja'); return !!c && c.getBoundingClientRect().right <= document.querySelector('#claro .nombres').getBoundingClientRect().left; }), 'San José, claro: el círculo queda a la izquierda del texto');
+    igual((await estilosDe(p, '#claro .fila', ['columnGap'])).columnGap, '48px', 'San José, claro: separación de 48');
+    const grande = await estilosDe(p, '#claro .grande', ['color', 'fontSize']);
+    igual(grande.color + ' ' + grande.fontSize, 'rgb(138, 28, 43) 118px', 'San José, claro: el nombre grande es el principal, 118');
+    igual((await estilosDe(p, '#claro .sub', ['color'])).color, 'rgb(192, 72, 90)', 'San José, claro: el sub es --vivo');
+    igual((await estilosDe(p, '#pie', ['color'])).color, 'rgb(90, 74, 76)', 'San José, claro: el pie es --gris');
+    const c = await centro(p);
+    revisar(Math.abs(c - 960) <= 1, 'San José, claro: el grupo queda centrado (' + c + ')');
+    await captura(p, `diseno_${SJ}_produccion_claro`);
+    await ctx.close();
+  }
+  // Sin marca: sin círculo y el texto sigue centrado
+  {
+    const cfg = configDiseno(SJ);
+    cfg.pantallas = { produccion: { modo: 'personalizada', ocultar: ['marca'] } };
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null, { cfg });
+    revisar(!(await visibleEl(p, '#logo-claro-caja')), 'claro sin marca: el círculo no se ve');
+    const c = await centro(p);
+    revisar(Math.abs(c - 960) <= 1, 'claro sin marca: el texto queda centrado (' + c + ')');
+    await ctx.close();
+  }
+  // Ciudad Arce, claro
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'produccion.html?estilo=claro', null);
+    igual((await estilosDe(p, '#claro', ['backgroundColor'])).backgroundColor, 'rgb(243, 242, 251)', 'Ciudad Arce, claro: el papel de su paleta');
+    igual((await estilosDe(p, '#logo-claro-caja', ['backgroundColor'])).backgroundColor, 'rgb(17, 85, 164)', 'Ciudad Arce, claro: el círculo es su principal');
+    igual((await estilosDe(p, '#claro .sub', ['color'])).color, 'rgb(49, 118, 195)', 'Ciudad Arce, claro: el sub es su --vivo');
+    await captura(p, `diseno_${CA}_produccion_claro`);
+    await ctx.close();
+  }
+  // Azul: el degradado termina en --vivo; la raya es --tenue; nada de #bfe0ff
+  for (const [slug, vivo] of [[CA, 'rgb(49, 118, 195)'], [SJ, 'rgb(192, 72, 90)']]) {
+    const n = slug === SJ ? 'San José' : 'Ciudad Arce';
+    const { ctx, p } = await abrirDiseno(slug, 'produccion.html?estilo=azul', null);
+    const fondo = (await estilosDe(p, '#azul', ['backgroundImage'])).backgroundImage;
+    revisar(fondo.endsWith(vivo + ' 100%)'), n + ', azul: el degradado termina en --vivo (' + fondo + ')');
+    if (slug === CA) {
+      igual((await estilosDe(p, '#azul .raya', ['backgroundColor'])).backgroundColor, 'rgb(211, 227, 245)', n + ', azul: la raya es --tenue');
+      const celestes = await p.evaluate(() => [...document.querySelectorAll('#escenario *')].filter((e) => {
+        const cs = getComputedStyle(e);
+        return [cs.color, cs.backgroundColor, cs.backgroundImage, cs.borderTopColor].some((v) => v.includes('rgb(191, 224, 255)'));
+      }).map((e) => e.id || e.className));
+      igual(celestes.join(', '), '', n + ', azul: ningún elemento con #bfe0ff');
+    }
+    await captura(p, `diseno_${slug}_produccion_azul`);
+    await ctx.close();
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1804,7 +1872,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -1842,6 +1910,7 @@ async function casoLineaBase() {
     await casoDisenoFondo();
     await casoDisenoColores();
     await casoDisenoRotulo();
+    await casoDisenoProduccion();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

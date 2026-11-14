@@ -52,7 +52,7 @@ const ESPERADOS = [
   { n: 16, caso: R, ruta: /^textos\.(logo-txt|logo)$/, motivo: 'A4, decisión 6: la capa del logo dice nombre y lugar en dos líneas' },
   { n: 17, caso: R, ruta: /^(estilos|textos|ocultos|imagenes)\.logo-esquina(\.\w+)?$/, motivo: 'C2: logo de esquina nuevo (imagen sola) durante un rótulo' },
   { n: 18, caso: C, ruta: /^estilos\.claro\.backgroundColor$/, motivo: 'C5: el fondo del Claro de #f4f7fb a --papel' },
-  { n: 19, caso: C, ruta: /^estilos\.pie\.color$/, motivo: 'C5: el pie del Claro de #4a5a6c a --gris' },
+  { n: 19, caso: C, ruta: /^estilos\.pie\.(color|borderTopColor)$/, motivo: 'C5: el pie del Claro de #4a5a6c a --gris (borderTopColor sigue a color: currentColor)' },
   { n: 20, caso: C, ruta: /^(imagenes\.logo-claro\.(src|alt)|ocultos\.logo-claro|estilos\.logo-claro\.\w+)$/, motivo: 'C5: el logo del Claro pasa a logos.blanco' },
   { n: 21, caso: C, ruta: /^(estilos|textos|ocultos|imagenes)\.logo-claro-caja(\.\w+)?$/, motivo: 'C5: círculo nuevo del logo del Claro' },
   { n: 22, caso: A, ruta: /^estilos\.azul\.backgroundImage$/,
