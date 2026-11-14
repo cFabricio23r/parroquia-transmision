@@ -87,3 +87,21 @@ describe('marca', () => {
     expect(ALT_LOGO_PASTORAL).toBe('Logo de la Pastoral de Comunicaciones');
   });
 });
+
+describe('zona de toque de 44 px en enlaces y «Mostrar contraseña» (plan 2, ronda 2)', () => {
+  const css = leer('app/estilos/componentes.css');
+  const regla = (selector: string) => css.match(new RegExp(String.raw`${escapar(selector)}\s*\{([^}]*)\}`))?.[1] ?? '';
+  it('.pv-enlace tiene un ::after invisible de 44 px de alto, centrado', () => {
+    expect(regla('.pv-enlace')).toMatch(/position:\s*relative/);
+    const after = regla('.pv-enlace::after');
+    expect(after).toMatch(/content:\s*''/);
+    expect(after).toMatch(/position:\s*absolute/);
+    expect(after).toMatch(/height:\s*44px/);
+  });
+  it('«Mostrar contraseña» no sube su zona sobre el campo (6 px de separación)', () => {
+    const after = regla('.pv-mostrar-clave::after');
+    expect(after).toMatch(/top:\s*-6px/);
+    expect(after).toMatch(/transform:\s*none/);
+    expect(regla('.pv-campo-clave')).toMatch(/gap:\s*6px/);
+  });
+});

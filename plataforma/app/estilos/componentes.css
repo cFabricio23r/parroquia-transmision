@@ -33,7 +33,8 @@
   position: absolute;
   inset: -2px 0;
 }
-.pv-boton:disabled { opacity: .6; cursor: not-allowed; }
+.pv-boton:disabled,
+.pv-boton[aria-disabled='true'] { opacity: .6; cursor: not-allowed; }
 
 /* ---- Chip ---- */
 .pv-chip {
@@ -86,6 +87,7 @@
 
 /* ---- Enlace de texto ---- */
 .pv-enlace {
+  position: relative;
   font-family: inherit;
   font-weight: 700;
   font-size: 14px;
@@ -99,6 +101,16 @@ button.pv-enlace {
   cursor: pointer;
 }
 .pv-enlace--12 { font-size: 12px; }
+/* Zona de toque de 44 px sin cambiar el dibujo (Global Constraints del plan 2; ronda 2). */
+.pv-enlace::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
 
 /* ---- Campos ---- */
 .pv-campo { display: flex; flex-direction: column; gap: 6px; width: 100%; }
@@ -125,6 +137,8 @@ button.pv-enlace {
 
 .pv-campo-clave { display: flex; flex-direction: column; gap: 6px; }
 .pv-mostrar-clave { align-self: flex-start; text-decoration: none; }
+/* El botón va 6 px debajo del campo (gap): la zona de toque arranca justo ahí y crece hacia abajo, sin tapar el campo. */
+.pv-mostrar-clave::after { top: -6px; height: 44px; transform: none; }
 
 /* ---- Requisitos de la contraseña ---- */
 .pv-requisitos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
