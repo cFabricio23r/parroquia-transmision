@@ -64,9 +64,9 @@ try {
   await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/galeria`);
   igual(await menu.getByRole('link', { name: /^Galería/ }).getAttribute('aria-current'), 'page', '«Galería» pasa a ser la actual');
 
-  console.log('Páginas provisionales');
+  console.log('Pantallas (plan 4: ya no es provisional)');
   await pagina.goto(`${BASE}/editor/p/${P.slug}/pantallas`);
-  revisar(await pagina.getByText('Esta sección llega en la próxima entrega del editor.').isVisible(), '«Pantallas» tiene su página provisional');
+  revisar(await pagina.getByRole('heading', { level: 1, name: 'Pantallas de OBS' }).isVisible(), '«Pantallas» tiene su página');
   igual((await camposSinEtiqueta(pagina)).length, 0, 'todo campo tiene etiqueta');
 
   console.log('Chip con versiones');

@@ -1,0 +1,26 @@
+/* Secciones de estilo del editor (plan 4): Pantallas (F4, F5), Rótulos (F6) y Tipos (F7, F8).
+   Medidas de AB/VicEd*.dc.html. */
+
+/* ---- F4 Pantallas de OBS ---- */
+.pv-pantallas-grilla { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.pv-pantalla-tarjeta {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pv-pantalla-marco { aspect-ratio: 16 / 9; width: 100%; background: #4b0f18; }
+.pv-pantalla-marco--envivo { background: #3b4a5c; }
+.pv-pantalla-miniatura { display: block; width: 100%; height: 100%; border: 0; pointer-events: none; }
+.pv-pantalla-cuerpo { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pv-pantalla-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pv-pantalla-nombre { margin: 0; font-size: 14px; font-weight: 700; }
+.pv-pantalla-descripcion { margin: 0; font-size: 12px; color: var(--pv-texto-suave); line-height: 1.4; }
+@media (max-width: 1100px) {
+  .pv-pantallas-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .pv-pantallas-grilla { grid-template-columns: minmax(0, 1fr); }
+}

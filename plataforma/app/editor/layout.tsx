@@ -7,6 +7,7 @@ import '../estilos/base.css';
 import '../estilos/componentes.css';
 import '../estilos/marco.css';
 import '../estilos/editor-marco.css';
+import '../estilos/editor-estilo.css';
 
 export default function EditorLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;
