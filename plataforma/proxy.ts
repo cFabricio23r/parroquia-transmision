@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { MENSAJES_ACCESO } from './lib/mensajes-acceso';
 
 // Rutas del editor que se pueden ver sin sesión.
 const PUBLICAS = ['/editor/entrar', '/editor/olvide', '/editor/invitacion', '/editor/auth'];
@@ -18,13 +19,33 @@ export const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intent
 export const esFalloDeConexion = (error: unknown): boolean =>
   isAuthRetryableFetchError(error) || (isAuthError(error) && error.name === 'AuthUnknownError');
 
-/** La página que se muestra (con 503) en lugar de mandar a entrar cuando Supabase no responde. */
+/**
+ * La página que se muestra (con 503) en lugar de mandar a entrar cuando Supabase no responde:
+ * la tarjeta «Sin conexión» de A5 bajo la franja del encabezado. HTML suelto con estilos en línea
+ * (el proxy no pasa por los layouts); Montserrat sale de /fuentes, sin red de terceros.
+ */
 function paginaSinConexion(): NextResponse {
+  const m = MENSAJES_ACCESO['sin-conexion'];
   const html = `<!doctype html>
 <html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sin conexión con el servidor</title>
-<style>body{font-family:system-ui,sans-serif;max-width:36rem;margin:3rem auto;padding:0 1rem;color:#1a1a1a;background:#fff;line-height:1.5}a{color:#0c3562}</style></head>
-<body><main><h1>Sin conexión con el servidor</h1><p role="alert">${MENSAJE_SIN_CONEXION}.</p><p><a href="">Volver a intentar</a></p></main></body>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${m.titulo} · Parroquia en Vivo</title>
+<style>
+@font-face{font-family:'Montserrat';font-weight:600;font-display:swap;src:url('/fuentes/montserrat-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Montserrat';font-weight:700;font-display:swap;src:url('/fuentes/montserrat-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'Montserrat';font-weight:800;font-display:swap;src:url('/fuentes/montserrat-latin-800-normal.woff2') format('woff2')}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f7fb;color:#14223a;font-family:'Montserrat',sans-serif}
+header{height:64px;background:#0c3562;color:#fff;display:flex;align-items:center;padding:0 28px;font-weight:800;font-size:16px}
+main{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 64px);padding:24px 16px}
+.tarjeta{width:min(440px,100%);background:#fff;border:1px solid #d5e0ee;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px}
+.cabeza{display:flex;align-items:center;gap:10px}
+.punto{width:10px;height:10px;border-radius:50%;background:#1155a4;flex-shrink:0}
+h1{margin:0;font-size:16px;font-weight:800}
+p{margin:0;font-size:14px;line-height:1.5;color:#56657a}
+a{align-self:flex-start;display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border:1.5px solid #d5e0ee;border-radius:10px;background:#fff;color:#14223a;font-weight:700;font-size:15px;text-decoration:none}
+a:focus-visible{outline:3px solid #1155a4;outline-offset:2px}
+</style></head>
+<body><header>Parroquia en Vivo</header><main><div class="tarjeta"><div class="cabeza"><span class="punto" aria-hidden="true"></span><h1>${m.titulo}</h1></div><p role="alert">${m.texto}</p><a href="">Reintentar</a></div></main></body>
 </html>`;
   return new NextResponse(html, {
     status: 503,

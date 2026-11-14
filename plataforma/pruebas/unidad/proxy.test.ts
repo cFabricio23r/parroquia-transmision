@@ -4,6 +4,7 @@ import { AuthApiError, AuthRetryableFetchError, AuthSessionMissingError, AuthUnk
 import { NextRequest } from 'next/server';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { MENSAJES_ACCESO } from '../../lib/mensajes-acceso';
 import { esFalloDeConexion, MENSAJE_SIN_CONEXION, proxy } from '../../proxy';
 
 /** Una cookie de sesión como la que escribe @supabase/ssr (prefijo base64-), con un token que no vence pronto. */
@@ -69,7 +70,10 @@ describe('proxy con Supabase sin responder', () => {
       expect(r.headers.get('location')).toBeNull();
       expect(r.headers.get('content-type')).toContain('text/html');
       const html = await r.text();
-      expect(html).toContain(MENSAJE_SIN_CONEXION);
+      const m = MENSAJES_ACCESO['sin-conexion'];
+      expect(html).toContain(`<h1>${m.titulo}</h1>`);
+      expect(html).toContain(m.texto);
+      expect(html).toContain('>Reintentar</a>');
       expect(html).toContain('lang="es"');
       expect(html).toContain('role="alert"');
     });
