@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prepararVistaPrevia, recogerMedios } from '../../lib/vista-previa';
+import { ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, prepararVistaPrevia, recogerMedios, srcVistaPrevia, tiposParaVistaPrevia } from '../../lib/vista-previa';
 
 const urls = { 'medios/logo.png': 'http://x/firmada-logo?token=1', 'medios/fachada.jpg': 'http://x/firmada-fachada?token=2' };
 
@@ -49,5 +49,51 @@ describe('recogerMedios', () => {
 
   it('ignora src que no son de medios/ y textos que no son src', () => {
     expect(recogerMedios({ a: { src: 'https://x/y.png' }, b: 'medios/z.png', c: { src: 3 }, d: null })).toEqual([]);
+  });
+});
+
+describe('vista previa continua (plan 3)', () => {
+  const comunes = [
+    { clave: 'dominical', nombre: 'Misa dominical' },
+    { clave: 'semana', nombre: 'Misa entre semana' },
+    { clave: 'horasanta', nombre: 'Hora Santa' },
+  ];
+
+  it('srcVistaPrevia arma la URL de la pantalla con la vista', () => {
+    expect(srcVistaPrevia('san-jose', { pagina: 'pantalla', vista: 'avisos', titulo: 'x', conSelectorTipo: false })).toBe(
+      '/san-jose/pantalla.html?tipo=avisos&vista-previa=1',
+    );
+    expect(srcVistaPrevia('san-jose', { pagina: 'rotulos', vista: '', titulo: 'x', conSelectorTipo: false })).toBe(
+      '/san-jose/rotulos.html?vista-previa=1',
+    );
+  });
+
+  it('tiposParaVistaPrevia: comunes encendidos con su nombre del panel y después los propios', () => {
+    const t = tiposParaVistaPrevia(
+      {
+        tipos: {
+          apagados: ['semana'],
+          ajustes: { horasanta: { nombrePanel: 'Hora Santa parroquial' } },
+          propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora' }],
+        },
+      },
+      comunes,
+    );
+    expect(t[0]).toEqual({ clave: 'dominical', nombre: 'Misa dominical' });
+    expect(t.some((x) => x.clave === 'semana')).toBe(false);
+    expect(t.find((x) => x.clave === 'horasanta')?.nombre).toBe('Hora Santa parroquial');
+    expect(t[t.length - 1]).toEqual({ clave: 'rosario-aurora', nombre: 'Rosario de la aurora' });
+  });
+
+  it('mensajeVistaPrevia lleva el estado solo con tipo', () => {
+    const b = { nombre: 'X', logos: { blanco: { src: 'medios/a.png', alt: 'a' } } };
+    const urls = { 'medios/a.png': 'https://firmada/a' };
+    expect(mensajeVistaPrevia(b, urls, 'horasanta')).toEqual({
+      tipo: 'pev-vista-previa',
+      config: prepararVistaPrevia(b, urls),
+      estado: { tipo: 'horasanta' },
+    });
+    expect(mensajeVistaPrevia(b, urls, null)).toEqual({ tipo: 'pev-vista-previa', config: prepararVistaPrevia(b, urls) });
+    expect(ESPERA_VISTA_PREVIA_MS).toBe(400);
   });
 });

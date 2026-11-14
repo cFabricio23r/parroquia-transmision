@@ -8,6 +8,7 @@ import { hrefSeccion, SECCIONES, seccionDeRuta } from '../../../../lib/editor/se
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
+import { PanelVistaPrevia } from './PanelVistaPrevia';
 import { useBorrador } from './ProveedorBorrador';
 
 export const NOTA_MENU = 'Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques.';
@@ -59,6 +60,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
             <CajaInfo>{AVISO_CELULAR}</CajaInfo>
           </div>
           <div className="pv-editor-form">{children}</div>
+          <PanelVistaPrevia />
         </main>
       </div>
     </div>

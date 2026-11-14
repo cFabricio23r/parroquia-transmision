@@ -52,6 +52,22 @@
 .pv-editor-main--avisos > .pv-aviso-guardado { margin-bottom: 0; }
 .pv-editor-main > .pv-previa { grid-area: previa; min-width: 0; }
 
+/* ---- Vista previa continua (Tarea 9) ---- */
+.pv-previa { display: flex; flex-direction: column; gap: 12px; }
+.pv-previa[hidden] { display: none; }
+.pv-editor-main--avisos > .pv-previa { gap: 10px; }
+.pv-previa-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pv-previa-tipo { width: 240px; flex-shrink: 0; }
+.pv-previa-marco {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--pv-encabezado, #14223a);
+}
+
 /* Aviso de celular (Decisión 23): solo por debajo de 760 px. */
 .pv-editor-celular { display: none; grid-column: 1 / -1; }
 
