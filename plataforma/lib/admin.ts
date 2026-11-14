@@ -11,6 +11,9 @@ import { DIAS_INVITACION, hashDe, nuevoToken } from './tokens';
 export const MENSAJE_SOLO_ADMIN = 'Solo un administrador puede hacer esto';
 export const MENSAJE_INVITACION_INVALIDA = 'Esta invitación ya no sirve. Pide una nueva al administrador';
 const MENSAJE_FALLO = 'No se pudo completar. Intenta de nuevo';
+export const MENSAJE_PARROQUIA_DESACTIVADA = 'Esa parroquia está desactivada. Reactívala antes de invitar.';
+export const MENSAJE_INVITACION_DESACTIVADA =
+  'Esta parroquia está desactivada por ahora. Pídele a la Pastoral de Comunicaciones que la reactive.';
 
 /** Campo del formulario al que se refiere el error; sin `campo`, el error va solo en el resumen. */
 export type Campo = 'nombre' | 'slug' | 'correo' | 'clave';
@@ -25,13 +28,15 @@ export interface DepsAdmin {
   enviar: (m: Mensaje) => Promise<void>;
   sitioUrl: string;
   slugsDelRepo: string[];
+  /** `VERCEL_DEPLOY_HOOK_URL`, para desactivar y reactivar. Es un secreto: nunca se registra. */
+  hookUrl?: string;
 }
 
 const normalizar = (correo: string) => correo.trim().toLowerCase();
 const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function fallo(donde: string, e: unknown): { error: string } {
+export function fallo(donde: string, e: unknown): { error: string } {
   console.error(`[${donde}]`, e instanceof Error ? e.message : (e as { message?: string })?.message ?? e);
   return { error: MENSAJE_FALLO };
 }
@@ -47,7 +52,7 @@ export async function exigirAdmin(sesion: SupabaseClient): Promise<string | null
   return fila ? id : null;
 }
 
-async function registrar(
+export async function registrar(
   servicio: SupabaseClient,
   fila: { parroquia_id: string | null; usuario_id: string | null; accion: string; detalle: Record<string, unknown> },
 ): Promise<void> {
@@ -98,8 +103,13 @@ export async function invitar(deps: DepsAdmin, correoCrudo: string, parroquiaId:
   if (!RE_CORREO.test(correo)) return { error: 'Escribe un correo válido.', campo: 'correo' };
   if (!RE_UUID.test(parroquiaId)) return { error: 'Esa parroquia no existe.' };
   try {
-    const { data: parroquia } = await deps.servicio.from('parroquias').select('nombre').eq('id', parroquiaId).maybeSingle();
+    const { data: parroquia } = await deps.servicio
+      .from('parroquias')
+      .select('nombre, desactivada_en')
+      .eq('id', parroquiaId)
+      .maybeSingle();
     if (!parroquia) return { error: 'Esa parroquia no existe.' };
+    if (parroquia.desactivada_en) return { error: MENSAJE_PARROQUIA_DESACTIVADA };
 
     const ahora = new Date().toISOString();
     const { error: errorAnular } = await deps.servicio
@@ -251,6 +261,17 @@ export async function aceptarInvitacion(
     // Una vencida también da MENSAJE_INVITACION_INVALIDA (carrera rara entre abrir y enviar): la página distingue.
     const inv = await buscarInvitacion(deps.servicio, token);
     if (!inv) return { error: MENSAJE_INVITACION_INVALIDA };
+    // Una parroquia desactivada: se avisa antes de gastar el token, así sirve otra vez al reactivarla.
+    if (inv.parroquia_id) {
+      const { data: parroquia, error: errorParroquia } = await deps.servicio
+        .from('parroquias')
+        .select('desactivada_en')
+        .eq('id', inv.parroquia_id)
+        .maybeSingle();
+      if (errorParroquia) throw errorParroquia;
+      if (parroquia?.desactivada_en) return { error: MENSAJE_INVITACION_DESACTIVADA };
+    }
+
     const existente = await usuarioPorCorreo(deps.servicio, inv.correo);
 
     const clave = datos.clave ?? '';

@@ -16,7 +16,7 @@ export interface VersionPublicada {
 
 type Cuerpo = { numero?: number; hook?: string; errores?: string[]; error?: string };
 
-export const MENSAJE_SIN_GUARDAR = 'Tienes cambios sin guardar. Guarda antes de publicar';
+import { MENSAJE_SIN_GUARDAR } from '../../../../lib/editor/revision';
 const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento';
 
 export function Versiones({

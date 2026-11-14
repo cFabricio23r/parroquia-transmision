@@ -19,10 +19,12 @@ import {
   type ConError,
   type Respuesta,
 } from './borrador';
+import { avisarDespliegue, type EstadoHook } from './despliegue';
+import { MENSAJE_DESACTIVADA_PUBLICAR } from './editor/revision';
 import { revisarImagen } from './imagenes';
 import { validarBorrador, validarConfig } from './validar';
 
-export type EstadoHook = 'ok' | 'fallo' | 'sin-configurar';
+export type { EstadoHook };
 export interface Publicado {
   numero: number;
   hook: EstadoHook;
@@ -103,21 +105,6 @@ export function prepararPublicacion(
     config: { ...limpio, esquema: 1, version: numero, publicado: ahora.toISOString(), slug },
     copias: [...copias].map(([desde, hacia]) => ({ desde, hacia })),
   };
-}
-
-/** Avisa a Vercel que reconstruya. Un fallo no deshace la publicación. No registra la URL (es secreta). */
-async function avisarHook(url: string | undefined): Promise<EstadoHook> {
-  if (!url) return 'sin-configurar';
-  try {
-    const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(10_000) });
-    void r.body?.cancel();
-    if (r.ok) return 'ok';
-    console.error(`[publicar] el aviso a Vercel respondió ${r.status}`);
-  } catch (e) {
-    // Solo el tipo de error: el mensaje de un fallo de red puede traer la dirección.
-    console.error('[publicar] no se pudo avisar a Vercel:', e instanceof Error ? e.name : 'error');
-  }
-  return 'fallo';
 }
 
 /** Los archivos (`<campo>-<8 hex>.<ext>`) que nombra el borrador, sin repetir. Supone `erroresDeMedios` vacío. */
@@ -249,7 +236,17 @@ async function emitir(
     return { estado: r.estado, cuerpo: { error: MENSAJE_FALLO } };
   }
   await registrar(servicio, { parroquia_id: acceso.parroquiaId, usuario_id: acceso.usuarioId, accion, detalle });
-  return { estado: 200, cuerpo: { numero, hook: await avisarHook(deps.hookUrl) } };
+  return { estado: 200, cuerpo: { numero, hook: await avisarDespliegue(deps.hookUrl) } };
+}
+
+/**
+ * 409 si la parroquia está desactivada (Decisión 3 del plan 5), aunque lo pida un admin: el build la
+ * dejaría afuera igual. Un coordinador no llega aquí: comprobarAcceso ya le dio 403 (es_miembro).
+ */
+async function siDesactivada(sesion: SupabaseClient, parroquiaId: string): Promise<Respuesta<ConError> | null> {
+  const { data, error } = await sesion.from('parroquias').select('desactivada_en').eq('id', parroquiaId).maybeSingle();
+  if (error) throw error;
+  return data?.desactivada_en ? conError(409, MENSAJE_DESACTIVADA_PUBLICAR) : null;
 }
 
 async function reservar(servicio: SupabaseClient, parroquiaId: string): Promise<number> {
@@ -263,6 +260,8 @@ export async function publicar(deps: DepsPublicar, slug: string): Promise<Respue
   try {
     const acceso = await comprobarAcceso(deps.sesion, slug);
     if (!acceso.ok) return acceso.respuesta;
+    const bloqueo = await siDesactivada(deps.sesion, acceso.parroquiaId);
+    if (bloqueo) return bloqueo;
     const { data: borrador, error: errorLectura } = await deps.sesion
       .from('borradores')
       .select('config')
@@ -298,6 +297,8 @@ export async function restaurar(
   try {
     const acceso = await comprobarAcceso(deps.sesion, slug);
     if (!acceso.ok) return acceso.respuesta;
+    const bloqueo = await siDesactivada(deps.sesion, acceso.parroquiaId);
+    if (bloqueo) return bloqueo;
     if (typeof numero !== 'number' || !Number.isInteger(numero) || numero < 1 || numero > MAX_INT4) {
       return conError(400, 'La versión que pides no es válida.');
     }
