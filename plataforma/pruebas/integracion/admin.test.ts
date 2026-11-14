@@ -48,14 +48,14 @@ describe('crearParroquia', () => {
     const admin = await unAdmin();
     const d = deps(admin.cliente);
 
-    const reservado = await crearParroquia(d, 'editor', 'X');
+    const reservado = await crearParroquia(d, 'editor', 'X', 'Lugar');
     expect(reservado.error).toMatch(/en uso o está reservada/);
     expect(reservado.campo).toBe('slug');
-    const delRepo = await crearParroquia(d, 'ciudad-arce', 'X');
+    const delRepo = await crearParroquia(d, 'ciudad-arce', 'X', 'Lugar');
     expect(delRepo.error).toMatch(/en uso o está reservada/);
 
     const slug = `nueva-${sufijo()}`;
-    const ok = await crearParroquia(d, slug, 'San Pedro');
+    const ok = await crearParroquia(d, slug, 'San Pedro', 'Ciudad Arce');
     expect(ok.error).toBeUndefined();
     expect(ok.slug).toBe(slug);
 
@@ -63,9 +63,9 @@ describe('crearParroquia', () => {
     expect(p?.nombre).toBe('San Pedro');
     expect(p?.creada_por).toBe(admin.id);
     const { data: b } = await servicio.from('borradores').select('config').eq('parroquia_id', p!.id).single();
-    expect(b?.config).toEqual({ nombre: 'San Pedro' });
+    expect(b?.config).toEqual({ nombre: 'San Pedro', lugar: 'Ciudad Arce' });
 
-    const repetido = await crearParroquia(d, slug, 'Otra');
+    const repetido = await crearParroquia(d, slug, 'Otra', 'Lugar');
     expect(repetido.error).toMatch(/en uso o está reservada/);
     const { count } = await servicio.from('parroquias').select('id', { count: 'exact', head: true }).eq('slug', slug);
     expect(count).toBe(1);
@@ -73,9 +73,28 @@ describe('crearParroquia', () => {
 
   it('pide un nombre', async () => {
     const admin = await unAdmin();
-    const r = await crearParroquia(deps(admin.cliente), `sin-nombre-${sufijo()}`, '   ');
+    const r = await crearParroquia(deps(admin.cliente), `sin-nombre-${sufijo()}`, '   ', 'Lugar');
     expect(r.error).toMatch(/nombre/i);
     expect(r.campo).toBe('nombre');
+  });
+});
+
+describe('crearParroquia con lugar (plan 5)', () => {
+  it('el lugar es obligatorio y hasta 200 caracteres; el borrador queda { nombre, lugar }', async () => {
+    const admin = await unAdmin();
+    const d = deps(admin.cliente);
+    const slug = `lugar-${sufijo()}`;
+    expect(await crearParroquia(d, slug, 'Santa Ana', '')).toEqual({ error: 'Escribe el lugar.', campo: 'lugar' });
+    expect(await crearParroquia(d, slug, 'Santa Ana', '  ')).toEqual({ error: 'Escribe el lugar.', campo: 'lugar' });
+    expect(await crearParroquia(d, slug, 'Santa Ana', 'x'.repeat(201))).toEqual({
+      error: 'El lugar puede tener hasta 200 caracteres.',
+      campo: 'lugar',
+    });
+    const ok = await crearParroquia(d, slug, 'Santa Ana', ' Chalchuapa ');
+    expect(ok).toEqual({ slug });
+    const { data: p } = await servicio.from('parroquias').select('id').eq('slug', slug).single();
+    const { data: b } = await servicio.from('borradores').select('config').eq('parroquia_id', p!.id).single();
+    expect(b?.config).toEqual({ nombre: 'Santa Ana', lugar: 'Chalchuapa' });
   });
 });
 
@@ -87,10 +106,10 @@ describe('solo administradores', () => {
     const d = deps(coord.cliente);
     const slug = `no-${sufijo()}`;
 
-    expect(await crearParroquia(d, slug, 'No')).toEqual({ error: 'Solo un administrador puede hacer esto' });
+    expect(await crearParroquia(d, slug, 'No', 'Lugar')).toEqual({ error: 'Solo un administrador puede hacer esto' });
     expect(await invitar(d, `x-${sufijo()}@ejemplo.test`, p.id)).toEqual({ error: MENSAJE_SOLO_ADMIN });
     expect(await quitarAcceso(d, p.id, coord.id)).toEqual({ error: MENSAJE_SOLO_ADMIN });
-    expect(await crearParroquia(deps(), slug, 'Sin sesión')).toEqual({ error: MENSAJE_SOLO_ADMIN });
+    expect(await crearParroquia(deps(), slug, 'Sin sesión', 'Lugar')).toEqual({ error: MENSAJE_SOLO_ADMIN });
 
     const { count } = await servicio.from('parroquias').select('id', { count: 'exact', head: true }).eq('slug', slug);
     expect(count).toBe(0);
@@ -320,7 +339,7 @@ describe('registro', () => {
     const admin = await unAdmin();
     const slug = `reg-${sufijo()}`;
     const d = deps(admin.cliente);
-    await crearParroquia(d, slug, 'Registro');
+    await crearParroquia(d, slug, 'Registro', 'Lugar');
     const { data: p } = await servicio.from('parroquias').select('id').eq('slug', slug).single();
     const correo = `reg-${sufijo()}@ejemplo.test`;
     await invitar(d, correo, p!.id);

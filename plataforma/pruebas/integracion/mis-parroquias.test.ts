@@ -26,7 +26,7 @@ beforeAll(async () => {
 describe('misParroquias', () => {
   it('un coordinador de A ve solo A, con su última versión', async () => {
     const lista = await misParroquias(coord.cliente);
-    expect(lista).toEqual([{ id: A.id, slug: A.slug, nombre: `Parroquia ${A.slug}`, version: 2 }]);
+    expect(lista).toEqual([{ id: A.id, slug: A.slug, nombre: `Parroquia ${A.slug}`, version: 2, desactivada: false }]);
     expect(await idsDeMisMembresias(coord.cliente, coord.id)).toEqual([A.id]);
   });
   it('un admin ve las dos; la que no tiene versiones da null', async () => {
@@ -36,5 +36,14 @@ describe('misParroquias', () => {
     expect(a?.version).toBe(2);
     expect(b?.version).toBeNull();
     expect(await idsDeMisMembresias(admin.cliente, admin.id)).toEqual([]);
+  });
+  it('un admin ve una desactivada con desactivada: true (Decisión 27 del plan 5)', async () => {
+    await servicio.from('parroquias').update({ desactivada_en: new Date().toISOString() }).eq('id', B.id);
+    try {
+      const b = (await misParroquias(admin.cliente)).find((p) => p.id === B.id);
+      expect(b?.desactivada).toBe(true);
+    } finally {
+      await servicio.from('parroquias').update({ desactivada_en: null }).eq('id', B.id);
+    }
   });
 });

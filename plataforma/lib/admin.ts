@@ -16,7 +16,7 @@ export const MENSAJE_INVITACION_DESACTIVADA =
   'Esta parroquia está desactivada por ahora. Pídele a la Pastoral de Comunicaciones que la reactive.';
 
 /** Campo del formulario al que se refiere el error; sin `campo`, el error va solo en el resumen. */
-export type Campo = 'nombre' | 'slug' | 'correo' | 'clave';
+export type Campo = 'nombre' | 'slug' | 'correo' | 'clave' | 'lugar';
 export interface Resultado {
   error?: string;
   campo?: Campo;
@@ -60,11 +60,14 @@ export async function registrar(
   if (error) throw error;
 }
 
-/** Crea la parroquia y su borrador `{ nombre }`. Solo administradores. */
+export const MAX_LUGAR = 200;
+
+/** Crea la parroquia y su borrador `{ nombre, lugar }`. El lugar es obligatorio (vicaria lo exige para publicar). Solo administradores. */
 export async function crearParroquia(
   deps: DepsAdmin,
   slugCrudo: string,
   nombreCrudo: string,
+  lugarCrudo: string,
 ): Promise<Resultado & { slug?: string }> {
   const quien = await exigirAdmin(deps.sesion);
   if (!quien) return { error: MENSAJE_SOLO_ADMIN };
@@ -73,6 +76,9 @@ export async function crearParroquia(
   const errorSlug = revisarSlug(slug, deps.slugsDelRepo);
   if (errorSlug) return { error: errorSlug, campo: 'slug' };
   if (!nombre) return { error: 'Escribe el nombre de la parroquia.', campo: 'nombre' };
+  const lugar = lugarCrudo.trim();
+  if (!lugar) return { error: 'Escribe el lugar.', campo: 'lugar' };
+  if (lugar.length > MAX_LUGAR) return { error: `El lugar puede tener hasta ${MAX_LUGAR} caracteres.`, campo: 'lugar' };
   try {
     const { data, error } = await deps.servicio
       .from('parroquias')
@@ -83,7 +89,7 @@ export async function crearParroquia(
     if (error || !data) throw error ?? new Error('sin fila');
     const { error: errorBorrador } = await deps.servicio
       .from('borradores')
-      .insert({ parroquia_id: data.id, config: { nombre }, actualizado_por: quien });
+      .insert({ parroquia_id: data.id, config: { nombre, lugar }, actualizado_por: quien });
     if (errorBorrador) {
       await deps.servicio.from('parroquias').delete().eq('id', data.id); // sin borrador no queda parroquia a medias
       throw errorBorrador;

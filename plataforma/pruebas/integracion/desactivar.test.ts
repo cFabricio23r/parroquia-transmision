@@ -25,6 +25,7 @@ import {
   MENSAJE_YA_ACTIVA,
   MENSAJE_YA_DESACTIVADA,
   desactivarParroquia,
+  listarParroquias,
   reactivarParroquia,
 } from '../../lib/admin-parroquias';
 import { guardarBorrador } from '../../lib/borrador';
@@ -201,5 +202,54 @@ describe('desactivar y reactivar', () => {
     expect(await desactivarParroquia(depsDe(a, urlHook500), p.id)).toEqual({ hook: 'fallo' });
     silencio.mockRestore();
     expect(await desactivadaEn(p.id)).not.toBeNull();
+  });
+});
+
+describe('listarParroquias (D1)', () => {
+  it('estado, lugar, coordinadores e invitación pendiente de cada parroquia', async () => {
+    const publicada = await crearParroquia('lis-pub');
+    await servicio.from('borradores').update({ config: { nombre: 'P1', lugar: 'L2' } }).eq('parroquia_id', publicada.id);
+    await servicio.from('versiones').insert({ parroquia_id: publicada.id, numero: 3, config: { nombre: 'P1', lugar: 'L1' } });
+    await servicio.from('versiones').insert({ parroquia_id: publicada.id, numero: 1, config: { nombre: 'P1', lugar: 'viejo' } });
+
+    const borrador = await crearParroquia('lis-bor');
+    await servicio.from('borradores').update({ config: { nombre: 'P2', lugar: 'L3', colores: {} } }).eq('parroquia_id', borrador.id);
+
+    const sinConfigurar = await crearParroquia('lis-sin');
+    await servicio.from('borradores').update({ config: { nombre: 'P3', lugar: 'L4' } }).eq('parroquia_id', sinConfigurar.id);
+    expect(await invitar(depsDe(a), `lis-${sufijo()}@prueba.test`, sinConfigurar.id)).toEqual({});
+
+    const apagada = await crearParroquia('lis-des');
+    const ana = await crearUsuario(`lis-ana-${sufijo()}@prueba.test`, CLAVE);
+    await servicio.from('perfiles').insert({ usuario_id: ana.id, nombre: 'Ana Pérez' });
+    const sinPerfil = await crearUsuario(`lis-sp-${sufijo()}@prueba.test`, CLAVE);
+    await hacerMiembro(apagada.id, ana.id);
+    await hacerMiembro(apagada.id, sinPerfil.id);
+    await marcar(apagada.id, true);
+
+    const filas = await listarParroquias(servicio);
+    const de = (id: string) => filas.find((f) => f.id === id)!;
+    expect(de(publicada.id)).toMatchObject({ slug: publicada.slug, lugar: 'L1', estado: { clave: 'publicada', version: 3 }, coordinadores: [] });
+    expect(de(borrador.id)).toMatchObject({ lugar: 'L3', estado: { clave: 'borrador' }, invitacionPendiente: false });
+    expect(de(sinConfigurar.id)).toMatchObject({ lugar: 'L4', estado: { clave: 'sin-configurar' }, invitacionPendiente: true });
+    expect(de(apagada.id).estado).toEqual({ clave: 'desactivada' });
+    expect(de(apagada.id).coordinadores).toEqual(['Ana Pérez', sinPerfil.correo].sort((x, y) => x.localeCompare(y, 'es')));
+    // Ordenadas por nombre.
+    const nombres = filas.map((f) => f.nombre);
+    expect(nombres).toEqual([...nombres].sort((x, y) => x.localeCompare(y, 'es')));
+  });
+
+  it('una invitación vencida o anulada no cuenta como pendiente', async () => {
+    const p = await crearParroquia('lis-ven');
+    await servicio.from('invitaciones').insert({
+      correo: `ven-${sufijo()}@prueba.test`,
+      rol: 'coordinador',
+      parroquia_id: p.id,
+      token_hash: `h-${sufijo()}`,
+      vence_en: new Date(Date.now() - 1000).toISOString(),
+    });
+    const fila = (await listarParroquias(servicio)).find((f) => f.id === p.id)!;
+    expect(fila.invitacionPendiente).toBe(false);
+    expect(fila.lugar).toBeNull();
   });
 });

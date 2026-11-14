@@ -13,7 +13,7 @@ function clienteAnotador(maximos: Record<string, number | undefined>) {
     consultas.push(c);
     const resolver = () => {
       if (tabla === 'parroquias')
-        return { data: Object.keys(maximos).map((id) => ({ id, slug: id, nombre: `P ${id}` })), error: null };
+        return { data: Object.keys(maximos).map((id) => ({ id, slug: id, nombre: `P ${id}`, desactivada_en: id === 'b' ? '2026-11-01T00:00:00Z' : null })), error: null };
       const eq = c.pasos.find((p) => p[0] === 'eq');
       const id = eq?.[2] as string;
       const n = maximos[id];
@@ -36,8 +36,8 @@ describe('misParroquias', () => {
   it('pide solo la última versión de cada parroquia (orden descendente, limit 1)', async () => {
     const { cliente, consultas } = clienteAnotador({ a: 1200, b: undefined });
     expect(await misParroquias(cliente)).toEqual([
-      { id: 'a', slug: 'a', nombre: 'P a', version: 1200 },
-      { id: 'b', slug: 'b', nombre: 'P b', version: null },
+      { id: 'a', slug: 'a', nombre: 'P a', version: 1200, desactivada: false },
+      { id: 'b', slug: 'b', nombre: 'P b', version: null, desactivada: true },
     ]);
     const deVersiones = consultas.filter((c) => c.tabla === 'versiones');
     expect(deVersiones).toHaveLength(2);

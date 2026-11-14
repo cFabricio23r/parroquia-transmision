@@ -27,8 +27,8 @@ async function deps(): Promise<DepsAdmin> {
   };
 }
 
-export async function crearParroquia(slug: string, nombre: string): Promise<Resultado> {
-  const r = await crearLogica(await deps(), String(slug ?? ''), String(nombre ?? ''));
+export async function crearParroquia(slug: string, nombre: string, lugar?: string): Promise<Resultado> {
+  const r = await crearLogica(await deps(), String(slug ?? ''), String(nombre ?? ''), String(lugar ?? ''));
   if (r.error || !r.slug) return { error: r.error, campo: r.campo };
   revalidatePath('/editor/admin');
   redirect(`/editor/admin/parroquia/${r.slug}`);
