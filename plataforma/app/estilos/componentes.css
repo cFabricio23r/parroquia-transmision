@@ -99,3 +99,35 @@ button.pv-enlace {
   cursor: pointer;
 }
 .pv-enlace--12 { font-size: 12px; }
+
+/* ---- Campos ---- */
+.pv-campo { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.pv-campo-etiqueta { font-weight: 700; font-size: 13px; }
+.pv-campo-control,
+.pv-campo-select {
+  border: 1.5px solid var(--pv-borde);
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 15px;
+  color: var(--pv-texto);
+  background: #fff;
+  width: 100%;
+}
+.pv-campo-select { padding: 0 12px; }
+.pv-campo-control[readonly] { background: var(--pv-campo-lectura); }
+.pv-campo-control[aria-invalid='true'] { border-color: var(--pv-rojo); }
+.pv-campo-ayuda { font-size: 12px; color: var(--pv-texto-suave); line-height: 1.45; }
+.pv-campo-error { font-size: 12px; font-weight: 700; color: var(--pv-rojo-texto); }
+.pv-campo--compacto { gap: 4px; }
+.pv-campo--compacto .pv-campo-etiqueta { font-size: 12px; color: var(--pv-texto-suave); }
+.pv-campo--compacto .pv-campo-control { min-height: 40px; padding: 0 12px; font-size: 14px; }
+
+.pv-campo-clave { display: flex; flex-direction: column; gap: 6px; }
+.pv-mostrar-clave { align-self: flex-start; text-decoration: none; }
+
+/* ---- Requisitos de la contraseña ---- */
+.pv-requisitos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.pv-requisito { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
+.pv-requisito--cumplido { color: var(--pv-verde-chip-texto); }
+.pv-requisito svg { flex-shrink: 0; }

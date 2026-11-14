@@ -10,7 +10,8 @@ export const MENSAJE_RECUPERAR = 'Si ese correo tiene cuenta, te llegó un enlac
 export const MENSAJE_CLAVE_CORTA = 'La contraseña necesita al menos 8 caracteres';
 export const MENSAJE_CLAVES_DISTINTAS = 'Las contraseñas no coinciden';
 export const MENSAJE_ENLACE = 'El enlace no sirve o ya venció. Pide uno nuevo';
-export const MINIMO_CLAVE = 8;
+import { MINIMO_CLAVE } from './clave';
+export { MINIMO_CLAVE };
 export const ESPERA_SEGUNDOS = 60;
 export const MAXIMO_POR_DIA = 5;
 
