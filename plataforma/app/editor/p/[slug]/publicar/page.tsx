@@ -1,9 +1,8 @@
-// Transición (Decisión 18 del plan 3): «Publicar» con el componente de hoy dentro del marco nuevo.
-// La reemplaza F12 en el plan 5. editor.css se importa solo aquí (estilos de Versiones).
-import '../../../editor.css';
+// F12 · Revisar y publicar (plan 5). Los estilos están en app/estilos/publicar.css.
+import '../../../../estilos/publicar.css';
 import { PaginaPublicar } from './PaginaPublicar';
 
-export const metadata = { title: 'Publicar · Parroquia en Vivo' };
+export const metadata = { title: 'Revisar y publicar · Parroquia en Vivo' };
 
 export default function Pagina() {
   return <PaginaPublicar />;

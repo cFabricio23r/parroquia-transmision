@@ -1,5 +1,5 @@
 // Qué decirle a quien publicó: ¿la versión ya llegó a las pantallas? Pura y sin dependencias,
-// para poder usarla en el navegador (Versiones.tsx) sin arrastrar el código del servidor.
+// para poder usarla en el navegador (F12, PaginaPublicar.tsx) sin arrastrar el código del servidor.
 
 /**
  * `enPantallas` es el `version` que devuelve `/<slug>/config.json` (null si no respondió o dio 404);

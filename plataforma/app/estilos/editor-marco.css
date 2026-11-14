@@ -101,9 +101,6 @@
 .pv-seccion-texto { margin: 0; font-size: 14px; color: var(--pv-texto-suave); line-height: 1.5; }
 .pv-subtitulo { margin: 0; font-size: 16px; font-weight: 800; }
 
-/* Publicar (transición, Decisión 18): el componente viejo con editor.css, sin el fondo de página. */
-.pv-publicar-transicion.editor { min-height: 0; background: transparent; padding: 0; font-family: inherit; color: inherit; }
-
 /* ---- Anchos menores ---- */
 @media (max-width: 1100px) {
   .pv-editor-main--dos-columnas {

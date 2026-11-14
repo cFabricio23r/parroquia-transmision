@@ -1,5 +1,5 @@
 /* Variables del sistema visual de la plataforma (spec, sección 1). Valores tomados de los artboards
-   del lienzo «Vicaría · multi-parroquia». Prefijo --pv- para no chocar con editor.css (--oscuro, --rey…). */
+   del lienzo «Vicaría · multi-parroquia». Prefijo --pv- para no chocar con otras variables globales (--oscuro, --rey…). */
 :root {
   --pv-fondo: #f4f7fb;
   --pv-texto: #14223a;
