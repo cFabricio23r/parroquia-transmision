@@ -1,5 +1,6 @@
 // Pruebas de navegador de la administración (plan 5: marco, D1, D2 y D3), contra `next dev` + Supabase
 // local. Slugs y correos con sufijo aleatorio; todo lo creado se borra al final.
+import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright';
 import { BASE, CLAVE, VIEWPORT, camposSinEtiqueta, entrar, igual, revisar, servicio, sufijo, terminar } from './lib/editor.mjs';
 
@@ -228,6 +229,145 @@ try {
   revisar(!(await pa.locator('body').textContent()).includes('No encontramos esa parroquia'), 'Ana vuelve a entrar al editor');
   await pa.context().close();
   igual((await camposSinEtiqueta(p)).length, 0, 'D1 sin campos sin etiqueta al final');
+
+  // ---------------- D2 · Coordinadores ----------------
+  console.log('D2 · Coordinadores');
+  const A = await crearParroquia('Alfa');
+  const B = await crearParroquia('Beta');
+  const anaD2 = await crearUsuario('adm-ana2', 'Ana Pérez');
+  await hacerMiembro(A.id, anaD2.id);
+  {
+    const anonimo = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const { error } = await anonimo.auth.signInWithPassword({ email: anaD2.correo, password: CLAVE }); // ya entró una vez
+    if (error) throw error;
+  }
+  const vigente = `adm-vig-${sufijo()}@prueba.test`;
+  const vencida = `adm-ven-${sufijo()}@prueba.test`;
+  creadas.correos.push(vigente, vencida);
+  for (const [correo, parroquia, dias] of [
+    [vigente, A, 5],
+    [vencida, B, -1],
+  ]) {
+    const { error } = await servicio.from('invitaciones').insert({
+      correo,
+      rol: 'coordinador',
+      parroquia_id: parroquia.id,
+      token_hash: `prueba-${sufijo()}`,
+      vence_en: new Date(Date.now() + dias * 86_400_000).toISOString(),
+    });
+    if (error) throw error;
+  }
+
+  await p.goto(`${BASE}/editor/admin/coordinadores`);
+  igual(await p.locator('main h1').textContent(), 'Coordinadores', 'h1 de D2');
+  revisar(await p.getByRole('button', { name: '+ Invitar coordinador' }).isVisible(), 'botón «+ Invitar coordinador»');
+  igual(
+    (await p.locator('[role="table"] [role="columnheader"]').allInnerTexts()).slice(0, 4).join('|'),
+    'PERSONA|ASIGNADO A|ESTADO|ÚLTIMA ENTRADA',
+    'cabecera de D2',
+  );
+  const filaDe = (texto, extra) => p.locator('[role="row"]', { hasText: texto }).filter(extra ? { hasText: extra } : {});
+  const filaAna = filaDe(anaD2.correo, A.nombre);
+  igual(await filaAna.locator('b').first().textContent(), 'Ana Pérez', 'Ana en negrita');
+  igual(await estilo(filaAna.locator('.pv-admin-sub'), 'font-size'), '12px', 'su correo en 12 px');
+  igual(await filaAna.locator('.pv-chip').textContent(), 'Activo', 'chip «Activo»');
+  revisar((await filaAna.textContent()).includes('hoy'), 'última entrada «hoy»');
+  igual((await filaAna.getByRole('button').allTextContents()).join('|'), 'Asignar|Quitar', 'botones Asignar y Quitar');
+  const filaVig = filaDe(vigente);
+  igual(await filaVig.locator('b').first().textContent(), vigente, 'la invitación con el correo en negrita');
+  igual(await filaVig.locator('.pv-chip').textContent(), 'Invitación enviada', 'chip «Invitación enviada»');
+  igual(await estilo(filaVig.locator('.pv-chip'), 'background-color'), 'rgb(230, 241, 251)', 'chip azul');
+  revisar((await filaVig.locator('[role="cell"]').nth(3).textContent()) === '—', 'sin última entrada: «—»');
+  igual((await filaVig.getByRole('button').allTextContents()).join('|'), 'Reenviar|Quitar', 'botones Reenviar y Quitar');
+  const filaVen = filaDe(vencida);
+  igual(await filaVen.locator('.pv-chip').textContent(), 'Invitación vencida', 'chip «Invitación vencida»');
+  igual(await estilo(filaVen.locator('.pv-chip'), 'background-color'), 'rgb(255, 244, 214)', 'chip ámbar');
+
+  // Invitar
+  await p.getByRole('button', { name: '+ Invitar coordinador' }).click();
+  const dlgInv = p.getByRole('dialog', { name: 'Invitar coordinador' });
+  igual(await estilo(dlgInv, 'width'), '500px', 'diálogo de 500 px');
+  igual(await estilo(dlgInv.locator('h2'), 'font-size'), '20px', 'h2 de 20 px');
+  revisar(await dlgInv.getByLabel('Correo').isVisible(), 'campo Correo');
+  revisar(await dlgInv.getByLabel('Asignar a').isVisible(), 'campo Asignar a');
+  const textoDlg = await dlgInv.textContent();
+  revisar(textoDlg.includes('Una parroquia puede tener varios coordinadores; todos editan, publican y transmiten.'), 'ayuda de Asignar a');
+  revisar(
+    textoDlg.includes('Le llega un correo para crear su contraseña. La invitación dura 7 días; si vence, se reenvía desde la lista.'),
+    'caja de la invitación',
+  );
+  revisar(await dlgInv.getByRole('button', { name: 'Cancelar' }).isVisible(), 'botón Cancelar');
+  const nuevo = `nuevo-${sufijo()}@prueba.test`;
+  creadas.correos.push(nuevo);
+  await dlgInv.getByLabel('Correo').fill(nuevo);
+  await dlgInv.getByLabel('Asignar a').selectOption({ label: B.nombre });
+  await dlgInv.getByRole('button', { name: 'Enviar invitación' }).click();
+  await p.getByRole('status').filter({ hasText: `Le enviamos la invitación a ${nuevo}.` }).waitFor({ timeout: 15_000 });
+  revisar(true, 'anuncia la invitación');
+  await filaDe(nuevo).waitFor({ timeout: 15_000 });
+  igual(await filaDe(nuevo).locator('.pv-chip').textContent(), 'Invitación enviada', 'aparece la fila de la invitación nueva');
+
+  // Asignar
+  await p.getByRole('button', { name: 'Asignar a Ana Pérez' }).first().click();
+  const dlgAsig = p.getByRole('dialog', { name: 'Asignar a otra parroquia' });
+  const opciones = await dlgAsig.getByLabel('Parroquia').locator('option').allTextContents();
+  revisar(opciones.includes(B.nombre) && !opciones.includes(A.nombre), 'el select trae B y no A');
+  await dlgAsig.getByLabel('Parroquia').selectOption({ label: B.nombre });
+  await dlgAsig.getByRole('button', { name: 'Asignar', exact: true }).click();
+  await filaDe(anaD2.correo, B.nombre).waitFor({ timeout: 15_000 });
+  igual(await p.locator('[role="row"]', { hasText: anaD2.correo }).count(), 2, 'Ana tiene dos filas');
+
+  // Quitar
+  await p.getByRole('button', { name: `Quitar a Ana Pérez de ${B.nombre}` }).click();
+  const dlgQuitar = p.getByRole('dialog', { name: 'Quitar acceso' });
+  igual(
+    await dlgQuitar.locator('p').first().textContent(),
+    `¿Quitar a Ana Pérez de ${B.nombre}? Deja de poder editar y publicar esa parroquia.`,
+    'texto de «Quitar acceso»',
+  );
+  await dlgQuitar.getByRole('button', { name: 'Sí, quitar' }).click();
+  await p.waitForFunction((c) => [...document.querySelectorAll('[role="row"]')].filter((r) => r.textContent.includes(c)).length === 1, anaD2.correo, {
+    timeout: 15_000,
+  });
+  revisar(true, 'queda una fila de Ana');
+
+  // Reenviar la vencida
+  await p.getByRole('button', { name: `Reenviar la invitación de ${vencida}` }).click();
+  await p.getByRole('status').filter({ hasText: `Le enviamos una invitación nueva a ${vencida}.` }).waitFor({ timeout: 15_000 });
+  revisar(true, 'anuncia el reenvío');
+  await p.waitForFunction(
+    (c) => [...document.querySelectorAll('[role="row"]')].find((r) => r.textContent.includes(c))?.querySelector('.pv-chip')?.textContent === 'Invitación enviada',
+    vencida,
+    { timeout: 15_000 },
+  );
+  revisar(true, 'la vencida pasa a «Invitación enviada»');
+
+  // Anular
+  await p.getByRole('button', { name: `Quitar la invitación de ${vigente}` }).click();
+  const dlgAnular = p.getByRole('dialog', { name: 'Anular invitación' });
+  igual(
+    await dlgAnular.locator('p').first().textContent(),
+    `¿Anular la invitación de ${vigente} a ${A.nombre}? El enlace deja de servir.`,
+    'texto de «Anular invitación»',
+  );
+  await dlgAnular.getByRole('button', { name: 'Sí, anular' }).click();
+  await p.waitForFunction((c) => ![...document.querySelectorAll('[role="row"]')].some((r) => r.textContent.includes(c)), vigente, { timeout: 15_000 });
+  revisar(true, 'la invitación anulada desaparece');
+
+  // Filtro
+  await p.goto(`${BASE}/editor/admin/coordinadores?parroquia=${A.slug}`);
+  const celdasParroquia = await p.locator('[role="row"]:not(.pv-tabla-cabecera) [role="cell"]:nth-child(2)').allTextContents();
+  revisar(celdasParroquia.length > 0 && celdasParroquia.every((t) => t === A.nombre), 'con filtro, solo filas de A');
+  igual(await p.locator('.pv-admin-filtro').textContent(), `Solo ${A.nombre}. Ver todas`, 'la línea «Solo …» con «Ver todas»');
+  igual(await p.getByRole('link', { name: 'Ver todas' }).getAttribute('href'), '/editor/admin/coordinadores', '«Ver todas» quita el filtro');
+  await p.getByRole('button', { name: '+ Invitar coordinador' }).click();
+  igual(
+    await p.getByRole('dialog', { name: 'Invitar coordinador' }).getByLabel('Asignar a').evaluate((s) => s.options[s.selectedIndex].text),
+    A.nombre,
+    'el diálogo trae A elegida',
+  );
+  await p.getByRole('dialog', { name: 'Invitar coordinador' }).getByRole('button', { name: 'Cancelar' }).click();
+  igual((await camposSinEtiqueta(p)).length, 0, 'D2 sin campos sin etiqueta');
 } catch (e) {
   revisar(false, `error inesperado: ${e instanceof Error ? e.stack : e}`);
 } finally {
