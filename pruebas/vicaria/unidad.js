@@ -258,7 +258,7 @@ grupo('textos heredados', () => {
   const hoy = new Date();
   const anio = hoy.getFullYear() + (hoy.getMonth() === 11 && hoy.getDate() > 8 ? 1 : 0);
   const comunes = {
-    marca: 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad',
+    marca: 'Parroquia Inmaculada Concepción de María\nCiudad Arce, La Libertad',
     inicio_titulo: 'En breve\ncomenzamos',
     portada_ceja: 'FIESTAS PATRONALES ' + anio,
     portada_cursiva: 'en honor a',   // obs/ decía «en honor a la» (Tarea 7: sin «la», para que sirva a San José)
@@ -270,7 +270,7 @@ grupo('textos heredados', () => {
     avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     avisos_titulo: 'Avisos',
     horarios_titulo: 'Horarios de misa',   // clave nueva de la 1b (vista horarios); no cambia ninguna de la 1a
-    capa_logo: 'Parroquia Inmaculada Concepción de María',
+    capa_logo: 'Parroquia Inmaculada Concepción de María\nCiudad Arce, La Libertad',
     k_lectura1: 'PRIMERA LECTURA',
     k_salmo: 'SALMO RESPONSORIAL',
     k_lectura2: 'SEGUNDA LECTURA',
@@ -852,8 +852,9 @@ grupo('comun por parroquia', () => {
     assert.equal(t.portada_fecha, 'DE MARZO');
     assert.equal(t.portada_cursiva, 'en honor a');   // sin «la»: «en honor a la San José» no se dice
     assert.equal(t.portada_sub, 'Solemnidad de nuestro patrono');
-    assert.equal(t.marca, 'Parroquia San José · Santa Tecla, La Libertad');
-    assert.equal(t.capa_logo, 'Parroquia San José');
+    assert.equal(t.marca, 'Parroquia San José\nSanta Tecla, La Libertad');   // F4:25: nombre y lugar en dos líneas
+    assert.equal(t.capa_logo, 'Parroquia San José\nSanta Tecla, La Libertad');   // F4:37: la capa también
+    assert.equal(c.lineaParroquia(c.normalizarEstado({ tipo: 'novena' })), 'Parroquia San José · Santa Tecla, La Libertad');   // el rótulo sigue en una línea
     assert.equal(t.avisos_sub, 'PARROQUIA SAN JOSÉ');
     for (const k of ['marca', 'portada_titulo', 'portada_fecha', 'portada_sub', 'avisos_sub', 'capa_logo']) {
       assert.ok(!/Inmaculada|Ciudad Arce|DICIEMBRE/i.test(t[k]), k + ': ' + t[k]);

@@ -42,7 +42,7 @@
       <div class="caja" id="p-caja"><b id="p-caja-num">8</b><span id="p-caja-mes">DIC</span></div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <span style="font-weight:900;font-size:52px;letter-spacing:2px;line-height:1" id="p-fecha"></span>
-        <span style="font-weight:600;font-size:26px;color:#bfe0ff" id="p-sub"></span>
+        <span style="font-weight:600;font-size:26px;color:var(--tenue)" id="p-sub"></span>
       </div>
     </div>
   </div>
@@ -64,8 +64,8 @@
     <div class="cab">
       <div><div class="sub" id="a-sub"></div><h1 id="a-titulo"></h1></div>
       <div style="display:flex;align-items:center;gap:16px">
-        <img id="a-logo" alt="" style="height:78px;display:block" hidden>
-        <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
+        <span class="logo-redondo" id="a-logo-caja" hidden><img id="a-logo" alt="" hidden></span>
+        <span class="envivo chico"><i></i>EN VIVO</span>
       </div>
     </div>
     <div class="filas" id="a-filas"></div>
@@ -76,8 +76,8 @@
     <div class="cab">
       <div><div class="sub" id="h-sub"></div><h1 id="h-titulo"></h1></div>
       <div style="display:flex;align-items:center;gap:16px">
-        <img id="h-logo" alt="" style="height:78px;display:block" hidden>
-        <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
+        <span class="logo-redondo" id="h-logo-caja" hidden><img id="h-logo" alt="" hidden></span>
+        <span class="envivo chico"><i></i>EN VIVO</span>
       </div>
     </div>
     <div class="filas" id="h-filas"></div>
@@ -103,6 +103,8 @@
 const vista = (new URLSearchParams(location.search).get('tipo') || 'inicio').toLowerCase();
 const $ = (id) => document.getElementById(id);
 if (vista === 'avisos' || vista === 'horarios') { document.body.classList.add(vista); $('marca').style.display = 'none'; $('envivo').style.display = 'none'; }
+// Gracias (F4:33) no lleva EN VIVO: la transmisión ya terminó.
+if (vista === 'gracias') $('envivo').style.display = 'none';
 
 /* Vista que se pinta de verdad: la portada solo existe para los tipos que la traen en tipos.js
    (portada: 'fiesta' | 'evento'); los demás pintan en ella la vista de Inicio. La URL no cambia. */
@@ -448,6 +450,14 @@ function aplicarAjustes(vista) {
   ELEMENTOS_OCULTABLES.forEach((e) => { if (!visible(vista, e)) esc.classList.add('oculto-' + e); });
 }
 
+/* Logo blanco de Avisos y Horarios en su círculo (F4:31): sin logo, o si no carga, el círculo entero se oculta. */
+function ponerLogoRedondo(id, im) {
+  const img = $(id); const caja = $(id + '-caja');
+  if (!img.dataset.vigilaCaja) { img.dataset.vigilaCaja = '1'; img.addEventListener('error', () => { caja.hidden = true; }); }
+  ponerImagen(img, im);
+  caja.hidden = img.hidden;
+}
+
 /* La configuración de la parroquia manda: colores, logos, fachada y el aviso de «no existe».
    Se aplica al cargar y cada vez que cambia la configuración (copia, servidor o 404). */
 function aplicarParroquia(c) {
@@ -459,8 +469,8 @@ function aplicarParroquia(c) {
   ponerImagen($('fachada'), c.fachada);
   ponerImagen($('marca-logo'), c.logos && c.logos.blanco);
   ponerImagen($('aro-logo'), c.logos && c.logos.blanco);
-  ponerImagen($('a-logo'), c.logos && c.logos.color);
-  ponerImagen($('h-logo'), c.logos && c.logos.color);
+  ponerLogoRedondo('a-logo', c.logos && c.logos.blanco);
+  ponerLogoRedondo('h-logo', c.logos && c.logos.blanco);
   pintar(leerEstado());   // la firma de pintar no incluye la versión: sin cambios reales no se reanima la entrada
 }
 aplicarParroquia(PARROQUIA);

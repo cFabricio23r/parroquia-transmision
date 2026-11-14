@@ -233,7 +233,7 @@ function textosBase(s) {
   const d = diasFaltan(s);
   const frase = typeof s.frase === 'string' ? s.frase.trim() : '';
   return {
-    marca: _nombreYLugar(),
+    marca: _nombreYLugar(NL),   // F4:25: nombre y lugar en dos líneas
     inicio_pildora: tituloCelebracion(s),
     inicio_ceja: rellenar(tipo.ceja, s).toUpperCase(),
     inicio_titulo: tipo.tituloInicio || 'En breve\ncomenzamos',
@@ -251,7 +251,7 @@ function textosBase(s) {
     avisos_sub: nombre.toUpperCase(),
     avisos_titulo: 'Avisos',
     horarios_titulo: 'Horarios de misa',
-    capa_logo: nombre,
+    capa_logo: _nombreYLugar(NL),   // F4:37: la capa del logo, igual que la marca
     barra_y: rellenar(tipo.barra, s),
     franja: frase || rellenar(tipo.franja, s),
     k_lectura1: 'PRIMERA LECTURA',
@@ -270,9 +270,10 @@ function tx(s, clave) {
   return propio || textosBase(s)[clave] || '';
 }
 
-/* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene). */
-function _nombreYLugar() {
-  return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(' · ');
+/* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene); con sep = NL, en dos líneas. */
+const NL = String.fromCharCode(10);
+function _nombreYLugar(sep = ' · ') {
+  return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(sep);
 }
 
 /* La línea de parroquia bajo los rótulos: la escrita en el panel, o «nombre · lugar» de la configuración EN USO

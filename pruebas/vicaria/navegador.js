@@ -1393,6 +1393,13 @@ function configDiseno(slug) {
     c.fiesta = Object.assign({}, c.fiesta, { lema: 'JOSÉ, HOMBRE JUSTO Y FIEL' });
     c.colores = Object.assign({}, c.colores, { acento: '#d9a441' });
     c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLinea: 'acento', cargos: CONFIG[SJ].rotulos.cargos.slice() };
+    // Avisos con cuatro filas, como F4:31 (los del config real vencen antes de la fecha del caso).
+    c.avisos = [
+      { texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 },
+      { texto: 'Catequesis de confirmación', detalle: 'Sábado · 9:00 a. m.', orden: 2 },
+      { texto: 'Hora Santa', detalle: 'Jueves · 6:00 p. m.', orden: 3 },
+      { texto: 'Colecta para el techo', detalle: 'Domingo · todas las misas', orden: 4 }
+    ];
   } else {
     c.rotulos = { tipografia: 'lora', esquinas: 'suaves' };
   }
@@ -1562,6 +1569,97 @@ async function casoDisenoFondo() {
   }
 }
 
+/* A3, A4, C6 y C7: tintes de la paleta en las pantallas, marca en dos líneas, Gracias sin EN VIVO y Avisos con
+   logo redondo y filas del velo (F4:25, 27, 31 y 33). */
+async function casoDisenoColores() {
+  console.log('Diseño · Colores de la paleta, marca, Gracias y Avisos');
+  const color = async (p, sel) => { const e = await estilosDe(p, sel, ['color']); return e && e.color; };
+  const lineas = (p, sel) => p.evaluate((s) => {
+    const r = document.createRange(); r.selectNodeContents(document.querySelector(s));
+    return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size;
+  }, sel);
+  const T = {
+    [SJ]: { tenue: 'rgb(242, 214, 218)', velo: 'rgb(251, 238, 240)', vivo: 'rgb(192, 72, 90)', rey: 'rgb(138, 28, 43)', oscuro: 'rgb(75, 15, 24)', fila: 'rgb(138, 28, 43)', logo: 'medios/logo-blanco.svg' },
+    [CA]: { tenue: 'rgb(211, 227, 245)', velo: 'rgb(237, 244, 252)', vivo: 'rgb(49, 118, 195)', rey: 'rgb(17, 85, 164)', oscuro: 'rgb(12, 53, 98)', fila: 'rgb(17, 85, 164)', logo: 'medios/logo-blanco.png' }
+  };
+  for (const slug of [SJ, CA]) {
+    const t = T[slug];
+    const n = slug === SJ ? 'San José' : 'Ciudad Arce';
+    // Inicio (F4:25)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+      igual(await color(p, '#i-ceja'), t.tenue, n + ', Inicio: la ceja es --tenue');
+      igual(await color(p, '#i-cursiva'), t.velo, n + ', Inicio: la cursiva es --velo');
+      const brilla = (await estilosDe(p, '#i-titulo', ['backgroundImage'])).backgroundImage;
+      revisar(brilla.includes(t.tenue + ' 50%'), n + ', Inicio: el destello del título es --tenue (' + brilla + ')');
+      if (slug === SJ) {
+        igual(await texto(p, '#t-marca'), 'Parroquia San José (ejemplo)\nCiudad de ejemplo', n + ': la marca dice nombre y lugar');
+        igual(await lineas(p, '#t-marca'), 2, n + ': la marca va en dos líneas');
+      }
+      await ctx.close();
+    }
+    // Portada de la fiesta (F4:27)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+      igual(await color(p, '#p-ceja'), t.tenue, n + ', portada: la ceja es --tenue');
+      igual(await color(p, '#p-sub'), t.tenue, n + ', portada: el sub es --tenue');
+      igual(await color(p, '#p-cursiva'), t.velo, n + ', portada: la cursiva es --velo');
+      await ctx.close();
+    }
+    // Gracias (F4:33)
+    {
+      const cfg = configDiseno(slug);
+      cfg.pantallas = { gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } };
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=gracias', { tipo: 'dominical' }, { cfg });
+      igual((await estilosDe(p, '#envivo', ['display'])).display, 'none', n + ', Gracias: sin EN VIVO');
+      igual(await color(p, '#g-ceja'), t.tenue, n + ', Gracias: la ceja es --tenue');
+      igual(await color(p, '#v-gracias .extra .hora b'), t.tenue, n + ', Gracias: los días de los horarios son --tenue');
+      await ctx.close();
+    }
+    // Avisos (F4:31)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=avisos', { tipo: 'dominical' });
+      igual(await color(p, '#a-sub'), t.vivo, n + ', Avisos: el sub es --vivo');
+      const h1 = await estilosDe(p, '#a-titulo', ['color', 'letterSpacing']);
+      igual(h1.color, t.rey, n + ', Avisos: el título es el principal');
+      igual(h1.letterSpacing, 'normal', n + ', Avisos: el título sin letter-spacing');
+      const caja = await estilosDe(p, '#a-logo-caja', ['width', 'height', 'borderRadius', 'backgroundColor']);
+      igual(caja && [caja.width, caja.height, caja.borderRadius, caja.backgroundColor].join(' '), '78px 78px 50% ' + t.rey, n + ', Avisos: el logo va en un círculo de 78 del principal');
+      revisar(await imagenVisible(p, '#a-logo'), n + ', Avisos: el logo se ve');
+      igual(await p.evaluate(() => document.getElementById('a-logo').offsetHeight), 56, n + ', Avisos: el logo mide 56 de alto');
+      igual(await p.getAttribute('#a-logo', 'src'), t.logo, n + ', Avisos: el logo es el blanco');
+      revisar(await p.evaluate(() => { const c = document.getElementById('a-logo-caja'); return !!c && c.getBoundingClientRect().right <= document.querySelector('#v-avisos .envivo').getBoundingClientRect().left; }), n + ', Avisos: el logo queda a la izquierda del EN VIVO');
+      const ev = await estilosDe(p, '#v-avisos .envivo', ['fontSize', 'padding']);
+      igual(ev.fontSize + ' / ' + ev.padding, '22px / 8px 16px 8px 12px', n + ', Avisos: el EN VIVO chico de la tarjeta');
+      igual((await estilosDe(p, '#a-filas', ['justifyContent'])).justifyContent, 'space-between', n + ', Avisos: las filas se reparten');
+      const fila = await estilosDe(p, '#a-filas .fila', ['backgroundColor', 'gridTemplateColumns']);
+      igual(fila.backgroundColor, t.velo, n + ', Avisos: la fila es --velo');
+      revisar(/^120px .* 420px$/.test(fila.gridTemplateColumns), n + ', Avisos: columnas 120px … 420px (' + fila.gridTemplateColumns + ')');
+      igual(await color(p, '#a-filas .fila .a'), t.oscuro, n + ', Avisos: el aviso es el oscuro');
+      igual(await color(p, '#a-filas .fila .f'), t.fila, n + ', Avisos: el detalle es --fila-texto');
+      await captura(p, `diseno_${slug}_avisos`);
+      await ctx.close();
+    }
+    // Ninguna pantalla con el celeste #bfe0ff
+    for (const vista of ['inicio', 'portada', 'gracias', 'avisos', 'horarios']) {
+      const cfg = configDiseno(slug);
+      cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] }, gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } };
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      if (!cfg.redes) cfg.redes = CONFIG[SJ].redes;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=' + vista, { tipo: vista === 'portada' ? 'patronal' : 'dominical' }, { cfg });
+      const celestes = await p.evaluate(() => [...document.querySelectorAll('#escenario *')].filter((e) => {
+        if (e.getClientRects().length === 0) return false;
+        const cs = getComputedStyle(e);
+        if (cs.visibility === 'hidden') return false;
+        return [cs.color, cs.backgroundColor, cs.backgroundImage, cs.borderTopColor].some((v) => v.includes('rgb(191, 224, 255)'));
+      }).map((e) => e.id || e.className));
+      igual(celestes.join(', '), '', n + ', ' + vista + ': ningún elemento visible con #bfe0ff');
+      await ctx.close();
+    }
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1619,7 +1717,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -1655,6 +1753,7 @@ async function casoLineaBase() {
     await casoRevisionFinal();
     await casoDisenoDatos();
     await casoDisenoFondo();
+    await casoDisenoColores();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
