@@ -153,7 +153,8 @@ grupo('tipos', () => {
   });
   prueba('todo tipo define todos los campos', () => {
     const campos = ['nombre', 'descripcion', 'titulo', 'ceja', 'cursiva', 'franja', 'graciasCursiva',
-      'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos'];
+      'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos',
+      'nombrePanel', 'textosTipo'];
     for (const k of ORDEN_TIPOS) for (const f of campos) assert.ok(f in TIPOS[k], k + '.' + f);
   });
 
@@ -2242,6 +2243,132 @@ grupo('tipos propios y apagados', () => {
     assert.equal(Object.keys(x.TIPOS).length, 11);
     assert.equal(x.TIPOS.dominical.rotulos.length, 5);
     assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
+  });
+});
+
+/* ---------- Rediseño: ajustes de tipos comunes y portada de los propios (Plan 1, Tarea 4) ---------- */
+
+grupo('tipos: ajustes y propios del rediseño', () => {
+  const ARCHIVOS = ['tipos.js', 'comun.js', 'pantallas.js'];
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const conAjustes = (ajustes, cambios) => {
+    const cfg = Object.assign(base(), { tipos: { ajustes } });
+    if (cambios) cambios(cfg);
+    return cargarCon(ARCHIVOS, {}, cfg);
+  };
+  const conPropios = (propios) => cargarCon(ARCHIVOS, {}, Object.assign(base(), { tipos: { propios } }));
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const c = cargarCon(ARCHIVOS);
+  const AJUSTE_HS = { nombrePanel: 'Adoración', textoInicio: 'Ya empezamos', textoGracias: 'Gracias', imagen: 'patrono', ocultarRotulos: ['bendicion'] };
+
+  prueba('sin ajustes tipoDe devuelve TIPOS[clave] tal cual', () => {
+    assert.equal(c.tipoDe({ tipo: 'horasanta' }), c.TIPOS.horasanta);
+  });
+  prueba('todo tipo común trae nombrePanel igual a su nombre y textosTipo vacío', () => {
+    for (const k of c.ORDEN_TIPOS) {
+      assert.equal(c.TIPOS[k].nombrePanel, c.TIPOS[k].nombre, k);
+      assert.deepEqual(plano(c.TIPOS[k].textosTipo), {}, k);
+    }
+  });
+  prueba('ajustes de un común: nombrePanel, textos, imagen y rótulos ocultos', () => {
+    const x = conAjustes({ horasanta: AJUSTE_HS });
+    const t = x.tipoDe({ tipo: 'horasanta' });
+    assert.equal(t.nombrePanel, 'Adoración');
+    assert.equal(t.nombre, 'Hora Santa');
+    assert.deepEqual(plano(t.textosTipo), { inicio_titulo: 'Ya empezamos', gracias_cursiva: 'Gracias' });
+    assert.equal(t.imagen, 'patrono');
+    assert.ok(!t.rotulos.some((r) => r.id === 'bendicion'));
+    assert.equal(t.rotulos.length, 4);
+    assert.equal(x.TIPOS.horasanta.rotulos.length, 5, 'no muta TIPOS');
+    assert.equal(x.TIPOS.horasanta.nombrePanel, 'Hora Santa', 'no muta TIPOS');
+    assert.equal(x.TIPOS.horasanta.imagen, 'custodia', 'no muta TIPOS');
+  });
+  prueba('un ajuste de otro tipo no cambia este: sigue siendo TIPOS[clave]', () => {
+    const x = conAjustes({ horasanta: AJUSTE_HS });
+    assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
+  });
+  prueba('el ajuste también vale cuando tipoDe cae al primer tipo disponible', () => {
+    const x = conAjustes({ dominical: { nombrePanel: 'Domingo' } });
+    assert.equal(x.tipoDe({ tipo: 'no-existe' }).nombrePanel, 'Domingo');
+  });
+  prueba('ajuste con imagen de galería inexistente usa la imagen del tipo', () => {
+    const x = conAjustes({});
+    forzar(x, Object.assign(base(), { tipos: { ajustes: { horasanta: { imagen: 'galeria:no-esta' } } } }));
+    assert.equal(x.tipoDe({ tipo: 'horasanta' }).imagen, 'custodia');
+    assert.equal(x.imagenDe({ tipo: 'horasanta' }), 'img/custodia.png');
+  });
+  prueba('ajuste con imagen de galería existente la usa', () => {
+    const x = conAjustes({ horasanta: { imagen: 'galeria:patrono-2' } }, (cfg) => {
+      cfg.galeria = [{ id: 'patrono-2', src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono' }];
+    });
+    assert.equal(x.tipoDe({ tipo: 'horasanta' }).imagen, 'galeria:patrono-2');
+    assert.equal(x.imagenDe({ tipo: 'horasanta' }), 'medios/patrono-2.jpg');
+  });
+  prueba('el texto del tipo gana al de la pantalla, y el escrito en el panel gana a los dos', () => {
+    const pantallas = { inicio: { modo: 'personalizada', textos: { inicio_titulo: 'De pantalla' } } };
+    const x = conAjustes({ horasanta: { textoInicio: 'Del tipo' } }, (cfg) => { cfg.pantallas = pantallas; });
+    assert.equal(x.textoDe({ tipo: 'horasanta' }, 'inicio', 'inicio_titulo'), 'Del tipo');
+    assert.equal(x.textoDe({ tipo: 'horasanta', textos: { inicio_titulo: 'Del panel' } }, 'inicio', 'inicio_titulo'), 'Del panel');
+    const sin = conAjustes({}, (cfg) => { cfg.pantallas = pantallas; });
+    assert.equal(sin.textoDe({ tipo: 'horasanta' }, 'inicio', 'inicio_titulo'), 'De pantalla');
+  });
+  prueba('el texto de gracias del tipo rellena los huecos y llega a tx', () => {
+    const x = conAjustes({ horasanta: { textoGracias: 'Gracias, {parroquia}' } });
+    const s = { tipo: 'horasanta' };
+    assert.equal(x.textoDe(s, 'gracias', 'gracias_cursiva'), 'Gracias, Parroquia Inmaculada Concepción de María');
+    assert.equal(x.tx(s, 'gracias_cursiva'), 'Gracias, Parroquia Inmaculada Concepción de María');
+  });
+  prueba('propio con portada fiesta tiene cuenta de la fiesta y esquina fiesta', () => {
+    const x = conPropios([{ clave: 'triduo', nombre: 'Triduo', portada: 'fiesta' }]);
+    const t = x.tipoDe({ tipo: 'triduo' });
+    assert.equal(t.portada, 'fiesta');
+    assert.ok(t.cuenta, 'tiene cuenta');
+    assert.equal(t.cuenta.hasta, x.fiestaMMDD());
+    assert.equal(t.esquina, 'fiesta');
+  });
+  prueba('propio con portada fiesta y esquina propia conserva su esquina', () => {
+    const x = conPropios([{ clave: 'triduo', nombre: 'Triduo', portada: 'fiesta', esquina: 'hoy' }]);
+    assert.equal(x.tipoDe({ tipo: 'triduo' }).esquina, 'hoy');
+  });
+  prueba('propio con portada evento pide evento, fecha y lugar como el tipo evento', () => {
+    const x = conPropios([{ clave: 'retiro', nombre: 'Retiro', portada: 'evento' }]);
+    const t = x.tipoDe({ tipo: 'retiro' });
+    assert.equal(t.portada, 'evento');
+    assert.equal(t.portadaCeja, x.TIPOS.evento.portadaCeja);
+    assert.equal(t.portadaCursiva, x.TIPOS.evento.portadaCursiva);
+    assert.deepEqual(plano(t.datos), ['evento', 'fecha', 'lugar']);
+    assert.notEqual(t.datos, x.TIPOS.evento.datos, 'lista nueva: no comparte la de TIPOS.evento');
+  });
+  prueba('propio sin portada sigue igual que hoy', () => {
+    for (const portada of [undefined, 'ninguna']) {
+      const p = { clave: 'retiro', nombre: 'Retiro' };
+      if (portada) p.portada = portada;
+      const t = conPropios([p]).tipoDe({ tipo: 'retiro' });
+      assert.equal(t.portada, undefined, String(portada));
+      assert.equal(t.cuenta, false, String(portada));
+      assert.equal(t.esquina, 'hoy', String(portada));
+      assert.deepEqual(plano(t.datos), [], String(portada));
+    }
+  });
+  prueba('propio: nombrePanel, textoInicio y textoGracias', () => {
+    const x = conPropios([
+      { clave: 'retiro', nombre: 'Retiro juvenil', nombrePanel: 'Retiro', textoInicio: 'Ya casi', textoGracias: 'Hasta pronto' },
+      { clave: 'vigilia', nombre: 'Vigilia' }
+    ]);
+    const t = x.tipoDe({ tipo: 'retiro' });
+    assert.equal(t.nombrePanel, 'Retiro');
+    assert.deepEqual(plano(t.textosTipo), { inicio_titulo: 'Ya casi', gracias_cursiva: 'Hasta pronto' });
+    assert.equal(x.textoDe({ tipo: 'retiro' }, 'inicio', 'inicio_titulo'), 'Ya casi');
+    const v = x.tipoDe({ tipo: 'vigilia' });
+    assert.equal(v.nombrePanel, 'Vigilia');
+    assert.deepEqual(plano(v.textosTipo), {});
+  });
+  prueba('ocultar el rótulo que está al aire: rotulosDe ya no lo trae', () => {
+    const s = { tipo: 'horasanta', rotulo: 'bendicion' };
+    assert.ok(c.rotulosDe(s).find((r) => r.id === 'bendicion'), 'sin ajuste sí lo trae');
+    const x = conAjustes({ horasanta: { ocultarRotulos: ['bendicion'] } });
+    assert.equal(x.rotulosDe(s).find((r) => r.id === 'bendicion'), undefined);
   });
 });
 

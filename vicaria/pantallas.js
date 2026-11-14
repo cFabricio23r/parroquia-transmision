@@ -62,10 +62,14 @@ function imagenDeVista(s, vista) {
   return { src: im.src, alt: im.alt, clase: claseDeImagen(im.src) };
 }
 
-/* Texto de la vista: lo escrito en el panel > el de la configuración (con huecos rellenados) > el automático. */
+/* Texto de la vista: lo escrito en el panel > el del tipo (tipos.ajustes o el propio) > el de la pantalla en la
+   configuración > el automático. Los de la configuración van con los huecos rellenados. */
 function textoDe(s, vista, clave) {
   const propio = s && s.textos && typeof s.textos[clave] === 'string' ? s.textos[clave].trim() : '';
   if (propio) return propio;
+  const textosTipo = tipoDe(s).textosTipo || {};
+  const delTipo = typeof textosTipo[clave] === 'string' ? rellenar(textosTipo[clave], s).trim() : '';
+  if (delTipo) return delTipo;
   const config = ajustesDe(vista).textos[clave];
   const deConfig = typeof config === 'string' ? rellenar(config, s).trim() : '';
   return deConfig || textosBase(s)[clave] || '';
