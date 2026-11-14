@@ -21,6 +21,8 @@ export const igual = (real, esperado, msg) =>
 export const fallar = () => fallos++;
 export const terminar = (nombre) => {
   console.log(fallos === 0 ? `\nPruebas de navegador de ${nombre}: todo bien.` : `\n${fallos} comprobaciones fallaron.`);
+  // Sin esto, una prueba que termina con fallas saldría con código 0 (un falso verde para el runner).
+  if (fallos) process.exitCode = 1;
   return fallos === 0 ? 0 : 1;
 };
 

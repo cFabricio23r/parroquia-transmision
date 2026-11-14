@@ -84,7 +84,8 @@ try {
   const dialogo = pagina.getByRole('dialog', { name: 'Elegir de la galería' });
   await dialogo.getByRole('button', { name: /Fachada al atardecer/ }).click();
   const conFachada = await esperarEnBase(P.id, (c) => c.fachada?.src === 'medios/img-aaaaaa.png');
-  igual(JSON.stringify(conFachada.fachada), JSON.stringify({ src: 'medios/img-aaaaaa.png', alt: 'Fachada al atardecer' }), '«fachada» tiene el src y el alt de la imagen');
+  // jsonb reordena las claves: se comparan los campos, no el texto del JSON.
+  igual(JSON.stringify([conFachada.fachada?.src, conFachada.fachada?.alt, Object.keys(conFachada.fachada ?? {}).length]), JSON.stringify(['medios/img-aaaaaa.png', 'Fachada al atardecer', 2]), '«fachada» tiene el src y el alt de la imagen');
 
   console.log('Alt vacío');
   await grupo(pagina, 'Foto de la fachada').getByLabel('Descripción para lectores de pantalla (alt)').fill('');
