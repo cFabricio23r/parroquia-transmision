@@ -239,3 +239,69 @@ describe('guardado automático', () => {
     expect('avisos' in g.instantanea().local).toBe(false);
   });
 });
+
+describe('un bloque rechazado (422) no frena el guardado de los demás', () => {
+  const rechazo = (errores: string[]): RespuestaHttp => ({ estado: 422, cuerpo: { error: 'Forma', errores } });
+
+  it('el siguiente PUT deja afuera el bloque rechazado mientras no cambie', async () => {
+    let n = 0;
+    const f = falsas({ auto: () => (n++ === 0 ? rechazo(['El nombre corto (nombreCorto) está vacío.']) : ok(`t${n + 1}`)) });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('nombreCorto', '  ');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(g.instantanea().estado).toBe('rechazado');
+
+    g.cambiar('lugar', 'A');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios).toHaveLength(2);
+    expect(f.envios[1].cuerpo.cambios).toEqual({ lugar: 'A' });
+    // Lo demás quedó guardado, pero el bloque rechazado sigue pidiendo arreglo.
+    expect(g.instantanea().estado).toBe('rechazado');
+    expect(g.instantanea().erroresForma).toEqual(['El nombre corto (nombreCorto) está vacío.']);
+    expect(g.instantanea().base.lugar).toBe('A');
+    expect(g.instantanea().base.nombreCorto).toBeUndefined();
+    expect(g.hayCambiosSinGuardar()).toBe(true);
+
+    // Al corregirlo, vuelve a salir y todo queda guardado.
+    g.cambiar('nombreCorto', 'San José');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios[2].cuerpo.cambios).toEqual({ nombreCorto: 'San José' });
+    expect(g.instantanea().estado).toBe('guardado');
+    expect(g.instantanea().erroresForma).toEqual([]);
+    expect(g.hayCambiosSinGuardar()).toBe(false);
+  });
+
+  it('solo se retiene el bloque nombrado en los errores; los otros del mismo PUT se reenvían', async () => {
+    let n = 0;
+    const f = falsas({ auto: () => (n++ === 0 ? rechazo(['La dirección debe empezar con https:// (redes[0].url).']) : ok('t2')) });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiarVarios({ lugar: 'A', redes: [{ red: 'web', url: 'https://', texto: 'x' }] });
+    await vi.advanceTimersByTimeAsync(800);
+    g.cambiar('nombre', 'B');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios[1].cuerpo.cambios).toEqual({ nombre: 'B', lugar: 'A' });
+    expect(g.instantanea().estado).toBe('rechazado');
+  });
+
+  it('sin un bloque reconocible en los errores, retiene todo lo enviado', async () => {
+    let n = 0;
+    const f = falsas({ auto: () => (n++ === 0 ? rechazo(['Algo raro.']) : ok('t2')) });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('lugar', 'A');
+    await vi.advanceTimersByTimeAsync(800);
+    g.cambiar('nombre', 'B');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios[1].cuerpo.cambios).toEqual({ nombre: 'B' });
+    expect(g.instantanea().estado).toBe('rechazado');
+  });
+
+  it('guardarYa con solo el bloque rechazado no envía nada y sigue rechazado', async () => {
+    const f = falsas({ auto: () => rechazo(['El nombre corto (nombreCorto) está vacío.']) });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('nombreCorto', ' ');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(await g.guardarYa()).toBe('rechazado');
+    expect(f.envios).toHaveLength(1);
+    expect(g.instantanea().erroresForma).toEqual(['El nombre corto (nombreCorto) está vacío.']);
+  });
+});
