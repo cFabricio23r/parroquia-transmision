@@ -153,7 +153,8 @@ grupo('tipos', () => {
   });
   prueba('todo tipo define todos los campos', () => {
     const campos = ['nombre', 'descripcion', 'titulo', 'ceja', 'cursiva', 'franja', 'graciasCursiva',
-      'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos'];
+      'graciasPie', 'barra', 'imagen', 'esquina', 'esquinaTexto', 'cuenta', 'rotulos', 'datos',
+      'nombrePanel', 'textosTipo'];
     for (const k of ORDEN_TIPOS) for (const f of campos) assert.ok(f in TIPOS[k], k + '.' + f);
   });
 
@@ -257,7 +258,7 @@ grupo('textos heredados', () => {
   const hoy = new Date();
   const anio = hoy.getFullYear() + (hoy.getMonth() === 11 && hoy.getDate() > 8 ? 1 : 0);
   const comunes = {
-    marca: 'Parroquia Inmaculada Concepción de María · Ciudad Arce, La Libertad',
+    marca: 'Parroquia Inmaculada Concepción de María\nCiudad Arce, La Libertad',
     inicio_titulo: 'En breve\ncomenzamos',
     portada_ceja: 'FIESTAS PATRONALES ' + anio,
     portada_cursiva: 'en honor a',   // obs/ decía «en honor a la» (Tarea 7: sin «la», para que sirva a San José)
@@ -269,13 +270,15 @@ grupo('textos heredados', () => {
     avisos_sub: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
     avisos_titulo: 'Avisos',
     horarios_titulo: 'Horarios de misa',   // clave nueva de la 1b (vista horarios); no cambia ninguna de la 1a
-    capa_logo: 'Parroquia Inmaculada Concepción de María',
+    capa_logo: 'Parroquia Inmaculada Concepción de María\nCiudad Arce, La Libertad',
     k_lectura1: 'PRIMERA LECTURA',
     k_salmo: 'SALMO RESPONSORIAL',
     k_lectura2: 'SEGUNDA LECTURA',
     k_evangelio: 'SANTO EVANGELIO',
     k_rosario: 'ORACIÓN',
-    t_rosario: 'Santo Rosario'
+    t_rosario: 'Santo Rosario',
+    prod_ceja: 'UNA PRODUCCIÓN DE',   // claves nuevas de la pantalla final, con el texto que ya tenía produccion.html
+    prod_nombre: 'Comunicaciones'
   };
   const cuenta = 'días para nuestra\nFiesta Patronal';
   const esperado = {
@@ -849,8 +852,9 @@ grupo('comun por parroquia', () => {
     assert.equal(t.portada_fecha, 'DE MARZO');
     assert.equal(t.portada_cursiva, 'en honor a');   // sin «la»: «en honor a la San José» no se dice
     assert.equal(t.portada_sub, 'Solemnidad de nuestro patrono');
-    assert.equal(t.marca, 'Parroquia San José · Santa Tecla, La Libertad');
-    assert.equal(t.capa_logo, 'Parroquia San José');
+    assert.equal(t.marca, 'Parroquia San José\nSanta Tecla, La Libertad');   // F4:25: nombre y lugar en dos líneas
+    assert.equal(t.capa_logo, 'Parroquia San José\nSanta Tecla, La Libertad');   // F4:37: la capa también
+    assert.equal(c.lineaParroquia(c.normalizarEstado({ tipo: 'novena' })), 'Parroquia San José · Santa Tecla, La Libertad');   // el rótulo sigue en una línea
     assert.equal(t.avisos_sub, 'PARROQUIA SAN JOSÉ');
     for (const k of ['marca', 'portada_titulo', 'portada_fecha', 'portada_sub', 'avisos_sub', 'capa_logo']) {
       assert.ok(!/Inmaculada|Ciudad Arce|DICIEMBRE/i.test(t[k]), k + ': ' + t[k]);
@@ -1094,16 +1098,251 @@ grupo('parroquia', () => {
   });
 });
 
+grupo('validarConfig: campos del rediseño (1)', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cambios(c);
+    return c;
+  };
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+  const img = (extra) => Object.assign({ id: 'foto-1', src: 'medios/foto-1.png', alt: 'Una foto' }, extra);
+
+  prueba('colores.acento: opcional, #rrggbb, sin exigir contraste', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#ffff00'; })).ok, 'el acento no exige contraste con blanco');
+    assert.match(errs((c) => { c.colores.acento = 'dorado'; }), /colores\.acento/);
+  });
+  prueba('rotulos: lora, source-sans, suaves, logoEsquina y colorLinea', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: '#4b0f18', colorLinea: 'acento', logoEsquina: false }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia: 'source-sans', colorLinea: '#d9a441', logoEsquina: true }; })).ok);
+  });
+  prueba('rotulos.colorLado ya no exige contraste con blanco y acepta nombres', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'blanco' }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: '#f2e6c8' }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'principal', colorLinea: 'oscuro' }; })).ok);
+    assert.match(errs((c) => { c.rotulos = { colorLado: 'verde' }; }), /rotulos\.colorLado/);
+  });
+  prueba('colorLado o colorLinea en acento sin colores.acento es error', () => {
+    const e = errs((c) => { c.rotulos = { colorLado: 'acento', colorLinea: 'acento' }; });
+    assert.match(e, /rotulos\.colorLado/); assert.match(e, /rotulos\.colorLinea/);
+    assert.match(e, /usa el acento, pero falta colores\.acento\./);
+  });
+  prueba('rotulos.colorLinea no acepta blanco; logoEsquina debe ser booleano', () => {
+    const e = errs((c) => { c.rotulos = { colorLinea: 'blanco', logoEsquina: 'si' }; });
+    assert.match(e, /colorLinea/); assert.match(e, /logoEsquina/);
+  });
+  prueba('galeria[].nombre opcional, texto de hasta 200', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.galeria = [img({ nombre: 'Fachada principal' })]; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.galeria = [img({ nombre: 'x'.repeat(200) })]; })).ok);
+    assert.match(errs((c) => { c.galeria = [img({ nombre: 'x'.repeat(201) })]; }), /galeria\[0\]\.nombre/);
+    assert.match(errs((c) => { c.galeria = [img({ nombre: 5 })]; }), /galeria\[0\]\.nombre/);
+  });
+  prueba('avisos[].activo opcional y booleano', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.avisos = [{ texto: 'A', activo: true }, { texto: 'B', activo: false }]; })).ok);
+    assert.match(errs((c) => { c.avisos = [{ texto: 'A', activo: 'no' }]; }), /avisos\[0\]\.activo/);
+  });
+  prueba('horarios: forma nueva {dia, horas:[{hora, nota?}], lugar?} y la vieja conviven', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.horarios = [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '6:00 p. m.', nota: 'Hora Santa' }], lugar: 'Templo parroquial' },
+      { dia: 'Sábado', hora: '5:00 p. m.' }]; })).ok);
+  });
+  prueba('horarios: horas vacía, más de 6 horas, o hora y horas a la vez son errores', () => {
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [] }]; }), /horarios\[0\]\.horas/);
+    const siete = Array.from({ length: 7 }, (_, i) => ({ hora: i + ':00' }));
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: siete }]; }), /horarios\[0\]\.horas/);
+    assert.ok(p.validarConfig(copia((c) => { c.horarios = [{ dia: 'Domingo', horas: siete.slice(0, 6) }]; })).ok);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', hora: '7:00', horas: [{ hora: '8:00' }] }]; }), /horarios\[0\]\.horas/);
+  });
+  prueba('horarios: cada hora lleva hora obligatoria, nota y lugar opcionales de hasta 200', () => {
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ nota: 'sin hora' }] }]; }), /horarios\[0\]\.horas\[0\]\.hora/);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ hora: '7:00', nota: 'x'.repeat(201) }] }]; }), /horarios\[0\]\.horas\[0\]\.nota/);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ hora: '7:00' }], lugar: 'x'.repeat(201) }]; }), /horarios\[0\]\.lugar/);
+  });
+  prueba('horarios: el límite de 12 filas no cambia', () => {
+    assert.match(errs((c) => { c.horarios = Array.from({ length: 13 }, () => ({ dia: 'D', hora: '1' })); }), /horarios/);
+  });
+  prueba('colorDe resuelve nombres y hex', () => {
+    const col = { principal: '#1155a4', oscuro: '#0c3562', acento: '#d9a441' };
+    assert.equal(p.colorDe('acento', col), '#d9a441'); assert.equal(p.colorDe('blanco', col), '#ffffff');
+    assert.equal(p.colorDe('principal', col), '#1155a4'); assert.equal(p.colorDe('oscuro', col), '#0c3562');
+    assert.equal(p.colorDe('#123456', col), '#123456'); assert.equal(p.colorDe('acento', { principal: '#1155a4', oscuro: '#0c3562' }), null);
+    assert.equal(p.colorDe('rojo', col), null); assert.equal(p.colorDe(undefined, col), null);
+  });
+  prueba('constantes nuevas', () => {
+    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans']);
+    assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['rectas', 'suaves', 'redondas', 'redondeadas']);   // F6:24, más el nombre viejo
+    assert.deepEqual(Object.assign({}, p.ESQUINAS_DISENO), { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' });
+    assert.deepEqual(Array.from(p.COLORES_CON_NOMBRE), ['principal', 'oscuro', 'acento', 'blanco']);
+  });
+});
+
+grupo('validarConfig: campos del rediseño (2)', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cambios(c);
+    return c;
+  };
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+
+  prueba('pantallas evento, produccion y envivo son válidas; mostrar acepta redes y horarios', () => {
+    const r = p.validarConfig(copia((c) => { c.pantallas = {
+      evento: { modo: 'personalizada', ocultar: ['franja'] },
+      produccion: { modo: 'personalizada', ocultar: ['marca'], textos: { prod_ceja: 'UN TRABAJO DE', prod_nombre: 'Pastoral' } },
+      envivo: { modo: 'personalizada', ocultar: ['envivo'] },
+      inicio: { modo: 'personalizada', ocultar: ['cuenta'], mostrar: ['redes'] },
+      horarios: { modo: 'personalizada', mostrar: ['redes', 'horarios'] } }; }));
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.ok(r.ok);
+  });
+  prueba('mostrar con un elemento desconocido es error', () => {
+    const e = errs((c) => { c.pantallas = { inicio: { modo: 'personalizada', mostrar: ['logo'] } }; });
+    assert.ok(e.includes('pantallas.inicio.mostrar[0]'), e);
+  });
+  prueba('mostrar que no es lista, o con más de dos elementos, es error', () => {
+    assert.ok(errs((c) => { c.pantallas = { inicio: { mostrar: 'redes' } }; }).includes('pantallas.inicio.mostrar'));
+    assert.ok(errs((c) => { c.pantallas = { inicio: { mostrar: ['redes', 'horarios', 'redes'] } }; }).includes('pantallas.inicio.mostrar'));
+  });
+  prueba('las listas nuevas coinciden con lo pedido', () => {
+    assert.deepEqual(Array.from(p.VISTAS_PERSONALIZABLES), ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo']);
+    assert.ok(p.ELEMENTOS_OCULTABLES.includes('cuenta'));
+    assert.deepEqual(Array.from(p.ELEMENTOS_MOSTRABLES), ['redes', 'horarios']);
+    assert.ok(p.CLAVES_TEXTOS.includes('prod_ceja') && p.CLAVES_TEXTOS.includes('prod_nombre'));
+    assert.deepEqual(Array.from(p.PORTADAS_PROPIO), ['ninguna', 'fiesta', 'evento']);
+  });
+  prueba('tipos.ajustes: claves comunes, textos, imagen y ocultarRotulos del propio tipo', () => {
+    const r = p.validarConfig(copia((c) => { c.tipos = { ajustes: { horasanta: { nombrePanel: 'Hora Santa', textoInicio: 'En breve comenzamos', textoGracias: 'Gracias por adorar con nosotros', imagen: 'custodia', ocultarRotulos: ['bendicion'] } } }; }));
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.ok(r.ok);
+  });
+  prueba('tipos.ajustes: clave desconocida, rótulo ajeno, imagen de galería inexistente y nombrePanel de 41 son errores', () => {
+    const e = errs((c) => { c.tipos = { ajustes: {
+      navidad: {}, dominical: { ocultarRotulos: ['santisimo'], imagen: 'galeria:no-existe', nombrePanel: 'x'.repeat(41) } } }; });
+    ['tipos.ajustes.navidad', 'tipos.ajustes.dominical.ocultarRotulos[0]', 'tipos.ajustes.dominical.imagen', 'tipos.ajustes.dominical.nombrePanel'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+  });
+  prueba('tipos.ajustes: imagen automatica no aplica, nombrePanel vacío y textos largos son errores; un tipo apagado admite ajustes', () => {
+    const e = errs((c) => { c.tipos = { ajustes: { dominical: { imagen: 'automatica', nombrePanel: '', textoInicio: 'x'.repeat(201), textoGracias: 5 } } }; });
+    ['tipos.ajustes.dominical.imagen', 'tipos.ajustes.dominical.nombrePanel', 'tipos.ajustes.dominical.textoInicio', 'tipos.ajustes.dominical.textoGracias'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+    assert.ok(errs((c) => { c.tipos = { ajustes: [] }; }).includes('tipos.ajustes'));
+    assert.ok(errs((c) => { c.tipos = { ajustes: { semana: [] } }; }).includes('tipos.ajustes.semana'));
+    assert.ok(errs((c) => { c.tipos = { ajustes: { semana: { ocultarRotulos: 'persona' } } }; }).includes('tipos.ajustes.semana.ocultarRotulos'));
+    assert.ok(p.validarConfig(copia((c) => { c.tipos = { apagados: ['procesion'], ajustes: { procesion: { nombrePanel: 'Procesión' } } }; })).ok);
+  });
+  prueba('tipos.propios: nombrePanel, textoInicio, textoGracias y portada', () => {
+    const base = { clave: 'misa-de-ninos', nombre: 'Misa de niños' };
+    const ok = p.validarConfig(copia((c) => { c.tipos = { propios: [Object.assign({ nombrePanel: 'Niños', textoInicio: 'Ya empezamos', textoGracias: 'Gracias', portada: 'fiesta' }, base)] }; }));
+    assert.deepEqual(Array.from(ok.errores), []);
+    for (const v of ['ninguna', 'fiesta', 'evento']) {
+      assert.ok(p.validarConfig(copia((c) => { c.tipos = { propios: [Object.assign({ portada: v }, base)] }; })).ok, v);
+    }
+    const e = errs((c) => { c.tipos = { propios: [Object.assign({ portada: 'otra', nombrePanel: 'x'.repeat(41), textoInicio: 'x'.repeat(201) }, base)] }; });
+    ['tipos.propios[0].portada', 'tipos.propios[0].nombrePanel', 'tipos.propios[0].textoInicio'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+  });
+});
+
 grupo('aplicar paleta', () => {
-  prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
+  prueba('aplicarPaleta pone las seis variables CSS de :root y los tintes del diseño con los colores de la parroquia', () => {
     const puestas = {};
     const documento = { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
-      documentElement: { style: { setProperty: (k, v) => { puestas[k] = v; } } } };
+      documentElement: {
+        style: { setProperty: (k, v) => { puestas[k] = v; }, removeProperty: (k) => { delete puestas[k]; } },
+        classList: { add() {}, remove() {}, toggle() {}, contains: () => false }
+      } };
     const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: documento });
     c.aplicarPaleta(CONFIG_SAN_JOSE);
-    assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
+    assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--fila-texto', '--gris', '--medio', '--oscuro', '--palido', '--papel', '--rey', '--tenue', '--tenue-rgb', '--tinta', '--velo', '--vivo', '--vivo-rgb']);
     assert.equal(puestas['--rey'], '#7a3b12');
+    const t = c.tintes('#7a3b12', '#4a2008');
+    assert.equal(puestas['--vivo'], t.vivo);
+    assert.equal(puestas['--fila-texto'], t.filaTexto);
+    assert.match(puestas['--vivo-rgb'], /^\d{1,3}, \d{1,3}, \d{1,3}$/);
     assert.equal(puestas['--oscuro'], '#4a2008');
+  });
+  /* documentElement falso que anota variables y clases. */
+  const raizFalsa = () => {
+    const vars = {};
+    const clases = new Set();
+    return {
+      vars, clases,
+      documento: {
+        addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
+        documentElement: {
+          style: { setProperty: (k, v) => { vars[k] = v; }, removeProperty: (k) => { delete vars[k]; } },
+          classList: {
+            add: (k) => { clases.add(k); },
+            remove: (k) => { clases.delete(k); },
+            toggle: (k, si) => { if (si) clases.add(k); else clases.delete(k); return !!si; },
+            contains: (k) => clases.has(k)
+          }
+        }
+      }
+    };
+  };
+  const conAcento = (acento) => Object.assign({}, CONFIG_SAN_JOSE, { colores: Object.assign({}, CONFIG_SAN_JOSE.colores, { acento }) });
+  prueba('aplicarPaleta con colores.acento pone --acento y la clase con-acento', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, conAcento('#d9a441'), { document: r.documento });
+    c.aplicarPaleta(conAcento('#d9a441'));
+    assert.equal(r.vars['--acento'], '#d9a441');
+    assert.equal(r.vars['--acento-claro'], '#f0d08f');
+    assert.ok(r.clases.has('con-acento'));
+    assert.equal(r.vars['--rey'], '#7a3b12');
+  });
+  prueba('aplicarPaleta sin acento quita --acento y la clase con-acento, y no agrega otras', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: r.documento });
+    c.aplicarPaleta(conAcento('#d9a441'));
+    c.aplicarPaleta(CONFIG_SAN_JOSE);
+    assert.equal(r.vars['--acento'], undefined);
+    assert.equal(r.vars['--acento-claro'], undefined);
+    assert.equal(r.clases.size, 0);
+    assert.deepEqual(Object.keys(r.vars).sort(), ['--celeste', '--claro', '--fila-texto', '--gris', '--medio', '--oscuro', '--palido', '--papel', '--rey', '--tenue', '--tenue-rgb', '--tinta', '--velo', '--vivo', '--vivo-rgb']);
+  });
+  prueba('aplicarPaleta con un acento que no es #rrggbb lo trata como ausente', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: r.documento });
+    c.aplicarPaleta(conAcento('dorado'));
+    assert.equal(r.vars['--acento'], undefined);
+    assert.equal(r.clases.has('con-acento'), false);
+  });
+});
+
+grupo('tintes del diseño', () => {
+  /* Artboards F4 (VicEdPantallas.dc.html, líneas 25, 31 y 35): los tintes vino del diseño. */
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const plano = (o) => Object.assign({}, o);
+  const COLORES = ['#8a1c2b', '#1155a4', '#7a3b12', '#2e7d32', '#6a1b9a', '#00695c', '#4e342e'];
+  prueba('San José da los valores exactos del artboard', () => {
+    const t = p.tintes('#8a1c2b', '#4b0f18', '#d9a441');
+    assert.deepEqual(plano(t), { vivo: '#c0485a', tenue: '#f2d6da', velo: '#fbeef0', tinta: '#3a2a2c', gris: '#5a4a4c', papel: '#faf6f3', filaTexto: '#8a1c2b', acentoClaro: '#f0d08f' });
+  });
+  prueba('Ciudad Arce: el mismo tratamiento en azul', () => {
+    const t = p.tintes('#1155a4', '#0c3562');
+    assert.deepEqual(plano(t), { vivo: '#3176c3', tenue: '#d3e3f5', velo: '#edf4fc', tinta: '#28313c', gris: '#48515c', papel: '#f3f2fb', filaTexto: '#1155a4', acentoClaro: null });
+  });
+  prueba('--vivo siempre se lee sobre blanco (>= 4.5); --fila-texto sobre --velo (>= 4.5)', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222');
+      assert.ok(p.contraste('#ffffff', t.vivo) >= 4.5, c + ' -> ' + t.vivo);
+      assert.ok(p.contraste(t.velo, t.filaTexto) >= 4.5, c + ' -> ' + t.filaTexto);
+    }
+  });
+  prueba('--tenue se lee sobre --vivo como texto grande (>= 3)', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222');
+      assert.ok(p.contraste(t.tenue, t.vivo) >= 3, c + ': ' + t.tenue + ' sobre ' + t.vivo);
+    }
+  });
+  prueba('principal muy claro: --fila-texto cae al oscuro', () => {
+    const t = p.tintes('#9fc5ee', '#0c3562');
+    assert.equal(t.filaTexto, '#0c3562');
+  });
+  prueba('todos los tintes son #rrggbb', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222', '#3366cc');
+      for (const k of Object.keys(t)) assert.match(t[k], /^#[0-9a-f]{6}$/, c + ' ' + k);
+    }
   });
 });
 
@@ -1585,7 +1824,7 @@ grupo('config 1b', () => {
   malo('rotulos.tipografia arial', (c) => { c.rotulos = { tipografia: 'arial' }; }, 'rotulos.tipografia');
   malo('rotulos.esquinas desconocida', (c) => { c.rotulos = { esquinas: 'ovaladas' }; }, 'rotulos.esquinas');
   malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'derecha' }; }, 'rotulos.posicion');
-  malo('rotulos.colorLado sin contraste', (c) => { c.rotulos = { colorLado: '#ffff00' }; }, 'rotulos.colorLado');
+  malo('rotulos.colorLado que no es #rrggbb ni un nombre de color', (c) => { c.rotulos = { colorLado: 'amarillo' }; }, 'rotulos.colorLado');
   malo('rotulos.cargos con 13 elementos', (c) => { c.rotulos = { cargos: Array.from({ length: 13 }, (_, i) => 'CARGO ' + i) }; }, 'rotulos.cargos');
   malo('tipo propio con clave dominical', (c) => { c.tipos = { propios: [{ clave: 'dominical', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
   malo('tipo propio con clave inválida', (c) => { c.tipos = { propios: [{ clave: 'Hora Misionera', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
@@ -1646,6 +1885,10 @@ grupo('config 1b', () => {
   });
   prueba('CLAVES_COMUNES coincide con ORDEN_TIPOS', () => {
     assert.deepEqual(Array.from(p.CLAVES_COMUNES), Array.from(p.ORDEN_TIPOS));
+  });
+  prueba('IDS_ROTULO_COMUN coincide con los rótulos de cada tipo de tipos.js', () => {
+    assert.deepEqual(Object.keys(p.IDS_ROTULO_COMUN), Array.from(p.ORDEN_TIPOS));
+    for (const k of p.ORDEN_TIPOS) assert.deepEqual(Array.from(p.IDS_ROTULO_COMUN[k]), Array.from(p.TIPOS[k].rotulos, (r) => r.id), k);
   });
   prueba('BASES_ROTULO coincide con las claves de ROTULOS', () => {
     assert.deepEqual(Array.from(p.BASES_ROTULO).sort(), Object.keys(p.ROTULOS).sort());
@@ -1907,9 +2150,9 @@ grupo('pantallas', () => {
       cfg.horarios = [{ dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' }, { dia: 'Lunes', hora: '6:00 p. m.' }];
       cfg.redes = [{ red: 'facebook', url: 'https://facebook.com/x', texto: '/ParroquiaCiudadArce' }];
     });
-    assert.deepEqual(arr(x.horariosPara(), plano), [
-      { dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' },
-      { dia: 'Lunes', hora: '6:00 p. m.', nota: '' }
+    assert.deepEqual(JSON.parse(JSON.stringify(x.horariosPara())), [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.', nota: 'Misa con niños' }], lugar: '' },
+      { dia: 'Lunes', horas: [{ hora: '6:00 p. m.', nota: '' }], lugar: '' }
     ]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'facebook', texto: '/ParroquiaCiudadArce' }]);
   });
@@ -1947,24 +2190,24 @@ grupo('pantallas', () => {
       horarios: [null, 'x', { dia: 'Lunes', hora: '6:00 p. m.' }],
       redes: [null, 7, { red: 'web', url: 'https://x.org', texto: 'x.org' }]
     }));
-    assert.deepEqual(arr(x.horariosPara(), plano), [{ dia: 'Lunes', hora: '6:00 p. m.', nota: '' }]);
+    assert.deepEqual(JSON.parse(JSON.stringify(x.horariosPara())), [{ dia: 'Lunes', horas: [{ hora: '6:00 p. m.', nota: '' }], lugar: '' }]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
-    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
   });
   prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
     const x = cargarPantallas((cfg) => {
       cfg.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] };
     });
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276' }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), ['LECTOR', 'MONAGUILLO']);
   });
   prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
     const x = cargarPantallas();
     forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
@@ -2097,6 +2340,309 @@ grupo('tipos propios y apagados', () => {
   });
 });
 
+/* ---------- Rediseño: opcionales, horarios, avisos, rótulos (Plan 1, Tarea 5) ---------- */
+
+grupo('pantallas: lógica del rediseño', () => {
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const cargarP = (cambios) => {
+    const cfg = base();
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const dia = (a, m, d) => new Date(a, m - 1, d);
+  const c = cargarP();
+  const HORARIOS = [
+    { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '9:00 a. m.' }], lugar: 'Templo parroquial' },
+    { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }] },
+    { dia: 'Sábado', hora: '6:00 p. m.', nota: 'Misa de vigilia' }
+  ];
+
+  prueba('visible: redes y horarios solo con mostrar; sin personalizar, falso', () => {
+    assert.equal(c.visible('inicio', 'redes'), false);
+    assert.equal(c.visible('inicio', 'horarios'), false);
+    assert.deepEqual(plano(c.ajustesDe('inicio').mostrar), []);
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] } }; });
+    assert.equal(x.visible('inicio', 'redes'), true);
+    assert.equal(x.visible('inicio', 'horarios'), false);
+    assert.deepEqual(plano(x.ajustesDe('inicio').mostrar), ['redes']);
+    assert.equal(x.visible('gracias', 'redes'), false, 'otra vista no cambia');
+  });
+  prueba('visible: mostrar se ignora en modo como-viene', () => {
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'como-viene', mostrar: ['redes'] } }; });
+    assert.equal(x.visible('inicio', 'redes'), false);
+  });
+  prueba('ajustesDe.mostrar ignora elementos que no se pueden mostrar', () => {
+    const x = cargarP();
+    forzar(x, Object.assign(base(), { pantallas: { inicio: { modo: 'personalizada', mostrar: ['logo', 'horarios', 7] } } }));
+    assert.deepEqual(plano(x.ajustesDe('inicio').mostrar), ['horarios']);
+  });
+  prueba('ocultar cuenta: visible(inicio, cuenta) es falso; sin ocultar, verdadero', () => {
+    assert.equal(c.visible('inicio', 'cuenta'), true);
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'personalizada', ocultar: ['cuenta'] } }; });
+    assert.equal(x.visible('inicio', 'cuenta'), false);
+  });
+  prueba('produccion y envivo: fondo, imagen y distribución se ignoran; ocultar y textos cuentan', () => {
+    const x = cargarP((cfg) => {
+      cfg.pantallas = {};
+      for (const v of ['produccion', 'envivo', 'inicio']) {
+        cfg.pantallas[v] = { modo: 'personalizada', fondo: { tipo: 'color', color: '#123456' }, imagen: 'ninguna', distribucion: 'centro', ocultar: ['marca'], textos: { capa_logo: 'Pastoral' } };
+      }
+    });
+    for (const v of ['produccion', 'envivo']) {
+      const a = x.ajustesDe(v);
+      assert.equal(a.fondo.tipo, 'degradado', v);
+      assert.equal(a.imagen, 'automatica', v);
+      assert.equal(a.distribucion, 'izquierda', v);
+      assert.equal(x.visible(v, 'marca'), false, v);
+      assert.equal(a.textos.capa_logo, 'Pastoral', v);
+    }
+    assert.equal(x.ajustesDe('inicio').fondo.tipo, 'color', 'en inicio sí cuentan');
+    assert.equal(x.ajustesDe('inicio').distribucion, 'centro');
+  });
+  prueba('horariosPara normaliza la forma vieja como {dia, horas:[{hora, nota}], lugar:""}', () => {
+    const x = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(x.horariosPara()), [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.', nota: '' }, { hora: '9:00 a. m.', nota: '' }], lugar: 'Templo parroquial' },
+      { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }], lugar: '' },
+      { dia: 'Sábado', horas: [{ hora: '6:00 p. m.', nota: 'Misa de vigilia' }], lugar: '' }
+    ]);
+  });
+  prueba('filasHorarios: día y notas a la izquierda, horas a la derecha (artboard F11)', () => {
+    const x = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(x.filasHorarios()), [
+      { a: 'Domingo', f: '7:00 a. m. · 9:00 a. m.' },
+      { a: 'Jueves · Hora Santa', f: '6:00 p. m.' },
+      { a: 'Sábado · Misa de vigilia', f: '6:00 p. m.' }
+    ]);
+    assert.deepEqual(plano(c.filasHorarios()), [], 'sin horarios');
+  });
+  prueba('filasGracias: los horarios de Gracias, como mucho MAX_FILAS_GRACIAS (6), en orden', () => {
+    const doce = Array.from({ length: 12 }, (_, i) => ({ dia: 'Día ' + (i + 1), horas: [{ hora: '7:00 a. m.', nota: 'Misa' }, { hora: '9:00 a. m.' }] }));
+    const x = cargarP((cfg) => { cfg.horarios = doce; });
+    assert.equal(x.MAX_FILAS_GRACIAS, 6);
+    assert.deepEqual(plano(x.filasGracias()), plano(x.filasHorarios()).slice(0, 6));
+    const y = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(y.filasGracias()), plano(y.filasHorarios()), 'con pocos horarios, todos');
+  });
+  prueba('avisosPara: sin los avisos con activo:false', () => {
+    const x = cargarP((cfg) => {
+      cfg.avisos = [{ texto: 'Activo', activo: true }, { texto: 'Apagado', activo: false }, { texto: 'Sin campo' }];
+    });
+    assert.deepEqual(plano(x.avisosPara(x.normalizarEstado({}), dia(2026, 11, 15))).map((r) => r.a), ['Activo', 'Sin campo']);
+  });
+  prueba('avisosPara: los horarios van al final solo con mostrar:[horarios], y se corta en 6', () => {
+    const avisos = [{ texto: 'Fijo 1' }, { texto: 'Fijo 2' }];
+    const sin = cargarP((cfg) => { cfg.avisos = avisos; cfg.horarios = HORARIOS; });
+    const s = sin.normalizarEstado({ avisos: [{ a: 'Panel', f: 'x' }] });
+    assert.deepEqual(plano(sin.avisosPara(s, dia(2026, 11, 15))).map((r) => r.a), ['Fijo 1', 'Fijo 2', 'Panel']);
+    const con = cargarP((cfg) => {
+      cfg.avisos = avisos; cfg.horarios = HORARIOS;
+      cfg.pantallas = { avisos: { modo: 'personalizada', mostrar: ['horarios'] } };
+    });
+    const r = plano(con.avisosPara(s, dia(2026, 11, 15)));
+    assert.equal(r.length, 6);
+    assert.deepEqual(r.map((e) => e.a), ['Fijo 1', 'Fijo 2', 'Panel', 'Domingo', 'Jueves · Hora Santa', 'Sábado · Misa de vigilia']);
+    assert.deepEqual(r[4], { a: 'Jueves · Hora Santa', f: '6:00 p. m.' });
+    const mas = cargarP((cfg) => {
+      cfg.avisos = [1, 2, 3, 4, 5].map((n) => ({ texto: 'Fijo ' + n })); cfg.horarios = HORARIOS;
+      cfg.pantallas = { avisos: { modo: 'personalizada', mostrar: ['horarios'] } };
+    });
+    assert.deepEqual(plano(mas.avisosPara(mas.normalizarEstado({}), dia(2026, 11, 15))).map((e) => e.a),
+      ['Fijo 1', 'Fijo 2', 'Fijo 3', 'Fijo 4', 'Fijo 5', 'Domingo']);
+  });
+  prueba('redesVisibles: las redes solo si la vista las muestra', () => {
+    const redes = [{ red: 'facebook', url: 'https://facebook.com/x', texto: '/Parroquia' }];
+    const sin = cargarP((cfg) => { cfg.redes = redes; });
+    assert.deepEqual(plano(sin.redesVisibles('inicio')), []);
+    const con = cargarP((cfg) => { cfg.redes = redes; cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] } }; });
+    assert.deepEqual(plano(con.redesVisibles('inicio')), [{ red: 'facebook', texto: '/Parroquia' }]);
+    assert.deepEqual(plano(con.redesVisibles('gracias')), []);
+  });
+  prueba('estiloRotulos sin bloque rotulos: los valores de hoy más colorLinea null, ladoClaro false, logoEsquina true', () => {
+    assert.deepEqual(plano(c.estiloRotulos()), {
+      tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null,
+      colorLinea: null, ladoClaro: false, logoEsquina: true
+    });
+  });
+  prueba('estiloRotulos: tipografía, esquinas suaves, logoEsquina y colores con nombre', () => {
+    const x = cargarP((cfg) => {
+      cfg.colores.acento = '#d9a441';
+      cfg.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: 'oscuro', colorLinea: 'principal', logoEsquina: false };
+    });
+    assert.deepEqual(plano(x.estiloRotulos()), {
+      tipografia: 'lora', esquinas: 'suaves', posicion: 'izquierda', colorLado: '#0c3562',
+      colorLinea: '#1155a4', ladoClaro: false, logoEsquina: false
+    });
+  });
+  prueba('esquinas (R3): validarConfig acepta los nombres del diseño y el viejo; estiloRotulos da el nombre del diseño', () => {
+    for (const q of ['rectas', 'suaves', 'redondas', 'redondeadas']) {
+      const x = cargarP((cfg) => { cfg.rotulos = { esquinas: q }; });
+      assert.ok(x.validarConfig(x.PARROQUIA).ok, q);
+    }
+    const esq = (q) => cargarP((cfg) => { cfg.rotulos = q === undefined ? {} : { esquinas: q }; }).estiloRotulos().esquinas;
+    assert.equal(esq('redondeadas'), 'suaves');
+    assert.equal(esq('suaves'), 'suaves');
+    assert.equal(esq(undefined), 'suaves');
+    assert.equal(esq('redondas'), 'redondas');
+    assert.equal(esq('rectas'), 'rectas');
+  });
+  prueba('estiloRotulos: colorLado blanco da ladoClaro', () => {
+    const x = cargarP((cfg) => { cfg.rotulos = { colorLado: 'blanco' }; });
+    const e = x.estiloRotulos();
+    assert.equal(e.colorLado, '#ffffff');
+    assert.equal(e.ladoClaro, true);
+    const y = cargarP((cfg) => { cfg.rotulos = { colorLado: '#f0e6c8' }; });
+    assert.equal(y.estiloRotulos().ladoClaro, true, 'un hex claro también');
+  });
+  prueba('estiloRotulos: con acento y sin colorLinea, la línea es el acento', () => {
+    const x = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; });
+    assert.equal(x.estiloRotulos().colorLinea, '#d9a441');
+    const y = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; cfg.rotulos = { colorLado: 'acento' }; });
+    assert.equal(y.estiloRotulos().colorLado, '#d9a441');
+  });
+});
+
+/* ---------- Rediseño: ajustes de tipos comunes y portada de los propios (Plan 1, Tarea 4) ---------- */
+
+grupo('tipos: ajustes y propios del rediseño', () => {
+  const ARCHIVOS = ['tipos.js', 'comun.js', 'pantallas.js'];
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const conAjustes = (ajustes, cambios) => {
+    const cfg = Object.assign(base(), { tipos: { ajustes } });
+    if (cambios) cambios(cfg);
+    return cargarCon(ARCHIVOS, {}, cfg);
+  };
+  const conPropios = (propios) => cargarCon(ARCHIVOS, {}, Object.assign(base(), { tipos: { propios } }));
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const c = cargarCon(ARCHIVOS);
+  const AJUSTE_HS = { nombrePanel: 'Adoración', textoInicio: 'Ya empezamos', textoGracias: 'Gracias', imagen: 'patrono', ocultarRotulos: ['bendicion'] };
+
+  prueba('sin ajustes tipoDe devuelve TIPOS[clave] tal cual', () => {
+    assert.equal(c.tipoDe({ tipo: 'horasanta' }), c.TIPOS.horasanta);
+  });
+  prueba('todo tipo común trae nombrePanel igual a su nombre y textosTipo vacío', () => {
+    for (const k of c.ORDEN_TIPOS) {
+      assert.equal(c.TIPOS[k].nombrePanel, c.TIPOS[k].nombre, k);
+      assert.deepEqual(plano(c.TIPOS[k].textosTipo), {}, k);
+    }
+  });
+  prueba('ajustes de un común: nombrePanel, textos, imagen y rótulos ocultos', () => {
+    const x = conAjustes({ horasanta: AJUSTE_HS });
+    const t = x.tipoDe({ tipo: 'horasanta' });
+    assert.equal(t.nombrePanel, 'Adoración');
+    assert.equal(t.nombre, 'Hora Santa');
+    assert.deepEqual(plano(t.textosTipo), { inicio_titulo: 'Ya empezamos', gracias_cursiva: 'Gracias' });
+    assert.equal(t.imagen, 'patrono');
+    assert.ok(!t.rotulos.some((r) => r.id === 'bendicion'));
+    assert.equal(t.rotulos.length, 4);
+    assert.equal(x.TIPOS.horasanta.rotulos.length, 5, 'no muta TIPOS');
+    assert.equal(x.TIPOS.horasanta.nombrePanel, 'Hora Santa', 'no muta TIPOS');
+    assert.equal(x.TIPOS.horasanta.imagen, 'custodia', 'no muta TIPOS');
+  });
+  prueba('un ajuste de otro tipo no cambia este: sigue siendo TIPOS[clave]', () => {
+    const x = conAjustes({ horasanta: AJUSTE_HS });
+    assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
+  });
+  prueba('el ajuste también vale cuando tipoDe cae al primer tipo disponible', () => {
+    const x = conAjustes({ dominical: { nombrePanel: 'Domingo' } });
+    assert.equal(x.tipoDe({ tipo: 'no-existe' }).nombrePanel, 'Domingo');
+  });
+  prueba('ajuste con imagen de galería inexistente usa la imagen del tipo', () => {
+    const x = conAjustes({});
+    forzar(x, Object.assign(base(), { tipos: { ajustes: { horasanta: { imagen: 'galeria:no-esta' } } } }));
+    assert.equal(x.tipoDe({ tipo: 'horasanta' }).imagen, 'custodia');
+    assert.equal(x.imagenDe({ tipo: 'horasanta' }), 'img/custodia.png');
+  });
+  prueba('ajuste con imagen de galería existente la usa', () => {
+    const x = conAjustes({ horasanta: { imagen: 'galeria:patrono-2' } }, (cfg) => {
+      cfg.galeria = [{ id: 'patrono-2', src: 'medios/patrono-2.jpg', alt: 'Segunda imagen del patrono' }];
+    });
+    assert.equal(x.tipoDe({ tipo: 'horasanta' }).imagen, 'galeria:patrono-2');
+    assert.equal(x.imagenDe({ tipo: 'horasanta' }), 'medios/patrono-2.jpg');
+  });
+  prueba('el texto del tipo gana al de la pantalla, y el escrito en el panel gana a los dos', () => {
+    const pantallas = { inicio: { modo: 'personalizada', textos: { inicio_titulo: 'De pantalla' } } };
+    const x = conAjustes({ horasanta: { textoInicio: 'Del tipo' } }, (cfg) => { cfg.pantallas = pantallas; });
+    assert.equal(x.textoDe({ tipo: 'horasanta' }, 'inicio', 'inicio_titulo'), 'Del tipo');
+    assert.equal(x.textoDe({ tipo: 'horasanta', textos: { inicio_titulo: 'Del panel' } }, 'inicio', 'inicio_titulo'), 'Del panel');
+    const sin = conAjustes({}, (cfg) => { cfg.pantallas = pantallas; });
+    assert.equal(sin.textoDe({ tipo: 'horasanta' }, 'inicio', 'inicio_titulo'), 'De pantalla');
+  });
+  prueba('el texto de gracias del tipo rellena los huecos y llega a tx', () => {
+    const x = conAjustes({ horasanta: { textoGracias: 'Gracias, {parroquia}' } });
+    const s = { tipo: 'horasanta' };
+    assert.equal(x.textoDe(s, 'gracias', 'gracias_cursiva'), 'Gracias, Parroquia Inmaculada Concepción de María');
+    assert.equal(x.tx(s, 'gracias_cursiva'), 'Gracias, Parroquia Inmaculada Concepción de María');
+  });
+  prueba('propio con portada fiesta tiene cuenta de la fiesta y esquina fiesta', () => {
+    const x = conPropios([{ clave: 'triduo', nombre: 'Triduo', portada: 'fiesta' }]);
+    const t = x.tipoDe({ tipo: 'triduo' });
+    assert.equal(t.portada, 'fiesta');
+    assert.ok(t.cuenta, 'tiene cuenta');
+    assert.equal(t.cuenta.hasta, x.fiestaMMDD());
+    assert.equal(t.esquina, 'fiesta');
+  });
+  prueba('propio con portada fiesta y esquina propia conserva su esquina', () => {
+    const x = conPropios([{ clave: 'triduo', nombre: 'Triduo', portada: 'fiesta', esquina: 'hoy' }]);
+    assert.equal(x.tipoDe({ tipo: 'triduo' }).esquina, 'hoy');
+  });
+  prueba('propio con portada evento pide evento, fecha y lugar como el tipo evento', () => {
+    const x = conPropios([{ clave: 'retiro', nombre: 'Retiro', portada: 'evento' }]);
+    const t = x.tipoDe({ tipo: 'retiro' });
+    assert.equal(t.portada, 'evento');
+    assert.equal(t.portadaCeja, x.TIPOS.evento.portadaCeja);
+    assert.equal(t.portadaCursiva, x.TIPOS.evento.portadaCursiva);
+    assert.deepEqual(plano(t.datos), ['evento', 'fecha', 'lugar']);
+    assert.notEqual(t.datos, x.TIPOS.evento.datos, 'lista nueva: no comparte la de TIPOS.evento');
+  });
+  prueba('portada de evento de un propio: el título es el evento escrito en el panel; sin él, el del tipo', () => {
+    const x = conPropios([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', portada: 'evento' }, { clave: 'retiro', nombre: 'Retiro', titulo: 'Retiro de {evento}', portada: 'evento' }]);
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora', evento: 'Rosario de la aurora · Barrio El Centro' }), 'ROSARIO DE LA AURORA · BARRIO EL CENTRO');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora', evento: '   ' }), 'ROSARIO DE LA AURORA');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora' }), 'ROSARIO DE LA AURORA');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'retiro', evento: 'Jóvenes' }), 'RETIRO DE JÓVENES', 'si el título ya usa {evento}, manda la plantilla del tipo');
+  });
+  prueba('portada de evento del tipo evento: igual que tituloCelebracion, con y sin evento', () => {
+    for (const s of [{ tipo: 'evento', evento: 'Concierto' }, { tipo: 'evento' }]) {
+      assert.equal(c.tituloPortadaEvento(s), c.tituloCelebracion(s), JSON.stringify(s));
+    }
+    assert.equal(c.tituloPortadaEvento({ tipo: 'evento', evento: 'Concierto' }), 'CONCIERTO');
+  });
+  prueba('propio sin portada sigue igual que hoy', () => {
+    for (const portada of [undefined, 'ninguna']) {
+      const p = { clave: 'retiro', nombre: 'Retiro' };
+      if (portada) p.portada = portada;
+      const t = conPropios([p]).tipoDe({ tipo: 'retiro' });
+      assert.equal(t.portada, undefined, String(portada));
+      assert.equal(t.cuenta, false, String(portada));
+      assert.equal(t.esquina, 'hoy', String(portada));
+      assert.deepEqual(plano(t.datos), [], String(portada));
+    }
+  });
+  prueba('propio: nombrePanel, textoInicio y textoGracias', () => {
+    const x = conPropios([
+      { clave: 'retiro', nombre: 'Retiro juvenil', nombrePanel: 'Retiro', textoInicio: 'Ya casi', textoGracias: 'Hasta pronto' },
+      { clave: 'vigilia', nombre: 'Vigilia' }
+    ]);
+    const t = x.tipoDe({ tipo: 'retiro' });
+    assert.equal(t.nombrePanel, 'Retiro');
+    assert.deepEqual(plano(t.textosTipo), { inicio_titulo: 'Ya casi', gracias_cursiva: 'Hasta pronto' });
+    assert.equal(x.textoDe({ tipo: 'retiro' }, 'inicio', 'inicio_titulo'), 'Ya casi');
+    const v = x.tipoDe({ tipo: 'vigilia' });
+    assert.equal(v.nombrePanel, 'Vigilia');
+    assert.deepEqual(plano(v.textosTipo), {});
+  });
+  prueba('ocultar el rótulo que está al aire: rotulosDe ya no lo trae', () => {
+    const s = { tipo: 'horasanta', rotulo: 'bendicion' };
+    assert.ok(c.rotulosDe(s).find((r) => r.id === 'bendicion'), 'sin ajuste sí lo trae');
+    const x = conAjustes({ horasanta: { ocultarRotulos: ['bendicion'] } });
+    assert.equal(x.rotulosDe(s).find((r) => r.id === 'bendicion'), undefined);
+  });
+});
+
 /* ---------- Vista previa del editor (Etapa 2a) ---------- */
 
 grupo('vista previa', () => {
@@ -2178,6 +2724,60 @@ grupo('vista previa', () => {
     v.enviar(mensaje(v.ventana, { data: null }));
     v.enviar(mensaje(v.ventana, { data: { tipo: 'pev-vista-previa', config: null } }));
     assert.equal(vivo(v.c, 'PARROQUIA').nombre, '');
+  });
+  /* Con tipos.js y comun.js: el estado que manda el editor llega a leerEstado(). */
+  function cargarVistaComun(dentroDeIframe, almacen = {}) {
+    const oyentes = [];
+    const ventana = { innerWidth: 1920, innerHeight: 1080, addEventListener: (t, f) => { if (t === 'message') oyentes.push(f); } };
+    ventana.parent = dentroDeIframe ? { marca: 'padre' } : ventana;
+    const loc = { pathname: '/ciudad-arce/pantalla.html', search: '?tipo=inicio&vista-previa=1', origin: 'http://editor.test' };
+    const c = cargar(['parroquia.js', 'tipos.js', 'comun.js'], almacen, { location: loc, window: ventana });
+    return { c, ventana, enviar: (e) => oyentes.forEach((f) => f(e)) };
+  }
+  const conEstado = (ventana, estado) => mensaje(ventana, { data: { tipo: 'pev-vista-previa', config: { nombre: 'Parroquia de Prueba' }, estado } });
+  prueba('vista previa: el estado del mensaje llega a leerEstado()', () => {
+    const v = cargarVistaComun(true);
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+    assert.equal(v.c.leerEstado().tipo, 'horasanta');
+    assert.equal(v.c.leerEstado().rotulo, 'ninguno', 'lo que no manda sale del guardado o del predeterminado');
+  });
+  prueba('vista previa: el estado se suma al guardado de la vista previa', () => {
+    const v = cargarVistaComun(true, { 'pev_vistaprevia_ciudad-arce_estado_v1': JSON.stringify({ celebrante: 'P. Guardado', tipo: 'novena' }) });
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+    const s = v.c.leerEstado();
+    assert.equal(s.tipo, 'horasanta');
+    assert.equal(s.celebrante, 'P. Guardado');
+  });
+  prueba('vista previa: un estado que no es un objeto plano se ignora', () => {
+    for (const estado of ['x', 7, null, ['horasanta']]) {
+      const v = cargarVistaComun(true);
+      v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+      v.enviar(conEstado(v.ventana, estado));
+      assert.equal(vivo(v.c, 'ESTADO_VISTA_PREVIA'), null, JSON.stringify(estado));
+      assert.equal(v.c.leerEstado().tipo, 'novena', JSON.stringify(estado));
+      assert.equal(vivo(v.c, 'PARROQUIA').nombre, 'Parroquia de Prueba', 'la configuración sí se aplica');
+    }
+  });
+  prueba('vista previa: sin VISTA_PREVIA, ESTADO_VISTA_PREVIA no se lee', () => {
+    const v = cargarVistaComun(false);
+    assert.equal(v.c.VISTA_PREVIA, false);
+    vm.runInContext("ESTADO_VISTA_PREVIA = { tipo: 'horasanta' }", v.c);
+    assert.equal(v.c.leerEstado().tipo, 'novena');
+  });
+  prueba('vista previa: el estado mandado no se guarda en el almacenamiento', () => {
+    const v = cargarVistaComun(true);
+    const antes = Object.keys(v.c.__almacen).sort();
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta', rotulo: 'guia' }));
+    v.c.leerEstado();
+    assert.deepEqual(Object.keys(v.c.__almacen).sort(), antes);
+    assert.equal(Object.keys(v.c.__almacen).filter((k) => k.includes('estado_v1')).length, 0);
+  });
+  prueba('vista previa: leerEstado no cambia lo que mandó el editor', () => {
+    const v = cargarVistaComun(true);
+    const estado = { tipo: 'horasanta', avisos: [{ a: 'Uno', f: '' }] };
+    v.enviar(conEstado(v.ventana, estado));
+    v.c.leerEstado(); v.c.leerEstado();
+    assert.equal(vivo(v.c, 'ESTADO_VISTA_PREVIA').avisos.length, 1);
   });
 });
 

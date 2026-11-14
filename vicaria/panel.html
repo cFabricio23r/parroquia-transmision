@@ -581,7 +581,7 @@ function verEleccion(si) {
    llega después de cargar la página, así que se vuelven a armar al cambiar (sin duplicar) solo si la lista cambió. */
 let firmaTipos = null;
 function armarTipos() {
-  const lista = ordenTipos().map(clave => { const tipo = tipoDe({ tipo: clave }); return [clave, tipo.nombre, rellenar(tipo.descripcion || '', {})]; });   // sin la transmisión: solo se llenan los huecos de la parroquia
+  const lista = ordenTipos().map(clave => { const tipo = tipoDe({ tipo: clave }); return [clave, tipo.nombrePanel || tipo.nombre, rellenar(tipo.descripcion || '', {})]; });   // sin la transmisión: solo se llenan los huecos de la parroquia
   const firma = JSON.stringify(lista);
   if (firma === firmaTipos) return;
   firmaTipos = firma;
@@ -703,11 +703,12 @@ function pintarCampos() {
 
 /* ---------- pantallas: imagen, esquina, cuenta ---------- */
 const IMAGENES_BASE = [['', 'Automática'], ['patrono', 'Patrono'], ['fachada', 'Fachada'], ['logo', 'Logo'], ['custodia', 'Custodia'], ['santo', 'Santo']];
-/* Las imágenes de la galería de la parroquia se suman como «galeria:<id>» con su texto alternativo como nombre.
+/* Las imágenes de la galería de la parroquia se suman como «galeria:<id>». Se llaman por su nombre; si no tienen,
+   por su texto alternativo, y si tampoco, por su id.
    La lista se calcula de nuevo cada vez que cambia la configuración: nunca queda una imagen repetida. */
 const imagenesDe = () => IMAGENES_BASE.concat((Array.isArray(PARROQUIA.galeria) ? PARROQUIA.galeria : [])
   .filter(g => g && typeof g.id === 'string' && g.id !== '')
-  .map(g => ['galeria:' + g.id, (typeof g.alt === 'string' && g.alt.trim()) || g.id]));
+  .map(g => ['galeria:' + g.id, (typeof g.nombre === 'string' && g.nombre.trim()) || (typeof g.alt === 'string' && g.alt.trim()) || g.id]));
 let IMAGENES = IMAGENES_BASE;
 const nombreImagen = (k) => (IMAGENES.find(x => x[0] === k) || [k, k])[1];
 let firmaImagenes = null;

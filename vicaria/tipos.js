@@ -45,6 +45,8 @@ const _GRACIAS_CURSIVA = 'Nos vemos en la próxima\ntransmisión';
 const TIPOS = {
   dominical: {
     nombre: 'Misa dominical',
+    nombrePanel: 'Misa dominical',
+    textosTipo: {},
     descripcion: 'Misa del domingo. La cuenta al {fiesta} aparece cuando se acerca la fiesta.',
     titulo: 'SANTA MISA DOMINICAL',
     ceja: 'CAMINO A NUESTRAS FIESTAS PATRONALES',
@@ -66,6 +68,8 @@ const TIPOS = {
   },
   semana: {
     nombre: 'Misa entre semana',
+    nombrePanel: 'Misa entre semana',
+    textosTipo: {},
     descripcion: 'Misa del miércoles o del sábado.',
     titulo: 'SANTA MISA',
     ceja: '{parroquia}',
@@ -88,6 +92,8 @@ const TIPOS = {
   },
   horasanta: {
     nombre: 'Hora Santa',
+    nombrePanel: 'Hora Santa',
+    textosTipo: {},
     descripcion: 'Adoración al Santísimo del jueves eucarístico.',
     titulo: 'HORA SANTA',
     ceja: 'JUEVES EUCARÍSTICO',
@@ -111,6 +117,8 @@ const TIPOS = {
   },
   sector: {
     nombre: 'Misa en sector',
+    nombrePanel: 'Misa en sector',
+    textosTipo: {},
     descripcion: 'Misa celebrada en un sector o comunidad.',
     titulo: 'SANTA MISA · {sector}',
     ceja: '{parroquia}',
@@ -134,6 +142,8 @@ const TIPOS = {
   },
   patronalsector: {
     nombre: 'Patronal de sector',
+    nombrePanel: 'Patronal de sector',
+    textosTipo: {},
     descripcion: 'Misa patronal de un sector, el día de su patrono. No lleva cuenta regresiva.',
     titulo: 'MISA PATRONAL · {sector}',
     ceja: 'EN HONOR A {santo}',
@@ -151,6 +161,8 @@ const TIPOS = {
   },
   procesion: {
     nombre: 'Procesión',
+    nombrePanel: 'Procesión',
+    textosTipo: {},
     descripcion: 'Procesión con el santo o la imagen del día.',
     titulo: 'PROCESIÓN',
     ceja: 'EN HONOR A {santo}',
@@ -175,6 +187,8 @@ const TIPOS = {
   },
   otros: {
     nombre: 'Misa de otro santo',
+    nombrePanel: 'Misa de otro santo',
+    textosTipo: {},
     descripcion: 'Misa en honor a un santo. Lleva la cuenta al {fiesta}.',
     titulo: 'MISA EN HONOR A {santo}',
     ceja: 'CAMINO A NUESTRA FIESTA PATRONAL',
@@ -192,6 +206,8 @@ const TIPOS = {
   },
   prenovena: {
     nombre: 'Prenovena',
+    nombrePanel: 'Prenovena',
+    textosTipo: {},
     descripcion: 'Días de preparación antes de la novena.',
     titulo: 'PRENOVENA · DÍA {dia}',
     ceja: 'FIESTAS PATRONALES {anio}',
@@ -210,6 +226,8 @@ const TIPOS = {
   },
   novena: {
     nombre: 'Novena',
+    nombrePanel: 'Novena',
+    textosTipo: {},
     descripcion: 'Los nueve días antes de la fiesta patronal.',
     titulo: 'NOVENA · DÍA {dia}',
     ceja: 'FIESTAS PATRONALES {anio}',
@@ -228,6 +246,8 @@ const TIPOS = {
   },
   patronal: {
     nombre: 'Fiesta patronal',
+    nombrePanel: 'Fiesta patronal',
+    textosTipo: {},
     descripcion: 'Misa del {fiesta}.',
     titulo: 'SANTA MISA PATRONAL',
     ceja: 'SOLEMNIDAD DE {patrono}',
@@ -246,6 +266,8 @@ const TIPOS = {
   },
   evento: {
     nombre: 'Evento especial',
+    nombrePanel: 'Evento especial',
+    textosTipo: {},
     descripcion: 'Cualquier otro evento de la parroquia.',
     titulo: '{evento}',
     ceja: '{parroquia}',
@@ -294,19 +316,66 @@ const _NOMBRE_BASE = {
   rosario: 'Santo Rosario', santisimo: 'Exposición del Santísimo', lugar: 'Lugar', oracion: 'Oración', libre: 'Texto libre'
 };
 
+/* Texto no vacío de la configuración, o `defecto`. */
+function _textoTipo(v, defecto) {
+  return typeof v === 'string' && v.trim() !== '' ? v : defecto;
+}
+
+/* textoInicio y textoGracias de un ajuste o de un propio: van a tituloInicio y graciasCursiva (que lee
+   textosBase) y a textosTipo (que lee textoDe, por encima de los textos de la pantalla). Cambia `t`. */
+function _ponerTextosTipo(t, a) {
+  t.textosTipo = {};
+  const inicio = _textoTipo(a.textoInicio, '');
+  const gracias = _textoTipo(a.textoGracias, '');
+  if (inicio) { t.tituloInicio = inicio; t.textosTipo.inicio_titulo = inicio; }
+  if (gracias) { t.graciasCursiva = gracias; t.textosTipo.gracias_cursiva = gracias; }
+}
+
+/* ¿Se puede usar hoy esta imagen de un ajuste? Una clave fija, o galeria:<id> con ese id en la galería.
+   La galería se lee al llamarse: una imagen borrada después deja la del tipo. */
+function _imagenTipoValida(v) {
+  if (typeof v !== 'string') return false;
+  if (v.indexOf('galeria:') === 0) {
+    const id = v.slice(8);
+    return Array.isArray(PARROQUIA.galeria) && PARROQUIA.galeria.some((im) => im && im.id === id && typeof im.src === 'string' && im.src !== '');
+  }
+  return v !== 'automatica' && IMAGENES_PANTALLA.includes(v);
+}
+
+/* Un tipo común con los ajustes de la parroquia (tipos.ajustes.<clave>): nombre en el panel, textos de
+   inicio y gracias, imagen y rótulos ocultos. Devuelve un objeto nuevo: TIPOS no cambia. */
+function _conAjustes(clave, ajuste) {
+  const t = Object.assign({}, TIPOS[clave]);
+  t.nombrePanel = _textoTipo(ajuste.nombrePanel, TIPOS[clave].nombrePanel || TIPOS[clave].nombre);
+  _ponerTextosTipo(t, ajuste);
+  if (Array.isArray(ajuste.ocultarRotulos)) t.rotulos = t.rotulos.filter((r) => !ajuste.ocultarRotulos.includes(r.id));
+  if (_imagenTipoValida(ajuste.imagen)) t.imagen = ajuste.imagen;
+  return t;
+}
+
+/* Un tipo común tal como lo usa la parroquia: TIPOS[clave] mismo si no tiene ajustes; si no, una copia ajustada. */
+function _tipoComun(clave) {
+  const a = PARROQUIA.tipos && PARROQUIA.tipos.ajustes;
+  const ajuste = a && typeof a === 'object' && Object.prototype.hasOwnProperty.call(a, clave) ? a[clave] : null;
+  return ajuste && typeof ajuste === 'object' && !Array.isArray(ajuste) ? _conAjustes(clave, ajuste) : TIPOS[clave];
+}
+
 /* Arma un tipo completo a partir de un tipo propio de la configuración: lo que no trae sale de valores por
    defecto (imagen del patrono, esquina de hoy, sin cuenta ni portada, sin datos). Los textos son plantillas
-   que rellenar() completa como las de los tipos comunes. Devuelve un objeto nuevo. */
+   que rellenar() completa como las de los tipos comunes. Con portada 'fiesta' lleva la portada, la cuenta y
+   la esquina de la novena; con 'evento', la portada y los datos (evento, fecha, lugar) del tipo evento.
+   Devuelve un objeto nuevo. */
 function _tipoPropio(p) {
-  const texto = (v, defecto) => (typeof v === 'string' && v.trim() !== '' ? v : defecto);
+  const texto = _textoTipo;
   const usadas = {};
   const rotulos = (Array.isArray(p.rotulos) ? p.rotulos : []).filter((b) => Object.prototype.hasOwnProperty.call(ROTULOS, b)).map((base) => {
     usadas[base] = (usadas[base] || 0) + 1;
     return { id: usadas[base] === 1 ? base : base + '-' + usadas[base], base, nombre: _NOMBRE_BASE[base] || base };
   });
   const titulo = texto(p.titulo, p.nombre);
-  return {
+  const t = {
     nombre: p.nombre,
+    nombrePanel: texto(p.nombrePanel, p.nombre),
     descripcion: texto(p.descripcion, ''),
     titulo,
     ceja: texto(p.ceja, '{parroquia}'),
@@ -322,10 +391,22 @@ function _tipoPropio(p) {
     rotulos,
     datos: []
   };
+  _ponerTextosTipo(t, p);
+  if (p.portada === 'fiesta') {
+    t.portada = TIPOS.novena.portada;
+    t.cuenta = TIPOS.novena.cuenta;
+    t.esquina = texto(p.esquina, TIPOS.novena.esquina);
+  } else if (p.portada === 'evento') {
+    t.portada = TIPOS.evento.portada;
+    t.portadaCeja = TIPOS.evento.portadaCeja;
+    t.portadaCursiva = TIPOS.evento.portadaCursiva;
+    t.datos = TIPOS.evento.datos.slice();
+  }
+  return t;
 }
 
-/* Tipo de la transmisión: un común, o uno propio de la parroquia. Si la clave no está entre los que ofrece
-   la parroquia (estado viejo o dañado, tipo apagado o propio borrado) usa el primero disponible. */
+/* Tipo de la transmisión: un común (con los ajustes de la parroquia), o uno propio. Si la clave no está entre
+   los que ofrece la parroquia (estado viejo o dañado, tipo apagado o propio borrado) usa el primero disponible. */
 function tipoDe(s) {
   const clave = s ? s.tipo : undefined;
   const orden = ordenTipos();
@@ -335,10 +416,10 @@ function tipoDe(s) {
   if (propio) return _tipoPropio(propio);
   // Vale cualquier clave de TIPOS no apagada, no solo las de ORDEN_TIPOS: una prueba de la 1a inyecta un tipo
   // en TIPOS (navidad) y espera que tipoDe/diasFaltan lo usen.
-  if (hay(clave) && !apagados.includes(clave)) return TIPOS[clave];
+  if (hay(clave) && !apagados.includes(clave)) return _tipoComun(clave);
   const primero = orden[0];
   const p = _propios().find((t) => t.clave === primero);
-  return hay(primero) ? TIPOS[primero] : p ? _tipoPropio(p) : TIPOS.dominical;
+  return hay(primero) ? _tipoComun(primero) : p ? _tipoPropio(p) : TIPOS.dominical;
 }
 
 /* Reemplaza los huecos de una plantilla.

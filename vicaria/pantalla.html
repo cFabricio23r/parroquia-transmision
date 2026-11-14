@@ -30,6 +30,7 @@
     <p class="cursiva multilinea" id="i-cursiva"></p>
     <div class="cuenta" id="i-cuenta"><b id="i-dias"></b><span class="multilinea" id="i-cuenta-txt"></span></div>
     <div class="salida" id="i-salida" hidden><span>SALIDA</span><span id="i-salida-lugar"></span></div>
+    <div class="extra" hidden></div>   <!-- redes, solo si la pantalla las pide (mostrar) -->
   </div>
 
   <!-- PORTADA 8 DE DICIEMBRE -->
@@ -41,7 +42,7 @@
       <div class="caja" id="p-caja"><b id="p-caja-num">8</b><span id="p-caja-mes">DIC</span></div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <span style="font-weight:900;font-size:52px;letter-spacing:2px;line-height:1" id="p-fecha"></span>
-        <span style="font-weight:600;font-size:26px;color:#bfe0ff" id="p-sub"></span>
+        <span style="font-weight:600;font-size:26px;color:var(--tenue)" id="p-sub"></span>
       </div>
     </div>
   </div>
@@ -55,6 +56,7 @@
     <h1 class="titulo" style="font-size:88px;line-height:1;letter-spacing:-1px;margin-top:10px"><span class="brilla multilinea" id="g-titulo"></span></h1>
     <p class="cursiva multilinea" style="font-size:60px" id="g-cursiva"></p>
     <p class="ceja" style="font-size:26px;letter-spacing:6px" id="g-ceja"></p>
+    <div class="extra" hidden></div>   <!-- horarios y redes, solo si la pantalla los pide (mostrar) -->
   </div>
 
   <!-- AVISOS -->
@@ -62,8 +64,8 @@
     <div class="cab">
       <div><div class="sub" id="a-sub"></div><h1 id="a-titulo"></h1></div>
       <div style="display:flex;align-items:center;gap:16px">
-        <img id="a-logo" alt="" style="height:78px;display:block" hidden>
-        <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
+        <span class="logo-redondo" id="a-logo-caja" hidden><img id="a-logo" alt="" hidden></span>
+        <span class="envivo chico"><i></i>EN VIVO</span>
       </div>
     </div>
     <div class="filas" id="a-filas"></div>
@@ -74,8 +76,8 @@
     <div class="cab">
       <div><div class="sub" id="h-sub"></div><h1 id="h-titulo"></h1></div>
       <div style="display:flex;align-items:center;gap:16px">
-        <img id="h-logo" alt="" style="height:78px;display:block" hidden>
-        <span class="envivo" style="position:static;font-size:22px;box-shadow:none"><i></i>EN VIVO</span>
+        <span class="logo-redondo" id="h-logo-caja" hidden><img id="h-logo" alt="" hidden></span>
+        <span class="envivo chico"><i></i>EN VIVO</span>
       </div>
     </div>
     <div class="filas" id="h-filas"></div>
@@ -101,6 +103,8 @@
 const vista = (new URLSearchParams(location.search).get('tipo') || 'inicio').toLowerCase();
 const $ = (id) => document.getElementById(id);
 if (vista === 'avisos' || vista === 'horarios') { document.body.classList.add(vista); $('marca').style.display = 'none'; $('envivo').style.display = 'none'; }
+// Gracias (F4:33) no lleva EN VIVO: la transmisión ya terminó.
+if (vista === 'gracias') $('envivo').style.display = 'none';
 
 /* Vista que se pinta de verdad: la portada solo existe para los tipos que la traen en tipos.js
    (portada: 'fiesta' | 'evento'); los demás pintan en ella la vista de Inicio. La URL no cambia. */
@@ -141,16 +145,138 @@ $('virgen').addEventListener('error', () => {
 
 let firmaAnterior = '';
 const NOMBRES_RED = { facebook: 'Facebook', youtube: 'YouTube', instagram: 'Instagram', whatsapp: 'WhatsApp', web: 'Web' };
+/* Redes como texto (la URL nunca se muestra: OBS no hace clic). */
+function llenarRedes(caja, redes) {
+  caja.textContent = '';
+  redes.forEach((r) => {
+    const el = document.createElement('span'); el.className = 'red';
+    const k = document.createElement('b'); k.textContent = NOMBRES_RED[r.red] || '';
+    const x = document.createElement('span'); x.textContent = r.texto || '';
+    el.append(k, x); caja.append(el);
+  });
+}
+/* Caja .extra de Inicio y Gracias: horarios [{a, f}] (día y notas, horas) y redes. Sin nada, queda oculta. */
+function pintarExtra(caja, horarios, redes) {
+  caja.textContent = '';
+  if (horarios.length) {
+    const lista = document.createElement('div'); lista.className = 'horas';
+    horarios.forEach((h) => {
+      const el = document.createElement('span'); el.className = 'hora';
+      const k = document.createElement('b'); k.textContent = h.a;
+      const x = document.createElement('span'); x.textContent = h.f;
+      el.append(k, x); lista.append(el);
+    });
+    caja.append(lista);
+  }
+  if (redes.length) {
+    const r = document.createElement('div'); r.className = 'redes';
+    llenarRedes(r, redes); caja.append(r);
+  }
+  caja.hidden = !horarios.length && !redes.length;
+}
+/* ¿Lo de adentro de la caja (.texto o .tarjeta) se sale de ella? Medidas de diseño (offset*), sin la escala del
+   escenario; `abajo` es el relleno inferior de la caja. */
+function seSale(caja, abajo = 0) {
+  const hijos = [...caja.children].filter((e) => e.offsetParent !== null);
+  if (!hijos.length) return false;
+  const arriba = Math.min(...hijos.map((e) => e.offsetTop));
+  const fondo = Math.max(...hijos.map((e) => e.offsetTop + e.offsetHeight));
+  return arriba < 0 || fondo > caja.clientHeight - abajo + 0.5;
+}
+/* Caja .extra de Inicio y Gracias dentro de su texto: si no cabe, se compacta; si aún no cabe, deja fuera
+   horarios desde el final y, como último recurso, redes. Nunca saca el título del cuadro ni pisa la franja. */
+function encajarExtra(vistaEl, horarios, redes) {
+  const caja = vistaEl.querySelector('.extra');
+  const h = horarios.slice(); const r = redes.slice();
+  caja.classList.remove('compacta');
+  pintarExtra(caja, h, r);
+  reencajar = () => encajarExtra(vistaEl, horarios, redes);
+  if (caja.hidden || !seSale(vistaEl)) return;
+  caja.classList.add('compacta');
+  pintarExtra(caja, h, r);
+  while ((h.length || r.length) && seSale(vistaEl)) {
+    if (h.length) h.pop(); else r.pop();
+    pintarExtra(caja, h, r);
+  }
+}
+/* Tarjeta de Avisos que no cabe. Redes (#a-redes): van compactas (clase con-redes en la tarjeta). Pasos, en orden,
+   hasta que quepa: 1. una lista sin compactar (avisos largos, detalle de 420) se compacta; 2. se dejan redes fuera
+   desde el final. `compactaAntes` es lo que decidió pintar() por la cantidad de filas. */
+function encajarRedesAvisos(redes, compactaAntes) {
+  const t = $('v-avisos');
+  const filas = $('a-filas');
+  if (compactaAntes === undefined) compactaAntes = filas.classList.contains('compacta');
+  filas.classList.toggle('compacta', compactaAntes);
+  let caja = $('a-redes');
+  if (redes.length && !caja) {
+    caja = document.createElement('div'); caja.className = 'redes'; caja.id = 'a-redes';
+    t.append(caja);
+  }
+  t.classList.toggle('con-redes', redes.length > 0);
+  reencajar = () => encajarRedesAvisos(redes, compactaAntes);
+  const r = redes.slice();
+  if (caja) { llenarRedes(caja, r); caja.hidden = !r.length; }
+  const abajo = parseFloat(getComputedStyle(t).paddingBottom) || 0;
+  if (!compactaAntes && seSale(t, abajo)) filas.classList.add('compacta');
+  if (!caja) return;
+  while (r.length && seSale(t, abajo)) { r.pop(); llenarRedes(caja, r); }
+  caja.hidden = !r.length;
+}
+/* Tarjeta de horarios (forma nueva) que no cabe. Pasos, en orden, hasta que quepa:
+   1. se compacta la lista;
+   2. el día toma el ancho de su nombre y el lugar y las notas (.f) se cortan a tres líneas (una, a dos
+      columnas) con «…» (f-corta);
+   3. redes más chicas;
+   4. el lugar y las notas, a una línea y más chicos (f-una);
+   5. se dejan redes fuera desde el final;
+   6. último recurso: sin lugar ni notas (f-sin).
+   Las filas de horarios no se quitan nunca. */
+const CLASES_ENCAJE_HORARIOS = ['redes-chicas', 'f-corta', 'f-una', 'f-sin'];
+function encajarHorarios(filas, cajaRedes, redes) {
+  const t = $('v-horarios');
+  const abajo = parseFloat(getComputedStyle(t).paddingBottom) || 0;
+  const compactaAntes = filas.classList.contains('compacta');
+  reencajar = () => {
+    filas.classList.toggle('compacta', compactaAntes); t.classList.remove(...CLASES_ENCAJE_HORARIOS);
+    llenarRedes(cajaRedes, redes); cajaRedes.hidden = !redes.length;
+    encajarHorarios(filas, cajaRedes, redes);
+  };
+  const cabe = () => !seSale(t, abajo);
+  if (cabe()) return;
+  filas.classList.add('compacta');
+  if (cabe()) return;
+  t.classList.add('f-corta');
+  if (cabe()) return;
+  t.classList.add('redes-chicas');
+  if (cabe()) return;
+  t.classList.add('f-una');
+  if (cabe()) return;
+  const r = redes.slice();
+  while (r.length && !cabe()) { r.pop(); llenarRedes(cajaRedes, r); }
+  cajaRedes.hidden = !r.length;
+  if (!cabe()) t.classList.add('f-sin');
+}
+/* Lo último que se encajó, para medirlo de nuevo cuando terminan de cargar las fuentes. */
+let reencajar = () => {};
+if (document.fonts) {
+  document.fonts.addEventListener('loadingdone', () => reencajar());
+  document.fonts.ready.then(() => reencajar());
+}
 function reanimar(el) { el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra'); }
 
 function pintar(s) {
   if (PARROQUIA_NO_EXISTE) return;
+  reencajar = () => {};
   const tipo = tipoDe(s);
   const efectiva = vistaDe(s);
-  // Ajustes, fondo y textos son los de la vista que se pinta de verdad: si la portada pinta Inicio, los del bloque `inicio`.
-  const T = (clave) => textoDe(s, efectiva, clave);
-  aplicarAjustes(efectiva);
   const esPortadaEvento = efectiva === 'portada' && tipo.portada === 'evento';
+  // Ajustes, fondo y textos son los de la vista que se pinta de verdad: si la portada pinta Inicio, los del bloque `inicio`;
+  // la portada de un tipo con portada de evento usa el bloque `evento` si la configuración lo trae; si no, el de
+  // `portada`, como antes del bloque `evento` (una portada ya personalizada se sigue viendo igual).
+  const conBloqueEvento = !!(PARROQUIA.pantallas && PARROQUIA.pantallas.evento && typeof PARROQUIA.pantallas.evento === 'object');
+  const vistaCfg = esPortadaEvento && conBloqueEvento ? 'evento' : efectiva;
+  const T = (clave) => textoDe(s, vistaCfg, clave);
+  aplicarAjustes(vistaCfg);
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
   const v = $('virgen');
@@ -186,11 +312,12 @@ function pintar(s) {
     $('i-titulo').textContent = T('inicio_titulo');
     $('i-cursiva').textContent = T('inicio_cursiva');
     const d = diasFaltan(s);
-    $('i-cuenta').style.display = cuentaVisible(s) ? 'flex' : 'none';
+    $('i-cuenta').style.display = cuentaVisible(s) && visible(vistaCfg, 'cuenta') ? 'flex' : 'none';
     $('i-dias').textContent = d;
     $('i-cuenta-txt').textContent = T('inicio_cuenta');
     $('i-salida').hidden = !tipo.salida;
     $('i-salida-lugar').textContent = tipo.salida ? rellenar('{lugar}', s) : '';
+    encajarExtra($('v-inicio'), [], redesVisibles(vistaCfg));
     firma = 'inicio|' + s.tipo + '|' + src + '|' + $('i-pildora').textContent;
   }
   if (efectiva === 'portada') {
@@ -200,7 +327,7 @@ function pintar(s) {
       const lugar = String(s.lugar || '').trim();
       $('p-ceja').textContent = tipo.portadaCeja;
       $('p-cursiva').textContent = tipo.portadaCursiva;
-      $('p-titulo').textContent = tituloCelebracion(s);
+      $('p-titulo').textContent = tituloPortadaEvento(s);
       $('p-caja').hidden = !f;
       $('p-caja-num').textContent = f ? String(f.getDate()) : '';
       $('p-caja-mes').textContent = f ? _MESES[f.getMonth()].slice(0, 3) : '';
@@ -230,6 +357,7 @@ function pintar(s) {
     $('g-titulo').textContent = T('gracias_titulo');
     $('g-cursiva').textContent = T('gracias_cursiva');
     $('g-ceja').textContent = T('gracias_ceja');
+    encajarExtra($('v-gracias'), visible(vistaCfg, 'horarios') ? filasGracias() : [], redesVisibles(vistaCfg));
     firma = 'gracias|' + s.tipo + '|' + src + '|' + $('g-pildora').textContent;
   }
   if (efectiva === 'avisos') {
@@ -238,7 +366,8 @@ function pintar(s) {
     const filas = $('a-filas'); filas.innerHTML = '';
     const llenos = avisosPara(s, new Date());   // fijos vigentes de la configuración, luego los del panel; máximo 6
     const lista = llenos.length ? llenos : [{ a: 'Escriba los avisos en el panel', f: '' }];
-    filas.classList.toggle('compacta', lista.length > 4);
+    const redesAv = redesVisibles('avisos');
+    filas.classList.toggle('compacta', lista.length > (redesAv.length ? 2 : 4));   // con redes debajo, se compacta antes
     lista.forEach((x, i) => {
       const fila = document.createElement('div'); fila.className = 'fila';
       const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1).padStart(2, '0');
@@ -246,7 +375,9 @@ function pintar(s) {
       const f = document.createElement('span'); f.className = 'f'; f.textContent = x.f || '';
       fila.append(n, a, f); filas.append(fila);
     });
-    firma = 'avisos|' + src + '|' + JSON.stringify(lista);
+    // redes debajo de los avisos, solo si la pantalla las pide; la caja se crea al necesitarla
+    encajarRedesAvisos(redesAv);
+    firma = 'avisos|' + src + '|' + JSON.stringify([lista, redesAv]);
   }
   if (efectiva === 'horarios') {
     $('h-sub').textContent = T('avisos_sub');
@@ -254,24 +385,46 @@ function pintar(s) {
     const filas = $('h-filas'); filas.textContent = '';
     const horarios = horariosPara();
     const redes = redesPara();
+    // Con algún día de varias horas (.varias), cada hora va en su <span> y la píldora las pasa a otra línea dentro
+    // de ella. Si todos los días tienen una hora (la forma vieja), la fila se arma y se ve como siempre.
+    // Un día con más de dos horas (.muchas) compacta la lista y achica las horas para que quepan en dos líneas.
+    const maxHoras = horarios.reduce((m, h) => Math.max(m, h.horas.length), 0);
+    const varias = maxHoras > 1;
+    filas.classList.toggle('varias', varias);
+    filas.classList.toggle('muchas', maxHoras > 2);
     horarios.forEach((h) => {
+      // horariosPara da {dia, horas:[{hora, nota}], lugar}; una hora sola (la forma vieja, sin lugar) se ve como siempre
+      const unir = (l) => l.filter((t) => typeof t === 'string' && t !== '').join(' · ');
       const fila = document.createElement('div'); fila.className = 'fila horario';
-      const n = document.createElement('span'); n.className = 'n'; n.textContent = h.hora || '';
+      const n = document.createElement('span'); n.className = 'n';
+      const horas = h.horas.map((o) => o.hora).filter((t) => typeof t === 'string' && t !== '');
+      if (varias) {
+        const caja = document.createElement('span'); caja.className = 'horas-n';
+        horas.forEach((t, i) => {
+          const e = document.createElement('span'); e.textContent = i < horas.length - 1 ? t + ' ·' : t;
+          caja.append(e);
+          if (i < horas.length - 1) caja.append(' ');
+        });
+        n.append(caja);
+      } else {
+        n.textContent = unir(horas);
+      }
       const a = document.createElement('span'); a.className = 'a'; a.textContent = h.dia || '';
-      const f = document.createElement('span'); f.className = 'f'; f.textContent = h.nota;
+      // la misma nota en varias horas («Misa · Misa · Misa») se escribe una sola vez
+      const notas = h.horas.map((o) => o.nota).filter((t, i, l) => l.indexOf(t) === i);
+      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir([h.lugar].concat(notas));
       fila.append(n, a, f); filas.append(fila);
     });
     filas.hidden = !horarios.length && !redes.length;   // sin nada que mostrar solo queda el título: ninguna instrucción al aire
-    filas.classList.toggle('compacta', horarios.length > 4);
+    filas.classList.toggle('compacta', horarios.length > 4 || maxHoras > 2);
     filas.classList.toggle('dos-col', horarios.length > 6);
-    const cajaRedes = $('h-redes'); cajaRedes.textContent = '';
-    redes.forEach((r) => {   // solo el texto: la URL nunca se muestra
-      const el = document.createElement('span'); el.className = 'red';
-      const k = document.createElement('b'); k.textContent = NOMBRES_RED[r.red] || '';
-      const x = document.createElement('span'); x.textContent = r.texto || '';
-      el.append(k, x); cajaRedes.append(el);
-    });
+    const cajaRedes = $('h-redes');
+    llenarRedes(cajaRedes, redes);
     cajaRedes.hidden = !redes.length;
+    // Solo con la forma nueva (varias horas o lugar), que trae filas más altas: los horarios de una hora sin lugar
+    // se ven exactamente como siempre.
+    $('v-horarios').classList.remove(...CLASES_ENCAJE_HORARIOS);   // pintar siempre parte de la tarjeta sin encajar
+    if (varias || horarios.some((h) => h.lugar)) encajarHorarios(filas, cajaRedes, redes);
     firma = 'horarios|' + src + '|' + JSON.stringify([horarios, redes]);
   }
   // volver a animar la entrada cuando cambia la celebración (no al escribir cada letra)
@@ -302,6 +455,14 @@ function aplicarAjustes(vista) {
   ELEMENTOS_OCULTABLES.forEach((e) => { if (!visible(vista, e)) esc.classList.add('oculto-' + e); });
 }
 
+/* Logo blanco de Avisos y Horarios en su círculo (F4:31): sin logo, o si no carga, el círculo entero se oculta. */
+function ponerLogoRedondo(id, im) {
+  const img = $(id); const caja = $(id + '-caja');
+  if (!img.dataset.vigilaCaja) { img.dataset.vigilaCaja = '1'; img.addEventListener('error', () => { caja.hidden = true; }); }
+  ponerImagen(img, im);
+  caja.hidden = img.hidden;
+}
+
 /* La configuración de la parroquia manda: colores, logos, fachada y el aviso de «no existe».
    Se aplica al cargar y cada vez que cambia la configuración (copia, servidor o 404). */
 function aplicarParroquia(c) {
@@ -313,8 +474,8 @@ function aplicarParroquia(c) {
   ponerImagen($('fachada'), c.fachada);
   ponerImagen($('marca-logo'), c.logos && c.logos.blanco);
   ponerImagen($('aro-logo'), c.logos && c.logos.blanco);
-  ponerImagen($('a-logo'), c.logos && c.logos.color);
-  ponerImagen($('h-logo'), c.logos && c.logos.color);
+  ponerLogoRedondo('a-logo', c.logos && c.logos.blanco);
+  ponerLogoRedondo('h-logo', c.logos && c.logos.blanco);
   pintar(leerEstado());   // la firma de pintar no incluye la versión: sin cambios reales no se reanima la entrada
 }
 aplicarParroquia(PARROQUIA);

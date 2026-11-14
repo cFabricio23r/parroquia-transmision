@@ -13,6 +13,8 @@
     <div class="multilinea" id="logo-txt"></div>
   </div>
   <div class="envivo capa-envivo" id="envivo"><i></i>EN VIVO</div>
+  <!-- Mientras hay rótulo (logoEsquina): el logo blanco solo, sin la caja de la capa (F6:24) -->
+  <img class="logo-esquina oculto" id="logo-esquina" alt="" hidden>
 
   <div class="barra" id="barra"><span class="x" id="barra-x"></span><span class="y" id="barra-y"></span></div>
 
@@ -54,7 +56,7 @@ function ponerTexto(c, animar) {
       if (animar) { el.classList.remove('cambia'); void el.offsetWidth; el.classList.add('cambia'); }
     }
   });
-  ajustarTexto($('r-t'), 1390, c.chico ? 46 : 52, 28);
+  ajustarTexto($('r-t'), 1390, c.chico ? 46 : (estiloRotulos().tipografia === 'lora' ? 54 : 52), 28);   // Lora: 54 (F6:24)
 }
 
 function entrar(tipo, c) {
@@ -88,15 +90,19 @@ function aplicar(s) {
 function pintar(s) {
   if (PARROQUIA_NO_EXISTE) return;
   estado = s;
-  $('logo').classList.toggle('oculto', !s.mostrarLogo);
-  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo);
-  $('logo-txt').textContent = tx(s, 'capa_logo');
+  const hayRotulo = !!contenido(s) && !(s.rotuloHasta && Date.now() > s.rotuloHasta);
+  // La capa EN VIVO se personaliza con pantallas.envivo: marca y EN VIVO ocultables, textos propios.
+  // Mientras hay rótulo la capa del logo se aparta; con logoEsquina queda el logo blanco solo en la esquina (F6:24).
+  const conMarca = s.mostrarLogo && visible('envivo', 'marca');
+  $('logo').classList.toggle('oculto', !conMarca || hayRotulo);
+  $('logo-esquina').classList.toggle('oculto', !(conMarca && hayRotulo && estiloRotulos().logoEsquina));
+  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo || !visible('envivo', 'envivo'));
+  $('logo-txt').textContent = textoDe(s, 'envivo', 'capa_logo');
 
   aplicar(s);
 
-  const hayRotulo = !!contenido(s) && !(s.rotuloHasta && Date.now() > s.rotuloHasta);
   $('barra-x').textContent = (s.barraTexto || '').trim() || tituloCelebracion(s);
-  $('barra-y').textContent = tx(s, 'barra_y');
+  $('barra-y').textContent = textoDe(s, 'envivo', 'barra_y');
   $('barra').classList.toggle('oculto', !s.mostrarBarra || hayRotulo);
 }
 
@@ -107,13 +113,21 @@ function aplicarParroquia(c) {
   $('no-existe').hidden = !no;
   if (no) return;
   aplicarPaleta(c);
-  const e = estiloRotulos();   // clases y --lado se reponen en cada cambio y se quitan al volver a lo de siempre
-  $('escenario').classList.toggle('esquinas-rectas', e.esquinas === 'rectas');
-  $('escenario').classList.toggle('pos-centro', e.posicion === 'centro');
-  if (e.colorLado) $('escenario').style.setProperty('--lado', e.colorLado);
-  else $('escenario').style.removeProperty('--lado');
+  const e = estiloRotulos();   // clases, --lado y --linea se reponen en cada cambio y se quitan al volver a lo de siempre
+  const esc = $('escenario');
+  // Solo los valores que no son los de hoy llevan clase: Montserrat y suaves (también 'redondeadas', que es lo mismo)
+  // no agregan nada; rectas y redondas sí.
+  TIPOGRAFIAS.forEach((t) => esc.classList.toggle('tipo-' + t, t !== 'montserrat' && e.tipografia === t));
+  ESQUINAS_ROTULO.forEach((q) => esc.classList.toggle('esquinas-' + q, (q === 'rectas' || q === 'redondas') && e.esquinas === q));
+  esc.classList.toggle('pos-centro', e.posicion === 'centro');
+  if (e.colorLado) esc.style.setProperty('--lado', e.colorLado);
+  else esc.style.removeProperty('--lado');
+  if (e.colorLinea) esc.style.setProperty('--linea', e.colorLinea);
+  else esc.style.removeProperty('--linea');
   ponerImagen($('logo-img'), c.logos && c.logos.blanco);
-  ponerImagen($('lado-logo'), c.logos && c.logos.blanco);
+  ponerImagen($('logo-esquina'), c.logos && c.logos.blanco);
+  // Sobre un lateral claro el logo blanco no se ve: va el de color, si la parroquia lo tiene.
+  ponerImagen($('lado-logo'), c.logos && (e.ladoClaro && c.logos.color ? c.logos.color : c.logos.blanco));
   pintar(leerEstado());   // mismo rótulo y mismo texto: no se reanima
 }
 aplicarParroquia(PARROQUIA);

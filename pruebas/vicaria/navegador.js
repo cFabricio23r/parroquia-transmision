@@ -14,7 +14,9 @@
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
+const assert = require('node:assert');
 const { crearServidor } = require('../../herramientas/servidor-vicaria');
+const { huella: huellaBase, CASOS: CASOS_BASE } = require('./linea-base');
 
 const CAPTURAS = path.join(__dirname, '..', 'capturas', 'vicaria');
 const RAIZ = path.join(__dirname, '..', '..', 'vicaria');
@@ -471,7 +473,7 @@ async function casoComoViene() {
       return pares.filter(([id, clave]) => document.getElementById(id).textContent !== tx(s, clave)).map(([id]) => id);
     }, textos);
     igual(distintos.join(','), '', `${vista}: los textos son los de tx`);
-    revisar(await visibleEl(p, '#chispas') && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: chispas y marca como en la 1a`);
+    revisar(!(await visibleEl(p, '#chispas')) && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: sin chispas (el diseño no las lleva) y marca como en la 1a`);
     await captura(p, `1b/${CA}_${vista}_como-viene`);
   }
   // y la vista nueva, sin horarios ni redes: el aviso del panel
@@ -513,7 +515,7 @@ async function casoEstiloRotulos() {
   await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined }); aplicarParroquia(PARROQUIA); });
   m = await medidas();
   igual(m.clases, '', 'sin bloque: se quitan las clases');
-  igual(m.radio, '24px', 'sin bloque: vuelven las esquinas redondeadas');
+  igual(m.radio, '24px', 'sin bloque: vuelven las esquinas suaves (24px)');
   revisar(m.lado !== 'rgb(26, 82, 118)', 'sin bloque: se quita --lado');
   revisar(await r.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--lado') === ''), 'sin bloque: --lado vacío');
 
@@ -772,6 +774,190 @@ async function casoTiposPropios() {
   await ctx.close();
 }
 
+/* Rediseño: acento, portada de evento con sus ajustes, horarios y redes pedidos a propósito, aviso apagado. */
+async function casoPantallasRediseno() {
+  console.log('Rediseño · Pantallas con acento, evento, horarios y redes');
+  const cfg = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  cfg.colores.acento = '#d9a441';
+  cfg.pantallas = {
+    inicio: { modo: 'personalizada', ocultar: ['cuenta'], mostrar: ['redes'] },
+    evento: { modo: 'personalizada', ocultar: ['franja'] },
+    avisos: { modo: 'personalizada', mostrar: ['horarios'] },
+    gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] }
+  };
+  cfg.horarios = [
+    { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '9:00 a. m.', nota: 'Misa con niños' }], lugar: 'Templo parroquial' },
+    { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }] }
+  ];
+  cfg.avisos = [
+    { texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 },
+    { texto: 'Aviso apagado', detalle: 'No se ve', orden: 2, activo: false }
+  ];
+  const ctx = await nuevoContexto();
+  await ctx.route(`**/${SJ}/config.json`, servirConfig(cfg));
+  const estado = (e) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${SJ}_estado_v1`, JSON.stringify(e)]);
+  const textos = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].map((e) => e.innerText.replace(/\s+/g, ' ').trim()), sel);
+
+  // Inicio: sin cuenta, con redes; la línea de la franja es el acento
+  const ini = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`, 1920, 1080, estado({ tipo: 'dominical', cuenta: true }));
+  await ini.waitForTimeout(1500);
+  igual(await ini.evaluate(() => getComputedStyle(document.getElementById('i-cuenta')).display), 'none', 'Inicio: la cuenta regresiva se oculta');
+  revisar(await visibleEl(ini, '#v-inicio .extra'), 'Inicio: la caja de redes se ve');
+  igual((await textos(ini, '#v-inicio .extra .red')).join(' | '), 'FACEBOOK /ParroquiaSanJoseEjemplo | YOUTUBE @ParroquiaSanJoseEjemplo | WHATSAPP 0000-0000', 'Inicio: muestra las redes');
+  igual(await ini.evaluate(() => getComputedStyle(document.querySelector('.franja-linea')).backgroundColor), 'rgb(217, 164, 65)', 'la línea de la franja es el acento');
+  igual(await ini.evaluate(() => getComputedStyle(document.querySelector('.franja .frase i')).color), 'rgb(217, 164, 65)', 'los adornos del lema son el acento');
+  revisar(!(await ini.evaluate(() => document.documentElement.outerHTML.match(/facebook\.com|wa\.me/))), 'Inicio: ninguna URL de redes en el HTML');
+  igual((await imagenesRotas(ini)).length, 0, 'Inicio: ninguna imagen rota');
+  await captura(ini, 'rediseno_inicio');
+
+  // Portada: el tipo evento usa el bloque evento; patronal, no
+  const ev = await abrir(ctx, `/${SJ}/pantalla.html?tipo=portada`, 1920, 1080, estado({ tipo: 'evento', evento: 'Concierto', fecha: '2026-12-20', lugar: 'Atrio' }));
+  await ev.waitForTimeout(1200);
+  revisar(await ev.evaluate(() => document.getElementById('escenario').classList.contains('oculto-franja')), 'Portada de evento: el escenario lleva oculto-franja');
+  const pat = await abrir(ctx, `/${SJ}/pantalla.html?tipo=portada`, 1920, 1080, estado({ tipo: 'patronal' }));
+  await pat.waitForTimeout(1200);
+  revisar(!(await pat.evaluate(() => document.getElementById('escenario').classList.contains('oculto-franja'))), 'Portada de la fiesta: sin oculto-franja');
+
+  // Avisos: el apagado no está; los horarios van al final
+  const av = await abrir(ctx, `/${SJ}/pantalla.html?tipo=avisos`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await av.waitForSelector('#a-filas .fila');
+  await av.waitForTimeout(1200);
+  const filas = await av.evaluate(() => [...document.querySelectorAll('#a-filas .fila')].map((f) => f.querySelector('.a').textContent + ' | ' + f.querySelector('.f').textContent));
+  igual(filas[filas.length - 1], 'Jueves · Hora Santa | 6:00 p. m.', 'Avisos: la última fila es la de horarios del jueves');
+  revisar(!filas.some((f) => f.includes('Aviso apagado')), 'Avisos: el aviso con activo:false no aparece (' + filas.join(' / ') + ')');
+  revisar(!(await visibleEl(av, '#a-redes')), 'Avisos: sin redes en mostrar, no hay redes');
+  await captura(av, 'rediseno_avisos');
+
+  // Horarios: varias horas en una fila; lugar y notas en el detalle
+  const ho = await abrir(ctx, `/${SJ}/pantalla.html?tipo=horarios`);
+  await ho.waitForSelector('#h-filas .fila');
+  await ho.waitForTimeout(800);
+  igual((await textos(ho, '#h-filas .n'))[0], '7:00 a. m. · 9:00 a. m.', 'Horarios: el domingo muestra sus dos horas');
+  igual((await textos(ho, '#h-filas .a'))[0], 'Domingo', 'Horarios: el día');
+  igual((await textos(ho, '#h-filas .f'))[0], 'Templo parroquial · Misa con niños', 'Horarios: el lugar y las notas');
+
+  // Gracias: horarios y redes en la caja de abajo
+  const gr = await abrir(ctx, `/${SJ}/pantalla.html?tipo=gracias`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await gr.waitForTimeout(1500);
+  revisar(await visibleEl(gr, '#v-gracias .extra'), 'Gracias: la caja de horarios y redes se ve');
+  const extra = await gr.evaluate(() => document.querySelector('#v-gracias .extra').textContent);   // textContent: sin las mayúsculas del CSS
+  revisar(extra.includes('Domingo') && extra.includes('7:00 a. m. · 9:00 a. m.') && extra.includes('Jueves · Hora Santa') && extra.includes('6:00 p. m.'), 'Gracias: trae los horarios (' + extra + ')');
+  revisar(extra.includes('/ParroquiaSanJoseEjemplo') && extra.includes('0000-0000'), 'Gracias: trae las redes');
+  const pisa = await gr.evaluate(() => {
+    const e = document.querySelector('#v-gracias .extra');
+    if (!e) return true;
+    return e.getBoundingClientRect().bottom > document.querySelector('.franja-linea').getBoundingClientRect().top;
+  });
+  revisar(!pisa, 'Gracias: la caja no pisa la franja');
+  igual((await imagenesRotas(gr)).length, 0, 'Gracias: ninguna imagen rota');
+  await captura(gr, 'rediseno_gracias');
+  await ctx.close();
+
+  // Avisos con redes pedidas: van debajo de las filas, dentro de la tarjeta
+  const cfg2 = JSON.parse(JSON.stringify(cfg));
+  cfg2.pantallas.avisos.mostrar = ['horarios', 'redes'];
+  cfg2.avisos = Array.from({ length: 5 }, (_, i) => ({ texto: 'Aviso fijo número ' + (i + 1), detalle: 'Detalle ' + (i + 1), orden: i + 1 }));   // el peor caso: 6 filas y redes
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(`**/${SJ}/config.json`, servirConfig(cfg2));
+  const av2 = await abrir(ctx2, `/${SJ}/pantalla.html?tipo=avisos`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await av2.waitForSelector('#a-filas .fila');
+  await av2.waitForTimeout(1200);
+  igual((await textos(av2, '#a-redes .red')).join(' | '), 'FACEBOOK /ParroquiaSanJoseEjemplo | YOUTUBE @ParroquiaSanJoseEjemplo | WHATSAPP 0000-0000', 'Avisos: con mostrar redes, las redes se ven');
+  const fueraAv = await av2.evaluate(() => { const t = document.getElementById('v-avisos').getBoundingClientRect(); return [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => e.getBoundingClientRect().bottom > t.bottom - 20).length; });
+  igual(fueraAv, 0, 'Avisos: 6 filas y las redes caben en la tarjeta');
+  await captura(av2, 'rediseno_avisos_redes');
+  await ctx2.close();
+}
+
+async function casoRotulosRediseno() {
+  console.log('Rediseño · Rótulos, capa EN VIVO y producción');
+  const ACENTO = 'rgb(217, 164, 65)';
+  const cfg = conBloques((c) => {
+    c.colores.acento = '#d9a441';
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: 'blanco', colorLinea: 'acento', logoEsquina: false };
+    c.pantallas = {
+      envivo: { modo: 'personalizada', ocultar: ['envivo'], textos: { capa_logo: 'Pastoral' } },
+      produccion: { modo: 'personalizada', ocultar: ['marca'], textos: { prod_ceja: 'UN TRABAJO DE', prod_nombre: 'Pastoral' } }
+    };
+  });
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarLogo: true, mostrarEnVivo: true }));
+  await r.waitForSelector('#rotulo.en');
+  await r.waitForTimeout(1500);
+  const m = await r.evaluate(async () => {
+    await document.fonts.ready;
+    const cs = (sel) => getComputedStyle(document.querySelector(sel));
+    return {
+      familia: cs('#r-t').fontFamily,
+      chequeo: document.fonts.check('700 52px Lora'),
+      cargada: [...document.fonts].some((f) => f.family.replace(/["']/g, '') === 'Lora' && f.status === 'loaded'),
+      fuentes: [...document.fonts].filter((f) => /Lora/.test(f.family)).map((f) => f.family + ' ' + f.weight + ' ' + f.status).join(' / '),
+      radio: cs('#rotulo').borderRadius,
+      linea: cs('#rotulo .cuerpo').borderTopColor,
+      lado: cs('#rotulo .lado').backgroundColor,
+      ladoLogo: document.getElementById('lado-logo').getAttribute('src'),
+      logoOculto: document.getElementById('logo').classList.contains('oculto'),
+      envivoOculto: document.getElementById('envivo').classList.contains('oculto'),
+      logoTxt: document.getElementById('logo-txt').textContent,
+      clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).sort().join(' ')
+    };
+  });
+  revisar(/^"?Lora"?/.test(m.familia), 'rótulo: la font-family del nombre empieza con Lora (' + m.familia + ')');
+  revisar(m.chequeo && m.cargada, 'rótulo: la fuente Lora 700 está cargada (check ' + m.chequeo + ', ' + m.fuentes + ')');
+  igual(m.clases, 'tipo-lora', 'rótulo: clase de tipografía en el escenario (suaves es el defecto y no pone clase)');
+  igual(m.radio, '24px', 'rótulo: esquinas suaves (24px, F6:24)');
+  igual(m.linea, ACENTO, 'rótulo: la línea del cuerpo es el acento');
+  igual(m.lado, 'rgb(255, 255, 255)', 'rótulo: el lado es blanco');
+  igual(m.ladoLogo, 'medios/logo-color.png', 'rótulo: con el lado claro, el logo del lado es el de color');
+  revisar(m.logoOculto, 'capa: con rótulo, la capa del logo se aparta');
+  revisar(await r.evaluate(() => document.getElementById('logo-esquina').classList.contains('oculto')), 'capa: sin logoEsquina, tampoco hay logo de esquina');
+  revisar(m.envivoOculto, 'capa: el EN VIVO se oculta (pantallas.envivo.ocultar)');
+  igual(m.logoTxt, 'Pastoral', 'capa: el texto del logo sale de pantallas.envivo.textos');
+  igual((await imagenesRotas(r)).length, 0, 'rótulos: ninguna imagen rota');
+  await captura(r, 'rediseno_rotulo');
+
+  // Sin rótulo vuelve el logo de la capa; el EN VIVO sigue oculto
+  await r.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' })));
+  await r.waitForTimeout(600);
+  revisar(!(await r.evaluate(() => document.getElementById('logo').classList.contains('oculto'))), 'capa: sin rótulo, el logo vuelve');
+  revisar(await r.evaluate(() => document.getElementById('envivo').classList.contains('oculto')), 'capa: sin rótulo, el EN VIVO sigue oculto');
+
+  // Source Sans y vuelta a lo de siempre
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { tipografia: 'source-sans' } }); aplicarParroquia(PARROQUIA); });
+  const ss = await r.evaluate(() => ({
+    familia: getComputedStyle(document.getElementById('r-t')).fontFamily,
+    clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).join(' '),
+    ladoLogo: document.getElementById('lado-logo').getAttribute('src')
+  }));
+  revisar(/^"?SourceSans"?/.test(ss.familia), 'rótulo: con source-sans, la font-family empieza con SourceSans (' + ss.familia + ')');
+  igual(ss.clases, 'tipo-source-sans', 'rótulo: se quita tipo-lora y no aparece ninguna clase de esquinas');
+  igual(ss.ladoLogo, 'medios/logo-blanco.png', 'rótulo: sin lado claro, el logo del lado vuelve a ser el blanco');
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined, colores: { principal: '#1155a4', oscuro: '#0c3562' } }); aplicarParroquia(PARROQUIA); });
+  const sin = await r.evaluate(() => ({
+    clases: [...document.getElementById('escenario').classList].filter((x) => /^(tipo-|esquinas-)/.test(x)).join(' '),
+    linea: document.getElementById('escenario').style.getPropertyValue('--linea')
+  }));
+  igual(sin.clases, '', 'sin bloque ni acento: ninguna clase nueva');
+  igual(sin.linea, '', 'sin bloque ni acento: --linea vacía');
+
+  // Producción: textos y marca de pantallas.produccion
+  for (const estilo of ['azul', 'claro']) {
+    const p = await abrir(ctx, `/${CA}/produccion.html?estilo=${estilo}`, 1280, 800);
+    await p.waitForTimeout(800);
+    const pr = await p.evaluate(() => ({
+      ceja: document.querySelector('.lamina [data-texto]').textContent,
+      grande: document.querySelector('.lamina .grande').textContent,
+      logo: document.querySelector('.lamina img').hidden
+    }));
+    igual(pr.ceja, 'UN TRABAJO DE', 'producción ' + estilo + ': la ceja sale de prod_ceja');
+    igual(pr.grande, 'Pastoral', 'producción ' + estilo + ': el nombre sale de prod_nombre');
+    revisar(pr.logo, 'producción ' + estilo + ': con ocultar marca, el logo no se ve');
+    await captura(p, 'rediseno_produccion_' + estilo);
+  }
+  await ctx.close();
+}
+
 async function casoPanelNeutroConservaPropio() {
   console.log('1b · Panel con configuración neutra al arrancar conserva el tipo propio');
   const ctx = await nuevoContexto();
@@ -969,6 +1155,809 @@ async function comparacion() {
   return resultados;
 }
 
+
+/* ---------- Línea base de compatibilidad ---------- */
+
+/* Rediseño · Panel: nombre corto de los tipos, rótulos ocultados por ajuste, portada de evento del propio y nombre de la galería. */
+async function casoPanelRediseno() {
+  console.log('Rediseño · Panel con nombres cortos, ajustes y nombres de galería');
+  const ctx = await nuevoContexto();
+  const cfg = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  cfg.galeria = (cfg.galeria || []).concat([{ id: 'custodia-dorada', src: 'medios/logo-blanco.svg', alt: 'Custodia sobre el altar', nombre: 'Custodia dorada' }]);
+  cfg.tipos = Object.assign({}, cfg.tipos, {
+    ajustes: { horasanta: { nombrePanel: 'Adoración', ocultarRotulos: ['bendicion'] } },
+    propios: ((cfg.tipos && cfg.tipos.propios) || []).concat([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', nombrePanel: 'Rosario', portada: 'evento', rotulos: ['persona', 'rosario'] }])
+  });
+  await ctx.route(`**/${SJ}/config.json`, (r) => servirConfig(cfg)(r));
+  const panel = await abrir(ctx, `/${SJ}/panel.html`, 360, 1250);
+  await panel.waitForSelector('[data-tipo="rosario-aurora"]', { state: 'attached' });
+  const nombreBoton = (clave) => panel.evaluate((k) => document.querySelector(`[data-tipo="${k}"] .nom`).textContent, clave);
+  igual(await nombreBoton('horasanta'), 'Adoración', 'el botón de Hora Santa usa el nombre corto del ajuste');
+  igual(await nombreBoton('rosario-aurora'), 'Rosario', 'el botón del propio usa su nombre corto');
+  igual(await nombreBoton('dominical'), 'Misa dominical', 'un tipo sin ajuste conserva su nombre');
+
+  await elegirTipo(panel, 'horasanta');
+  await panel.click('[data-hoja="vivo"]');
+  const rotulos = () => panel.evaluate(() => [...document.querySelectorAll('#rotulos [data-rotulo]')].map((b) => b.dataset.rotulo));
+  let ids = await rotulos();
+  revisar(ids.length > 0 && !ids.includes('bendicion'), 'Hora Santa sin el control de Bendición (' + ids.join(', ') + ')');
+
+  await elegirTipo(panel, 'rosario-aurora');
+  const visibles = await panel.evaluate(() => ['evento', 'fecha', 'lugar', 'sector', 'santo'].filter((d) => !document.getElementById('caja-' + d).hidden));
+  igual(visibles.join(','), 'evento,fecha,lugar', 'el propio con portada de evento pide evento, fecha y lugar');
+  await panel.click('[data-hoja="vivo"]');
+  ids = await rotulos();
+  igual(ids.join(','), 'persona,rosario', 'los rótulos del propio');
+
+  await panel.click('[data-hoja="preparar"]');
+  igual((await panel.textContent('[data-imagen="galeria:custodia-dorada"]')).trim(), 'Custodia dorada', 'el selector de imagen ofrece el nombre de la galería');
+  await ctx.close();
+}
+
+/* Rediseño · Vista previa con estado: el editor manda también el tipo y el rótulo al aire. */
+async function casoVistaPreviaEstado() {
+  console.log('Rediseño · Vista previa con estado mandado por mensaje');
+  const ctx = await nuevoContexto();
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1280, 800);
+  const config = { nombre: 'Parroquia de Prueba', lugar: 'Lugar de Prueba', colores: { principal: '#7a3b12', oscuro: '#4a2008' } };
+  const conIframe = async (src, estado, listo) => {
+    await p.evaluate((s) => {
+      const viejo = document.getElementById('vp'); if (viejo) viejo.remove();
+      const f = document.createElement('iframe'); f.id = 'vp'; f.title = 'Vista previa'; f.width = 480; f.height = 270; f.src = s;
+      document.body.append(f);
+    }, src);
+    await p.waitForFunction(() => { const d = document.getElementById('vp').contentDocument; return d && d.readyState === 'complete' && typeof d.defaultView.leerEstado === 'function'; });
+    await p.evaluate(([c, e]) => document.getElementById('vp').contentWindow.postMessage({ tipo: 'pev-vista-previa', config: c, estado: e }, location.origin), [config, estado]);
+    await p.waitForFunction(listo, null, { timeout: 5000 }).catch(() => {});
+  };
+  await conIframe(`/${CA}/rotulos.html?vista-previa=1`, { rotulo: 'persona', celebrante: 'P. Juan Pérez' },
+    () => (document.getElementById('vp').contentDocument.getElementById('r-t') || {}).textContent === 'P. Juan Pérez');
+  igual(await p.evaluate(() => document.getElementById('vp').contentDocument.getElementById('r-t').textContent), 'P. Juan Pérez', 'rótulos: #r-t muestra el celebrante mandado');
+  await conIframe(`/${CA}/pantalla.html?tipo=inicio&vista-previa=1`, { tipo: 'horasanta' },
+    () => document.getElementById('vp').contentDocument.getElementById('i-pildora').textContent === 'HORA SANTA');
+  igual(await p.evaluate(() => document.getElementById('vp').contentDocument.getElementById('i-pildora').textContent), 'HORA SANTA', 'pantalla: #i-pildora muestra el tipo mandado');
+  const guardadas = await p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('pev_vistaprevia_') && k.endsWith('_estado_v1')));
+  igual(guardadas.length, 0, 'el estado de la vista previa no se guarda en localStorage (' + guardadas.join(', ') + ')');
+  await ctx.close();
+}
+
+/* Revisión final del rediseño: los seis hallazgos confirmados, cada uno con el peor caso que acepta validarConfig
+   (12 horarios, 6 horas por día, 6 redes, 6 filas de avisos). Mide en 1920×1080 (escala 1). */
+async function casoRevisionFinal() {
+  console.log('Rediseño · Revisión final: peores casos que acepta la validación');
+  const estado = (e) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${SJ}_estado_v1`, JSON.stringify(e)]);
+  const copia = () => JSON.parse(JSON.stringify(CONFIG[SJ]));
+  const valida = async (p, cfg, nombre) => {
+    const r = await p.evaluate((c) => validarConfig(c), cfg);
+    revisar(r.ok, nombre + ': la configuración pasa validarConfig' + (r.ok ? '' : ' (' + r.errores.join(' / ') + ')'));
+  };
+  const conConfig = async (cfg, ruta, e) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(`**/${SJ}/config.json`, servirConfig(cfg));
+    const p = await abrir(ctx, ruta, 1920, 1080, e ? estado(e) : undefined);
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1800);
+    return { ctx, p };
+  };
+  const HORAS = ['6:00 a. m.', '7:00 a. m.', '9:00 a. m.', '11:00 a. m.', '5:00 p. m.', '6:00 p. m.'];
+  const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const REDES6 = [
+    { red: 'facebook', url: 'https://www.facebook.com/parroquia.san.jose.ejemplo', texto: '/ParroquiaSanJoseEjemplo' },
+    { red: 'youtube', url: 'https://www.youtube.com/@parroquia-san-jose-ejemplo', texto: '@ParroquiaSanJoseEjemplo' },
+    { red: 'instagram', url: 'https://www.instagram.com/parroquiasanjose', texto: '@parroquiasanjose' },
+    { red: 'whatsapp', url: 'https://wa.me/50370000000', texto: '7000-0000' },
+    { red: 'web', url: 'https://parroquiasanjose.org', texto: 'parroquiasanjose.org' },
+    { red: 'facebook', url: 'https://www.facebook.com/pastoral.juvenil.san.jose', texto: '/PastoralJuvenilSanJose' }
+  ];
+
+  // 1. Portada de evento sin bloque pantallas.evento: usa el bloque portada, como antes del rediseño
+  {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { portada: { modo: 'personalizada', fondo: { tipo: 'color', color: '#224466' }, ocultar: ['marca', 'franja'], textos: { franja: 'Lema de portada' } } });
+    delete cfg.pantallas.evento;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'evento' });
+    await valida(p, cfg, 'Portada de evento sin bloque evento');
+    const clases = await p.evaluate(() => [...document.getElementById('escenario').classList].sort().join(' '));
+    igual(clases, 'escenario fondo-color oculto-franja oculto-marca', 'Portada de evento sin bloque evento: fondo y ocultos del bloque portada');
+    igual(await texto(p, '#frase'), 'Lema de portada', 'Portada de evento sin bloque evento: el lema del bloque portada');
+    await ctx.close();
+  }
+
+  // 2 y 3. Gracias con 12 horarios (2 horas y notas cada uno) y 5 o 6 redes: ni pisa la franja ni saca el título del cuadro
+  for (const nRedes of [5, 6]) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } });
+    cfg.horarios = Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: [{ hora: HORAS[i % 6], nota: 'Misa con niños' }, { hora: HORAS[(i + 2) % 6], nota: 'Misa solemne' }] }));
+    cfg.redes = REDES6.slice(0, nRedes);
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=gracias`, { tipo: 'dominical' });
+    await valida(p, cfg, 'Gracias con 12 horarios y ' + nRedes + ' redes');
+    const m = await p.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const hijos = [...document.getElementById('v-gracias').children].filter((e) => !e.hidden).map((e) => e.getBoundingClientRect());
+      return {
+        extraAbajo: r('#v-gracias .extra').bottom, franja: r('.franja-linea').top,
+        arriba: Math.min(...hijos.map((h) => h.top)), pildora: r('#g-pildora').top, titulo: r('#g-titulo').top,
+        filas: document.querySelectorAll('#v-gracias .extra .hora').length, redes: document.querySelectorAll('#v-gracias .extra .red').length
+      };
+    });
+    const nombre = 'Gracias (12 horarios, ' + nRedes + ' redes)';
+    revisar(m.extraAbajo <= m.franja, nombre + ': la caja no pisa la franja (abajo ' + Math.round(m.extraAbajo) + ', franja ' + m.franja + ')');
+    revisar(m.arriba >= 0 && m.pildora >= 0 && m.titulo >= 0, nombre + ': la píldora y el título quedan dentro del cuadro (arriba ' + Math.round(m.arriba) + ')');
+    revisar(m.filas >= 1 && m.filas <= 6, nombre + ': muestra de 1 a 6 horarios (' + m.filas + ')');
+    igual(m.redes, nRedes, nombre + ': muestra todas las redes');
+    await captura(p, 'revision_gracias_' + nRedes + '_redes');
+    await ctx.close();
+  }
+
+  // 4. Tipo propio con portada de evento: la portada lleva el nombre del evento escrito en el panel
+  {
+    const cfg = copia();
+    cfg.tipos = Object.assign({}, cfg.tipos, { propios: (cfg.tipos.propios || []).concat([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', portada: 'evento' }]) });
+    const ev = 'Rosario de la aurora · Barrio El Centro';
+    const a = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'rosario-aurora', evento: ev, fecha: '2026-12-20', lugar: 'Barrio El Centro' });
+    await valida(a.p, cfg, 'Propio con portada de evento');
+    igual((await texto(a.p, '#p-titulo')).trim(), ev.toUpperCase(), 'Propio con portada de evento: el título es el evento escrito en el panel');
+    await a.ctx.close();
+    const b = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'rosario-aurora', fecha: '2026-12-20' });
+    igual((await texto(b.p, '#p-titulo')).trim(), 'ROSARIO DE LA AURORA', 'Propio con portada de evento: sin evento, el título del tipo');
+    await b.ctx.close();
+  }
+
+  // 5. Horarios: varias horas en un día caben en su píldora y no tapan el día (1, 2, 4 y 6 horas; 4, 6 y 12 filas)
+  const medirHorarios = (p) => p.evaluate(() => {
+    const t = document.getElementById('v-horarios');
+    const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+    return [...document.querySelectorAll('#h-filas .fila')].map((f) => {
+      const n = f.querySelector('.n'); const a = f.querySelector('.a');
+      const rn = n.getBoundingClientRect(); const ra = a.getBoundingClientRect();
+      return {
+        dia: a.textContent, horas: n.textContent,
+        dentro: n.scrollWidth <= n.clientWidth + 1 && n.scrollHeight <= n.clientHeight + 1,
+        noTapa: rn.right <= ra.left + 0.5 && a.scrollWidth <= a.clientWidth + 1,
+        enTarjeta: f.getBoundingClientRect().bottom <= fondo + 0.5,
+        // el lugar y las notas (.f) quedan dentro de su fila y del cuadro
+        fDentro: (() => { const e = f.querySelector('.f'); const r = e.getBoundingClientRect(); return !r.height || (r.bottom <= f.getBoundingClientRect().bottom + 0.5 && r.right <= f.getBoundingClientRect().right + 0.5 && r.bottom <= 1080); })()
+      };
+    });
+  });
+  const casosHorarios = [
+    { nombre: '4 filas (1, 2, 4 y 6 horas)', horarios: [1, 2, 4, 6].map((k, i) => ({ dia: DIAS[i + 3], horas: HORAS.slice(0, k).map((h) => ({ hora: h })), lugar: i === 1 ? 'Templo parroquial' : undefined })) },
+    { nombre: '4 filas de 2 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: [{ hora: '11:00 a. m.', nota: 'Misa con niños' }, { hora: '11:00 p. m.' }], lugar: 'Templo parroquial' })) },
+    { nombre: '4 filas de 6 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: HORAS.map((h) => ({ hora: h })) })) },
+    { nombre: '6 filas de 6 horas', horarios: Array.from({ length: 6 }, (_, i) => ({ dia: DIAS[i], horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })) })) },
+    { nombre: '12 filas de 6 horas', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: HORAS.map((h) => ({ hora: h })) })) },
+    // Ronda 2: notas en todas las horas y lugar, al máximo del validador; y 12 filas con un lugar de largo normal
+    { nombre: '4 filas de 6 horas con nota larga y lugar largo', horarios: Array.from({ length: 4 }, () => ({ dia: 'Miércoles de Ceniza', horas: HORAS.map((h) => ({ hora: h, nota: 'Misa con imposición de ceniza' })), lugar: 'Capilla Nuestra Señora de Guadalupe, Cantón El Tránsito' })) },
+    { nombre: '12 filas de 6 horas con nota y lugar', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7] + ' (vigilia)', horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })), lugar: 'Templo parroquial' })), fEsperado: 'Templo parroquial · Misa' },
+    { nombre: '6 filas de 6 horas con nota y lugar', horarios: Array.from({ length: 6 }, (_, i) => ({ dia: DIAS[i], horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })), lugar: 'Capilla del Cantón San Antonio de los Ranchos' })) },
+    { nombre: '12 filas de una hora con lugar de 39 letras', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: [{ hora: HORAS[i % 6] }], lugar: 'Capilla San Antonio de Padua del cantón' })) },
+    { nombre: '12 filas de 6 horas, cada hora con otra nota, y lugar largo', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7] + ' (vigilia)', horas: HORAS.map((h, k) => ({ hora: h, nota: ['Misa con niños', 'Misa solemne', 'Confesiones', 'Adoración', 'Misa de sanación', 'Rosario'][k] })), lugar: 'Capilla Nuestra Señora de Guadalupe, Cantón El Tránsito' })) }
+  ];
+  for (const c of casosHorarios) {
+    const cfg = copia();
+    cfg.horarios = c.horarios.map((h) => JSON.parse(JSON.stringify(h)));
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=horarios`);
+    await valida(p, cfg, 'Horarios ' + c.nombre);
+    const filas = await medirHorarios(p);
+    igual(filas.length, c.horarios.length, 'Horarios ' + c.nombre + ': todas las filas');
+    const mal = (k) => filas.filter((f) => !f[k]).map((f) => f.dia + ' [' + f.horas + ']').join(' / ');
+    revisar(!mal('dentro'), 'Horarios ' + c.nombre + ': las horas caben en la píldora' + (mal('dentro') ? ' (' + mal('dentro') + ')' : ''));
+    revisar(!mal('noTapa'), 'Horarios ' + c.nombre + ': la píldora no tapa el día' + (mal('noTapa') ? ' (' + mal('noTapa') + ')' : ''));
+    revisar(!mal('enTarjeta'), 'Horarios ' + c.nombre + ': las filas caben en la tarjeta' + (mal('enTarjeta') ? ' (' + mal('enTarjeta') + ')' : ''));
+    revisar(!mal('fDentro'), 'Horarios ' + c.nombre + ': el lugar y las notas quedan dentro de su fila' + (mal('fDentro') ? ' (' + mal('fDentro') + ')' : ''));
+    const redesFuera = await p.evaluate(() => {
+      const t = document.getElementById('v-horarios');
+      const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+      return [...document.querySelectorAll('#h-redes .red')].filter((e) => e.getBoundingClientRect().bottom > fondo + 0.5).map((e) => e.textContent);
+    });
+    revisar(!redesFuera.length, 'Horarios ' + c.nombre + ': las redes caben en la tarjeta' + (redesFuera.length ? ' (fuera: ' + redesFuera.join(' / ') + ')' : ''));
+    igual(await p.evaluate(() => document.querySelectorAll('#h-redes .red').length), cfg.redes.length, 'Horarios ' + c.nombre + ': se ven todas las redes');
+    igual(filas[0].horas.replace(/\s+/g, ' ').trim(), c.horarios[0].horas.map((h) => h.hora).join(' · '), 'Horarios ' + c.nombre + ': el texto de las horas no cambia');
+    if (c.fEsperado) igual(await p.evaluate(() => document.querySelector('#h-filas .fila .f').textContent), c.fEsperado, 'Horarios ' + c.nombre + ': la misma nota en todas las horas se escribe una vez');
+    await captura(p, 'revision_horarios_' + (casosHorarios.indexOf(c) + 1));
+    await ctx.close();
+  }
+
+  // 6. Avisos: 6 filas (2 fijos y 4 de horarios) y 6 redes, todo dentro de la tarjeta
+  for (const dist of ['izquierda', 'derecha', 'centro']) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { avisos: { modo: 'personalizada', distribucion: dist, mostrar: ['horarios', 'redes'] } });
+    cfg.avisos = [{ texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 }, { texto: 'Catequesis de primera comunión', detalle: 'Sábado · 9:00 a. m.', orden: 2 }];
+    cfg.redes = REDES6;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=avisos`, { tipo: 'dominical' });
+    await valida(p, cfg, 'Avisos (' + dist + ') con 6 filas y 6 redes');
+    const m = await p.evaluate(() => {
+      const t = document.getElementById('v-avisos');
+      const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+      const fuera = [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => e.getBoundingClientRect().bottom > fondo + 0.5).map((e) => e.textContent);
+      return { fuera, filas: document.querySelectorAll('#a-filas .fila').length, redes: document.querySelectorAll('#a-redes .red').length };
+    });
+    igual(m.filas, 6, 'Avisos (' + dist + '): 6 filas');
+    igual(m.redes, 6, 'Avisos (' + dist + '): 6 redes');
+    revisar(!m.fuera.length, 'Avisos (' + dist + '): filas y redes caben en la tarjeta' + (m.fuera.length ? ' (fuera: ' + m.fuera.join(' / ') + ')' : ''));
+    await captura(p, 'revision_avisos_redes_' + dist);
+    await ctx.close();
+  }
+
+  // 7. Ronda 2: Avisos que pintar() no compacta (4 filas sin redes, 2 con redes) con texto largo y detalle normal,
+  // vacío o de una palabra sin espacios: las filas quedan en la tarjeta y ni el aviso ni el detalle se salen de su caja
+  const LARGO = 'Inscripciones para la catequesis de confirmación';
+  const casosAvisos = [
+    { nombre: '4 avisos largos, detalle normal', n: 4, detalle: 'Sábado · 9:00 a. m.' },
+    { nombre: '4 avisos largos, sin detalle', n: 4, detalle: '' },
+    // con 420 de detalle el aviso se va a tres líneas y no cabe: la tarjeta compacta la lista (encajarRedesAvisos)
+    { nombre: '4 avisos largos, detalle sin espacios', n: 4, detalle: 'parroquiasanjoseejemplo.org/inscripciones', compacta: true },
+    { nombre: '2 avisos largos con 6 redes, detalle sin espacios', n: 2, detalle: 'parroquiasanjoseejemplo.org/inscripciones', redes: true }
+  ];
+  for (const c of casosAvisos) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { avisos: { modo: 'personalizada', mostrar: c.redes ? ['redes'] : [] } });
+    cfg.avisos = Array.from({ length: c.n }, (_, i) => Object.assign({ texto: LARGO, orden: i + 1 }, c.detalle ? { detalle: c.detalle } : {}));
+    if (c.redes) cfg.redes = REDES6;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=avisos`, { tipo: 'dominical' });
+    const nombre = 'Avisos (' + c.nombre + ')';
+    await valida(p, cfg, nombre);
+    const m = await p.evaluate(() => {
+      const t = document.getElementById('v-avisos'); const rt = t.getBoundingClientRect(); const cs = getComputedStyle(t);
+      const fondo = rt.bottom - parseFloat(cs.paddingBottom); const derecha = rt.right - parseFloat(cs.paddingRight);
+      const filas = [...document.querySelectorAll('#a-filas .fila')];
+      const sale = (e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > e.parentElement.getBoundingClientRect().right + 0.5;
+      return {
+        compacta: document.getElementById('a-filas').classList.contains('compacta'),
+        filas: filas.length,
+        fuera: [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => { const r = e.getBoundingClientRect(); return r.bottom > fondo + 0.5 || r.right > derecha + 0.5; }).length,
+        saleA: filas.filter((f) => sale(f.querySelector('.a'))).length,
+        saleF: filas.filter((f) => sale(f.querySelector('.f'))).length
+      };
+    });
+    igual(m.compacta, !!c.compacta, nombre + (c.compacta ? ': la lista se compacta para caber' : ': la lista no se compacta'));
+    igual(m.filas, c.n, nombre + ': todas las filas');
+    igual(m.fuera, 0, nombre + ': filas y redes caben en la tarjeta');
+    igual(m.saleA, 0, nombre + ': el aviso no se sale de su fila');
+    igual(m.saleF, 0, nombre + ': el detalle no se sale de su fila');
+    await captura(p, 'revision_avisos_largos_' + (casosAvisos.indexOf(c) + 1));
+    await ctx.close();
+  }
+}
+
+/* ---------- Diseño (plan 1.1): los artboards F4, F5 y F6 ----------
+   configDiseno(slug): la configuración real con lo que dibujan los artboards. San José: lema, acento, pantallas
+   «como vienen» y rótulos Lora con esquinas suaves y línea del acento (sin colorLado: la vista previa de F6 pinta el
+   lado con el degradado rey→oscuro). Ciudad Arce: pantallas «como vienen» y rótulos Lora suaves.
+   El reloj queda fijo a 5 días de la fiesta, como la cuenta del artboard: San José el domingo 14 de marzo de 2027
+   (fiesta el 19), Ciudad Arce el jueves 3 de diciembre de 2026 (fiesta el 8). */
+const FECHA_DISENO = { [SJ]: '2027-03-14T10:00:00', [CA]: '2026-12-03T10:00:00' };
+function configDiseno(slug) {
+  const c = JSON.parse(JSON.stringify(CONFIG[slug]));
+  c.pantallas = {};
+  if (slug === SJ) {
+    c.fiesta = Object.assign({}, c.fiesta, { lema: 'JOSÉ, HOMBRE JUSTO Y FIEL' });
+    c.colores = Object.assign({}, c.colores, { acento: '#d9a441' });
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLinea: 'acento', cargos: CONFIG[SJ].rotulos.cargos.slice() };
+    // Avisos con cuatro filas, como F4:31 (los del config real vencen antes de la fecha del caso).
+    c.avisos = [
+      { texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 },
+      { texto: 'Catequesis de confirmación', detalle: 'Sábado · 9:00 a. m.', orden: 2 },
+      { texto: 'Hora Santa', detalle: 'Jueves · 6:00 p. m.', orden: 3 },
+      { texto: 'Colecta para el techo', detalle: 'Domingo · todas las misas', orden: 4 }
+    ];
+  } else {
+    c.rotulos = { tipografia: 'lora', esquinas: 'suaves' };
+  }
+  return c;
+}
+/* Abre `ruta` de `slug` a 1920×1080 con la configuración `cfg` (por defecto configDiseno), el estado y el reloj
+   fijo; comprueba que la configuración pase validarConfig, espera las fuentes y congela las animaciones.
+   Devuelve { ctx, p }. */
+async function abrirDiseno(slug, ruta, estado, opciones = {}) {
+  const cfg = opciones.cfg || configDiseno(slug);
+  const fecha = opciones.fecha || FECHA_DISENO[slug];
+  const ctx = await nuevoContexto();
+  await ctx.route(`**/${slug}/config.json`, servirConfig(cfg));
+  const p = await abrir(ctx, `/${slug}/${ruta}`, 1920, 1080, async (pg) => {
+    await pg.clock.setFixedTime(new Date(fecha));
+    if (estado) await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${slug}_estado_v1`, JSON.stringify(estado)]);
+  });
+  await p.waitForLoadState('networkidle');
+  await p.waitForTimeout(1600);
+  const r = await p.evaluate((c) => validarConfig(c), cfg);
+  if (!r.ok) revisar(false, slug + ' ' + ruta + ': la configuración del caso pasa validarConfig (' + r.errores.join(' / ') + ')');
+  await p.evaluate(() => document.fonts.ready);
+  await p.addStyleTag({ content: CONGELAR });
+  await p.waitForTimeout(300);
+  return { ctx, p };
+}
+/* Estilos calculados { prop: valor } del primer elemento que coincide con `sel` (null si no hay). */
+const estilosDe = (p, sel, props) => p.evaluate(([s, l]) => {
+  const e = document.querySelector(s);
+  if (!e) return null;
+  const cs = getComputedStyle(e);
+  const o = {};
+  for (const k of l) o[k] = cs[k];
+  return o;
+}, [sel, props]);
+
+/* R4 (sección B y A5 del informe): lema, cuenta, día de la semana y colores de Producción salen de los datos. */
+async function casoDisenoDatos() {
+  console.log('Diseño · Lema, cuenta, día de la semana y Producción salen de los datos');
+  // Inicio de San José, dominical (F4:25)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual(await texto(p, '#frase'), '«JOSÉ, HOMBRE JUSTO Y FIEL»', 'San José, Inicio: el lema en la franja');
+    igual((await estilosDe(p, '.franja .frase', ['visibility'])).visibility, 'visible', 'San José, Inicio: la franja se ve');
+    igual(await texto(p, '#f-num'), '14', 'San José, Inicio: la fecha de la franja es el 14');
+    igual(await texto(p, '#f-txt'), 'DOMINGO\nMARZO', 'San José, Inicio: la franja dice DOMINGO / MARZO');
+    igual((await estilosDe(p, '#i-cuenta', ['display'])).display, 'flex', 'San José, Inicio: la cuenta regresiva se ve');
+    igual(await texto(p, '#i-dias'), '5', 'San José, Inicio: faltan 5 días');
+    igual((await estilosDe(p, '.franja .frase i', ['color'])).color, 'rgb(217, 164, 65)', 'San José, Inicio: las estrellas del lema son el acento');
+    await captura(p, `diseno_${SJ}_inicio`);
+    await ctx.close();
+  }
+  // Portada de la fiesta de San José (F4:27)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+    igual(await texto(p, '#f-num'), '19', 'San José, portada: la franja dice 19');
+    igual(await texto(p, '#f-txt'), 'DE\nMARZO', 'San José, portada: la franja dice DE / MARZO');
+    await captura(p, `diseno_${SJ}_portada`);
+    await ctx.close();
+  }
+  // Inicio de Ciudad Arce, dominical
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual(await texto(p, '#f-txt'), 'JUEVES\nDICIEMBRE', 'Ciudad Arce, Inicio: la franja dice JUEVES / DICIEMBRE');
+    igual(await texto(p, '#i-dias'), '5', 'Ciudad Arce, Inicio: faltan 5 días');
+    igual(await texto(p, '#frase'), '«TODA HERMOSA ERES, MARÍA»', 'Ciudad Arce, Inicio: el lema en la franja');
+    await captura(p, `diseno_${CA}_inicio`);
+    await ctx.close();
+  }
+  // Avisos y Gracias, para las capturas (F4:31 y F4:33)
+  for (const slug of [SJ, CA]) {
+    for (const vista of ['avisos', 'gracias']) {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=' + vista, { tipo: 'dominical' });
+      await captura(p, `diseno_${slug}_${vista}`);
+      await ctx.close();
+    }
+  }
+  // Rótulo de persona (F6:24)
+  for (const slug of [SJ, CA]) {
+    const { ctx, p } = await abrirDiseno(slug, 'rotulos.html', { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', mostrarLogo: true, mostrarEnVivo: true });
+    await captura(p, `diseno_${slug}_rotulo`);
+    await ctx.close();
+  }
+  // Producción claro de San José, sin pantallas.produccion (F4:35): el color sale de la paleta
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null);
+    revisar(await visibleEl(p, '#claro'), 'San José, Producción claro: la lámina se ve');
+    igual(await reyDe(p), '#8a1c2b', 'San José, Producción claro: --rey es el principal de su paleta');
+    await captura(p, `diseno_${SJ}_produccion_claro`);
+    await ctx.close();
+  }
+}
+
+/* A1, A2 y C3 en las pantallas: degradado liso de la paleta, un brillo, marco de arco y sin sombras (F4:25 y F4:31). */
+async function casoDisenoFondo() {
+  console.log('Diseño · Fondo, marco de arco y sin sombras');
+  const ARCO = '300px 300px 40px 40px';
+  const RELLENO = 'rgba(0, 0, 0, 0.12)';
+  const geometria = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s); return e ? { x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight } : null; }, sel);
+  const sinSombra = async (p, sels, nombre) => {
+    for (const sel of sels) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', nombre + ': ' + sel + ' sin sombra');
+  };
+  const decoracion = async (p, nombre) => {
+    for (const sel of ['.rayos', '.fachada', '#chispas']) igual((await estilosDe(p, sel, ['display'])).display, 'none', nombre + ': ' + sel + ' no se ve');
+  };
+  const arco = async (p, nombre, x, y, w, h) => {
+    const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter', 'backgroundColor']);
+    igual(e.borderRadius, ARCO, nombre + ': la imagen va en el arco');
+    // Ronda 2: el arco lleva el relleno del artboard, así su forma se lee también con una imagen recortada (PNG sin fondo)
+    igual(e.backgroundColor, RELLENO, nombre + ': el arco lleva el relleno del artboard');
+    igual(e.objectFit, 'cover', nombre + ': la imagen llena el arco');
+    igual(e.borderTopWidth, '0px', nombre + ': el arco no tiene borde');
+    igual(e.filter, 'none', nombre + ': la imagen no tiene sombra');
+    igual(JSON.stringify(await geometria(p, '#virgen')), JSON.stringify({ x, y, w, h }), nombre + ': el arco mide ' + w + '×' + h + ' en ' + x + ',' + y);
+  };
+  // San José, Inicio (F4:25)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual((await estilosDe(p, '#lienzo', ['backgroundImage'])).backgroundImage, 'linear-gradient(135deg, rgb(75, 15, 24) 0%, rgb(138, 28, 43) 48%, rgb(192, 72, 90) 100%)', 'San José, Inicio: el degradado del artboard');
+    igual((await estilosDe(p, '.brillo', ['backgroundImage'])).backgroundImage, 'radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 62%)', 'San José, Inicio: un brillo suave');
+    const b = await geometria(p, '.brillo');
+    igual([b.x, b.y, b.w].join(' '), '-160 -120 1100', 'San José, Inicio: el brillo en -160,-120, de 1100');
+    await decoracion(p, 'San José, Inicio');
+    await arco(p, 'San José, Inicio', 150, 80, 620, 960);
+    await sinSombra(p, ['#envivo', '#i-pildora', '.cuenta'], 'San José, Inicio');
+    await ctx.close();
+  }
+  // San José, Avisos (F4:31)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=avisos', { tipo: 'dominical' });
+    await arco(p, 'San José, Avisos', 40, 140, 500, 820);
+    await sinSombra(p, ['#v-avisos'], 'San José, Avisos');
+    await ctx.close();
+  }
+  // San José, portada patronal
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+    await sinSombra(p, ['#p-caja'], 'San José, portada');
+    await ctx.close();
+  }
+  // Ciudad Arce, Inicio: lo mismo con su paleta
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual((await estilosDe(p, '#lienzo', ['backgroundImage'])).backgroundImage, 'linear-gradient(135deg, rgb(12, 53, 98) 0%, rgb(17, 85, 164) 48%, rgb(49, 118, 195) 100%)', 'Ciudad Arce, Inicio: el degradado de su paleta');
+    await decoracion(p, 'Ciudad Arce, Inicio');
+    await arco(p, 'Ciudad Arce, Inicio', 150, 80, 620, 960);
+    // Ronda 2: la Virgen de Ciudad Arce es un PNG sin fondo. Dentro del arco, donde no hay figura, tiene que verse el
+    // relleno: se mide el mismo punto (entre el manto y el pie, transparente en el PNG) con y sin el relleno.
+    revisar(await imagenVisible(p, '#virgen'), 'Ciudad Arce, Inicio: la imagen cargó');
+    const luzEn = async (x, y) => {
+      const b64 = (await p.screenshot({ clip: { x, y, width: 1, height: 1 } })).toString('base64');
+      return p.evaluate(async (d) => {
+        const im = new Image(); im.src = 'data:image/png;base64,' + d; await im.decode();
+        const c = document.createElement('canvas'); c.width = 1; c.height = 1;
+        const g = c.getContext('2d'); g.drawImage(im, 0, 0); const v = g.getImageData(0, 0, 1, 1).data;
+        return v[0] + v[1] + v[2];
+      }, b64);
+    };
+    const conRelleno = await luzEn(170, 633);
+    await p.addStyleTag({ content: '#virgen{background:none !important}' });
+    const sinRelleno = await luzEn(170, 633);
+    revisar(conRelleno < sinRelleno - 20, 'Ciudad Arce, Inicio: el relleno se ve detrás de la figura y deja leer el arco (' + conRelleno + ' con relleno, ' + sinRelleno + ' sin)');
+    await p.addStyleTag({ content: '#virgen{background:rgba(0,0,0,.12) !important}' });
+    await captura(p, `diseno_${CA}_inicio`);
+    await ctx.close();
+  }
+  // Distribuciones e imagen logo
+  const conInicio = (inicio) => { const c = configDiseno(SJ); c.pantallas = { inicio: Object.assign({ modo: 'personalizada' }, inicio) }; return c; };
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ distribucion: 'derecha' }) });
+    const g = await geometria(p, '#virgen');
+    igual(1920 - g.x - g.w, 150, 'distribución derecha: el arco queda a 150 del borde derecho');
+    igual((await estilosDe(p, '#virgen', ['borderRadius'])).borderRadius, ARCO, 'distribución derecha: con arco');
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ distribucion: 'centro' }) });
+    const g = await geometria(p, '#virgen');
+    revisar(Math.abs(g.x + g.w / 2 - 960) <= 1, 'distribución centro: el arco queda centrado (' + (g.x + g.w / 2) + ')');
+    igual((await estilosDe(p, '#virgen', ['opacity'])).opacity, '0.28', 'distribución centro: el arco va tenue');
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ imagen: 'logo' }) });
+    const e = await estilosDe(p, '#virgen', ['borderRadius', 'backgroundColor']);
+    igual(e.borderRadius, '0px', 'imagen logo: sin arco');
+    igual(e.backgroundColor, 'rgba(0, 0, 0, 0)', 'imagen logo: sin relleno');
+    await ctx.close();
+  }
+}
+
+/* A3, A4, C6 y C7: tintes de la paleta en las pantallas, marca en dos líneas, Gracias sin EN VIVO y Avisos con
+   logo redondo y filas del velo (F4:25, 27, 31 y 33). */
+/* Ronda 2: el logo blanco (#a-logo o #h-logo) cabe en su círculo de 78 sea cual sea su forma: su lado mayor mide
+   de 50 a 60, su caja queda dentro de la del círculo y, si no es cuadrado, sus cuatro esquinas dentro del redondel
+   (el cuadrado de 56 del artboard tiene las esquinas fuera, pero el dibujo no llega a ellas). */
+async function logoEnCirculo(p, x, nombre) {
+  const m = await p.evaluate((v) => {
+    const c = document.getElementById(v + '-logo-caja').getBoundingClientRect(); const i = document.getElementById(v + '-logo').getBoundingClientRect();
+    const cx = c.left + c.width / 2; const cy = c.top + c.height / 2; const r = c.width / 2;
+    const esquinas = [[i.left, i.top], [i.right, i.top], [i.left, i.bottom], [i.right, i.bottom]];
+    return {
+      w: i.width, h: i.height, cw: c.width,
+      caja: i.left >= c.left - 0.5 && i.right <= c.right + 0.5 && i.top >= c.top - 0.5 && i.bottom <= c.bottom + 0.5,
+      redondel: esquinas.every(([a, b]) => Math.hypot(a - cx, b - cy) <= r + 0.5)
+    };
+  }, x);
+  const lado = Math.round(Math.max(m.w, m.h));
+  revisar(lado >= 50 && lado <= 60, nombre + ': el lado mayor del logo mide de 50 a 60 (' + Math.round(m.w) + '×' + Math.round(m.h) + ')');
+  revisar(m.caja, nombre + ': el logo queda dentro del círculo de ' + m.cw);
+  // un logo apaisado o alto llena su caja hasta los bordes: sus esquinas no pueden salir del redondel
+  if (Math.max(m.w, m.h) / Math.min(m.w, m.h) > 1.2) revisar(m.redondel, nombre + ': las esquinas del logo apaisado quedan dentro del redondel');
+}
+
+async function casoDisenoColores() {
+  console.log('Diseño · Colores de la paleta, marca, Gracias y Avisos');
+  const color = async (p, sel) => { const e = await estilosDe(p, sel, ['color']); return e && e.color; };
+  const lineas = (p, sel) => p.evaluate((s) => {
+    const r = document.createRange(); r.selectNodeContents(document.querySelector(s));
+    return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size;
+  }, sel);
+  const T = {
+    [SJ]: { tenue: 'rgb(242, 214, 218)', velo: 'rgb(251, 238, 240)', vivo: 'rgb(192, 72, 90)', rey: 'rgb(138, 28, 43)', oscuro: 'rgb(75, 15, 24)', fila: 'rgb(138, 28, 43)', logo: 'medios/logo-blanco.svg' },
+    [CA]: { tenue: 'rgb(211, 227, 245)', velo: 'rgb(237, 244, 252)', vivo: 'rgb(49, 118, 195)', rey: 'rgb(17, 85, 164)', oscuro: 'rgb(12, 53, 98)', fila: 'rgb(17, 85, 164)', logo: 'medios/logo-blanco.png' }
+  };
+  for (const slug of [SJ, CA]) {
+    const t = T[slug];
+    const n = slug === SJ ? 'San José' : 'Ciudad Arce';
+    // Inicio (F4:25)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+      igual(await color(p, '#i-ceja'), t.tenue, n + ', Inicio: la ceja es --tenue');
+      igual(await color(p, '#i-cursiva'), t.velo, n + ', Inicio: la cursiva es --velo');
+      const brilla = (await estilosDe(p, '#i-titulo', ['backgroundImage'])).backgroundImage;
+      revisar(brilla.includes(t.tenue + ' 50%'), n + ', Inicio: el destello del título es --tenue (' + brilla + ')');
+      if (slug === SJ) {
+        igual(await texto(p, '#t-marca'), 'Parroquia San José (ejemplo)\nCiudad de ejemplo', n + ': la marca dice nombre y lugar');
+        igual(await lineas(p, '#t-marca'), 2, n + ': la marca va en dos líneas');
+      }
+      await ctx.close();
+    }
+    // Portada de la fiesta (F4:27)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+      igual(await color(p, '#p-ceja'), t.tenue, n + ', portada: la ceja es --tenue');
+      igual(await color(p, '#p-sub'), t.tenue, n + ', portada: el sub es --tenue');
+      igual(await color(p, '#p-cursiva'), t.velo, n + ', portada: la cursiva es --velo');
+      await ctx.close();
+    }
+    // Gracias (F4:33)
+    {
+      const cfg = configDiseno(slug);
+      cfg.pantallas = { gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } };
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=gracias', { tipo: 'dominical' }, { cfg });
+      igual((await estilosDe(p, '#envivo', ['display'])).display, 'none', n + ', Gracias: sin EN VIVO');
+      igual(await color(p, '#g-ceja'), t.tenue, n + ', Gracias: la ceja es --tenue');
+      igual(await color(p, '#v-gracias .extra .hora b'), t.tenue, n + ', Gracias: los días de los horarios son --tenue');
+      await ctx.close();
+    }
+    // Avisos (F4:31)
+    {
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=avisos', { tipo: 'dominical' });
+      igual(await color(p, '#a-sub'), t.vivo, n + ', Avisos: el sub es --vivo');
+      const h1 = await estilosDe(p, '#a-titulo', ['color', 'letterSpacing']);
+      igual(h1.color, t.rey, n + ', Avisos: el título es el principal');
+      igual(h1.letterSpacing, 'normal', n + ', Avisos: el título sin letter-spacing');
+      const caja = await estilosDe(p, '#a-logo-caja', ['width', 'height', 'borderRadius', 'backgroundColor']);
+      igual(caja && [caja.width, caja.height, caja.borderRadius, caja.backgroundColor].join(' '), '78px 78px 50% ' + t.rey, n + ', Avisos: el logo va en un círculo de 78 del principal');
+      revisar(await imagenVisible(p, '#a-logo'), n + ', Avisos: el logo se ve');
+      await logoEnCirculo(p, 'a', n + ', Avisos');
+      igual(await p.getAttribute('#a-logo', 'src'), t.logo, n + ', Avisos: el logo es el blanco');
+      revisar(await p.evaluate(() => { const c = document.getElementById('a-logo-caja'); return !!c && c.getBoundingClientRect().right <= document.querySelector('#v-avisos .envivo').getBoundingClientRect().left; }), n + ', Avisos: el logo queda a la izquierda del EN VIVO');
+      const ev = await estilosDe(p, '#v-avisos .envivo', ['fontSize', 'padding']);
+      igual(ev.fontSize + ' / ' + ev.padding, '22px / 8px 16px 8px 12px', n + ', Avisos: el EN VIVO chico de la tarjeta');
+      igual((await estilosDe(p, '#a-filas', ['justifyContent'])).justifyContent, 'space-between', n + ', Avisos: las filas se reparten');
+      const fila = await estilosDe(p, '#a-filas .fila', ['backgroundColor', 'gridTemplateColumns']);
+      igual(fila.backgroundColor, t.velo, n + ', Avisos: la fila es --velo');
+      // Ronda 2: los 420 px del artboard son el máximo del detalle, no una columna fija (la columna sigue al detalle)
+      const cols = fila.gridTemplateColumns.split(' ').map(parseFloat);
+      revisar(cols.length === 3 && cols[0] === 120 && cols[2] <= 420, n + ', Avisos: columnas 120px … hasta 420px (' + fila.gridTemplateColumns + ')');
+      igual((await estilosDe(p, '#a-filas .fila .f', ['maxWidth'])).maxWidth, '420px', n + ', Avisos: el detalle mide como mucho 420');
+      igual(await color(p, '#a-filas .fila .a'), t.oscuro, n + ', Avisos: el aviso es el oscuro');
+      igual(await color(p, '#a-filas .fila .f'), t.fila, n + ', Avisos: el detalle es --fila-texto');
+      await captura(p, `diseno_${slug}_avisos`);
+      await ctx.close();
+    }
+    // Horarios: el mismo círculo del logo (Ronda 2)
+    {
+      const cfg = configDiseno(slug);
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=horarios', { tipo: 'dominical' }, { cfg });
+      revisar(await imagenVisible(p, '#h-logo'), n + ', Horarios: el logo se ve');
+      await logoEnCirculo(p, 'h', n + ', Horarios');
+      await captura(p, `diseno_${slug}_horarios`);
+      await ctx.close();
+    }
+    // Ninguna pantalla con el celeste #bfe0ff
+    for (const vista of ['inicio', 'portada', 'gracias', 'avisos', 'horarios']) {
+      const cfg = configDiseno(slug);
+      cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] }, gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } };
+      if (!cfg.horarios) cfg.horarios = CONFIG[SJ].horarios;
+      if (!cfg.redes) cfg.redes = CONFIG[SJ].redes;
+      const { ctx, p } = await abrirDiseno(slug, 'pantalla.html?tipo=' + vista, { tipo: vista === 'portada' ? 'patronal' : 'dominical' }, { cfg });
+      const celestes = await p.evaluate(() => [...document.querySelectorAll('#escenario *')].filter((e) => {
+        if (e.getClientRects().length === 0) return false;
+        const cs = getComputedStyle(e);
+        if (cs.visibility === 'hidden') return false;
+        return [cs.color, cs.backgroundColor, cs.backgroundImage, cs.borderTopColor].some((v) => v.includes('rgb(191, 224, 255)'));
+      }).map((e) => e.id || e.className));
+      igual(celestes.join(', '), '', n + ', ' + vista + ': ningún elemento visible con #bfe0ff');
+      await ctx.close();
+    }
+  }
+}
+
+/* C1 a C4 y R3: rótulo de persona como F6:24 (esquinas del diseño, sin sombra, Lora 54/1.08, kicker --vivo) y logo
+   de esquina como imagen sola mientras hay rótulo; sin rótulo, la capa del logo de F4:37. */
+async function casoDisenoRotulo() {
+  console.log('Diseño · Rótulos: esquinas, sombra, Lora, logo de esquina y kicker');
+  const ESTADO = { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', mostrarLogo: true, mostrarEnVivo: true, mostrarBarra: true };
+  const clasesEsquinas = (p) => p.evaluate(() => [...document.getElementById('escenario').classList].filter((x) => /^esquinas-/.test(x)).join(' '));
+  const radios = (p) => p.evaluate(() => ['rotulo', 'logo', 'barra'].map((id) => getComputedStyle(document.getElementById(id)).borderRadius).join(' / '));
+  const conRotulos = (slug, rotulos) => { const c = configDiseno(slug); c.rotulos = Object.assign({}, c.rotulos, rotulos); return c; };
+  // San José (F6:24)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO);
+    await p.waitForSelector('#rotulo.en');
+    const r = await estilosDe(p, '#rotulo', ['borderRadius', 'boxShadow']);
+    igual(r.borderRadius + ' / ' + r.boxShadow, '24px / none', 'San José, rótulo: esquinas suaves de 24px y sin sombra');
+    igual(await clasesEsquinas(p), '', 'San José, rótulo: suaves no pone clase de esquinas');
+    igual((await estilosDe(p, '#rotulo .lado', ['backgroundImage'])).backgroundImage, 'linear-gradient(160deg, rgb(138, 28, 43), rgb(75, 15, 24))', 'San José, rótulo: el lado es el degradado rey→oscuro');
+    const cuerpo = await estilosDe(p, '#rotulo .cuerpo', ['borderTopColor', 'borderTopWidth']);
+    igual(cuerpo.borderTopColor + ' ' + cuerpo.borderTopWidth, 'rgb(217, 164, 65) 8px', 'San José, rótulo: línea de 8px del acento');
+    igual((await estilosDe(p, '#r-k', ['color'])).color, 'rgb(192, 72, 90)', 'San José, rótulo: el kicker es --vivo');
+    const t = await estilosDe(p, '#r-t', ['fontFamily', 'fontSize', 'lineHeight', 'color']);
+    revisar(/^"?Lora"?/.test(t.fontFamily), 'San José, rótulo: el nombre en Lora (' + t.fontFamily + ')');
+    igual(t.fontSize + ' / ' + t.lineHeight, '54px / 58.32px', 'San José, rótulo: Lora 54/1.08');
+    igual(t.color, 'rgb(75, 15, 24)', 'San José, rótulo: el nombre es el oscuro');
+    igual((await estilosDe(p, '#r-s', ['color'])).color, 'rgb(138, 28, 43)', 'San José, rótulo: la línea de abajo es el principal');
+    for (const sel of ['#envivo', '#logo', '#barra']) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', 'San José: ' + sel + ' sin sombra');
+    revisar(await p.evaluate(() => document.getElementById('logo').classList.contains('oculto')), 'San José, con rótulo: la capa del logo se aparta');
+    const le = await p.evaluate(() => {
+      const e = document.getElementById('logo-esquina');
+      if (!e) return null;
+      const cs = getComputedStyle(e);
+      return { oculto: e.classList.contains('oculto'), tag: e.tagName, padre: e.parentElement.id, x: e.offsetLeft, y: e.offsetTop, h: e.offsetHeight, opacidad: cs.opacity, fondo: cs.backgroundColor, src: e.getAttribute('src') };
+    });
+    revisar(!!le, 'San José, con rótulo: existe #logo-esquina');
+    if (le) {
+      revisar(!le.oculto, 'San José, con rótulo: el logo de esquina se ve');
+      igual(le.tag + ' en #' + le.padre, 'IMG en #escenario', 'San José: el logo de esquina es una imagen suelta en el escenario');
+      igual([le.x, le.y, le.h].join(' '), '60 44 64', 'San José: el logo de esquina en 60,44, de 64 de alto');
+      igual(le.opacidad, '0.9', 'San José: el logo de esquina con opacidad .9');
+      igual(le.fondo, 'rgba(0, 0, 0, 0)', 'San José: el logo de esquina sin caja');
+      igual(le.src, 'medios/logo-blanco.svg', 'San José: el logo de esquina es el blanco');
+    }
+    await captura(p, `diseno_${SJ}_rotulo`);
+    // Sin rótulo: la capa del logo de F4:37
+    await p.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' })));
+    await p.waitForTimeout(300);
+    const capa = await p.evaluate(() => {
+      const e = document.getElementById('logo');
+      const r = document.createRange(); r.selectNodeContents(document.getElementById('logo-txt'));
+      return { oculto: e.classList.contains('oculto'), x: e.offsetLeft, y: e.offsetTop, fondo: getComputedStyle(e).backgroundColor, sombra: getComputedStyle(e).boxShadow,
+        lineas: new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size,
+        esquina: document.getElementById('logo-esquina') ? document.getElementById('logo-esquina').classList.contains('oculto') : null };
+    });
+    revisar(!capa.oculto, 'San José, sin rótulo: la capa del logo vuelve');
+    igual([capa.x, capa.y].join(' '), '44 36', 'San José, sin rótulo: la capa en 44,36');
+    igual(capa.fondo + ' / ' + capa.sombra, 'rgb(138, 28, 43) / none', 'San José, sin rótulo: la capa es del principal y sin sombra');
+    igual(capa.lineas, 2, 'San José, sin rótulo: el texto de la capa va en dos líneas');
+    igual(capa.esquina, true, 'San José, sin rótulo: el logo de esquina se aparta');
+    await captura(p, `diseno_${SJ}_capa`);
+    await ctx.close();
+  }
+  // logoEsquina:false con rótulo: ni capa ni logo de esquina
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO, { cfg: conRotulos(SJ, { logoEsquina: false }) });
+    await p.waitForSelector('#rotulo.en');
+    igual(await p.evaluate(() => ['logo', 'logo-esquina'].map((id) => { const e = document.getElementById(id); return e ? e.classList.contains('oculto') : null; }).join(' ')), 'true true', 'logoEsquina false: la capa y el logo de esquina se apartan');
+    await ctx.close();
+  }
+  // Esquinas (R3): rectas, redondeadas (config vieja = suaves) y redondas (valor provisional)
+  for (const [q, esperado, clase] of [['rectas', '0px / 0px / 0px', 'esquinas-rectas'], ['redondeadas', '24px / 18px / 16px', ''], ['suaves', '24px / 18px / 16px', ''], ['redondas', '48px / 36px / 32px', 'esquinas-redondas']]) {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO, { cfg: conRotulos(SJ, { esquinas: q }) });
+    await p.waitForSelector('#rotulo.en');
+    igual(await radios(p), esperado, 'esquinas ' + q + ': rótulo / logo / barra');
+    igual(await clasesEsquinas(p), clase, 'esquinas ' + q + ': clase del escenario');
+    await ctx.close();
+  }
+  // Ciudad Arce: lo mismo con su paleta
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'rotulos.html', ESTADO);
+    await p.waitForSelector('#rotulo.en');
+    igual((await estilosDe(p, '#r-k', ['color'])).color, 'rgb(49, 118, 195)', 'Ciudad Arce, rótulo: el kicker es --vivo');
+    igual((await estilosDe(p, '#rotulo .lado', ['backgroundImage'])).backgroundImage, 'linear-gradient(160deg, rgb(17, 85, 164), rgb(12, 53, 98))', 'Ciudad Arce, rótulo: el lado es el degradado rey→oscuro');
+    await captura(p, `diseno_${CA}_rotulo`);
+    await ctx.close();
+  }
+}
+
+/* C5, B3 y A3 en produccion.html: el Claro de F4:35 (papel, halo --vivo, logo blanco en un círculo del principal a
+   la izquierda del texto, grupo centrado) y el Azul con los tintes de la paleta. */
+async function casoDisenoProduccion() {
+  console.log('Diseño · Producción claro y azul');
+  const centro = (p) => p.evaluate(() => { const r = document.querySelector('#claro .fila').getBoundingClientRect(); return r.left + r.width / 2; });
+  // San José, claro (F4:35)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null);
+    igual((await estilosDe(p, '#claro', ['backgroundColor'])).backgroundColor, 'rgb(250, 246, 243)', 'San José, claro: el papel del artboard');
+    const halo = await estilosDe(p, '#claro .halo', ['backgroundImage', 'width']);
+    igual(halo.backgroundImage, 'radial-gradient(circle, rgba(192, 72, 90, 0.14) 0%, rgba(192, 72, 90, 0) 60%)', 'San José, claro: el halo es --vivo');
+    igual(halo.width, '1500px', 'San José, claro: el halo mide 1500');
+    const ceja = await estilosDe(p, '#claro .ceja', ['color', 'fontSize', 'letterSpacing']);
+    igual([ceja.color, ceja.fontSize, ceja.letterSpacing].join(' '), 'rgb(58, 42, 44) 40px 10px', 'San José, claro: la ceja es --tinta, 40/10');
+    const caja = await estilosDe(p, '#logo-claro-caja', ['width', 'height', 'borderRadius', 'backgroundColor']);
+    igual(caja && [caja.width, caja.height, caja.borderRadius, caja.backgroundColor].join(' '), '300px 300px 50% rgb(138, 28, 43)', 'San José, claro: el logo va en un círculo de 300 del principal');
+    revisar(await imagenVisible(p, '#logo-claro'), 'San José, claro: el logo se ve');
+    igual(await p.evaluate(() => document.getElementById('logo-claro').offsetWidth), 200, 'San José, claro: el logo mide 200 de ancho');
+    igual(await p.getAttribute('#logo-claro', 'src'), 'medios/logo-blanco.svg', 'San José, claro: el logo es el blanco');
+    revisar(await p.evaluate(() => { const c = document.getElementById('logo-claro-caja'); return !!c && c.getBoundingClientRect().right <= document.querySelector('#claro .nombres').getBoundingClientRect().left; }), 'San José, claro: el círculo queda a la izquierda del texto');
+    igual((await estilosDe(p, '#claro .fila', ['columnGap'])).columnGap, '48px', 'San José, claro: separación de 48');
+    const grande = await estilosDe(p, '#claro .grande', ['color', 'fontSize']);
+    igual(grande.color + ' ' + grande.fontSize, 'rgb(138, 28, 43) 118px', 'San José, claro: el nombre grande es el principal, 118');
+    igual((await estilosDe(p, '#claro .sub', ['color'])).color, 'rgb(192, 72, 90)', 'San José, claro: el sub es --vivo');
+    igual((await estilosDe(p, '#pie', ['color'])).color, 'rgb(90, 74, 76)', 'San José, claro: el pie es --gris');
+    const c = await centro(p);
+    revisar(Math.abs(c - 960) <= 1, 'San José, claro: el grupo queda centrado (' + c + ')');
+    await captura(p, `diseno_${SJ}_produccion_claro`);
+    await ctx.close();
+  }
+  // Sin marca: sin círculo y el texto sigue centrado
+  {
+    const cfg = configDiseno(SJ);
+    cfg.pantallas = { produccion: { modo: 'personalizada', ocultar: ['marca'] } };
+    const { ctx, p } = await abrirDiseno(SJ, 'produccion.html?estilo=claro', null, { cfg });
+    revisar(!(await visibleEl(p, '#logo-claro-caja')), 'claro sin marca: el círculo no se ve');
+    const c = await centro(p);
+    revisar(Math.abs(c - 960) <= 1, 'claro sin marca: el texto queda centrado (' + c + ')');
+    await ctx.close();
+  }
+  // Ciudad Arce, claro
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'produccion.html?estilo=claro', null);
+    igual((await estilosDe(p, '#claro', ['backgroundColor'])).backgroundColor, 'rgb(243, 242, 251)', 'Ciudad Arce, claro: el papel de su paleta');
+    igual((await estilosDe(p, '#logo-claro-caja', ['backgroundColor'])).backgroundColor, 'rgb(17, 85, 164)', 'Ciudad Arce, claro: el círculo es su principal');
+    igual((await estilosDe(p, '#claro .sub', ['color'])).color, 'rgb(49, 118, 195)', 'Ciudad Arce, claro: el sub es su --vivo');
+    await captura(p, `diseno_${CA}_produccion_claro`);
+    await ctx.close();
+  }
+  // Azul: el degradado termina en --vivo; la raya es --tenue; nada de #bfe0ff
+  for (const [slug, vivo] of [[CA, 'rgb(49, 118, 195)'], [SJ, 'rgb(192, 72, 90)']]) {
+    const n = slug === SJ ? 'San José' : 'Ciudad Arce';
+    const { ctx, p } = await abrirDiseno(slug, 'produccion.html?estilo=azul', null);
+    const fondo = (await estilosDe(p, '#azul', ['backgroundImage'])).backgroundImage;
+    revisar(fondo.endsWith(vivo + ' 100%)'), n + ', azul: el degradado termina en --vivo (' + fondo + ')');
+    if (slug === CA) {
+      igual((await estilosDe(p, '#azul .raya', ['backgroundColor'])).backgroundColor, 'rgb(211, 227, 245)', n + ', azul: la raya es --tenue');
+      const celestes = await p.evaluate(() => [...document.querySelectorAll('#escenario *')].filter((e) => {
+        const cs = getComputedStyle(e);
+        return [cs.color, cs.backgroundColor, cs.backgroundImage, cs.borderTopColor].some((v) => v.includes('rgb(191, 224, 255)'));
+      }).map((e) => e.id || e.className));
+      igual(celestes.join(', '), '', n + ', azul: ningún elemento con #bfe0ff');
+    }
+    await captura(p, `diseno_${slug}_produccion_azul`);
+    await ctx.close();
+  }
+}
+
+const rutaLineaBase = path.join(__dirname, 'linea-base.json');
+const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
+
+/* Con --grabar-linea-base escribe linea-base.json; con --grabar-linea-base=<ruta>, escribe en esa ruta y no toca
+   linea-base.json (para comparar con diferencias-linea-base.js antes de grabar). Sin la marca compara caso por caso. */
+async function casoLineaBase() {
+  const marca = process.argv.find((a) => a === '--grabar-linea-base' || a.startsWith('--grabar-linea-base='));
+  const grabar = !!marca;
+  const destino = marca && marca.includes('=') ? path.resolve(marca.slice(marca.indexOf('=') + 1)) : rutaLineaBase;
+  console.log('Línea base de compatibilidad' + (grabar ? ' (grabando en ' + destino + ')' : ''));
+  const guardada = grabar ? null : JSON.parse(fs.readFileSync(rutaLineaBase, 'utf8'));
+  const nuevo = {};
+  for (const c of CASOS_BASE) {
+    const nombre = nombreCaso(c);
+    const ctx = await nuevoContexto();
+    const p = await abrir(ctx, '/' + c.slug + '/' + c.pagina + c.query, 1920, 1080, async (pg) => {
+      await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+      await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), ['pev_' + c.slug + '_estado_v1', JSON.stringify(c.estado)]);
+    });
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1800);
+    const h = await huellaBase(p);
+    await ctx.close();
+    if (grabar) { nuevo[nombre] = h; continue; }
+    let primero = null;
+    try { assert.deepStrictEqual(h, guardada[nombre]); } catch (e) {
+      const esp = guardada[nombre] || {};
+      for (const grupo of Object.keys(h)) {
+        try { assert.deepStrictEqual(h[grupo], esp[grupo]); } catch (e2) {
+          const a = h[grupo] || {}; const b = esp[grupo] || {};
+          const k = Array.isArray(a) ? null : [...new Set([...Object.keys(a), ...Object.keys(b)])].find((x) => JSON.stringify(a[x]) !== JSON.stringify(b[x]));
+          primero = grupo + (k ? '.' + k + ' era ' + JSON.stringify(a[k]) + ', se esperaba ' + JSON.stringify(b[k]) : ' era ' + JSON.stringify(a) + ', se esperaba ' + JSON.stringify(b));
+          break;
+        }
+      }
+      primero = primero || 'distinto';
+    }
+    revisar(primero === null, nombre + (primero ? ': ' + primero : ''));
+  }
+  if (grabar) {
+    fs.writeFileSync(destino, JSON.stringify(nuevo, null, 2) + '\n');
+    console.log('  grabados ' + Object.keys(nuevo).length + ' casos en ' + destino);
+  } else {
+    igual(Object.keys(guardada).length, CASOS_BASE.length, 'la línea base tiene todos los casos');
+  }
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -976,6 +1965,15 @@ async function comparacion() {
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = 'http://' + HOST + ':' + servidor.address().port;
   browser = await chromium.launch();
+  // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
+  const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
+  if (solo) {
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion };
+    try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
+    await browser.close(); servidor.close();
+    console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
+    process.exit(fallos + errores.length ? 1 : 0);
+  }
   try {
     await casoCarga();
     await casoNoSeCruzan();
@@ -999,6 +1997,17 @@ async function comparacion() {
     await casoPlaceholdersTextos();
     await casoSanJoseCompleto();
     await casoVistaPrevia();
+    await casoPantallasRediseno();
+    await casoRotulosRediseno();
+    await casoPanelRediseno();
+    await casoVistaPreviaEstado();
+    await casoRevisionFinal();
+    await casoDisenoDatos();
+    await casoDisenoFondo();
+    await casoDisenoColores();
+    await casoDisenoRotulo();
+    await casoDisenoProduccion();
+    await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

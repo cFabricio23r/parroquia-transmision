@@ -82,10 +82,100 @@ function paleta(principal, oscuro) {
   };
 }
 
-/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido). */
+/* #rrggbb -> [tono 0-360, saturación 0-1, luminosidad 0-1]. */
+function _hsl(hex) {
+  const [r, g, b] = _rgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+/* [tono, saturación, luminosidad] -> #rrggbb (Math.round por canal). */
+function _deHsl(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.min(1, Math.max(0, s));
+  l = Math.min(1, Math.max(0, l));
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r, g, b].map((v) => {
+    const n = Math.round((v + m) * 255);
+    return (n < 16 ? '0' : '') + n.toString(16);
+  }).join('');
+}
+
+/* Tintes de referencia: los colores del diseño para la identidad vino (principal #8a1c2b, acento #d9a441).
+   Salen de los artboards F4 (VicEdPantallas.dc.html): línea 25 (Inicio: ceja #f2d6da, cursiva #fbeef0, degradado
+   hasta #c0485a, filete #d9a441 -> #f0d08f), línea 31 (Avisos: sub #c0485a, filas #fbeef0) y línea 35 (Producción
+   claro: papel #faf6f3, ceja #3a2a2c, pie #5a4a4c). */
+const TINTES_REF = {
+  principal: '#8a1c2b', vivo: '#c0485a', tenue: '#f2d6da', velo: '#fbeef0',
+  tinta: '#3a2a2c', gris: '#5a4a4c', papel: '#faf6f3', acento: '#d9a441', acentoClaro: '#f0d08f'
+};
+
+/* Lleva `ref` (un tinte del diseño, hecho para `base`) al color `color`: gira el tono lo que separa `color` de
+   `base`, multiplica la saturación por s(color) / s(base) (el resultado, con 1 como tope) y deja la luminosidad
+   del diseño. */
+function _llevarTinte(ref, base, color) {
+  const [hb, sb] = _hsl(base);
+  const [hc, sc] = _hsl(color);
+  const [h, s, l] = _hsl(ref);
+  return [h + hc - hb, Math.min(1, sb ? s * (sc / sb) : 0), l];
+}
+
+/* Tintes del diseño a partir de los colores de la parroquia. Con #8a1c2b (y acento #d9a441) da exactamente los
+   valores del artboard. Guardas de contraste: vivo (texto chico sobre blanco: kicker del rótulo, sub de Avisos)
+   baja su luminosidad de a 0.01 hasta 4.5:1 contra blanco; filaTexto es el principal si llega a 4.5:1 contra velo
+   (el fondo de las filas) y, si no, el oscuro. acentoClaro (centro del filete de la franja) solo con acento. */
+function tintes(principal, oscuro, acento) {
+  const t = {};
+  for (const k of ['vivo', 'tenue', 'velo', 'tinta', 'gris', 'papel']) {
+    const [h, s, l] = _llevarTinte(TINTES_REF[k], TINTES_REF.principal, principal);
+    let hex = _deHsl(h, s, l);
+    if (k === 'vivo') {
+      for (let i = 1; contraste('#ffffff', hex) < MIN_CONTRASTE && l - i / 100 >= 0; i++) hex = _deHsl(h, s, l - i / 100);
+    }
+    t[k] = hex;
+  }
+  t.filaTexto = contraste(t.velo, principal) >= MIN_CONTRASTE ? principal : oscuro;
+  t.acentoClaro = typeof acento === 'string' && RE_HEX.test(acento)
+    ? _deHsl(..._llevarTinte(TINTES_REF.acentoClaro, TINTES_REF.acento, acento)) : null;
+  return t;
+}
+
+/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido)
+   y los tintes del diseño (--vivo --tenue --velo --tinta --gris --papel --fila-texto, más --vivo-rgb y --tenue-rgb
+   como «r, g, b» para rgba()). Con colores.acento (#rrggbb) pone también --acento, --acento-claro y la clase
+   con-acento en <html>; sin acento quita las tres, así una configuración sin acento deja <html> como siempre. */
 function aplicarPaleta(c) {
+  const raiz = document.documentElement;
   const p = paleta(c.colores.principal, c.colores.oscuro);
-  for (const k of Object.keys(p)) document.documentElement.style.setProperty('--' + k, p[k]);
+  for (const k of Object.keys(p)) raiz.style.setProperty('--' + k, p[k]);
+  const acento = c.colores.acento;
+  const conAcento = typeof acento === 'string' && RE_HEX.test(acento);
+  const t = tintes(c.colores.principal, c.colores.oscuro, conAcento ? acento : undefined);
+  for (const k of ['vivo', 'tenue', 'velo', 'tinta', 'gris', 'papel']) raiz.style.setProperty('--' + k, t[k]);
+  raiz.style.setProperty('--fila-texto', t.filaTexto);
+  raiz.style.setProperty('--vivo-rgb', _rgb(t.vivo).join(', '));
+  raiz.style.setProperty('--tenue-rgb', _rgb(t.tenue).join(', '));
+  if (conAcento) {
+    raiz.style.setProperty('--acento', acento);
+    raiz.style.setProperty('--acento-claro', t.acentoClaro);
+    raiz.classList.add('con-acento');
+  } else {
+    raiz.style.removeProperty('--acento');
+    raiz.style.removeProperty('--acento-claro');
+    raiz.classList.remove('con-acento');
+  }
 }
 
 /* ---------- Validación de config.json (esquema 1) ---------- */
@@ -128,17 +218,44 @@ const CLAVES_TEXTOS = [
   'portada_ceja', 'portada_cursiva', 'portada_titulo', 'portada_fecha', 'portada_sub',
   'gracias_pildora', 'gracias_titulo', 'gracias_cursiva', 'gracias_ceja',
   'avisos_sub', 'avisos_titulo', 'horarios_titulo', 'capa_logo', 'barra_y', 'franja',
-  'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario'
+  'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario',
+  'prod_ceja', 'prod_nombre'
 ];
 
-const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios'];
+/* Ids de los rótulos de cada tipo común, copiados de tipos.js (que se carga después). Una prueba los compara. */
+const IDS_ROTULO_COMUN = {
+  dominical: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  semana: ['persona', 'lectura1', 'salmo', 'evangelio'],
+  horasanta: ['guia', 'santisimo', 'lectura1', 'oracion', 'bendicion'],
+  sector: ['persona', 'lugar', 'lectura1', 'salmo', 'evangelio'],
+  patronalsector: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  procesion: ['lugar', 'oracion', 'rosario', 'persona'],
+  otros: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  prenovena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  novena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  patronal: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  evento: ['persona', 'libre']
+};
+
+const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo'];
 const MODOS_PANTALLA = ['como-viene', 'personalizada'];
 const TIPOS_FONDO = ['degradado', 'color', 'imagen'];
 const IMAGENES_PANTALLA = ['automatica', 'patrono', 'fachada', 'logo', 'custodia', 'santo', 'ninguna'];
 const DISTRIBUCIONES = ['izquierda', 'derecha', 'centro'];
-const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina'];
-const TIPOGRAFIAS = ['montserrat'];
-const ESQUINAS_ROTULO = ['redondeadas', 'rectas'];
+const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina', 'cuenta'];
+/* Elementos que la parroquia puede pedir a propósito (lo opuesto a ocultar). */
+const ELEMENTOS_MOSTRABLES = ['redes', 'horarios'];
+const PORTADAS_PROPIO = ['ninguna', 'fiesta', 'evento'];
+const MAX_NOMBRE_PANEL = 40;
+const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
+/* Esquinas de los rótulos: los nombres del artboard F6 (Rectas, Suaves, Redondas) y, para que una configuración
+   vieja siga validando, 'redondeadas'. ESQUINAS_DISENO traduce cada valor al del diseño: 'redondeadas' (24px) es
+   'suaves', que mide lo mismo. */
+const ESQUINAS_ROTULO = ['rectas', 'suaves', 'redondas', 'redondeadas'];
+const ESQUINAS_DISENO = { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' };
+/* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
+const COLORES_CON_NOMBRE = ['principal', 'oscuro', 'acento', 'blanco'];
+const MAX_HORAS = 6;
 const POSICIONES_ROTULO = ['izquierda', 'centro'];
 const ESQUINAS_TIPO = ['hoy', 'fecha', 'fiesta', 'texto'];
 const REDES = ['facebook', 'youtube', 'instagram', 'whatsapp', 'web'];
@@ -167,6 +284,19 @@ function _textoCorto(v, campo, errores, obligatorio) {
   else if (v.length > MAX_TEXTO) errores.push('El texto (' + campo + ') pasa de ' + MAX_TEXTO + ' caracteres.');
 }
 
+/* Resuelve un color de la config: un nombre (principal, oscuro, acento, blanco) o un #rrggbb.
+   Devuelve '#rrggbb' o null si el nombre no existe, falta ese color o el valor no es válido. */
+function colorDe(valor, colores) {
+  if (typeof valor !== 'string') return null;
+  if (valor === 'blanco') return '#ffffff';
+  if (RE_HEX.test(valor)) return valor;
+  if (COLORES_CON_NOMBRE.includes(valor) && _objeto(colores)) {
+    const hex = colores[valor];
+    return typeof hex === 'string' && RE_HEX.test(hex) ? hex : null;
+  }
+  return null;
+}
+
 function _unoDe(v, validos, campo, errores) {
   if (v !== undefined && !validos.includes(v)) errores.push('El valor (' + campo + ') debe ser uno de: ' + validos.join(', ') + '.');
 }
@@ -175,6 +305,24 @@ function _unoDe(v, validos, campo, errores) {
 function _validarColorConBlanco(v, campo, errores) {
   if (typeof v !== 'string' || !RE_HEX.test(v)) errores.push('El color (' + campo + ') debe tener la forma #rrggbb.');
   else if (contraste('#ffffff', v) < MIN_CONTRASTE) errores.push('El texto blanco no se lee sobre el color (' + campo + '): elige uno más oscuro.');
+}
+
+/* Color #rrggbb o uno de `nombres`. Sin exigir contraste: no va bajo texto blanco.
+   Un nombre que apunta a un color que la parroquia no definió (hoy, solo el acento) es error. */
+function _validarColorNombrado(v, nombres, campo, colores, errores) {
+  if (typeof v === 'string' && RE_HEX.test(v)) return;
+  if (typeof v !== 'string' || !nombres.includes(v)) {
+    errores.push('El color (' + campo + ') debe ser #rrggbb o uno de: ' + nombres.join(', ') + '.');
+  } else if (v === 'acento' && !(_objeto(colores) && colores.acento !== undefined)) {
+    errores.push('El color (' + campo + ') usa el acento, pero falta colores.acento.');
+  }
+}
+
+/* El bloque de configuración de la vista, o null si no está personalizada. Vive aquí (y no en pantallas.js)
+   para que produccion.html lo use sin cargar pantallas.js. PARROQUIA se lee AL LLAMARSE. */
+function bloquePantalla(vista) {
+  const b = PARROQUIA.pantallas && PARROQUIA.pantallas[vista];
+  return b && typeof b === 'object' && b.modo === 'personalizada' ? b : null;
 }
 
 /* `id` debe ser el id de una imagen de la galería; ids = los ids válidos. */
@@ -219,6 +367,11 @@ function _validarPantalla(pa, campo, ids, errores) {
       if (!ELEMENTOS_OCULTABLES.includes(e)) errores.push('Ese elemento no se puede ocultar (' + campo + '.ocultar[' + i + ']): solo ' + ELEMENTOS_OCULTABLES.join(', ') + '.');
     });
   }
+  if (pa.mostrar !== undefined && _lista(pa.mostrar, campo + '.mostrar', ELEMENTOS_MOSTRABLES.length, errores)) {
+    pa.mostrar.forEach((e, i) => {
+      if (!ELEMENTOS_MOSTRABLES.includes(e)) errores.push('Ese elemento no se puede mostrar (' + campo + '.mostrar[' + i + ']): solo ' + ELEMENTOS_MOSTRABLES.join(', ') + '.');
+    });
+  }
   if (pa.textos !== undefined) {
     if (!_objeto(pa.textos)) {
       errores.push('Los textos (' + campo + '.textos) deben ser un objeto.');
@@ -243,7 +396,7 @@ function _validarPantallas(pantallas, ids, errores) {
   }
 }
 
-function _validarRotulos(r, errores) {
+function _validarRotulos(r, errores, colores) {
   if (r === undefined) return;
   if (!_objeto(r)) {
     errores.push('Los rótulos (rotulos) deben ser un objeto.');
@@ -252,9 +405,39 @@ function _validarRotulos(r, errores) {
   _unoDe(r.tipografia, TIPOGRAFIAS, 'rotulos.tipografia', errores);
   _unoDe(r.esquinas, ESQUINAS_ROTULO, 'rotulos.esquinas', errores);
   _unoDe(r.posicion, POSICIONES_ROTULO, 'rotulos.posicion', errores);
-  if (r.colorLado !== undefined) _validarColorConBlanco(r.colorLado, 'rotulos.colorLado', errores);
+  if (r.colorLado !== undefined) _validarColorNombrado(r.colorLado, COLORES_CON_NOMBRE, 'rotulos.colorLado', colores, errores);
+  if (r.colorLinea !== undefined) _validarColorNombrado(r.colorLinea, COLORES_CON_NOMBRE.filter((n) => n !== 'blanco'), 'rotulos.colorLinea', colores, errores);
+  if (r.logoEsquina !== undefined && typeof r.logoEsquina !== 'boolean') errores.push('El valor (rotulos.logoEsquina) debe ser verdadero o falso.');
   if (r.cargos !== undefined && _lista(r.cargos, 'rotulos.cargos', 12, errores)) {
     r.cargos.forEach((t, i) => _textoCorto(t, 'rotulos.cargos[' + i + ']', errores, true));
+  }
+}
+
+/* nombrePanel (1 a MAX_NOMBRE_PANEL caracteres si viene), textoInicio y textoGracias (hasta MAX_TEXTO). */
+function _validarTextosTipo(t, campo, errores) {
+  if (t.nombrePanel !== undefined) {
+    _textoCorto(t.nombrePanel, campo + '.nombrePanel', errores, true);
+    if (typeof t.nombrePanel === 'string' && t.nombrePanel.length > MAX_NOMBRE_PANEL) {
+      errores.push('El nombre en el panel (' + campo + '.nombrePanel) pasa de ' + MAX_NOMBRE_PANEL + ' caracteres.');
+    }
+  }
+  _textoCorto(t.textoInicio, campo + '.textoInicio', errores, false);
+  _textoCorto(t.textoGracias, campo + '.textoGracias', errores, false);
+}
+
+/* Ajustes de un tipo común: tipos.ajustes.<clave>. Valen aunque el tipo esté apagado. */
+function _validarAjusteTipo(a, clave, ids, errores) {
+  const campo = 'tipos.ajustes.' + clave;
+  if (!_objeto(a)) {
+    errores.push('Los ajustes del tipo (' + campo + ') deben ser un objeto.');
+    return;
+  }
+  _validarTextosTipo(a, campo, errores);
+  _validarImagenElegida(a.imagen, campo + '.imagen', ids, errores, IMAGENES_PANTALLA.filter((k) => k !== 'automatica'));
+  if (a.ocultarRotulos !== undefined && _lista(a.ocultarRotulos, campo + '.ocultarRotulos', IDS_ROTULO_COMUN[clave].length, errores)) {
+    a.ocultarRotulos.forEach((r, j) => {
+      if (!IDS_ROTULO_COMUN[clave].includes(r)) errores.push('Ese rótulo no existe en este tipo (' + campo + '.ocultarRotulos[' + j + ']): solo ' + IDS_ROTULO_COMUN[clave].join(', ') + '.');
+    });
   }
 }
 
@@ -277,6 +460,8 @@ function _validarTipoPropio(t, i, claves, ids, errores) {
   for (const k of ['descripcion', 'titulo', 'ceja', 'cursiva', 'franja', 'esquinaTexto']) _textoCorto(t[k], campo + '.' + k, errores, false);
   _validarImagenElegida(t.imagen, campo + '.imagen', ids, errores, IMAGENES_PANTALLA.filter((k) => k !== 'automatica'));
   _unoDe(t.esquina, ESQUINAS_TIPO, campo + '.esquina', errores);
+  _unoDe(t.portada, PORTADAS_PROPIO, campo + '.portada', errores);
+  _validarTextosTipo(t, campo, errores);
   if (t.rotulos !== undefined && _lista(t.rotulos, campo + '.rotulos', BASES_ROTULO.length, errores)) {
     t.rotulos.forEach((b, j) => {
       if (!BASES_ROTULO.includes(b)) errores.push('Ese rótulo no existe (' + campo + '.rotulos[' + j + ']): solo ' + BASES_ROTULO.join(', ') + '.');
@@ -296,6 +481,16 @@ function _validarTipos(tp, ids, errores) {
       if (!CLAVES_COMUNES.includes(k)) errores.push('Ese tipo común no existe (tipos.apagados[' + i + ']).');
     });
     apagados = tp.apagados.filter((k) => CLAVES_COMUNES.includes(k));
+  }
+  if (tp.ajustes !== undefined) {
+    if (!_objeto(tp.ajustes)) {
+      errores.push('Los ajustes (tipos.ajustes) deben ser un objeto.');
+    } else {
+      for (const k of Object.keys(tp.ajustes)) {
+        if (!CLAVES_COMUNES.includes(k)) errores.push('Ese tipo común no existe (tipos.ajustes.' + k + ').');
+        else _validarAjusteTipo(tp.ajustes[k], k, ids, errores);
+      }
+    }
   }
   let propios = 0;
   if (tp.propios !== undefined && _lista(tp.propios, 'tipos.propios', 10, errores)) {
@@ -327,6 +522,7 @@ function _validarGaleria(g, errores) {
     }
     if (!_texto(im.src)) errores.push('Falta el archivo de la imagen (' + campo + '.src).');
     else if (!RUTA_MEDIO.test(im.src)) errores.push('La ruta de la imagen (' + campo + '.src) debe ser medios/archivo con extensión png, jpg, jpeg, webp o svg.');
+    _textoCorto(im.nombre, campo + '.nombre', errores, false);
     if (!_texto(im.alt)) errores.push('Falta la descripción de la imagen (' + campo + '.alt).');
     else if (im.alt.length > MAX_TEXTO) errores.push('La descripción de la imagen (' + campo + '.alt) pasa de ' + MAX_TEXTO + ' caracteres.');
     if (im.etiquetas !== undefined && _lista(im.etiquetas, campo + '.etiquetas', 10, errores)) {
@@ -345,8 +541,25 @@ function _validarHorarios(h, errores) {
       return;
     }
     _textoCorto(x.dia, campo + '.dia', errores, true);
-    _textoCorto(x.hora, campo + '.hora', errores, true);
     _textoCorto(x.nota, campo + '.nota', errores, false);
+    _textoCorto(x.lugar, campo + '.lugar', errores, false);
+    if (x.horas === undefined) {
+      _textoCorto(x.hora, campo + '.hora', errores, true);
+      return;
+    }
+    // forma nueva: varias horas en el mismo día; no se mezcla con `hora`
+    if (x.hora !== undefined) errores.push('Usa hora o horas, no las dos (' + campo + '.horas).');
+    if (!_lista(x.horas, campo + '.horas', MAX_HORAS, errores)) return;
+    if (x.horas.length === 0) errores.push('Falta al menos una hora (' + campo + '.horas).');
+    x.horas.forEach((o, j) => {
+      const campoHora = campo + '.horas[' + j + ']';
+      if (!_objeto(o)) {
+        errores.push('La hora (' + campoHora + ') debe ser un objeto.');
+        return;
+      }
+      _textoCorto(o.hora, campoHora + '.hora', errores, true);
+      _textoCorto(o.nota, campoHora + '.nota', errores, false);
+    });
   });
 }
 
@@ -396,6 +609,7 @@ function _validarAvisos(av, errores) {
     if (fechasOk && x.desde !== undefined && x.hasta !== undefined && x.desde > x.hasta) {
       errores.push('La fecha de inicio (' + campo + '.desde) no puede ser posterior al fin (' + campo + '.hasta).');
     }
+    if (x.activo !== undefined && typeof x.activo !== 'boolean') errores.push('El valor (' + campo + '.activo) debe ser verdadero o falso.');
     if (x.orden !== undefined && !Number.isInteger(x.orden)) errores.push('El orden (' + campo + '.orden) debe ser un número entero.');
   });
 }
@@ -427,6 +641,10 @@ function validarConfig(c) {
       errores.push('El color oscuro (colores.oscuro) debe tener la forma #rrggbb.');
     } else if (contraste('#ffffff', col.oscuro) < MIN_CONTRASTE) {
       errores.push('El texto blanco no se lee sobre el color oscuro (colores.oscuro): elige uno más oscuro.');
+    }
+    // acento opcional: va como línea o filete, nunca bajo texto blanco, así que no exige contraste
+    if (col.acento !== undefined && (!_texto(col.acento) || !RE_HEX.test(col.acento))) {
+      errores.push('El color de acento (colores.acento) debe tener la forma #rrggbb.');
     }
   }
 
@@ -465,7 +683,7 @@ function validarConfig(c) {
 
   const ids = _validarGaleria(c.galeria, errores);
   _validarPantallas(c.pantallas, ids, errores);
-  _validarRotulos(c.rotulos, errores);
+  _validarRotulos(c.rotulos, errores, c.colores);
   _validarTipos(c.tipos, ids, errores);
   _validarHorarios(c.horarios, errores);
   _validarRedes(c.redes, errores);
@@ -640,8 +858,13 @@ function vigilarParroquia(ms = 60000) {
   setInterval(cargarParroquia, ms);
 }
 
-/* Vista previa: el editor manda el borrador por postMessage. Solo se acepta del mismo origen y de la ventana padre.
-   No se valida ni se guarda copia: valida el editor. */
+/* Estado de la transmisión que manda el editor junto con el borrador (tipo, rótulo al aire…), o null.
+   Solo lo lee leerEstado() en vista previa, y nunca se guarda en el almacenamiento. */
+let ESTADO_VISTA_PREVIA = null;
+
+/* Vista previa: el editor manda el borrador por postMessage: {tipo:'pev-vista-previa', config, estado?}.
+   Solo se acepta del mismo origen y de la ventana padre. No se valida ni se guarda copia: valida el editor.
+   Un estado que no es un objeto plano se ignora (queda null). */
 if (VISTA_PREVIA) {
   window.addEventListener('message', (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
@@ -649,6 +872,7 @@ if (VISTA_PREVIA) {
     if (!d || d.tipo !== 'pev-vista-previa' || !d.config || typeof d.config !== 'object') return;
     PARROQUIA = { ...CONFIG_NEUTRA, ...d.config, version: 1 };
     ESTADO_CONFIG = { origen: 'vista-previa', fecha: null, aviso: '' };
+    ESTADO_VISTA_PREVIA = Object.prototype.toString.call(d.estado) === '[object Object]' ? d.estado : null;
     _avisarParroquia();
   });
 }

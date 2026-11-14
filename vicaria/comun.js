@@ -84,11 +84,17 @@ function normalizarEstado(guardado) {
   return s;
 }
 
+/* En vista previa, lo que mandó el editor (ESTADO_VISTA_PREVIA) gana a lo guardado. Se copia: normalizar no lo toca. */
 function leerEstado() {
+  let previa = null;
+  if (VISTA_PREVIA && ESTADO_VISTA_PREVIA) {
+    try { previa = JSON.parse(JSON.stringify(ESTADO_VISTA_PREVIA)); } catch (e) { previa = null; }   // un estado que no se puede copiar se ignora
+  }
   try {
-    return normalizarEstado(JSON.parse(localStorage.getItem(CLAVE) || '{}'));
+    const guardado = JSON.parse(localStorage.getItem(CLAVE) || '{}');
+    return normalizarEstado(previa ? { ...guardado, ...previa } : guardado);
   } catch (e) {
-    return normalizarEstado({});
+    return normalizarEstado(previa || {});
   }
 }
 
@@ -208,6 +214,14 @@ function tituloCelebracion(s) {
   return rellenar(tipoDe(s).titulo, s).toUpperCase().trim();
 }
 
+/* Título de la portada de evento: el nombre del evento escrito en el panel, como en el tipo evento ('{evento}').
+   Un tipo propio con portada de evento cuyo título no usa {evento} también lo muestra; sin evento, su título. */
+function tituloPortadaEvento(s) {
+  const evento = s && typeof s.evento === 'string' ? s.evento.trim() : '';
+  if (!evento || String(tipoDe(s).titulo).indexOf('{evento}') !== -1) return tituloCelebracion(s);
+  return rellenar('{evento}', s).toUpperCase().trim();
+}
+
 /* ---------- Textos editables
    Cada texto tiene un valor automático (según la celebración). Si en el panel
    se escribe algo, eso reemplaza al automático. Salto de línea = Enter. */
@@ -219,7 +233,7 @@ function textosBase(s) {
   const d = diasFaltan(s);
   const frase = typeof s.frase === 'string' ? s.frase.trim() : '';
   return {
-    marca: _nombreYLugar(),
+    marca: _nombreYLugar(NL),   // F4:25: nombre y lugar en dos líneas
     inicio_pildora: tituloCelebracion(s),
     inicio_ceja: rellenar(tipo.ceja, s).toUpperCase(),
     inicio_titulo: tipo.tituloInicio || 'En breve\ncomenzamos',
@@ -237,7 +251,7 @@ function textosBase(s) {
     avisos_sub: nombre.toUpperCase(),
     avisos_titulo: 'Avisos',
     horarios_titulo: 'Horarios de misa',
-    capa_logo: nombre,
+    capa_logo: _nombreYLugar(NL),   // F4:37: la capa del logo, igual que la marca
     barra_y: rellenar(tipo.barra, s),
     franja: frase || rellenar(tipo.franja, s),
     k_lectura1: 'PRIMERA LECTURA',
@@ -245,7 +259,9 @@ function textosBase(s) {
     k_lectura2: 'SEGUNDA LECTURA',
     k_evangelio: 'SANTO EVANGELIO',
     k_rosario: 'ORACIÓN',
-    t_rosario: 'Santo Rosario'
+    t_rosario: 'Santo Rosario',
+    prod_ceja: 'UNA PRODUCCIÓN DE',
+    prod_nombre: 'Comunicaciones'
   };
 }
 
@@ -254,9 +270,10 @@ function tx(s, clave) {
   return propio || textosBase(s)[clave] || '';
 }
 
-/* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene). */
-function _nombreYLugar() {
-  return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(' · ');
+/* «Nombre · lugar» de la parroquia ('' si la configuración no los tiene); con sep = NL, en dos líneas. */
+const NL = String.fromCharCode(10);
+function _nombreYLugar(sep = ' · ') {
+  return [PARROQUIA.nombre, PARROQUIA.lugar].filter((t) => typeof t === 'string' && t.trim() !== '').join(sep);
 }
 
 /* La línea de parroquia bajo los rótulos: la escrita en el panel, o «nombre · lugar» de la configuración EN USO
