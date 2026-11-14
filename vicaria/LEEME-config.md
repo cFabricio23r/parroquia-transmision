@@ -293,6 +293,18 @@ Se ven en la pantalla de avisos, **antes** de los que se escriben en el panel. E
 | `desde`, `hasta` | Opcionales, `AAAA-MM-DD`. El aviso se ve desde el día `desde` hasta el día `hasta`, **ambos inclusive** (hora local de la pantalla). `desde` no puede ser posterior a `hasta`. Sin fechas, siempre se ve. |
 | `orden` | Opcional; número entero. Va primero el menor; si empatan, el que está antes en la lista. |
 
+## Vista previa del editor
+
+El editor muestra las pantallas dentro de un `iframe` del mismo origen con `?vista-previa=1` (por ejemplo `pantalla.html?tipo=inicio&vista-previa=1` o `rotulos.html?vista-previa=1`). En ese modo la página no pide `config.json`: espera un mensaje (`postMessage`) de la ventana padre, del mismo origen:
+
+```js
+{ tipo: 'pev-vista-previa', config: { /* el borrador */ }, estado: { tipo: 'horasanta', rotulo: 'persona', celebrante: 'P. Juan Pérez' } }
+```
+
+- `config` es el borrador de la configuración; no se valida ni se guarda.
+- `estado` es opcional: los campos del estado de la transmisión (tipo, rótulo al aire, textos…) que la vista previa debe mostrar. Ganan a lo guardado y nunca se escriben en el almacenamiento. Si no es un objeto, se ignora. Cada mensaje reemplaza el estado del anterior: uno sin `estado` vuelve al guardado.
+- Un mensaje de otro origen, de otra ventana o de otro `tipo` se ignora.
+
 ## Antes de publicar: lista de revisión
 
 - [ ] `version` subió y `publicado` es de hoy.

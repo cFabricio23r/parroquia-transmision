@@ -2646,6 +2646,60 @@ grupo('vista previa', () => {
     v.enviar(mensaje(v.ventana, { data: { tipo: 'pev-vista-previa', config: null } }));
     assert.equal(vivo(v.c, 'PARROQUIA').nombre, '');
   });
+  /* Con tipos.js y comun.js: el estado que manda el editor llega a leerEstado(). */
+  function cargarVistaComun(dentroDeIframe, almacen = {}) {
+    const oyentes = [];
+    const ventana = { innerWidth: 1920, innerHeight: 1080, addEventListener: (t, f) => { if (t === 'message') oyentes.push(f); } };
+    ventana.parent = dentroDeIframe ? { marca: 'padre' } : ventana;
+    const loc = { pathname: '/ciudad-arce/pantalla.html', search: '?tipo=inicio&vista-previa=1', origin: 'http://editor.test' };
+    const c = cargar(['parroquia.js', 'tipos.js', 'comun.js'], almacen, { location: loc, window: ventana });
+    return { c, ventana, enviar: (e) => oyentes.forEach((f) => f(e)) };
+  }
+  const conEstado = (ventana, estado) => mensaje(ventana, { data: { tipo: 'pev-vista-previa', config: { nombre: 'Parroquia de Prueba' }, estado } });
+  prueba('vista previa: el estado del mensaje llega a leerEstado()', () => {
+    const v = cargarVistaComun(true);
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+    assert.equal(v.c.leerEstado().tipo, 'horasanta');
+    assert.equal(v.c.leerEstado().rotulo, 'ninguno', 'lo que no manda sale del guardado o del predeterminado');
+  });
+  prueba('vista previa: el estado se suma al guardado de la vista previa', () => {
+    const v = cargarVistaComun(true, { 'pev_vistaprevia_ciudad-arce_estado_v1': JSON.stringify({ celebrante: 'P. Guardado', tipo: 'novena' }) });
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+    const s = v.c.leerEstado();
+    assert.equal(s.tipo, 'horasanta');
+    assert.equal(s.celebrante, 'P. Guardado');
+  });
+  prueba('vista previa: un estado que no es un objeto plano se ignora', () => {
+    for (const estado of ['x', 7, null, ['horasanta']]) {
+      const v = cargarVistaComun(true);
+      v.enviar(conEstado(v.ventana, { tipo: 'horasanta' }));
+      v.enviar(conEstado(v.ventana, estado));
+      assert.equal(vivo(v.c, 'ESTADO_VISTA_PREVIA'), null, JSON.stringify(estado));
+      assert.equal(v.c.leerEstado().tipo, 'novena', JSON.stringify(estado));
+      assert.equal(vivo(v.c, 'PARROQUIA').nombre, 'Parroquia de Prueba', 'la configuración sí se aplica');
+    }
+  });
+  prueba('vista previa: sin VISTA_PREVIA, ESTADO_VISTA_PREVIA no se lee', () => {
+    const v = cargarVistaComun(false);
+    assert.equal(v.c.VISTA_PREVIA, false);
+    vm.runInContext("ESTADO_VISTA_PREVIA = { tipo: 'horasanta' }", v.c);
+    assert.equal(v.c.leerEstado().tipo, 'novena');
+  });
+  prueba('vista previa: el estado mandado no se guarda en el almacenamiento', () => {
+    const v = cargarVistaComun(true);
+    const antes = Object.keys(v.c.__almacen).sort();
+    v.enviar(conEstado(v.ventana, { tipo: 'horasanta', rotulo: 'guia' }));
+    v.c.leerEstado();
+    assert.deepEqual(Object.keys(v.c.__almacen).sort(), antes);
+    assert.equal(Object.keys(v.c.__almacen).filter((k) => k.includes('estado_v1')).length, 0);
+  });
+  prueba('vista previa: leerEstado no cambia lo que mandó el editor', () => {
+    const v = cargarVistaComun(true);
+    const estado = { tipo: 'horasanta', avisos: [{ a: 'Uno', f: '' }] };
+    v.enviar(conEstado(v.ventana, estado));
+    v.c.leerEstado(); v.c.leerEstado();
+    assert.equal(vivo(v.c, 'ESTADO_VISTA_PREVIA').avisos.length, 1);
+  });
 });
 
 /* ---------- Resultado ---------- */

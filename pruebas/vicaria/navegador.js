@@ -1193,6 +1193,33 @@ async function casoPanelRediseno() {
   await ctx.close();
 }
 
+/* Rediseño · Vista previa con estado: el editor manda también el tipo y el rótulo al aire. */
+async function casoVistaPreviaEstado() {
+  console.log('Rediseño · Vista previa con estado mandado por mensaje');
+  const ctx = await nuevoContexto();
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1280, 800);
+  const config = { nombre: 'Parroquia de Prueba', lugar: 'Lugar de Prueba', colores: { principal: '#7a3b12', oscuro: '#4a2008' } };
+  const conIframe = async (src, estado, listo) => {
+    await p.evaluate((s) => {
+      const viejo = document.getElementById('vp'); if (viejo) viejo.remove();
+      const f = document.createElement('iframe'); f.id = 'vp'; f.title = 'Vista previa'; f.width = 480; f.height = 270; f.src = s;
+      document.body.append(f);
+    }, src);
+    await p.waitForFunction(() => { const d = document.getElementById('vp').contentDocument; return d && d.readyState === 'complete' && typeof d.defaultView.leerEstado === 'function'; });
+    await p.evaluate(([c, e]) => document.getElementById('vp').contentWindow.postMessage({ tipo: 'pev-vista-previa', config: c, estado: e }, location.origin), [config, estado]);
+    await p.waitForFunction(listo, null, { timeout: 5000 }).catch(() => {});
+  };
+  await conIframe(`/${CA}/rotulos.html?vista-previa=1`, { rotulo: 'persona', celebrante: 'P. Juan Pérez' },
+    () => (document.getElementById('vp').contentDocument.getElementById('r-t') || {}).textContent === 'P. Juan Pérez');
+  igual(await p.evaluate(() => document.getElementById('vp').contentDocument.getElementById('r-t').textContent), 'P. Juan Pérez', 'rótulos: #r-t muestra el celebrante mandado');
+  await conIframe(`/${CA}/pantalla.html?tipo=inicio&vista-previa=1`, { tipo: 'horasanta' },
+    () => document.getElementById('vp').contentDocument.getElementById('i-pildora').textContent === 'HORA SANTA');
+  igual(await p.evaluate(() => document.getElementById('vp').contentDocument.getElementById('i-pildora').textContent), 'HORA SANTA', 'pantalla: #i-pildora muestra el tipo mandado');
+  const guardadas = await p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('pev_vistaprevia_') && k.endsWith('_estado_v1')));
+  igual(guardadas.length, 0, 'el estado de la vista previa no se guarda en localStorage (' + guardadas.join(', ') + ')');
+  await ctx.close();
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1270,6 +1297,7 @@ async function casoLineaBase() {
     await casoPantallasRediseno();
     await casoRotulosRediseno();
     await casoPanelRediseno();
+    await casoVistaPreviaEstado();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

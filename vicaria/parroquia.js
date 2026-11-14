@@ -775,8 +775,13 @@ function vigilarParroquia(ms = 60000) {
   setInterval(cargarParroquia, ms);
 }
 
-/* Vista previa: el editor manda el borrador por postMessage. Solo se acepta del mismo origen y de la ventana padre.
-   No se valida ni se guarda copia: valida el editor. */
+/* Estado de la transmisión que manda el editor junto con el borrador (tipo, rótulo al aire…), o null.
+   Solo lo lee leerEstado() en vista previa, y nunca se guarda en el almacenamiento. */
+let ESTADO_VISTA_PREVIA = null;
+
+/* Vista previa: el editor manda el borrador por postMessage: {tipo:'pev-vista-previa', config, estado?}.
+   Solo se acepta del mismo origen y de la ventana padre. No se valida ni se guarda copia: valida el editor.
+   Un estado que no es un objeto plano se ignora (queda null). */
 if (VISTA_PREVIA) {
   window.addEventListener('message', (e) => {
     if (e.origin !== location.origin || e.source !== window.parent) return;
@@ -784,6 +789,7 @@ if (VISTA_PREVIA) {
     if (!d || d.tipo !== 'pev-vista-previa' || !d.config || typeof d.config !== 'object') return;
     PARROQUIA = { ...CONFIG_NEUTRA, ...d.config, version: 1 };
     ESTADO_CONFIG = { origen: 'vista-previa', fecha: null, aviso: '' };
+    ESTADO_VISTA_PREVIA = Object.prototype.toString.call(d.estado) === '[object Object]' ? d.estado : null;
     _avisarParroquia();
   });
 }

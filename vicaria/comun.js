@@ -84,11 +84,17 @@ function normalizarEstado(guardado) {
   return s;
 }
 
+/* En vista previa, lo que mandó el editor (ESTADO_VISTA_PREVIA) gana a lo guardado. Se copia: normalizar no lo toca. */
 function leerEstado() {
+  let previa = null;
+  if (VISTA_PREVIA && ESTADO_VISTA_PREVIA) {
+    try { previa = JSON.parse(JSON.stringify(ESTADO_VISTA_PREVIA)); } catch (e) { previa = null; }   // un estado que no se puede copiar se ignora
+  }
   try {
-    return normalizarEstado(JSON.parse(localStorage.getItem(CLAVE) || '{}'));
+    const guardado = JSON.parse(localStorage.getItem(CLAVE) || '{}');
+    return normalizarEstado(previa ? { ...guardado, ...previa } : guardado);
   } catch (e) {
-    return normalizarEstado({});
+    return normalizarEstado(previa || {});
   }
 }
 
