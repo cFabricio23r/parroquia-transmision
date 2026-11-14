@@ -130,3 +130,45 @@
   .pv-guardado { display: none; }
   .pv-chip-borrador { white-space: normal; }
 }
+
+/* ---- F1 Resumen (Tarea 11, AB/VicEdResumen) ---- */
+.pv-resumen-grilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pv-resumen-tarjeta {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pv-resumen-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pv-resumen-titulo { font-size: 14px; font-weight: 700; color: var(--pv-texto); text-decoration: none; }
+.pv-resumen-titulo:hover,
+.pv-resumen-titulo:focus-visible { text-decoration: underline; }
+.pv-resumen-estado { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--pv-texto); white-space: nowrap; }
+.pv-resumen-frase { margin: 0; font-size: 13px; color: var(--pv-texto-suave); line-height: 1.45; }
+.pv-resumen-links {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pv-resumen-links-lista { display: flex; flex-direction: column; gap: 10px; }
+.pv-resumen-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pv-resumen-link-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pv-resumen-link-etiqueta { font-size: 12px; font-weight: 700; color: var(--pv-texto-suave); }
+.pv-resumen-link-ruta { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.pv-resumen-copiar { flex-shrink: 0; }
+.pv-resumen-nota { margin: 0; font-size: 12px; color: var(--pv-texto-suave); line-height: 1.5; }
+.pv-resumen-botones { display: flex; gap: 10px; flex-wrap: wrap; }
+.pv-version-marco { display: block; width: 448px; max-width: 100%; height: 252px; border: 0; border-radius: 12px; background: var(--pv-encabezado); }
+@media (max-width: 1100px) {
+  .pv-resumen-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .pv-resumen-grilla { grid-template-columns: minmax(0, 1fr); }
+}

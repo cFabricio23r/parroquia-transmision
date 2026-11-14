@@ -9,11 +9,14 @@ export function Dialogo({
   abierto,
   titulo,
   onCerrar,
+  ancho,
   children,
 }: {
   abierto: boolean;
   titulo: string;
   onCerrar: () => void;
+  /** Ancho total en px (con el relleno de 28); sin él, 500. */
+  ancho?: number;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -34,6 +37,7 @@ export function Dialogo({
       ref={ref}
       className="pv-dialogo"
       aria-labelledby={id}
+      style={ancho ? { width: `min(${ancho}px, 100% - 32px)` } : undefined}
       onCancel={(e) => {
         e.preventDefault();
         onCerrar();
