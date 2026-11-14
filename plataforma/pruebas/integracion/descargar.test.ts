@@ -8,7 +8,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { clienteServicio, crearParroquia, crearUsuario, hacerMiembro, limpiarStorage, sufijo, type UsuarioPrueba } from './ayudas';
 import { publicar } from '../../lib/publicar';
-import { RESERVADOS, descargarPublicado, escribir } from '../../herramientas/descargar-publicado.mjs';
+import { RESERVADOS, descargarPublicado, escribir, motivoDeSlug } from '../../herramientas/descargar-publicado.mjs';
 
 const servicio = clienteServicio();
 const URL_LOCAL = process.env.SUPABASE_URL ?? '';
@@ -41,7 +41,7 @@ const ENTRADA = (slugsDelRepo: string[] = ['ciudad-arce', 'san-jose-ejemplo']) =
 });
 
 /** Publica de verdad con la Tarea 8: una parroquia con borrador completo y sus tres imágenes. */
-async function parroquiaPublicada(): Promise<{ slug: string; config: any }> {
+async function parroquiaPublicada(): Promise<{ id: string; slug: string; config: any }> {
   const p = await crearParroquia('des');
   const s = Math.random().toString(16).slice(2, 10).padEnd(8, '0');
   for (const n of [`logo-blanco-${s}.png`, `logo-color-${s}.png`, `fachada-${s}.png`]) {
@@ -63,7 +63,7 @@ async function parroquiaPublicada(): Promise<{ slug: string; config: any }> {
   expect(r.estado).toBe(200);
   const { data } = await servicio.storage.from('publicado').download(`${p.slug}/config.json`);
   const publicada = JSON.parse(await data!.text());
-  return { slug: p.slug, config: publicada };
+  return { id: p.id, slug: p.slug, config: publicada };
 }
 
 /** Escribe a mano un config.json (y lo que haga falta) en `publicado/<carpeta>/`. */
@@ -151,14 +151,14 @@ describe('descargar-publicado', () => {
 
   it('falla y nombra la parroquia si un config.json publicado no es válido', async () => {
     await parroquiaPublicada();
-    const mala = `inv-${sufijo()}`;
+    const mala = (await crearParroquia('inv')).slug;
     await subirConfig(mala, { esquema: 1, slug: mala, nombre: '' });
     nuevoDestino();
     await fallaNombrando(mala, /config\.json no es válido/);
   }, 60_000);
 
   it('falla y nombra la parroquia si su config.json no es JSON', async () => {
-    const mala = `json-${sufijo()}`;
+    const mala = (await crearParroquia('json')).slug;
     const { error } = await servicio.storage
       .from('publicado')
       .upload(`${mala}/config.json`, Buffer.from('{ no es json'), { contentType: 'application/json' });
@@ -170,7 +170,7 @@ describe('descargar-publicado', () => {
 
   it('una carpeta sin config.json (nunca llegó a las pantallas) se deja afuera con aviso y el resto sigue', async () => {
     const buena = await parroquiaPublicada();
-    const sola = `solo-${sufijo()}`;
+    const sola = (await crearParroquia('solo')).slug; // activa, pero sin config.json
     const ruta = `${sola}/medios/v1-fachada-0a1b2c3d.png`;
     const { error } = await servicio.storage.from('publicado').upload(ruta, png, { contentType: 'image/png' });
     expect(error).toBeNull();
@@ -187,7 +187,7 @@ describe('descargar-publicado', () => {
 
   it('falla y nombra la parroquia si su config nombra una imagen que no tiene el formato de lo publicado (no la baja)', async () => {
     const buena = await parroquiaPublicada();
-    const slug = `src-${sufijo()}`;
+    const slug = (await crearParroquia('src')).slug;
     await subirConfig(slug, { ...structuredClone(buena.config), slug, fachada: { src: 'medios/fachada.png', alt: 'Fachada' } });
     nuevoDestino();
     await fallaNombrando(slug, 'medios/fachada.png');
@@ -195,7 +195,7 @@ describe('descargar-publicado', () => {
 
   it('falla y nombra la parroquia si un src es MEDIOS/… (validarConfig no distingue mayúsculas, el formato publicado sí)', async () => {
     const buena = await parroquiaPublicada();
-    const slug = `may-${sufijo()}`;
+    const slug = (await crearParroquia('may')).slug;
     await subirConfig(slug, { ...structuredClone(buena.config), slug, fachada: { src: 'MEDIOS/Fachada.PNG', alt: 'Fachada' } });
     nuevoDestino();
     await fallaNombrando(slug, 'MEDIOS/Fachada.PNG');
@@ -203,26 +203,74 @@ describe('descargar-publicado', () => {
 
   it('falla y nombra la parroquia si una imagen que nombra no existe en publicado (404)', async () => {
     const buena = await parroquiaPublicada();
-    const slug = `sinimg-${sufijo()}`;
+    const slug = (await crearParroquia('sinimg')).slug;
     await subirConfig(slug, { ...structuredClone(buena.config), slug }); // sus medios/v1-… no existen bajo este slug
     nuevoDestino();
     await fallaNombrando(slug, /imagen.*no está en publicado/);
   }, 60_000);
 
-  it('falla y nombra la carpeta si su nombre no es un slug válido o es una ruta reservada', async () => {
+  it('una carpeta cuyo nombre no es un slug válido se deja afuera con aviso y el resto sigue', async () => {
     const buena = await parroquiaPublicada();
-    const casos: Array<[string, RegExp]> = [
-      ['Mal_Slug', /no es un slug válido/],
-      ['img', /ruta reservada/],
-    ];
-    for (const [carpeta, motivo] of casos) {
-      await subirConfig(carpeta, { ...structuredClone(buena.config), slug: carpeta });
-      nuevoDestino();
-      await fallaNombrando(carpeta, motivo);
-      await quitarSubidos();
-      rmSync(destino, { recursive: true, force: true });
-    }
+    await subirConfig('Mal_Slug', { ...structuredClone(buena.config), slug: 'Mal_Slug' });
+    nuevoDestino();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.parroquias).toContain(buena.slug);
+    expect(r.parroquias).not.toContain('Mal_Slug');
+    expect(existsSync(path.join(destino, 'Mal_Slug'))).toBe(false);
+    expect(aviso.mock.calls.some(([m]) => String(m).startsWith('AVISO:') && String(m).includes('Mal_Slug'))).toBe(true);
   }, 60_000);
+
+  it('una parroquia publicada y después desactivada se deja afuera con aviso; sus archivos siguen en el bucket', async () => {
+    const buena = await parroquiaPublicada();
+    const apagada = await parroquiaPublicada();
+    const { error } = await servicio.from('parroquias').update({ desactivada_en: new Date().toISOString() }).eq('id', apagada.id);
+    expect(error).toBeNull();
+    nuevoDestino();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.parroquias).toContain(buena.slug);
+    expect(r.parroquias).not.toContain(apagada.slug);
+    expect(existsSync(path.join(destino, apagada.slug))).toBe(false);
+    expect(
+      aviso.mock.calls.some(([m]) => String(m).startsWith('AVISO:') && String(m).includes(apagada.slug) && String(m).includes('no es una parroquia activa')),
+    ).toBe(true);
+    const { data } = await servicio.storage.from('publicado').download(`${apagada.slug}/config.json`);
+    expect(data).not.toBeNull();
+  }, 60_000);
+
+  it('una carpeta sin fila en parroquias se deja afuera con aviso', async () => {
+    const buena = await parroquiaPublicada();
+    const suelta = `suelta-${sufijo()}`;
+    await subirConfig(suelta, { ...structuredClone(buena.config), slug: suelta });
+    nuevoDestino();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.parroquias).toContain(buena.slug);
+    expect(r.parroquias).not.toContain(suelta);
+    expect(aviso.mock.calls.some(([m]) => String(m).includes(suelta) && String(m).includes('no es una parroquia activa'))).toBe(true);
+  }, 60_000);
+
+  it('una parroquia activa sin carpeta (sin publicar) no da aviso ni error', async () => {
+    const sinPublicar = await crearParroquia('sinpub');
+    nuevoDestino();
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await descargarPublicado(ENTRADA());
+    expect(r.parroquias).not.toContain(sinPublicar.slug);
+    expect(aviso.mock.calls.some(([m]) => String(m).includes(sinPublicar.slug))).toBe(false);
+  }, 60_000);
+
+  it('si slugs_activos no existe (falta la migración) falla nombrándola', async () => {
+    nuevoDestino();
+    const url = await escuchar(404);
+    const error = await descargarPublicado({ ...ENTRADA(), url }).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(error!.message).toContain('parroquias activas');
+    expect(error!.message).toContain('20261114000009');
+  });
 
   it('falla si un slug publicado coincide con una carpeta de vicaria/', async () => {
     const p = await parroquiaPublicada();
@@ -262,6 +310,12 @@ describe('descargar-publicado: guardias sin Supabase', () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
+  });
+
+  it('motivoDeSlug: slug inválido o ruta reservada', () => {
+    expect(motivoDeSlug('Mal_Slug')).toContain('no es un slug válido');
+    expect(motivoDeSlug('img')).toContain('ruta reservada');
+    expect(motivoDeSlug('san-jose')).toBeNull();
   });
 
   it('RESERVADOS es la misma lista que lib/slug.ts', () => {

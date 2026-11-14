@@ -14,7 +14,12 @@
      una imagen), o un slug publicado existe también en vicaria/;
    - una parroquia (el error la nombra) tiene un slug que no es válido o está reservado, su
      config.json no valida, nombra una imagen con forma rara, o una imagen que nombra no existe (404).
-  Única excepción: una carpeta sin config.json nunca estuvo en las pantallas; se avisa (`AVISO:`) y se sigue.
+  Dos excepciones, que se avisan (`AVISO:`) y no frenan a las demás:
+   - una carpeta sin config.json nunca estuvo en las pantallas;
+   - una carpeta que no es de ninguna parroquia activa (desactivada, borrada o puesta a mano): solo se
+     traen las carpetas cuyo nombre devuelve `slugs_activos()` (migración 20261114000009). Sus archivos
+     siguen en el bucket: reactivar la parroquia la vuelve a traer en el próximo build.
+  Si `slugs_activos()` no existe (la migración no está aplicada) el build falla nombrando la migración.
 */
 import { createClient } from '@supabase/supabase-js';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -32,7 +37,7 @@ const TAM_PAGINA = 100;
 /** Una parroquia publicada que no se puede traer. Siempre hace fallar el build (ver arriba). */
 class ParroquiaRota extends Error {}
 
-const motivoDeSlug = (slug) =>
+export const motivoDeSlug = (slug) =>
   slug.length < 3 || slug.length > 40 || !RE_SLUG.test(slug)
     ? 'el nombre de la carpeta no es un slug válido (3 a 40 caracteres: minúsculas, números y guiones)'
     : RESERVADOS.includes(slug)
@@ -112,15 +117,31 @@ export function escribir(destino, slug, { texto, imagenes }) {
 export async function descargarPublicado({ url, clave, destino, slugsDelRepo }) {
   if (!url) throw new Error('Falta NEXT_PUBLIC_SUPABASE_URL: el build necesita la dirección de Supabase para traer lo publicado.');
   if (!clave) throw new Error('Falta NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: el build necesita la clave publicable para traer lo publicado.');
-  const bucket = createClient(url, clave, { auth: { persistSession: false, autoRefreshToken: false } }).storage.from('publicado');
+  const cliente = createClient(url, clave, { auth: { persistSession: false, autoRefreshToken: false } });
+  const bucket = cliente.storage.from('publicado');
+
+  const { data: activosLeidos, error: errorActivos } = await cliente.rpc('slugs_activos');
+  if (errorActivos || !Array.isArray(activosLeidos)) {
+    throw falloSupabase(
+      'leer las parroquias activas (¿falta aplicar la migración 20261114000009_desactivar_parroquias?)',
+      errorActivos,
+    );
+  }
+  const activos = new Set(activosLeidos);
 
   // Las carpetas de primer nivel son las parroquias (en la lista salen con id null).
-  const slugs = [];
+  const listados = [];
   for (let offset = 0; ; offset += TAM_PAGINA) {
     const { data, error } = await bucket.list('', { limit: TAM_PAGINA, offset, sortBy: { column: 'name', order: 'asc' } });
     if (error || !data) throw falloSupabase('listar lo publicado', error);
-    slugs.push(...data.filter((e) => e.id === null).map((e) => e.name));
+    listados.push(...data.filter((e) => e.id === null).map((e) => e.name));
     if (data.length < TAM_PAGINA) break;
+  }
+
+  const slugs = [];
+  for (const slug of listados) {
+    if (activos.has(slug)) slugs.push(slug);
+    else console.warn(`AVISO: publicado/${slug}/ no es una parroquia activa (desactivada o sin parroquia); se deja afuera.`);
   }
 
   const repetidos = slugs.filter((s) => slugsDelRepo.includes(s));
