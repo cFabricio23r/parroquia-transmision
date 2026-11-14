@@ -3,6 +3,7 @@
 // app/editor/admin/acciones.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { correoInvitacion, type Mensaje } from './correo';
+import { validarNombre } from './perfiles';
 import { MENSAJE_CLAVES_DISTINTAS, MENSAJE_CLAVE_CORTA, MINIMO_CLAVE } from './sesion';
 import { revisarSlug } from './slug';
 import { DIAS_INVITACION, hashDe, nuevoToken } from './tokens';
@@ -159,15 +160,34 @@ interface FilaInvitacion {
   anulada_en: string | null;
 }
 
-async function buscarInvitacion(servicio: SupabaseClient, token: string): Promise<FilaInvitacion | null> {
+/**
+ * Estado de una invitación (Decisión 8 del plan 2). Usada o anulada gana aunque además esté vencida:
+ * a quien ya entró no se le pide que pida otra. Vence justo al llegar `vence_en`.
+ */
+export function estadoInvitacion(
+  fila: { usada_en: string | null; anulada_en: string | null; vence_en: string } | null,
+  ahora: number,
+): 'vigente' | 'vencida' | 'no-sirve' {
+  if (!fila || fila.usada_en || fila.anulada_en) return 'no-sirve';
+  const vence = new Date(fila.vence_en).getTime();
+  if (Number.isNaN(vence) || vence <= ahora) return 'vencida';
+  return 'vigente';
+}
+
+async function leerInvitacion(servicio: SupabaseClient, token: string): Promise<FilaInvitacion | null> {
   if (!token) return null;
   const { data } = await servicio
     .from('invitaciones')
     .select('id, correo, rol, parroquia_id, vence_en, usada_en, anulada_en')
     .eq('token_hash', hashDe(token))
     .maybeSingle();
-  if (!data || data.usada_en || data.anulada_en || new Date(data.vence_en).getTime() <= Date.now()) return null;
-  return data as FilaInvitacion;
+  return (data as FilaInvitacion | null) ?? null;
+}
+
+/** La invitación si está vigente; si no, null. */
+async function buscarInvitacion(servicio: SupabaseClient, token: string): Promise<FilaInvitacion | null> {
+  const fila = await leerInvitacion(servicio, token);
+  return estadoInvitacion(fila, Date.now()) === 'vigente' ? fila : null;
 }
 
 async function usuarioPorCorreo(servicio: SupabaseClient, correo: string): Promise<string | null> {
@@ -190,19 +210,26 @@ export interface Invitacion {
   paso: 'crear' | 'aceptar' | 'entrar' | 'otra-sesion';
 }
 
-/** Lo que muestra la página de la invitación. Null si ya no sirve. */
+export type ConsultaInvitacion =
+  | { estado: 'no-sirve' }
+  | { estado: 'vencida' }
+  | ({ estado: 'vigente'; venceEn: string } & Invitacion);
+
+/** Lo que muestra la página de la invitación: si no sirve, si venció, o qué paso le toca a quien la abre. */
 export async function consultarInvitacion(
   deps: Pick<DepsAdmin, 'servicio' | 'sesion'>,
   token: string,
-): Promise<Invitacion | null> {
-  const inv = await buscarInvitacion(deps.servicio, token);
-  if (!inv) return null;
+): Promise<ConsultaInvitacion> {
+  const inv = await leerInvitacion(deps.servicio, token);
+  const estado = estadoInvitacion(inv, Date.now());
+  if (estado === 'vencida') return { estado: 'vencida' };
+  if (estado !== 'vigente' || !inv) return { estado: 'no-sirve' };
   let parroquia: string | null = null;
   if (inv.parroquia_id) {
     const { data } = await deps.servicio.from('parroquias').select('nombre').eq('id', inv.parroquia_id).maybeSingle();
     parroquia = data?.nombre ?? null;
   }
-  const base = { correo: inv.correo, rol: inv.rol, parroquia };
+  const base = { estado: 'vigente' as const, venceEn: inv.vence_en, correo: inv.correo, rol: inv.rol, parroquia };
   if (!(await usuarioPorCorreo(deps.servicio, inv.correo))) return { ...base, paso: 'crear' };
   const { data } = await deps.sesion.auth.getUser();
   const actual = data.user?.email ? normalizar(data.user.email) : null;
@@ -218,14 +245,16 @@ export async function consultarInvitacion(
 export async function aceptarInvitacion(
   deps: DepsAdmin,
   token: string,
-  datos: { clave?: string; repetida?: string },
+  datos: { clave?: string; repetida?: string; nombre?: string },
 ): Promise<Resultado & { parroquiaSlug?: string; aviso?: string }> {
   try {
+    // Una vencida también da MENSAJE_INVITACION_INVALIDA (carrera rara entre abrir y enviar): la página distingue.
     const inv = await buscarInvitacion(deps.servicio, token);
     if (!inv) return { error: MENSAJE_INVITACION_INVALIDA };
     const existente = await usuarioPorCorreo(deps.servicio, inv.correo);
 
     const clave = datos.clave ?? '';
+    let nombre: string | null = null;
     if (existente) {
       const { data } = await deps.sesion.auth.getUser();
       const actual = data.user?.email ? normalizar(data.user.email) : null;
@@ -234,6 +263,10 @@ export async function aceptarInvitacion(
     } else {
       if (clave.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA, campo: 'clave' };
       if (clave !== (datos.repetida ?? '')) return { error: MENSAJE_CLAVES_DISTINTAS, campo: 'clave' };
+      // El nombre se pide solo al crear la cuenta y se valida antes de gastar el token.
+      const v = validarNombre(datos.nombre ?? '');
+      if ('error' in v) return { error: v.error, campo: 'nombre' };
+      nombre = v.nombre;
     }
 
     // Gasta el token: solo uno de dos pedidos simultáneos encuentra la fila todavía libre.
@@ -257,6 +290,14 @@ export async function aceptarInvitacion(
         const { data, error } = await deps.servicio.auth.admin.createUser({ email: inv.correo, password: clave, email_confirm: true });
         if (error || !data.user) throw error ?? new Error('sin usuario');
         usuarioId = data.user.id;
+        // La cuenta y la asignación valen más que el nombre: si guardarlo falla, solo se registra
+        // y se completa en Mi cuenta (Decisión 8 del plan 2).
+        if (nombre) {
+          const { error: errorPerfil } = await deps.servicio
+            .from('perfiles')
+            .upsert({ usuario_id: usuarioId, nombre, actualizado_en: new Date().toISOString() }, { onConflict: 'usuario_id' });
+          if (errorPerfil) console.error('[aceptarInvitacion:perfil]', errorPerfil.message);
+        }
       }
       if (inv.rol === 'administrador') {
         const { error } = await deps.servicio.from('administradores').upsert({ usuario_id: usuarioId }, { onConflict: 'usuario_id', ignoreDuplicates: true });

@@ -8,3 +8,10 @@ export function formatearFecha(iso: string, conHora = true): string {
   if (Number.isNaN(f.getTime())) return '—';
   return conHora ? f.toLocaleString('es', { timeZone: ZONA_HORARIA }) : f.toLocaleDateString('es', { timeZone: ZONA_HORARIA });
 }
+
+/** «14 de noviembre» (es, hora de El Salvador). Inválida: «—». */
+export function formatearDiaMes(iso: string): string {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return '—';
+  return f.toLocaleDateString('es', { day: 'numeric', month: 'long', timeZone: ZONA_HORARIA });
+}

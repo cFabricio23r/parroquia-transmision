@@ -46,8 +46,17 @@ export async function quitarAcceso(parroquiaId: string, usuarioId: string): Prom
   return r;
 }
 
-export async function aceptarInvitacion(token: string, clave: string, repetida: string): Promise<Resultado & { aviso?: string }> {
-  const r = await aceptarLogica(await deps(), String(token ?? ''), { clave: String(clave ?? ''), repetida: String(repetida ?? '') });
+export async function aceptarInvitacion(
+  token: string,
+  clave: string,
+  repetida: string,
+  nombre: string,
+): Promise<Resultado & { aviso?: string }> {
+  const r = await aceptarLogica(await deps(), String(token ?? ''), {
+    clave: String(clave ?? ''),
+    repetida: String(repetida ?? ''),
+    nombre: String(nombre ?? ''),
+  });
   if (r.error) return { error: r.error, campo: r.campo };
   if (r.aviso) return { aviso: r.aviso }; // la cuenta quedó creada pero no se pudo iniciar la sesión
   redirect('/editor');

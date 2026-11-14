@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatearFecha } from '../../lib/fecha';
+import { formatearDiaMes, formatearFecha } from '../../lib/fecha';
 
 describe('formatearFecha', () => {
   it('muestra la hora de El Salvador (UTC-6) sin depender de la zona del servidor', () => {
@@ -12,5 +12,15 @@ describe('formatearFecha', () => {
   });
   it('una fecha inválida no rompe la página', () => {
     expect(formatearFecha('no es fecha')).toBe('—');
+  });
+});
+
+describe('formatearDiaMes', () => {
+  it('día y mes en la hora de El Salvador', () => {
+    expect(formatearDiaMes('2026-11-15T03:00:00Z')).toBe('14 de noviembre');
+    expect(formatearDiaMes('2026-11-15T07:00:00Z')).toBe('15 de noviembre');
+  });
+  it('inválida: raya', () => {
+    expect(formatearDiaMes('no es fecha')).toBe('—');
   });
 });

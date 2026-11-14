@@ -8,6 +8,7 @@ import {
   MENSAJE_INVITACION_INVALIDA,
   MENSAJE_SOLO_ADMIN,
   aceptarInvitacion,
+  consultarInvitacion,
   crearParroquia,
   invitar,
   quitarAcceso,
@@ -23,7 +24,7 @@ const enviar = async (m: Mensaje) => {
   buzon.push(m);
 };
 const deps = (sesion = clienteAnonimo()): DepsAdmin => ({ servicio, sesion, enviar, sitioUrl: SITIO, slugsDelRepo: ['ciudad-arce'] });
-const CLAVE = { clave: 'clave-larga-1', repetida: 'clave-larga-1' };
+const CLAVE = { clave: 'clave-larga-1', repetida: 'clave-larga-1', nombre: 'Persona de prueba' };
 
 beforeEach(() => {
   buzon = [];
@@ -336,5 +337,47 @@ describe('registro', () => {
     const todo = JSON.stringify(filas);
     expect(todo).not.toContain(token);
     expect(todo).not.toContain(hashDe(token));
+  });
+});
+
+describe('invitación: nombre y vencimiento (plan 2, tarea 11)', () => {
+  it('un nombre de solo espacios da campo nombre y no gasta el token; al aceptar queda el perfil', async () => {
+    const admin = await unAdmin();
+    const p = await parroquiaDePrueba('acepta-nombre');
+    await invitar(deps(admin.cliente), `nombre-${sufijo()}@ejemplo.test`, p.id);
+    const token = tokenDelBuzon();
+
+    const sinNombre = await aceptarInvitacion(deps(), token, { ...CLAVE, nombre: '   ' });
+    expect(sinNombre).toEqual({ error: 'Escribe tu nombre.', campo: 'nombre' });
+    const { data: inv } = await servicio.from('invitaciones').select('usada_en').eq('token_hash', hashDe(token)).single();
+    expect(inv?.usada_en).toBeNull();
+
+    const sesion = clienteAnonimo();
+    expect((await aceptarInvitacion(deps(sesion), token, CLAVE)).error).toBeUndefined();
+    const { data: u } = await sesion.auth.getUser();
+    const { data: perfil } = await servicio.from('perfiles').select('nombre').eq('usuario_id', u.user!.id).single();
+    expect(perfil?.nombre).toBe('Persona de prueba');
+  });
+
+  it('consultarInvitacion: vigente con su vencimiento, vencida, usada y token inventado', async () => {
+    const admin = await unAdmin();
+    const p = await parroquiaDePrueba('consulta');
+    await invitar(deps(admin.cliente), `consulta-${sufijo()}@ejemplo.test`, p.id);
+    const token = tokenDelBuzon();
+    const { data: fila } = await servicio.from('invitaciones').select('vence_en').eq('token_hash', hashDe(token)).single();
+
+    const vigente = await consultarInvitacion(deps(), token);
+    expect(vigente.estado).toBe('vigente');
+    if (vigente.estado !== 'vigente') throw new Error('debía estar vigente');
+    expect(new Date(vigente.venceEn).getTime()).toBe(new Date(fila!.vence_en).getTime());
+    expect(vigente.paso).toBe('crear');
+
+    await servicio.from('invitaciones').update({ vence_en: new Date(Date.now() - 1000).toISOString() }).eq('token_hash', hashDe(token));
+    expect(await consultarInvitacion(deps(), token)).toEqual({ estado: 'vencida' });
+
+    await servicio.from('invitaciones').update({ usada_en: new Date().toISOString() }).eq('token_hash', hashDe(token));
+    expect(await consultarInvitacion(deps(), token)).toEqual({ estado: 'no-sirve' });
+
+    expect(await consultarInvitacion(deps(), 'token-inventado')).toEqual({ estado: 'no-sirve' });
   });
 });

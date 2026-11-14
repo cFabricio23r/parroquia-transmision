@@ -129,10 +129,12 @@ export function FormAceptar({ token, correo, crearCuenta }: { token: string; cor
   }, [r]);
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const datos = crearCuenta ? { clave: valor(e, 'clave'), repetida: valor(e, 'repetida') } : { clave: '', repetida: '' };
+    const datos = crearCuenta
+      ? { clave: valor(e, 'clave'), repetida: valor(e, 'repetida'), nombre: valor(e, 'nombre') }
+      : { clave: '', repetida: '', nombre: '' };
     setR(undefined);
     setOcupado(true);
-    const res = await aceptarInvitacion(token, datos.clave, datos.repetida); // si sale bien, redirige
+    const res = await aceptarInvitacion(token, datos.clave, datos.repetida, datos.nombre); // si sale bien, redirige
     setR(res);
     setOcupado(false);
   }
@@ -154,6 +156,7 @@ export function FormAceptar({ token, correo, crearCuenta }: { token: string; cor
           <p>
             Vas a crear tu cuenta con el correo <strong>{correo}</strong>. Elige una contraseña.
           </p>
+          <Campo id="nombre" etiqueta="Tu nombre" tipo="text" autoComplete="name" error={de(r, 'nombre')} />
           <Campo id="clave" etiqueta="Contraseña" tipo="password" autoComplete="new-password" ayuda="Mínimo 8 caracteres." error={de(r, 'clave')} />
           <Campo id="repetida" etiqueta="Repite la contraseña" tipo="password" autoComplete="new-password" />
         </>

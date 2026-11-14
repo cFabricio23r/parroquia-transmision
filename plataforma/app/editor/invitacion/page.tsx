@@ -12,7 +12,7 @@ export default async function Invitacion({ searchParams }: { searchParams: Promi
   const token = typeof crudo === 'string' ? crudo : '';
   const inv = await consultarInvitacion({ servicio: clienteServicio(), sesion: await clienteServidor() }, token);
 
-  if (!inv) {
+  if (inv.estado !== 'vigente') {
     return (
       <main className="tarjeta">
         <h1>Invitación</h1>
