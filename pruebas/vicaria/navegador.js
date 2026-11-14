@@ -473,7 +473,7 @@ async function casoComoViene() {
       return pares.filter(([id, clave]) => document.getElementById(id).textContent !== tx(s, clave)).map(([id]) => id);
     }, textos);
     igual(distintos.join(','), '', `${vista}: los textos son los de tx`);
-    revisar(await visibleEl(p, '#chispas') && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: chispas y marca como en la 1a`);
+    revisar(!(await visibleEl(p, '#chispas')) && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: sin chispas (el diseño no las lleva) y marca como en la 1a`);
     await captura(p, `1b/${CA}_${vista}_como-viene`);
   }
   // y la vista nueva, sin horarios ni redes: el aviso del panel
@@ -1486,6 +1486,82 @@ async function casoDisenoDatos() {
   }
 }
 
+/* A1, A2 y C3 en las pantallas: degradado liso de la paleta, un brillo, marco de arco y sin sombras (F4:25 y F4:31). */
+async function casoDisenoFondo() {
+  console.log('Diseño · Fondo, marco de arco y sin sombras');
+  const ARCO = '300px 300px 40px 40px';
+  const geometria = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s); return e ? { x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight } : null; }, sel);
+  const sinSombra = async (p, sels, nombre) => {
+    for (const sel of sels) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', nombre + ': ' + sel + ' sin sombra');
+  };
+  const decoracion = async (p, nombre) => {
+    for (const sel of ['.rayos', '.fachada', '#chispas']) igual((await estilosDe(p, sel, ['display'])).display, 'none', nombre + ': ' + sel + ' no se ve');
+  };
+  const arco = async (p, nombre, x, y, w, h) => {
+    const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter']);
+    igual(e.borderRadius, ARCO, nombre + ': la imagen va en el arco');
+    igual(e.objectFit, 'cover', nombre + ': la imagen llena el arco');
+    igual(e.borderTopWidth, '0px', nombre + ': el arco no tiene borde');
+    igual(e.filter, 'none', nombre + ': la imagen no tiene sombra');
+    igual(JSON.stringify(await geometria(p, '#virgen')), JSON.stringify({ x, y, w, h }), nombre + ': el arco mide ' + w + '×' + h + ' en ' + x + ',' + y);
+  };
+  // San José, Inicio (F4:25)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual((await estilosDe(p, '#lienzo', ['backgroundImage'])).backgroundImage, 'linear-gradient(135deg, rgb(75, 15, 24) 0%, rgb(138, 28, 43) 48%, rgb(192, 72, 90) 100%)', 'San José, Inicio: el degradado del artboard');
+    igual((await estilosDe(p, '.brillo', ['backgroundImage'])).backgroundImage, 'radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 62%)', 'San José, Inicio: un brillo suave');
+    const b = await geometria(p, '.brillo');
+    igual([b.x, b.y, b.w].join(' '), '-160 -120 1100', 'San José, Inicio: el brillo en -160,-120, de 1100');
+    await decoracion(p, 'San José, Inicio');
+    await arco(p, 'San José, Inicio', 150, 80, 620, 960);
+    await sinSombra(p, ['#envivo', '#i-pildora', '.cuenta'], 'San José, Inicio');
+    await ctx.close();
+  }
+  // San José, Avisos (F4:31)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=avisos', { tipo: 'dominical' });
+    await arco(p, 'San José, Avisos', 40, 140, 500, 820);
+    await sinSombra(p, ['#v-avisos'], 'San José, Avisos');
+    await ctx.close();
+  }
+  // San José, portada patronal
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=portada', { tipo: 'patronal' });
+    await sinSombra(p, ['#p-caja'], 'San José, portada');
+    await ctx.close();
+  }
+  // Ciudad Arce, Inicio: lo mismo con su paleta
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'pantalla.html?tipo=inicio', { tipo: 'dominical' });
+    igual((await estilosDe(p, '#lienzo', ['backgroundImage'])).backgroundImage, 'linear-gradient(135deg, rgb(12, 53, 98) 0%, rgb(17, 85, 164) 48%, rgb(49, 118, 195) 100%)', 'Ciudad Arce, Inicio: el degradado de su paleta');
+    await decoracion(p, 'Ciudad Arce, Inicio');
+    await arco(p, 'Ciudad Arce, Inicio', 150, 80, 620, 960);
+    await captura(p, `diseno_${CA}_inicio`);
+    await ctx.close();
+  }
+  // Distribuciones e imagen logo
+  const conInicio = (inicio) => { const c = configDiseno(SJ); c.pantallas = { inicio: Object.assign({ modo: 'personalizada' }, inicio) }; return c; };
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ distribucion: 'derecha' }) });
+    const g = await geometria(p, '#virgen');
+    igual(1920 - g.x - g.w, 150, 'distribución derecha: el arco queda a 150 del borde derecho');
+    igual((await estilosDe(p, '#virgen', ['borderRadius'])).borderRadius, ARCO, 'distribución derecha: con arco');
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ distribucion: 'centro' }) });
+    const g = await geometria(p, '#virgen');
+    revisar(Math.abs(g.x + g.w / 2 - 960) <= 1, 'distribución centro: el arco queda centrado (' + (g.x + g.w / 2) + ')');
+    igual((await estilosDe(p, '#virgen', ['opacity'])).opacity, '0.28', 'distribución centro: el arco va tenue');
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'pantalla.html?tipo=inicio', { tipo: 'dominical' }, { cfg: conInicio({ imagen: 'logo' }) });
+    igual((await estilosDe(p, '#virgen', ['borderRadius'])).borderRadius, '0px', 'imagen logo: sin arco');
+    await ctx.close();
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1543,7 +1619,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -1578,6 +1654,7 @@ async function casoLineaBase() {
     await casoVistaPreviaEstado();
     await casoRevisionFinal();
     await casoDisenoDatos();
+    await casoDisenoFondo();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

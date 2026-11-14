@@ -21,23 +21,25 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .escenario{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
 
 /* ---------- Fondo completo ---------- */
-.lienzo{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:linear-gradient(135deg,var(--oscuro) 0%,var(--rey) 48%,var(--celeste) 100%)}
-.brillo{position:absolute;left:-160px;top:-120px;width:1100px;height:1100px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.38) 0%,rgba(255,255,255,0) 62%)}
+.lienzo{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:linear-gradient(135deg,var(--oscuro) 0%,var(--rey) 48%,var(--vivo) 100%)}
+.brillo{position:absolute;left:-160px;top:-120px;width:1100px;height:1100px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.30) 0%,rgba(255,255,255,0) 62%)}
 .fachada{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover;object-position:50% 30%;opacity:.34;mix-blend-mode:luminosity}
-.virgen{position:absolute;left:70px;bottom:40px;height:1020px;filter:drop-shadow(0 24px 40px rgba(5,20,50,.45))}
-.virgen.b{left:40px;height:900px}
-.virgen.c{left:20px;bottom:0;height:1080px}
+/* Decoración de antes (silueta de la fachada, rayos y chispas): el diseño no la lleva, así que no se ve. Ninguna
+   opción la pide; ocultar con rayos, fachada o chispas sigue validando, pero ya no cambia nada. */
+.fachada,.rayos,#chispas{display:none}
+/* Marco de arco (F4:25): la imagen baja hasta la franja, sin borde ni sombra. El logo (.virgen.logo) no va en arco. */
+.virgen{position:absolute;left:150px;bottom:40px;width:620px;height:960px;object-fit:cover;object-position:50% 20%;border-radius:300px 300px 40px 40px;border:0;filter:none}
 
 .marca{position:absolute;left:60px;top:48px;display:flex;align-items:center;gap:16px}
 .marca img{height:70px;display:block}
 .marca div{font-weight:700;font-size:20px;line-height:1.25}
 
-.envivo{position:absolute;right:64px;top:52px;display:flex;color:#fff;align-items:center;gap:10px;background:var(--rojo);font-weight:800;font-size:24px;letter-spacing:1px;padding:9px 18px 9px 14px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.envivo{position:absolute;right:64px;top:52px;display:flex;color:#fff;align-items:center;gap:10px;background:var(--rojo);font-weight:800;font-size:24px;letter-spacing:1px;padding:9px 18px 9px 14px;border-radius:8px}
 .envivo i{width:13px;height:13px;border-radius:50%;background:#fff;display:block;animation:latido 1.6s ease-in-out infinite}
 @keyframes latido{0%,100%{opacity:1}50%{opacity:.35}}
 
 .texto{position:absolute;left:860px;right:90px;top:150px;bottom:230px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:22px}
-.pildora{background:#fff;color:var(--rey);font-weight:800;font-size:28px;letter-spacing:4px;padding:12px 30px;border-radius:999px;box-shadow:0 10px 26px rgba(5,20,50,.3);white-space:nowrap}
+.pildora{background:#fff;color:var(--rey);font-weight:800;font-size:28px;letter-spacing:4px;padding:12px 30px;border-radius:999px;white-space:nowrap}
 .ceja{margin:6px 0 0;font-weight:700;font-size:24px;letter-spacing:7px;color:#bfe0ff}
 .titulo{margin:0;font-weight:900;font-size:104px;line-height:.95;letter-spacing:-2px;text-transform:uppercase}
 .cursiva{margin:4px 0 0;font-family:Vibes,cursive;font-size:54px;line-height:1.15;color:var(--palido);max-width:940px}
@@ -56,12 +58,12 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 
 /* ---------- Portada ---------- */
 .dia8{display:flex;align-items:center;gap:24px;margin-top:26px}
-.dia8 .caja{width:150px;height:150px;border-radius:28px;background:#fff;color:var(--rey);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 14px 30px rgba(5,20,50,.35)}
+.dia8 .caja{width:150px;height:150px;border-radius:28px;background:#fff;color:var(--rey);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .dia8 .caja b{font-weight:900;font-size:92px;line-height:.9}
 .dia8 .caja span{font-weight:800;font-size:18px;letter-spacing:3px}
 
 /* ---------- Avisos ---------- */
-.tarjeta{position:absolute;z-index:2;left:600px;right:80px;top:60px;bottom:200px;background:#fff;color:var(--oscuro);border-radius:36px;box-shadow:0 30px 70px rgba(5,20,50,.35);padding:44px 60px;display:flex;flex-direction:column;gap:24px}
+.tarjeta{position:absolute;z-index:2;left:600px;right:80px;top:60px;bottom:200px;background:#fff;color:var(--oscuro);border-radius:36px;padding:44px 60px;display:flex;flex-direction:column;gap:24px}
 .tarjeta .cab{display:flex;align-items:center;justify-content:space-between}
 .tarjeta h1{margin:0;font-weight:900;font-size:84px;line-height:1;letter-spacing:-1px;text-transform:uppercase;color:var(--rey)}
 .tarjeta .sub{font-weight:800;font-size:20px;letter-spacing:6px;color:var(--medio)}
@@ -99,8 +101,6 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 @keyframes kenburns{from{transform:scale(1) translate(0,0)}to{transform:scale(1.08) translate(-20px,-10px)}}
 .brillo{animation:respira 7s ease-in-out infinite}
 @keyframes respira{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
-.virgen{animation:flota 7s ease-in-out infinite}
-@keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
 .rayos{position:absolute;left:-380px;top:-460px;width:1500px;height:1500px;border-radius:50%;
   background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.09) 0deg 4deg,transparent 4deg 12deg);
   -webkit-mask:radial-gradient(circle,#000 8%,transparent 60%);mask:radial-gradient(circle,#000 8%,transparent 60%);
@@ -118,7 +118,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .entra > *:nth-child(5){animation-delay:.57s}
 .entra > *:nth-child(6){animation-delay:.70s}
 @keyframes subeEntra{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}
-.virgen-entra{animation:virgenEntra 1.4s cubic-bezier(.2,.8,.2,1) both, flota 7s ease-in-out 1.4s infinite}
+.virgen-entra{animation:virgenEntra 1.4s cubic-bezier(.2,.8,.2,1) both}
 @keyframes virgenEntra{from{opacity:0;transform:translateY(60px) scale(.96)}to{opacity:1;transform:none}}
 .franja-entra{animation:franjaEntra 1s cubic-bezier(.2,.8,.2,1) .2s both}
 @keyframes franjaEntra{from{transform:translateY(110%)}to{transform:none}}
@@ -153,13 +153,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .barra.oculto{transform:translateX(60px)}
 
 /* ---------- Tipos de transmisión (S2InicioProcesion, S2PortadaEvento, S2InicioHoraSanta…) ---------- */
-/* Figura horizontal (la fachada) y logo: ocupan el hueco de 600×780 de los tableros */
-.virgen.foto{left:130px;bottom:150px;width:600px;height:780px;object-fit:cover;object-position:50% 30%;border-radius:40px;border:4px solid rgba(255,255,255,.75)}
-.virgen.logo{left:150px;bottom:360px;height:auto;width:420px}
-/* Avisos: la figura queda a la izquierda de la tarjeta (empieza en x=600) */
-body.avisos .virgen{left:10px;bottom:60px;height:900px}
-body.avisos .virgen.c{height:980px}
-body.avisos .virgen.foto{left:30px;bottom:200px;width:520px;height:700px}
+/* El logo no va en el arco: suelto y entero, como siempre */
+.virgen.logo{left:150px;bottom:360px;height:auto;width:420px;object-fit:contain;border-radius:0}
+/* Avisos y Horarios: el arco queda a la izquierda de la tarjeta (empieza en x=600), F4:31 */
+body.avisos .virgen,body.horarios .virgen{left:40px;bottom:120px;width:500px;height:820px}
 body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 
 .ceja.larga{font-size:22px;letter-spacing:6px}
@@ -186,24 +183,16 @@ body.avisos .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 .escenario.fondo-color .lienzo{background:var(--fondo-vista)}
 
 /* Distribución: la imagen a la derecha (y el texto a la izquierda) o al centro (detrás del texto) */
-.escenario.dist-derecha .virgen{left:auto;right:70px}
-.escenario.dist-derecha .virgen.b{left:auto;right:40px}
-.escenario.dist-derecha .virgen.c{left:auto;right:20px}
-.escenario.dist-derecha .virgen.foto{left:auto;right:130px}
+.escenario.dist-derecha .virgen{left:auto;right:150px}
 .escenario.dist-derecha .virgen.logo{left:auto;right:150px}
 .escenario.dist-derecha .texto{left:90px;right:860px;top:180px;bottom:210px}   /* más abajo: no pisa la marca (arriba a la izquierda) */
 .escenario.dist-derecha .aro{left:auto;right:150px}
 .escenario.dist-derecha .tarjeta{left:80px;right:600px}
-.escenario.dist-derecha .virgen.a{left:auto;right:10px}
-.escenario.dist-derecha .virgen.foto,.escenario.dist-derecha .virgen.logo{left:auto}
-body.avisos .escenario.dist-derecha .virgen,body.horarios .escenario.dist-derecha .virgen{left:auto;right:10px}
-body.avisos .escenario.dist-derecha .virgen.foto,body.horarios .escenario.dist-derecha .virgen.foto{left:auto;right:30px}
+body.avisos .escenario.dist-derecha .virgen,body.horarios .escenario.dist-derecha .virgen{left:auto;right:40px}
 body.avisos .escenario.dist-derecha .virgen.logo,body.horarios .escenario.dist-derecha .virgen.logo{left:auto;right:70px}
 
-.escenario.dist-centro .virgen,.escenario.dist-centro .virgen.b,.escenario.dist-centro .virgen.c,
-.escenario.dist-centro .virgen.foto,.escenario.dist-centro .virgen.logo,
+.escenario.dist-centro .virgen,.escenario.dist-centro .virgen.logo,
 body.avisos .escenario.dist-centro .virgen,body.horarios .escenario.dist-centro .virgen,
-body.avisos .escenario.dist-centro .virgen.foto,body.horarios .escenario.dist-centro .virgen.foto,
 body.avisos .escenario.dist-centro .virgen.logo,body.horarios .escenario.dist-centro .virgen.logo{left:0;right:0;margin:0 auto;opacity:.28 !important}
 .escenario.dist-centro .aro{left:0;right:0;margin:0 auto;opacity:.5}
 .escenario.dist-centro .texto{left:160px;right:160px;align-items:center;text-align:center}
@@ -244,9 +233,6 @@ body.avisos .escenario.dist-centro .virgen.logo,body.horarios .escenario.dist-ce
 .redes .red b{font-weight:900;font-size:20px;letter-spacing:3px;text-transform:uppercase;color:var(--medio)}
 
 /* La tarjeta de horarios se ubica igual que la de avisos */
-body.horarios .virgen{left:10px;bottom:60px;height:900px}
-body.horarios .virgen.c{height:980px}
-body.horarios .virgen.foto{left:30px;bottom:200px;width:520px;height:700px}
 body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 #v-horarios h1{font-size:64px}
 #v-horarios .envivo{white-space:nowrap}
