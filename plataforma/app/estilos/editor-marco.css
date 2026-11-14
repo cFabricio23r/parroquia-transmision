@@ -291,3 +291,24 @@
   .pv-galeria-cabeza { flex-direction: column; align-items: stretch; }
   .pv-galeria-subir { align-items: flex-start; }
 }
+
+/* ---- F10 Horarios y redes (Tarea 15, AB/VicEdDatos) ---- */
+.pv-fila-titulo { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pv-tabla-horarios .pv-tabla-fila { padding: 10px 16px; }
+.pv-tabla-horarios .pv-tabla-cabecera { background: #f4f7fb; }
+.pv-tabla-horarios .pv-tabla-fila > :last-child { display: flex; }
+.pv-tabla-horarios .pv-boton-fila { width: 100%; }
+.pv-horario-lugar { color: var(--pv-texto-suave); }
+.pv-boton-fila { min-height: 38px; }
+.pv-boton-fila::after { inset: -3px 0; }
+.pv-redes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.pv-horario-horas { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pv-horario-horas > legend { padding: 0; margin-bottom: 6px; }
+.pv-horario-hora { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.pv-horario-quitar { align-self: center; margin-top: 18px; }
+.pv-horario-otra { align-self: flex-start; }
+@media (max-width: 760px) {
+  .pv-redes { grid-template-columns: minmax(0, 1fr); }
+  .pv-horario-hora { grid-template-columns: minmax(0, 1fr); }
+  .pv-tabla-horarios .pv-tabla-fila { grid-template-columns: minmax(0, 1fr) !important; }
+}
