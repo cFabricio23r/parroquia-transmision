@@ -102,6 +102,26 @@ describe('cambiosEntre', () => {
   });
 });
 
+describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
+  const frases = (pub: object, bor: object) => cambiosEntre({ ...base, ...pub }, { ...base, ...bor }, nombresTipos).flatMap((s) => s.frases);
+  it('Fondo del rótulo', () => {
+    expect(frases({ rotulos: {} }, { rotulos: { colorLado: 'oscuro' } })).toEqual(['Fondo del rótulo']);
+  });
+  it('Capa EN VIVO con EN VIVO oculto', () => {
+    expect(frases({}, { pantallas: { envivo: { modo: 'personalizada', ocultar: ['envivo'] } } })).toEqual(['Pantalla de Capa EN VIVO: EN VIVO']);
+  });
+  it('un ajuste nuevo en Hora Santa', () => {
+    expect(frases({}, { tipos: { ajustes: { horasanta: { textoGracias: 'Gracias' } } } })).toEqual(['Cambios en el tipo Hora Santa']);
+  });
+  it('el mismo ajuste en las tres claves del grupo da tres frases (esperado)', () => {
+    const a = { textoGracias: 'Gracias' };
+    const nombres = { ...nombresTipos, prenovena: 'Prenovena', novena: 'Novena', patronal: 'Fiesta patronal' };
+    const f = cambiosEntre(base, { ...base, tipos: { ajustes: { prenovena: a, novena: a, patronal: a } } }, nombres).flatMap((s) => s.frases);
+    expect(f).toHaveLength(3);
+    expect(f.every((x) => x.startsWith('Cambios en el tipo '))).toBe(true);
+  });
+});
+
 describe('normalizarMedios y aFormaNueva', () => {
   it('quita el prefijo vN- de los src', () => {
     expect(normalizarMedios({ a: { src: 'medios/v12-x.png' }, galeria: [{ src: 'medios/v1-y.jpg' }] })).toEqual({

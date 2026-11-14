@@ -52,6 +52,15 @@ try {
     'el título «Galería» lleva a /galeria',
   );
 
+  console.log('Pantallas y Tipos (plan 4)');
+  revisar((await tarjeta(pagina, 'Pantallas').innerText()).includes('2 de 7 personalizadas; el resto, como vienen.'), '«Pantallas» dice «2 de 7 personalizadas; el resto, como vienen.»');
+  const T = await prepararParroquia({ config: { ...CONFIG, tipos: { apagados: ['procesion'], propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora' }] } } });
+  const pt = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
+  await entrar(pt, T.correo);
+  await pt.goto(`${BASE}/editor/p/${T.slug}`);
+  // Decisión 16: 8 filas comunes encendidas (9 menos procesión) más el propio.
+  revisar((await tarjeta(pt, 'Tipos de transmisión').innerText()).includes('9 activos, 1 propio.'), '«Tipos de transmisión» dice «9 activos, 1 propio.»');
+
   console.log('Links para OBS');
   revisar(await pagina.getByText(`…/${P.slug}/panel.html`).isVisible(), `está el texto …/${P.slug}/panel.html`);
   const fila = pagina.locator('.pv-resumen-link', { hasText: 'Panel de control' });

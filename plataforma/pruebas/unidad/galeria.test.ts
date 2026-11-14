@@ -11,7 +11,9 @@ import {
   quitarImagen,
   usosDeImagen,
 } from '../../lib/editor/galeria';
-import { validarBorrador } from '../../lib/validar';
+import { ponerEnPantalla } from '../../lib/editor/pantallas';
+import { aplicarTipo, formularioDeTipo } from '../../lib/editor/tipos';
+import { tiposComunes, validarBorrador } from '../../lib/validar';
 
 const azarQueDevuelve = (...valores: string[]) => {
   let i = 0;
@@ -107,5 +109,29 @@ describe('erroresTextosImagen: lo que el servidor rechazaría se avisa en el di�
     const galeria = [{ id: 'img-z', src: 'medios/z.png', alt: 'a'.repeat(200), nombre: 'n'.repeat(200) }];
     const errores = validarBorrador({ ...CONFIG, galeria, pantallas: {}, tipos: {} }, 'x').errores.filter((e) => e.includes('galeria'));
     expect(errores).toEqual([]);
+  });
+});
+
+describe('galería y las secciones de estilo (plan 4, Tarea 10)', () => {
+  const comunes = tiposComunes();
+  const nombres = Object.fromEntries(comunes.map((c) => [c.clave, c.nombre]));
+  const armar = () => {
+    const pantallas = ponerEnPantalla(undefined, 'evento', { fondo: { tipo: 'imagen', imagen: 'img-x' } });
+    const f = { ...formularioDeTipo({}, 'novena', comunes)!, imagen: 'galeria:img-x' };
+    const tipos = aplicarTipo(undefined, f, comunes, []).tipos;
+    return { ...CONFIG, pantallas, tipos };
+  };
+  it('usosDeImagen ve el fondo de Portada de evento y el ajuste del grupo en sus tres claves', () => {
+    const usos = usosDeImagen(armar(), 'img-x', nombres);
+    expect(usos).toContain('Fondo de la pantalla de Portada de evento');
+    expect(usos.filter((u) => u.endsWith('(ajuste)'))).toHaveLength(3);
+    for (const k of ['prenovena', 'novena', 'patronal']) expect(usos).toContain(`Tipo «${nombres[k]}» (ajuste)`);
+  });
+  it('quitarImagen no deja img-x y el borrador no da errores de galería', () => {
+    const c = armar();
+    const aplicado = aplicarCambios(c, quitarImagen(c, 'img-x'));
+    expect(JSON.stringify(aplicado)).not.toContain('img-x');
+    const deGaleria = validarBorrador(aplicado, 'san-jose').errores.filter((e) => e.includes('galería') || e.includes('galeria'));
+    expect(deGaleria).toEqual([]);
   });
 });
