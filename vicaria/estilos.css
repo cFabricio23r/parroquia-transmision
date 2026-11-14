@@ -10,6 +10,9 @@
 
 :root{
   --oscuro:#0c3562; --rey:#1155a4; --medio:#157ec1; --celeste:#3d9be0; --claro:#8cc0ef; --palido:#e6f1fb; --rojo:#dd0300;
+  /* Tintes del diseño (aplicarPaleta los calcula con tintes() de parroquia.js; estos son los de la paleta azul). */
+  --vivo:#3176c3; --tenue:#d3e3f5; --velo:#edf4fc; --tinta:#28313c; --gris:#48515c; --papel:#f3f2fb; --fila-texto:#1155a4;
+  --vivo-rgb:49, 118, 195; --tenue-rgb:211, 227, 245;
 }
 *{box-sizing:border-box}
 [hidden]{display:none !important}

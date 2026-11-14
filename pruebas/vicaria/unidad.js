@@ -1240,7 +1240,7 @@ grupo('validarConfig: campos del rediseño (2)', () => {
 });
 
 grupo('aplicar paleta', () => {
-  prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
+  prueba('aplicarPaleta pone las seis variables CSS de :root y los tintes del diseño con los colores de la parroquia', () => {
     const puestas = {};
     const documento = { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
       documentElement: {
@@ -1249,8 +1249,12 @@ grupo('aplicar paleta', () => {
       } };
     const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: documento });
     c.aplicarPaleta(CONFIG_SAN_JOSE);
-    assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
+    assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--fila-texto', '--gris', '--medio', '--oscuro', '--palido', '--papel', '--rey', '--tenue', '--tenue-rgb', '--tinta', '--velo', '--vivo', '--vivo-rgb']);
     assert.equal(puestas['--rey'], '#7a3b12');
+    const t = c.tintes('#7a3b12', '#4a2008');
+    assert.equal(puestas['--vivo'], t.vivo);
+    assert.equal(puestas['--fila-texto'], t.filaTexto);
+    assert.match(puestas['--vivo-rgb'], /^\d{1,3}, \d{1,3}, \d{1,3}$/);
     assert.equal(puestas['--oscuro'], '#4a2008');
   });
   /* documentElement falso que anota variables y clases. */
@@ -1279,6 +1283,7 @@ grupo('aplicar paleta', () => {
     const c = cargarCon([], {}, conAcento('#d9a441'), { document: r.documento });
     c.aplicarPaleta(conAcento('#d9a441'));
     assert.equal(r.vars['--acento'], '#d9a441');
+    assert.equal(r.vars['--acento-claro'], '#f0d08f');
     assert.ok(r.clases.has('con-acento'));
     assert.equal(r.vars['--rey'], '#7a3b12');
   });
@@ -1288,8 +1293,9 @@ grupo('aplicar paleta', () => {
     c.aplicarPaleta(conAcento('#d9a441'));
     c.aplicarPaleta(CONFIG_SAN_JOSE);
     assert.equal(r.vars['--acento'], undefined);
+    assert.equal(r.vars['--acento-claro'], undefined);
     assert.equal(r.clases.size, 0);
-    assert.deepEqual(Object.keys(r.vars).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
+    assert.deepEqual(Object.keys(r.vars).sort(), ['--celeste', '--claro', '--fila-texto', '--gris', '--medio', '--oscuro', '--palido', '--papel', '--rey', '--tenue', '--tenue-rgb', '--tinta', '--velo', '--vivo', '--vivo-rgb']);
   });
   prueba('aplicarPaleta con un acento que no es #rrggbb lo trata como ausente', () => {
     const r = raizFalsa();
@@ -1297,6 +1303,44 @@ grupo('aplicar paleta', () => {
     c.aplicarPaleta(conAcento('dorado'));
     assert.equal(r.vars['--acento'], undefined);
     assert.equal(r.clases.has('con-acento'), false);
+  });
+});
+
+grupo('tintes del diseño', () => {
+  /* Artboards F4 (VicEdPantallas.dc.html, líneas 25, 31 y 35): los tintes vino del diseño. */
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const plano = (o) => Object.assign({}, o);
+  const COLORES = ['#8a1c2b', '#1155a4', '#7a3b12', '#2e7d32', '#6a1b9a', '#00695c', '#4e342e'];
+  prueba('San José da los valores exactos del artboard', () => {
+    const t = p.tintes('#8a1c2b', '#4b0f18', '#d9a441');
+    assert.deepEqual(plano(t), { vivo: '#c0485a', tenue: '#f2d6da', velo: '#fbeef0', tinta: '#3a2a2c', gris: '#5a4a4c', papel: '#faf6f3', filaTexto: '#8a1c2b', acentoClaro: '#f0d08f' });
+  });
+  prueba('Ciudad Arce: el mismo tratamiento en azul', () => {
+    const t = p.tintes('#1155a4', '#0c3562');
+    assert.deepEqual(plano(t), { vivo: '#3176c3', tenue: '#d3e3f5', velo: '#edf4fc', tinta: '#28313c', gris: '#48515c', papel: '#f3f2fb', filaTexto: '#1155a4', acentoClaro: null });
+  });
+  prueba('--vivo siempre se lee sobre blanco (>= 4.5); --fila-texto sobre --velo (>= 4.5)', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222');
+      assert.ok(p.contraste('#ffffff', t.vivo) >= 4.5, c + ' -> ' + t.vivo);
+      assert.ok(p.contraste(t.velo, t.filaTexto) >= 4.5, c + ' -> ' + t.filaTexto);
+    }
+  });
+  prueba('--tenue se lee sobre --vivo como texto grande (>= 3)', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222');
+      assert.ok(p.contraste(t.tenue, t.vivo) >= 3, c + ': ' + t.tenue + ' sobre ' + t.vivo);
+    }
+  });
+  prueba('principal muy claro: --fila-texto cae al oscuro', () => {
+    const t = p.tintes('#9fc5ee', '#0c3562');
+    assert.equal(t.filaTexto, '#0c3562');
+  });
+  prueba('todos los tintes son #rrggbb', () => {
+    for (const c of COLORES) {
+      const t = p.tintes(c, '#222222', '#3366cc');
+      for (const k of Object.keys(t)) assert.match(t[k], /^#[0-9a-f]{6}$/, c + ' ' + k);
+    }
   });
 });
 

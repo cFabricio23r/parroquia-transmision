@@ -82,19 +82,98 @@ function paleta(principal, oscuro) {
   };
 }
 
-/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido).
-   Con colores.acento (#rrggbb) pone también --acento y la clase con-acento en <html>; sin acento quita las dos,
-   así una configuración sin acento deja <html> como siempre. */
+/* #rrggbb -> [tono 0-360, saturación 0-1, luminosidad 0-1]. */
+function _hsl(hex) {
+  const [r, g, b] = _rgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+/* [tono, saturación, luminosidad] -> #rrggbb (Math.round por canal). */
+function _deHsl(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.min(1, Math.max(0, s));
+  l = Math.min(1, Math.max(0, l));
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r, g, b].map((v) => {
+    const n = Math.round((v + m) * 255);
+    return (n < 16 ? '0' : '') + n.toString(16);
+  }).join('');
+}
+
+/* Tintes de referencia: los colores del diseño para la identidad vino (principal #8a1c2b, acento #d9a441).
+   Salen de los artboards F4 (VicEdPantallas.dc.html): línea 25 (Inicio: ceja #f2d6da, cursiva #fbeef0, degradado
+   hasta #c0485a, filete #d9a441 -> #f0d08f), línea 31 (Avisos: sub #c0485a, filas #fbeef0) y línea 35 (Producción
+   claro: papel #faf6f3, ceja #3a2a2c, pie #5a4a4c). */
+const TINTES_REF = {
+  principal: '#8a1c2b', vivo: '#c0485a', tenue: '#f2d6da', velo: '#fbeef0',
+  tinta: '#3a2a2c', gris: '#5a4a4c', papel: '#faf6f3', acento: '#d9a441', acentoClaro: '#f0d08f'
+};
+
+/* Lleva `ref` (un tinte del diseño, hecho para `base`) al color `color`: gira el tono lo que separa `color` de
+   `base`, multiplica la saturación por s(color) / s(base) (el resultado, con 1 como tope) y deja la luminosidad
+   del diseño. */
+function _llevarTinte(ref, base, color) {
+  const [hb, sb] = _hsl(base);
+  const [hc, sc] = _hsl(color);
+  const [h, s, l] = _hsl(ref);
+  return [h + hc - hb, Math.min(1, sb ? s * (sc / sb) : 0), l];
+}
+
+/* Tintes del diseño a partir de los colores de la parroquia. Con #8a1c2b (y acento #d9a441) da exactamente los
+   valores del artboard. Guardas de contraste: vivo (texto chico sobre blanco: kicker del rótulo, sub de Avisos)
+   baja su luminosidad de a 0.01 hasta 4.5:1 contra blanco; filaTexto es el principal si llega a 4.5:1 contra velo
+   (el fondo de las filas) y, si no, el oscuro. acentoClaro (centro del filete de la franja) solo con acento. */
+function tintes(principal, oscuro, acento) {
+  const t = {};
+  for (const k of ['vivo', 'tenue', 'velo', 'tinta', 'gris', 'papel']) {
+    const [h, s, l] = _llevarTinte(TINTES_REF[k], TINTES_REF.principal, principal);
+    let hex = _deHsl(h, s, l);
+    if (k === 'vivo') {
+      for (let i = 1; contraste('#ffffff', hex) < MIN_CONTRASTE && l - i / 100 >= 0; i++) hex = _deHsl(h, s, l - i / 100);
+    }
+    t[k] = hex;
+  }
+  t.filaTexto = contraste(t.velo, principal) >= MIN_CONTRASTE ? principal : oscuro;
+  t.acentoClaro = typeof acento === 'string' && RE_HEX.test(acento)
+    ? _deHsl(..._llevarTinte(TINTES_REF.acentoClaro, TINTES_REF.acento, acento)) : null;
+  return t;
+}
+
+/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido)
+   y los tintes del diseño (--vivo --tenue --velo --tinta --gris --papel --fila-texto, más --vivo-rgb y --tenue-rgb
+   como «r, g, b» para rgba()). Con colores.acento (#rrggbb) pone también --acento, --acento-claro y la clase
+   con-acento en <html>; sin acento quita las tres, así una configuración sin acento deja <html> como siempre. */
 function aplicarPaleta(c) {
   const raiz = document.documentElement;
   const p = paleta(c.colores.principal, c.colores.oscuro);
   for (const k of Object.keys(p)) raiz.style.setProperty('--' + k, p[k]);
   const acento = c.colores.acento;
-  if (typeof acento === 'string' && RE_HEX.test(acento)) {
+  const conAcento = typeof acento === 'string' && RE_HEX.test(acento);
+  const t = tintes(c.colores.principal, c.colores.oscuro, conAcento ? acento : undefined);
+  for (const k of ['vivo', 'tenue', 'velo', 'tinta', 'gris', 'papel']) raiz.style.setProperty('--' + k, t[k]);
+  raiz.style.setProperty('--fila-texto', t.filaTexto);
+  raiz.style.setProperty('--vivo-rgb', _rgb(t.vivo).join(', '));
+  raiz.style.setProperty('--tenue-rgb', _rgb(t.tenue).join(', '));
+  if (conAcento) {
     raiz.style.setProperty('--acento', acento);
+    raiz.style.setProperty('--acento-claro', t.acentoClaro);
     raiz.classList.add('con-acento');
   } else {
     raiz.style.removeProperty('--acento');
+    raiz.style.removeProperty('--acento-claro');
     raiz.classList.remove('con-acento');
   }
 }
