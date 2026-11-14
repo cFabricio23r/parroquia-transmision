@@ -85,6 +85,8 @@ try {
   await p.getByRole('button', { name: 'Guardar' }).click();
   await p.getByRole('status').filter({ hasText: 'Guardado.' }).waitFor();
   revisar(true, 'guardar el nombre muestra «Guardado.»');
+  // Ronda 2: el botón no se deshabilita mientras espera, así el foco no se cae al <body>.
+  igual(await p.evaluate(() => document.activeElement?.textContent?.trim()), 'Guardar', 'después de «Guardado.» el foco sigue en Guardar');
   await p.reload();
   igual(await usuario.locator('.pv-usuario-etiqueta').textContent(), 'Fabricio · Coordinador', 'al recargar: «Fabricio · Coordinador»');
   igual(await usuario.locator('.pv-avatar').textContent(), 'F', 'avatar «F»');
@@ -98,6 +100,7 @@ try {
   await p.getByLabel('Contraseña actual', { exact: true }).fill(CLAVE);
   await p.getByRole('button', { name: 'Cambiar contraseña' }).click();
   await p.getByRole('status').filter({ hasText: 'Listo: tu contraseña cambió.' }).waitFor();
+  igual(await p.evaluate(() => document.activeElement?.textContent?.trim()), 'Cambiar contraseña', 'después de «Listo» el foco sigue en el botón');
   igual(await p.getByLabel('Contraseña actual', { exact: true }).inputValue(), '', 'los campos se vacían');
   const otra = await nuevaPagina();
   await entrar(otra, c.correo, 'clave-nueva-456');

@@ -117,6 +117,7 @@ try {
   });
   await p2.goto(`${BASE}/editor/invitacion?token=${usada}`);
   revisar((await enMain(p2).getByRole('alert').textContent()).includes('Invitación que ya no sirve'), 'usada y vencida: «Invitación que ya no sirve»');
+  revisar((await enMain(p2).getByRole('link', { name: 'Ir a entrar' }).getAttribute('href')) === '/editor/entrar', 'usada: «Ir a entrar» lleva a entrar');
 
   // ---------------- cuenta existente sin sesión ----------------
   console.log('A2 · cuenta existente');
