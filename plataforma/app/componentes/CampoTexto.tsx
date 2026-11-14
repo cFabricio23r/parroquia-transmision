@@ -18,11 +18,12 @@ export function describirCon(id: string, ayuda?: string, error?: string): string
 export function CampoTexto({ id, etiqueta, ayuda, error, compacto, className, ...resto }: PropsCampoTexto) {
   return (
     <label className={compacto ? 'pv-campo pv-campo--compacto' : 'pv-campo'}>
-      <span className="pv-campo-etiqueta">{etiqueta}</span>
+      <span id={`${id}-etiqueta`} className="pv-campo-etiqueta">{etiqueta}</span>
       <input
         id={id}
         name={id}
         className={['pv-campo-control', className].filter(Boolean).join(' ')}
+        aria-labelledby={`${id}-etiqueta`}
         aria-describedby={describirCon(id, ayuda, error)}
         aria-invalid={error ? true : undefined}
         {...resto}

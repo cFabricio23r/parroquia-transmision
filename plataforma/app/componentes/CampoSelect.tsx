@@ -11,11 +11,12 @@ export type PropsCampoSelect = {
 export function CampoSelect({ id, etiqueta, ayuda, children, className, ...resto }: PropsCampoSelect) {
   return (
     <label className="pv-campo">
-      <span className="pv-campo-etiqueta">{etiqueta}</span>
+      <span id={`${id}-etiqueta`} className="pv-campo-etiqueta">{etiqueta}</span>
       <select
         id={id}
         name={id}
         className={['pv-campo-select', className].filter(Boolean).join(' ')}
+        aria-labelledby={`${id}-etiqueta`}
         aria-describedby={describirCon(id, ayuda)}
         {...resto}
       >

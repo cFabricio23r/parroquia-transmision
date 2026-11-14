@@ -16,7 +16,9 @@ describe('CampoTexto', () => {
     expect(h).toContain('aria-invalid="true"');
     expect(h).toContain('readOnly=""');
     expect(h).toMatch(/^<label class="pv-campo">/);
-    expect(h).toContain('<span class="pv-campo-etiqueta">Correo</span>');
+    expect(h).toContain('<span id="correo-etiqueta" class="pv-campo-etiqueta">Correo</span>');
+    // El nombre accesible es solo la etiqueta: sin esto, el <label> que envuelve suma la ayuda y el error al nombre.
+    expect(h).toContain('aria-labelledby="correo-etiqueta"');
     expect(h).toContain('id="correo-ayuda"');
     expect(h).toContain('id="correo-error"');
     expect(h).toContain('name="correo"');
@@ -38,6 +40,7 @@ describe('CampoSelect', () => {
     );
     expect(h).toContain('<select');
     expect(h).toContain('aria-describedby="tipo-ayuda"');
+    expect(h).toContain('aria-labelledby="tipo-etiqueta"');
     expect(h).toContain('<option value="a">A</option>');
   });
 });
