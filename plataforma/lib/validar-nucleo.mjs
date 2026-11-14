@@ -77,3 +77,9 @@ export function validarBorrador(borrador, slug) {
 export function contraste(hexA, hexB) {
   return contextoDe('contraste').contraste(hexA, hexB);
 }
+
+/** Los 11 tipos de transmisión comunes, en el orden del panel, con su nombre (de vicaria/tipos.js). */
+export function tiposComunes() {
+  const c = contextoDe('tipos');
+  return Array.from(c.ORDEN_TIPOS, (k) => ({ clave: String(k), nombre: String(c.TIPOS[k].nombre) }));
+}
