@@ -92,3 +92,15 @@
   .pv-tipos-nuevo { align-items: flex-start; }
   .pv-tabla-tipos .pv-tabla-fila { grid-template-columns: minmax(0, 1fr) auto !important; }
 }
+
+/* ---- F8 Editar tipo (AB/VicEdTipoEditar) ---- */
+.pv-tipo-form .pv-miniatura { font-size: 11px; color: var(--pv-texto-suave); text-align: center; }
+.pv-tipo-rotulos { border: 0; margin: 0; gap: 8px; }
+.pv-tipo-rotulos > legend { padding: 0; margin-bottom: 8px; float: left; width: 100%; }
+.pv-casillas { clear: both; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; }
+.pv-casilla { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+.pv-casilla > input { width: 20px; height: 20px; margin: 0; accent-color: #1155a4; flex-shrink: 0; }
+.pv-tipo-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+@media (max-width: 760px) {
+  .pv-casillas { grid-template-columns: minmax(0, 1fr); }
+}

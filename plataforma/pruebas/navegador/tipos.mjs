@@ -1,6 +1,7 @@
 // Pruebas de navegador de Tipos de transmisión (plan 4, Tareas 8 y 9): la tabla F7 y el
 // formulario F8 (nuevo, propio y común). Contra `next dev` + Supabase local.
 import { chromium } from 'playwright';
+import sharp from 'sharp';
 import {
   BASE,
   camposSinEtiqueta,
@@ -34,6 +35,8 @@ const FILAS = [
   'Procesión',
   'Evento especial',
 ];
+const PNG = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#8a1c2b' } }).png().toBuffer();
+const guardadoDice = (p) => p.locator('[role="status"].pv-guardado').textContent();
 const navegador = await chromium.launch();
 const errores = [];
 const nuevaPagina = async (correo) => {
@@ -128,7 +131,158 @@ try {
   revisar(iguales(await leerConfig(D.id), antesD), 'abrir la tabla con ajustes en prenovena no cambió la base');
   igual((await camposSinEtiqueta(pd)).length, 0, 'todo campo tiene etiqueta');
 
-  // F8 (Tarea 9)
+  console.log('F8 · Nuevo tipo');
+  const GAL = [{ id: 'img-virgen1', src: 'medios/img-virgen1.png', alt: 'Virgen del Rosario', etiquetas: ['santos'] }];
+  const N = await prepararParroquia({ config: { ...CONFIG_BASE, galeria: GAL } });
+  const pn = await nuevaPagina(N.correo);
+  await pn.goto(`${BASE}/editor/p/${N.slug}/tipos/nuevo`);
+  const migas = pn.getByRole('navigation', { name: 'Migas' });
+  igual(await migas.getByRole('link').innerText(), 'Tipos de transmisión', 'la miga lleva a «Tipos de transmisión»');
+  igual(await migas.locator('[aria-current="page"]').innerText(), 'Nuevo tipo', 'y termina en «Nuevo tipo»');
+  igual(await pn.locator('h1').innerText(), 'Nuevo tipo', 'el título es «Nuevo tipo»');
+  for (const e of ['Nombre', 'Nombre en el panel', 'Texto de arriba en Inicio', 'Texto de Gracias']) {
+    revisar(await pn.getByLabel(e, { exact: true }).isVisible(), `está el campo «${e}»`);
+  }
+  revisar(await pn.getByText('Corto, para el botón.').isVisible(), '«Nombre en el panel» tiene su ayuda');
+  const portada = pn.getByRole('group', { name: 'Portada' });
+  igual(await portada.locator('[aria-pressed="true"]').innerText(), 'Sin portada', '«Sin portada» está apretada');
+  igual(
+    JSON.stringify(await pn.locator('.pv-casilla').allInnerTexts()),
+    JSON.stringify(['Persona', 'Misterio del rosario', 'Lectura', 'Oración', 'Lugar o estación', 'Libre']),
+    'las seis casillas del artboard',
+  );
+  const marcadas = await pn.locator('.pv-casilla input').evaluateAll((l) => l.map((c) => c.checked));
+  igual(JSON.stringify(marcadas), JSON.stringify([true, false, false, false, false, false]), 'solo «Persona» está marcada');
+  await pn.getByRole('button', { name: 'Guardar tipo' }).click();
+  revisar(await pn.getByText('Escribe el nombre.').isVisible(), 'sin nombre dice «Escribe el nombre.»');
+  await pn.getByLabel('Nombre', { exact: true }).fill('Rosario de la aurora');
+  igual(await pn.locator('h1').innerText(), 'Rosario de la aurora', 'el título sigue al nombre');
+  await pn.getByLabel('Nombre en el panel', { exact: true }).fill('Rosario');
+  await pn.getByLabel('Texto de arriba en Inicio', { exact: true }).fill('En breve comenzamos');
+  await pn.getByLabel('Texto de Gracias', { exact: true }).fill('Gracias por rezar con nosotros');
+  await portada.getByRole('button', { name: 'Portada de la fiesta' }).click();
+  for (const c of ['Misterio del rosario', 'Oración', 'Libre']) await pn.getByRole('checkbox', { name: c }).check();
+  await pn.getByRole('group', { name: 'Imagen' }).getByRole('button', { name: 'Elegir de la galería' }).click();
+  await pn.getByRole('dialog').getByRole('button', { name: /Virgen del Rosario/ }).click();
+  revisar(await pn.getByText('La descripción es la de la imagen en la Galería.').isVisible(), 'con una imagen de la galería, el alt es el de la galería');
+  igual(await pn.getByLabel('Descripción para lectores de pantalla (alt)').inputValue(), 'Virgen del Rosario', 'y muestra su alt');
+  revisar(await pn.getByText('Vista previa · Inicio').first().isVisible(), 'la vista previa es «Vista previa · Inicio»');
+  const enIframe = await pn
+    .frameLocator('iframe.pv-previa-marco')
+    .locator('body')
+    .getByText(/En breve comenzamos/i)
+    .first()
+    .waitFor({ timeout: 8000 })
+    .then(() => true, () => false);
+  revisar(enIframe, 'la vista previa muestra «EN BREVE COMENZAMOS» antes de guardar');
+  revisar(!(await leerConfig(N.id)).tipos, 'la base todavía no tiene el propio');
+  await pn.getByRole('button', { name: 'Guardar tipo' }).click();
+  await pn.waitForURL(`${BASE}/editor/p/${N.slug}/tipos`);
+  revisar(await pn.locator('.pv-tipo-nombre', { hasText: 'Rosario de la aurora' }).isVisible(), 'la tabla tiene la fila «Rosario de la aurora»');
+  const cn = await esperarEnBase(N.id, (c) => c.tipos?.propios?.length === 1);
+  const esperadoN = {
+    clave: 'rosario-de-la-aurora',
+    nombre: 'Rosario de la aurora',
+    nombrePanel: 'Rosario',
+    textoInicio: 'En breve comenzamos',
+    textoGracias: 'Gracias por rezar con nosotros',
+    imagen: 'galeria:img-virgen1',
+    portada: 'fiesta',
+    rotulos: ['persona', 'rosario', 'oracion', 'libre'],
+  };
+  revisar(iguales(cn.tipos?.propios?.[0], esperadoN), `la base tiene el propio (${JSON.stringify(cn.tipos?.propios?.[0])})`);
+
+  console.log('F8 · Sin guardar y Cancelar');
+  const antesC = await leerConfig(N.id);
+  await pn.goto(`${BASE}/editor/p/${N.slug}/tipos/nuevo`);
+  await pn.getByLabel('Nombre', { exact: true }).fill('Vía crucis');
+  await pn.getByRole('navigation', { name: 'Secciones del editor' }).getByRole('link', { name: /^Galería/ }).click();
+  await pn.waitForURL(/\/galeria$/);
+  igual(await guardadoDice(pn), 'Sin guardar', 'en otra sección el encabezado dice «Sin guardar»');
+  await pn.goBack();
+  await pn.waitForURL(/\/tipos\/nuevo$/);
+  igual(await pn.getByLabel('Nombre', { exact: true }).inputValue(), 'Vía crucis', 'lo escrito sigue al volver');
+  await pn.getByRole('button', { name: 'Cancelar' }).click();
+  await pn.waitForURL(`${BASE}/editor/p/${N.slug}/tipos`);
+  await pn.waitForTimeout(1200);
+  revisar(iguales(await leerConfig(N.id), antesC), '«Cancelar» no cambió la base');
+  revisar((await guardadoDice(pn)) !== 'Sin guardar', 'y el encabezado deja de decir «Sin guardar»');
+
+  console.log('F8 · Cambiar');
+  await pn.goto(`${BASE}/editor/p/${N.slug}/tipos/nuevo`);
+  await pn.getByLabel('Nombre', { exact: true }).fill('Con foto');
+  await pn.locator('input[type=file][data-campo="galeria"]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: PNG });
+  const cg = await esperarEnBase(N.id, (c) => c.galeria?.length === 2, 15_000);
+  igual(cg.galeria?.length, 2, '«Cambiar» agregó la imagen a la galería de la base');
+  await pn.getByRole('button', { name: 'Cancelar' }).click();
+  await pn.waitForURL(`${BASE}/editor/p/${N.slug}/tipos`);
+  await pn.waitForTimeout(1200);
+  const cg2 = await leerConfig(N.id);
+  igual(cg2.galeria?.length, 2, 'la imagen sigue en la galería aunque se canceló el tipo');
+  igual(cg2.tipos?.propios?.length, 1, 'y el tipo cancelado no se guardó');
+
+  console.log('F8 · Común');
+  const C = await prepararParroquia();
+  const pc = await nuevaPagina(C.correo);
+  await pc.goto(`${BASE}/editor/p/${C.slug}/tipos/horasanta`);
+  igual(await pc.locator('h1').innerText(), 'Hora Santa', 'el título es «Hora Santa»');
+  igual(await pc.getByLabel('Nombre', { exact: true }).count(), 0, 'un común no tiene «Nombre»');
+  igual(await pc.getByRole('group', { name: 'Portada' }).count(), 0, 'ni «Portada»');
+  igual(
+    JSON.stringify(await pc.locator('.pv-casilla').allInnerTexts()),
+    JSON.stringify(['Guía', 'Exposición del Santísimo', 'Lectura', 'Oración', 'Bendición']),
+    'las casillas de Hora Santa',
+  );
+  const marcadasC = await pc.locator('.pv-casilla input').evaluateAll((l) => l.map((c) => c.checked));
+  igual(JSON.stringify(marcadasC), JSON.stringify([true, true, true, true, true]), 'todas marcadas');
+  igual(await pc.getByRole('button', { name: 'Volver a como venía' }).count(), 0, 'sin ajuste no hay «Volver a como venía»');
+  await pc.getByRole('checkbox', { name: 'Bendición' }).uncheck();
+  await pc.getByRole('button', { name: 'Guardar tipo' }).click();
+  await pc.waitForURL(`${BASE}/editor/p/${C.slug}/tipos`);
+  const cc = await esperarEnBase(C.id, (c) => !!c.tipos?.ajustes?.horasanta);
+  revisar(iguales(cc.tipos?.ajustes?.horasanta, { ocultarRotulos: ['bendicion'] }), `ajustes.horasanta es { ocultarRotulos:['bendicion'] } (${JSON.stringify(cc.tipos?.ajustes)})`);
+  await pc.goto(`${BASE}/editor/p/${C.slug}/tipos/horasanta`);
+  await pc.getByRole('button', { name: 'Volver a como venía' }).click();
+  await pc.getByRole('dialog').getByRole('button', { name: 'Sí, volver' }).click();
+  await esperarGuardado(pc);
+  const cc2 = await esperarEnBase(C.id, (c) => !c.tipos?.ajustes?.horasanta);
+  revisar(!cc2.tipos?.ajustes?.horasanta, '«Sí, volver» quitó ajustes.horasanta');
+
+  console.log('F8 · Grupo');
+  await pc.goto(`${BASE}/editor/p/${C.slug}/tipos/novena`);
+  igual(await pc.locator('h1').innerText(), 'Novena y fiesta patronal', 'el título del grupo');
+  await pc.getByLabel('Texto de Gracias', { exact: true }).fill('Gracias, San José');
+  await pc.getByRole('button', { name: 'Guardar tipo' }).click();
+  await pc.waitForURL(`${BASE}/editor/p/${C.slug}/tipos`);
+  const cgr = await esperarEnBase(C.id, (c) => !!c.tipos?.ajustes?.patronal);
+  const graciasDe = (k) => cgr.tipos?.ajustes?.[k]?.textoGracias;
+  revisar(['prenovena', 'novena', 'patronal'].every((k) => graciasDe(k) === 'Gracias, San José'), 'el grupo escribe el mismo textoGracias en sus tres claves');
+
+  console.log('F8 · Propio viejo');
+  const V = await prepararParroquia({ config: { ...CONFIG_BASE, tipos: { propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', titulo: 'MISA X' }] } } });
+  const pv = await nuevaPagina(V.correo);
+  await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
+  igual(await pv.locator('h1').innerText(), 'Rosario de la aurora', 'el título es el nombre guardado');
+  await pv.getByLabel('Nombre en el panel', { exact: true }).fill('Aurora');
+  await pv.getByRole('button', { name: 'Guardar tipo' }).click();
+  await pv.waitForURL(`${BASE}/editor/p/${V.slug}/tipos`);
+  const cv = await esperarEnBase(V.id, (c) => c.tipos?.propios?.[0]?.nombrePanel === 'Aurora');
+  igual(cv.tipos?.propios?.[0]?.titulo, 'MISA X', 'guardar conserva el titulo');
+  await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
+  await pv.getByRole('button', { name: 'Borrar tipo' }).click();
+  await pv.getByRole('dialog').getByRole('button', { name: 'Sí, borrar' }).click();
+  await pv.waitForURL(`${BASE}/editor/p/${V.slug}/tipos`);
+  const cv2 = await esperarEnBase(V.id, (c) => !c.tipos?.propios);
+  revisar(!cv2.tipos?.propios, '«Sí, borrar» lo quitó de la base');
+
+  console.log('F8 · Último tipo e inexistente');
+  const L = await prepararParroquia({ config: { ...CONFIG_BASE, tipos: { apagados: TODAS, propios: [{ clave: 'unico', nombre: 'Único' }] } } });
+  const pl = await nuevaPagina(L.correo);
+  await pl.goto(`${BASE}/editor/p/${L.slug}/tipos/unico`);
+  igual(await pl.getByRole('button', { name: 'Borrar tipo' }).getAttribute('aria-disabled'), 'true', 'con un solo tipo, «Borrar tipo» está deshabilitado');
+  igual((await camposSinEtiqueta(pl)).length, 0, 'todo campo tiene etiqueta (propio)');
+  await pl.goto(`${BASE}/editor/p/${L.slug}/tipos/no-existe`);
+  igual(await pl.locator('h1').innerText(), 'Ese tipo no existe', '/tipos/no-existe dice «Ese tipo no existe»');
 } finally {
   await navegador.close();
   await limpiar();
