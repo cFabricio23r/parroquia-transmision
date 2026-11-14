@@ -49,3 +49,26 @@
 .pv-opcion-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pv-opcion-etiqueta { font-size: 14px; font-weight: 700; }
 .pv-opcion-ayuda { font-size: 12px; font-weight: 500; color: var(--pv-texto-suave); }
+
+/* ---- F6 Rótulos y estilo ---- */
+.pv-color-select {
+  border: 0;
+  background: transparent;
+  font-family: monospace;
+  font-size: 15px;
+  color: var(--pv-texto);
+  width: 100%;
+  min-height: 40px;
+  cursor: pointer;
+}
+.pv-color-select:focus-visible { outline: none; }
+.pv-color-muestra--borde { box-shadow: inset 0 0 0 1px rgba(20, 34, 58, .12); }
+.pv-nota-acento {
+  margin: 0;
+  background: var(--pv-ambar-chip);
+  color: var(--pv-ambar-chip-texto);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
