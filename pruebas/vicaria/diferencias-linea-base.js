@@ -48,7 +48,7 @@ const ESPERADOS = [
   { n: 12, caso: P, ruta: /^estilos\.h-redes\.borderTopColor$/, motivo: 'A3: el filete de las redes de #eef5fc a --velo' },
   { n: 13, caso: P, ruta: /^(imagenes\.(a-logo|h-logo)\.(src|alt)|ocultos\.(a-logo|h-logo)|estilos\.(a-logo|h-logo)\.\w+)$/, motivo: 'C7, decisión 7: el logo de Avisos y Horarios pasa a logos.blanco' },
   { n: 14, caso: P, ruta: /^(estilos|textos|ocultos|imagenes)\.(a-logo-caja|h-logo-caja)(\.\w+)?$/, motivo: 'C7: círculo nuevo del logo de Avisos y Horarios' },
-  { n: 15, caso: R, ruta: /^estilos\.r-k\.color$/, motivo: 'C3/R1: el kicker del rótulo de --medio a --vivo' },
+  { n: 15, caso: R, ruta: /^estilos\.r-k\.(color|borderTopColor)$/, motivo: 'C3/R1: el kicker del rótulo de --medio a --vivo (borderTopColor sigue a color: currentColor)' },
   { n: 16, caso: R, ruta: /^textos\.(logo-txt|logo)$/, motivo: 'A4, decisión 6: la capa del logo dice nombre y lugar en dos líneas' },
   { n: 17, caso: R, ruta: /^(estilos|textos|ocultos|imagenes)\.logo-esquina(\.\w+)?$/, motivo: 'C2: logo de esquina nuevo (imagen sola) durante un rótulo' },
   { n: 18, caso: C, ruta: /^estilos\.claro\.backgroundColor$/, motivo: 'C5: el fondo del Claro de #f4f7fb a --papel' },

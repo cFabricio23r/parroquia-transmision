@@ -515,7 +515,7 @@ async function casoEstiloRotulos() {
   await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined }); aplicarParroquia(PARROQUIA); });
   m = await medidas();
   igual(m.clases, '', 'sin bloque: se quitan las clases');
-  igual(m.radio, '24px', 'sin bloque: vuelven las esquinas redondeadas');
+  igual(m.radio, '24px', 'sin bloque: vuelven las esquinas suaves (24px)');
   revisar(m.lado !== 'rgb(26, 82, 118)', 'sin bloque: se quita --lado');
   revisar(await r.evaluate(() => document.getElementById('escenario').style.getPropertyValue('--lado') === ''), 'sin bloque: --lado vacío');
 
@@ -905,12 +905,13 @@ async function casoRotulosRediseno() {
   });
   revisar(/^"?Lora"?/.test(m.familia), 'rótulo: la font-family del nombre empieza con Lora (' + m.familia + ')');
   revisar(m.chequeo && m.cargada, 'rótulo: la fuente Lora 700 está cargada (check ' + m.chequeo + ', ' + m.fuentes + ')');
-  igual(m.clases, 'esquinas-suaves tipo-lora', 'rótulo: clases de tipografía y esquinas en el escenario');
-  igual(m.radio, '12px', 'rótulo: esquinas suaves (12px)');
+  igual(m.clases, 'tipo-lora', 'rótulo: clase de tipografía en el escenario (suaves es el defecto y no pone clase)');
+  igual(m.radio, '24px', 'rótulo: esquinas suaves (24px, F6:24)');
   igual(m.linea, ACENTO, 'rótulo: la línea del cuerpo es el acento');
   igual(m.lado, 'rgb(255, 255, 255)', 'rótulo: el lado es blanco');
   igual(m.ladoLogo, 'medios/logo-color.png', 'rótulo: con el lado claro, el logo del lado es el de color');
-  revisar(m.logoOculto, 'capa: sin logoEsquina, el logo se oculta mientras hay rótulo');
+  revisar(m.logoOculto, 'capa: con rótulo, la capa del logo se aparta');
+  revisar(await r.evaluate(() => document.getElementById('logo-esquina').classList.contains('oculto')), 'capa: sin logoEsquina, tampoco hay logo de esquina');
   revisar(m.envivoOculto, 'capa: el EN VIVO se oculta (pantallas.envivo.ocultar)');
   igual(m.logoTxt, 'Pastoral', 'capa: el texto del logo sale de pantallas.envivo.textos');
   igual((await imagenesRotas(r)).length, 0, 'rótulos: ninguna imagen rota');
@@ -930,7 +931,7 @@ async function casoRotulosRediseno() {
     ladoLogo: document.getElementById('lado-logo').getAttribute('src')
   }));
   revisar(/^"?SourceSans"?/.test(ss.familia), 'rótulo: con source-sans, la font-family empieza con SourceSans (' + ss.familia + ')');
-  igual(ss.clases, 'tipo-source-sans', 'rótulo: se quitan tipo-lora y esquinas-suaves');
+  igual(ss.clases, 'tipo-source-sans', 'rótulo: se quita tipo-lora y no aparece ninguna clase de esquinas');
   igual(ss.ladoLogo, 'medios/logo-blanco.png', 'rótulo: sin lado claro, el logo del lado vuelve a ser el blanco');
   await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: undefined, colores: { principal: '#1155a4', oscuro: '#0c3562' } }); aplicarParroquia(PARROQUIA); });
   const sin = await r.evaluate(() => ({
@@ -1479,7 +1480,7 @@ async function casoDisenoDatos() {
   }
   // Rótulo de persona (F6:24)
   for (const slug of [SJ, CA]) {
-    const { ctx, p } = await abrirDiseno(slug, 'rotulos.html', { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', cargo: 'Párroco', mostrarLogo: true, mostrarEnVivo: true });
+    const { ctx, p } = await abrirDiseno(slug, 'rotulos.html', { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', mostrarLogo: true, mostrarEnVivo: true });
     await captura(p, `diseno_${slug}_rotulo`);
     await ctx.close();
   }
@@ -1660,6 +1661,92 @@ async function casoDisenoColores() {
   }
 }
 
+/* C1 a C4 y R3: rótulo de persona como F6:24 (esquinas del diseño, sin sombra, Lora 54/1.08, kicker --vivo) y logo
+   de esquina como imagen sola mientras hay rótulo; sin rótulo, la capa del logo de F4:37. */
+async function casoDisenoRotulo() {
+  console.log('Diseño · Rótulos: esquinas, sombra, Lora, logo de esquina y kicker');
+  const ESTADO = { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Juan Pérez', mostrarLogo: true, mostrarEnVivo: true, mostrarBarra: true };
+  const clasesEsquinas = (p) => p.evaluate(() => [...document.getElementById('escenario').classList].filter((x) => /^esquinas-/.test(x)).join(' '));
+  const radios = (p) => p.evaluate(() => ['rotulo', 'logo', 'barra'].map((id) => getComputedStyle(document.getElementById(id)).borderRadius).join(' / '));
+  const conRotulos = (slug, rotulos) => { const c = configDiseno(slug); c.rotulos = Object.assign({}, c.rotulos, rotulos); return c; };
+  // San José (F6:24)
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO);
+    await p.waitForSelector('#rotulo.en');
+    const r = await estilosDe(p, '#rotulo', ['borderRadius', 'boxShadow']);
+    igual(r.borderRadius + ' / ' + r.boxShadow, '24px / none', 'San José, rótulo: esquinas suaves de 24px y sin sombra');
+    igual(await clasesEsquinas(p), '', 'San José, rótulo: suaves no pone clase de esquinas');
+    igual((await estilosDe(p, '#rotulo .lado', ['backgroundImage'])).backgroundImage, 'linear-gradient(160deg, rgb(138, 28, 43), rgb(75, 15, 24))', 'San José, rótulo: el lado es el degradado rey→oscuro');
+    const cuerpo = await estilosDe(p, '#rotulo .cuerpo', ['borderTopColor', 'borderTopWidth']);
+    igual(cuerpo.borderTopColor + ' ' + cuerpo.borderTopWidth, 'rgb(217, 164, 65) 8px', 'San José, rótulo: línea de 8px del acento');
+    igual((await estilosDe(p, '#r-k', ['color'])).color, 'rgb(192, 72, 90)', 'San José, rótulo: el kicker es --vivo');
+    const t = await estilosDe(p, '#r-t', ['fontFamily', 'fontSize', 'lineHeight', 'color']);
+    revisar(/^"?Lora"?/.test(t.fontFamily), 'San José, rótulo: el nombre en Lora (' + t.fontFamily + ')');
+    igual(t.fontSize + ' / ' + t.lineHeight, '54px / 58.32px', 'San José, rótulo: Lora 54/1.08');
+    igual(t.color, 'rgb(75, 15, 24)', 'San José, rótulo: el nombre es el oscuro');
+    igual((await estilosDe(p, '#r-s', ['color'])).color, 'rgb(138, 28, 43)', 'San José, rótulo: la línea de abajo es el principal');
+    for (const sel of ['#envivo', '#logo', '#barra']) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', 'San José: ' + sel + ' sin sombra');
+    revisar(await p.evaluate(() => document.getElementById('logo').classList.contains('oculto')), 'San José, con rótulo: la capa del logo se aparta');
+    const le = await p.evaluate(() => {
+      const e = document.getElementById('logo-esquina');
+      if (!e) return null;
+      const cs = getComputedStyle(e);
+      return { oculto: e.classList.contains('oculto'), tag: e.tagName, padre: e.parentElement.id, x: e.offsetLeft, y: e.offsetTop, h: e.offsetHeight, opacidad: cs.opacity, fondo: cs.backgroundColor, src: e.getAttribute('src') };
+    });
+    revisar(!!le, 'San José, con rótulo: existe #logo-esquina');
+    if (le) {
+      revisar(!le.oculto, 'San José, con rótulo: el logo de esquina se ve');
+      igual(le.tag + ' en #' + le.padre, 'IMG en #escenario', 'San José: el logo de esquina es una imagen suelta en el escenario');
+      igual([le.x, le.y, le.h].join(' '), '60 44 64', 'San José: el logo de esquina en 60,44, de 64 de alto');
+      igual(le.opacidad, '0.9', 'San José: el logo de esquina con opacidad .9');
+      igual(le.fondo, 'rgba(0, 0, 0, 0)', 'San José: el logo de esquina sin caja');
+      igual(le.src, 'medios/logo-blanco.svg', 'San José: el logo de esquina es el blanco');
+    }
+    await captura(p, `diseno_${SJ}_rotulo`);
+    // Sin rótulo: la capa del logo de F4:37
+    await p.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' })));
+    await p.waitForTimeout(300);
+    const capa = await p.evaluate(() => {
+      const e = document.getElementById('logo');
+      const r = document.createRange(); r.selectNodeContents(document.getElementById('logo-txt'));
+      return { oculto: e.classList.contains('oculto'), x: e.offsetLeft, y: e.offsetTop, fondo: getComputedStyle(e).backgroundColor, sombra: getComputedStyle(e).boxShadow,
+        lineas: new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size,
+        esquina: document.getElementById('logo-esquina') ? document.getElementById('logo-esquina').classList.contains('oculto') : null };
+    });
+    revisar(!capa.oculto, 'San José, sin rótulo: la capa del logo vuelve');
+    igual([capa.x, capa.y].join(' '), '44 36', 'San José, sin rótulo: la capa en 44,36');
+    igual(capa.fondo + ' / ' + capa.sombra, 'rgb(138, 28, 43) / none', 'San José, sin rótulo: la capa es del principal y sin sombra');
+    igual(capa.lineas, 2, 'San José, sin rótulo: el texto de la capa va en dos líneas');
+    igual(capa.esquina, true, 'San José, sin rótulo: el logo de esquina se aparta');
+    await captura(p, `diseno_${SJ}_capa`);
+    await ctx.close();
+  }
+  // logoEsquina:false con rótulo: ni capa ni logo de esquina
+  {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO, { cfg: conRotulos(SJ, { logoEsquina: false }) });
+    await p.waitForSelector('#rotulo.en');
+    igual(await p.evaluate(() => ['logo', 'logo-esquina'].map((id) => { const e = document.getElementById(id); return e ? e.classList.contains('oculto') : null; }).join(' ')), 'true true', 'logoEsquina false: la capa y el logo de esquina se apartan');
+    await ctx.close();
+  }
+  // Esquinas (R3): rectas, redondeadas (config vieja = suaves) y redondas (valor provisional)
+  for (const [q, esperado, clase] of [['rectas', '0px / 0px / 0px', 'esquinas-rectas'], ['redondeadas', '24px / 18px / 16px', ''], ['suaves', '24px / 18px / 16px', ''], ['redondas', '48px / 36px / 32px', 'esquinas-redondas']]) {
+    const { ctx, p } = await abrirDiseno(SJ, 'rotulos.html', ESTADO, { cfg: conRotulos(SJ, { esquinas: q }) });
+    await p.waitForSelector('#rotulo.en');
+    igual(await radios(p), esperado, 'esquinas ' + q + ': rótulo / logo / barra');
+    igual(await clasesEsquinas(p), clase, 'esquinas ' + q + ': clase del escenario');
+    await ctx.close();
+  }
+  // Ciudad Arce: lo mismo con su paleta
+  {
+    const { ctx, p } = await abrirDiseno(CA, 'rotulos.html', ESTADO);
+    await p.waitForSelector('#rotulo.en');
+    igual((await estilosDe(p, '#r-k', ['color'])).color, 'rgb(49, 118, 195)', 'Ciudad Arce, rótulo: el kicker es --vivo');
+    igual((await estilosDe(p, '#rotulo .lado', ['backgroundImage'])).backgroundImage, 'linear-gradient(160deg, rgb(17, 85, 164), rgb(12, 53, 98))', 'Ciudad Arce, rótulo: el lado es el degradado rey→oscuro');
+    await captura(p, `diseno_${CA}_rotulo`);
+    await ctx.close();
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1717,7 +1804,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -1754,6 +1841,7 @@ async function casoLineaBase() {
     await casoDisenoDatos();
     await casoDisenoFondo();
     await casoDisenoColores();
+    await casoDisenoRotulo();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

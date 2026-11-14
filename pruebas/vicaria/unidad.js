@@ -1171,7 +1171,8 @@ grupo('validarConfig: campos del rediseño (1)', () => {
   });
   prueba('constantes nuevas', () => {
     assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans']);
-    assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['redondeadas', 'rectas', 'suaves']);
+    assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['rectas', 'suaves', 'redondas', 'redondeadas']);   // F6:24, más el nombre viejo
+    assert.deepEqual(Object.assign({}, p.ESQUINAS_DISENO), { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' });
     assert.deepEqual(Array.from(p.COLORES_CON_NOMBRE), ['principal', 'oscuro', 'acento', 'blanco']);
   });
 });
@@ -2193,7 +2194,7 @@ grupo('pantallas', () => {
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
-    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
   });
   prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
@@ -2206,7 +2207,7 @@ grupo('pantallas', () => {
   prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
     const x = cargarPantallas();
     forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
@@ -2461,7 +2462,7 @@ grupo('pantallas: lógica del rediseño', () => {
   });
   prueba('estiloRotulos sin bloque rotulos: los valores de hoy más colorLinea null, ladoClaro false, logoEsquina true', () => {
     assert.deepEqual(plano(c.estiloRotulos()), {
-      tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null,
+      tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null,
       colorLinea: null, ladoClaro: false, logoEsquina: true
     });
   });
@@ -2474,6 +2475,18 @@ grupo('pantallas: lógica del rediseño', () => {
       tipografia: 'lora', esquinas: 'suaves', posicion: 'izquierda', colorLado: '#0c3562',
       colorLinea: '#1155a4', ladoClaro: false, logoEsquina: false
     });
+  });
+  prueba('esquinas (R3): validarConfig acepta los nombres del diseño y el viejo; estiloRotulos da el nombre del diseño', () => {
+    for (const q of ['rectas', 'suaves', 'redondas', 'redondeadas']) {
+      const x = cargarP((cfg) => { cfg.rotulos = { esquinas: q }; });
+      assert.ok(x.validarConfig(x.PARROQUIA).ok, q);
+    }
+    const esq = (q) => cargarP((cfg) => { cfg.rotulos = q === undefined ? {} : { esquinas: q }; }).estiloRotulos().esquinas;
+    assert.equal(esq('redondeadas'), 'suaves');
+    assert.equal(esq('suaves'), 'suaves');
+    assert.equal(esq(undefined), 'suaves');
+    assert.equal(esq('redondas'), 'redondas');
+    assert.equal(esq('rectas'), 'rectas');
   });
   prueba('estiloRotulos: colorLado blanco da ladoClaro', () => {
     const x = cargarP((cfg) => { cfg.rotulos = { colorLado: 'blanco' }; });

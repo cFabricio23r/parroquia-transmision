@@ -248,7 +248,11 @@ const ELEMENTOS_MOSTRABLES = ['redes', 'horarios'];
 const PORTADAS_PROPIO = ['ninguna', 'fiesta', 'evento'];
 const MAX_NOMBRE_PANEL = 40;
 const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
-const ESQUINAS_ROTULO = ['redondeadas', 'rectas', 'suaves'];
+/* Esquinas de los rótulos: los nombres del artboard F6 (Rectas, Suaves, Redondas) y, para que una configuración
+   vieja siga validando, 'redondeadas'. ESQUINAS_DISENO traduce cada valor al del diseño: 'redondeadas' (24px) es
+   'suaves', que mide lo mismo. */
+const ESQUINAS_ROTULO = ['rectas', 'suaves', 'redondas', 'redondeadas'];
+const ESQUINAS_DISENO = { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' };
 /* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
 const COLORES_CON_NOMBRE = ['principal', 'oscuro', 'acento', 'blanco'];
 const MAX_HORAS = 6;

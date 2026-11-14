@@ -80,22 +80,24 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .envivo.chico i{width:12px;height:12px}
 
 /* ---------- Rótulos (transparente) ---------- */
-.capa-logo{position:absolute;left:44px;top:36px;display:flex;align-items:center;gap:14px;background:var(--rey);border-radius:18px;padding:12px 22px 12px 14px;box-shadow:0 8px 22px rgba(0,0,0,.3);transition:opacity .4s}
+.capa-logo{position:absolute;left:44px;top:36px;display:flex;align-items:center;gap:14px;background:var(--rey);border-radius:18px;padding:12px 22px 12px 14px;transition:opacity .4s}
+/* Logo de esquina mientras hay rótulo (F6:24): la imagen sola, sin caja. */
+.logo-esquina{position:absolute;left:60px;top:44px;height:64px;opacity:.9;transition:opacity .4s}
 .capa-logo img{height:56px;display:block}
 .capa-logo div{font-weight:700;font-size:17px;line-height:1.25}
 .capa-envivo{right:44px;top:44px;transition:opacity .4s}
-.barra{position:absolute;right:44px;bottom:44px;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.3);transition:opacity .4s,transform .4s}
+.barra{position:absolute;right:44px;bottom:44px;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;transition:opacity .4s,transform .4s}
 .barra .x{background:#fff;color:var(--rey);font-weight:900;font-size:24px;letter-spacing:3px;padding:16px 24px;display:flex;align-items:center;white-space:nowrap}
 .barra .y{background:var(--rey);font-weight:700;font-size:22px;letter-spacing:2px;padding:16px 26px;display:flex;align-items:center;white-space:nowrap}
 .oculto{opacity:0 !important}
 
-.rotulo{position:absolute;left:60px;bottom:70px;display:flex;align-items:stretch;border-radius:24px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.35);
+.rotulo{position:absolute;left:60px;bottom:70px;display:flex;align-items:stretch;border-radius:24px;overflow:hidden;
   transform:translateX(-120px);opacity:0;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .45s}
 .rotulo.visible{transform:none;opacity:1}
 .rotulo .lado{width:160px;background:var(--lado,linear-gradient(160deg,var(--rey),var(--oscuro)));display:flex;align-items:center;justify-content:center}
 .rotulo .lado img{width:104px;display:block}
 .rotulo .cuerpo{background:#fff;padding:22px 64px 24px 40px;min-width:640px;max-width:1500px;display:flex;flex-direction:column;gap:6px;border-top:8px solid var(--celeste);border-top-color:var(--linea,var(--celeste))}
-.rotulo .k{font-weight:800;font-size:18px;letter-spacing:5px;color:var(--medio)}
+.rotulo .k{font-weight:800;font-size:18px;letter-spacing:5px;color:var(--vivo)}
 .rotulo .t{font-weight:900;font-size:52px;line-height:1.05;color:var(--oscuro);white-space:nowrap}
 .rotulo .s{font-weight:600;font-size:24px;color:var(--rey)}
 
@@ -145,7 +147,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .rotulo.en .s{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .70s both}
 .rotulo .cuerpo{position:relative;overflow:hidden}
 .rotulo.en .cuerpo::after{content:"";position:absolute;top:-8px;bottom:0;width:180px;left:-200px;
-  background:linear-gradient(100deg,transparent,rgba(140,192,239,.35),transparent);animation:barrido 1.1s ease-out .55s both}
+  background:linear-gradient(100deg,transparent,rgba(var(--tenue-rgb),.35),transparent);animation:barrido 1.1s ease-out .55s both}
 @keyframes ladoEntra{from{transform:translateX(-100%);opacity:0}to{transform:none;opacity:1}}
 @keyframes logoEntra{from{transform:scale(.3) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
 @keyframes cuerpoEntra{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
@@ -247,10 +249,13 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
    pos-centro centra con márgenes automáticos (sin transform) para no pisar las animaciones .en/.sale. */
 .esquinas-rectas .rotulo,.esquinas-rectas .capa-logo,.esquinas-rectas .barra{border-radius:0}
 .pos-centro .rotulo{left:0;right:0;margin-left:auto;margin-right:auto;width:max-content}
-/* Esquinas suaves: 12px en el rótulo, la capa del logo y la barra (como rectas, pero redondeadas apenas). */
-.esquinas-suaves .rotulo,.esquinas-suaves .capa-logo,.esquinas-suaves .barra{border-radius:12px}
+/* Esquinas (F6:24): suaves es el defecto (24px el rótulo, 18 la capa del logo, 16 la barra) y no lleva clase.
+   Redondas: valor provisional, F6 no lo trae (pregunta abierta del plan 1.1). */
+.esquinas-redondas .rotulo{border-radius:48px}
+.esquinas-redondas .capa-logo{border-radius:36px}
+.esquinas-redondas .barra{border-radius:32px}
 /* Tipografía del nombre del rótulo: Lora («clásica») o Source Sans («sencilla»), en 700. */
-.tipo-lora .rotulo .t{font-family:Lora,Georgia,serif;font-weight:700}
+.tipo-lora .rotulo .t{font-family:Lora,Georgia,serif;font-weight:700;font-size:54px;line-height:1.08}
 .tipo-source-sans .rotulo .t{font-family:SourceSans,Mont,sans-serif;font-weight:700}
 
 /* ================= Rediseño =================

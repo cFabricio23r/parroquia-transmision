@@ -167,7 +167,7 @@ function redesVisibles(vista) {
    colorLado y colorLinea: #rrggbb o un nombre (principal, oscuro, acento, blanco), resueltos con colorDe; null si
    no hay o no se resuelve. Sin colorLinea, la línea es el acento si existe (si no, null: la de hoy).
    ladoClaro: el lateral es claro (contraste con blanco menor que 3), y lleva el logo a color.
-   logoEsquina: el logo de la capa sigue visible mientras hay rótulo; vale true cuando falta (como hoy). */
+   logoEsquina: mientras hay rótulo, el logo blanco queda solo en la esquina (F6:24); vale true cuando falta. */
 function estiloRotulos() {
   const r = PARROQUIA.rotulos && typeof PARROQUIA.rotulos === 'object' ? PARROQUIA.rotulos : {};
   const colores = PARROQUIA.colores;
@@ -175,7 +175,8 @@ function estiloRotulos() {
   const linea = colorDe(r.colorLinea, colores);
   return {
     tipografia: TIPOGRAFIAS.includes(r.tipografia) ? r.tipografia : 'montserrat',
-    esquinas: ESQUINAS_ROTULO.includes(r.esquinas) ? r.esquinas : 'redondeadas',
+    // el nombre del diseño (R3): 'redondeadas' de una configuración vieja se ve como 'suaves'; sin valor, 'suaves'
+    esquinas: ESQUINAS_ROTULO.includes(r.esquinas) ? ESQUINAS_DISENO[r.esquinas] : 'suaves',
     posicion: r.posicion === 'centro' ? 'centro' : 'izquierda',
     colorLado,
     colorLinea: linea || colorDe('acento', colores),
