@@ -276,6 +276,39 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 .escenario.dist-centro .extra{align-items:center}
 .escenario.dist-centro .extra .horas,.escenario.dist-centro .extra .redes{justify-content:center}
 .entra > *:nth-child(7){animation-delay:.83s}
+/* .extra que no cabe en su texto (encajarExtra): más chica; si aún no cabe, se dejan horarios fuera. */
+.extra.compacta{gap:6px;margin-top:0;padding-top:10px}
+.extra.compacta .horas{gap:4px 24px}
+.extra.compacta .hora,.extra.compacta .redes .red{font-size:20px}
+.extra.compacta .hora b,.extra.compacta .redes .red b{font-size:15px;letter-spacing:2px}
+.extra.compacta .redes{gap:4px 24px}
 
-/* Redes debajo de los avisos (#a-redes, solo si la pantalla de avisos las pide) */
+/* Redes debajo de los avisos (#a-redes, solo si la pantalla de avisos las pide). Con redes (con-redes) las filas
+   se compactan antes y un poco más, y las redes van más chicas, para que todo quepa en la tarjeta. */
 #a-redes{flex-shrink:0}
+.tarjeta.con-redes{gap:18px}
+.tarjeta.con-redes .filas.compacta{gap:8px}
+.tarjeta.con-redes .filas.compacta .fila{padding:6px 22px}
+.tarjeta.con-redes .filas.compacta .fila .n{width:50px;height:50px}
+.tarjeta.con-redes #a-redes{gap:6px 26px;padding-top:10px}
+.tarjeta.con-redes #a-redes .red{font-size:22px;gap:8px}
+.tarjeta.con-redes #a-redes .red b{font-size:16px;letter-spacing:2px}
+
+/* Horarios con algún día de varias horas (.varias): la píldora crece hasta un tope y las horas que no caben
+   pasan a otra línea dentro de ella; el día tiene siempre el ancho de su palabra más larga, así que nada lo tapa.
+   Sin .varias (una hora por día, la forma vieja) todo se ve como siempre. */
+.filas.varias .fila.horario{grid-template-columns:fit-content(580px) minmax(min-content,1fr) auto}
+.filas.varias .fila.horario .n{min-width:260px;height:auto;min-height:84px;padding:8px 18px;white-space:normal;text-align:center;line-height:1.15}
+.filas.varias .horas-n > span{white-space:nowrap}
+.filas.compacta.varias .fila.horario{grid-template-columns:fit-content(540px) minmax(min-content,1fr) auto}
+.filas.compacta.varias .fila.horario .n{min-width:200px;height:auto;min-height:56px;padding:4px 14px}
+.filas.compacta.varias.muchas .fila.horario .n{font-size:20px;line-height:1.1}
+.filas.dos-col.varias .fila.horario{grid-template-columns:fit-content(320px) minmax(min-content,1fr)}
+.filas.dos-col.varias .fila.horario .n{min-width:0;height:auto;min-height:44px;padding:4px 12px;font-size:19px;line-height:1.2}
+/* Muchas filas y días de más de dos horas: horas más chicas, dos por línea. */
+.filas.dos-col.muchas .fila.horario{padding:2px 14px}
+.filas.dos-col.muchas .fila.horario .n{font-size:17px;line-height:1.1;padding:2px 12px}
+/* Tarjeta de horarios que no cabe (encajarHorarios): primero se compacta la lista; después, redes más chicas. */
+#v-horarios.redes-chicas .redes{gap:6px 26px;padding-top:6px}
+#v-horarios.redes-chicas .redes .red{font-size:22px;gap:8px}
+#v-horarios.redes-chicas .redes .red b{font-size:16px;letter-spacing:2px}

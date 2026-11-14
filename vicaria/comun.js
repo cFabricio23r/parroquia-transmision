@@ -214,6 +214,14 @@ function tituloCelebracion(s) {
   return rellenar(tipoDe(s).titulo, s).toUpperCase().trim();
 }
 
+/* Título de la portada de evento: el nombre del evento escrito en el panel, como en el tipo evento ('{evento}').
+   Un tipo propio con portada de evento cuyo título no usa {evento} también lo muestra; sin evento, su título. */
+function tituloPortadaEvento(s) {
+  const evento = s && typeof s.evento === 'string' ? s.evento.trim() : '';
+  if (!evento || String(tipoDe(s).titulo).indexOf('{evento}') !== -1) return tituloCelebracion(s);
+  return rellenar('{evento}', s).toUpperCase().trim();
+}
+
 /* ---------- Textos editables
    Cada texto tiene un valor automático (según la celebración). Si en el panel
    se escribe algo, eso reemplaza al automático. Salto de línea = Enter. */

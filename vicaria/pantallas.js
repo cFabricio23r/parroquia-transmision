@@ -5,6 +5,7 @@
    da los valores de siempre y el resto del bloque se ignora. */
 
 const MAX_FILAS_AVISOS = 6;
+const MAX_FILAS_GRACIAS = 6;
 
 /* Imagen de la galería { src, alt } o null si no existe ese id. */
 function imagenGaleria(id) {
@@ -142,6 +143,12 @@ function filasHorarios() {
     a: unir([h.dia].concat(h.horas.map((o) => o.nota))),
     f: unir(h.horas.map((o) => o.hora))
   }));
+}
+
+/* Horarios de la caja de Gracias: las filas de horarios, como mucho MAX_FILAS_GRACIAS (como los avisos), para que la
+   caja quede debajo del texto sin sacar el título del cuadro ni pisar la franja. */
+function filasGracias() {
+  return filasHorarios().slice(0, MAX_FILAS_GRACIAS);
 }
 
 /* Redes [{red, texto}]. La URL no se muestra (OBS no hace clic): solo el texto. */

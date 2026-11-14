@@ -1220,6 +1220,155 @@ async function casoVistaPreviaEstado() {
   await ctx.close();
 }
 
+/* Revisión final del rediseño: los seis hallazgos confirmados, cada uno con el peor caso que acepta validarConfig
+   (12 horarios, 6 horas por día, 6 redes, 6 filas de avisos). Mide en 1920×1080 (escala 1). */
+async function casoRevisionFinal() {
+  console.log('Rediseño · Revisión final: peores casos que acepta la validación');
+  const estado = (e) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${SJ}_estado_v1`, JSON.stringify(e)]);
+  const copia = () => JSON.parse(JSON.stringify(CONFIG[SJ]));
+  const valida = async (p, cfg, nombre) => {
+    const r = await p.evaluate((c) => validarConfig(c), cfg);
+    revisar(r.ok, nombre + ': la configuración pasa validarConfig' + (r.ok ? '' : ' (' + r.errores.join(' / ') + ')'));
+  };
+  const conConfig = async (cfg, ruta, e) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(`**/${SJ}/config.json`, servirConfig(cfg));
+    const p = await abrir(ctx, ruta, 1920, 1080, e ? estado(e) : undefined);
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1800);
+    return { ctx, p };
+  };
+  const HORAS = ['6:00 a. m.', '7:00 a. m.', '9:00 a. m.', '11:00 a. m.', '5:00 p. m.', '6:00 p. m.'];
+  const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const REDES6 = [
+    { red: 'facebook', url: 'https://www.facebook.com/parroquia.san.jose.ejemplo', texto: '/ParroquiaSanJoseEjemplo' },
+    { red: 'youtube', url: 'https://www.youtube.com/@parroquia-san-jose-ejemplo', texto: '@ParroquiaSanJoseEjemplo' },
+    { red: 'instagram', url: 'https://www.instagram.com/parroquiasanjose', texto: '@parroquiasanjose' },
+    { red: 'whatsapp', url: 'https://wa.me/50370000000', texto: '7000-0000' },
+    { red: 'web', url: 'https://parroquiasanjose.org', texto: 'parroquiasanjose.org' },
+    { red: 'facebook', url: 'https://www.facebook.com/pastoral.juvenil.san.jose', texto: '/PastoralJuvenilSanJose' }
+  ];
+
+  // 1. Portada de evento sin bloque pantallas.evento: usa el bloque portada, como antes del rediseño
+  {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { portada: { modo: 'personalizada', fondo: { tipo: 'color', color: '#224466' }, ocultar: ['marca', 'franja'], textos: { franja: 'Lema de portada' } } });
+    delete cfg.pantallas.evento;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'evento' });
+    await valida(p, cfg, 'Portada de evento sin bloque evento');
+    const clases = await p.evaluate(() => [...document.getElementById('escenario').classList].sort().join(' '));
+    igual(clases, 'escenario fondo-color oculto-franja oculto-marca', 'Portada de evento sin bloque evento: fondo y ocultos del bloque portada');
+    igual(await texto(p, '#frase'), 'Lema de portada', 'Portada de evento sin bloque evento: el lema del bloque portada');
+    await ctx.close();
+  }
+
+  // 2 y 3. Gracias con 12 horarios (2 horas y notas cada uno) y 5 o 6 redes: ni pisa la franja ni saca el título del cuadro
+  for (const nRedes of [5, 6]) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] } });
+    cfg.horarios = Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: [{ hora: HORAS[i % 6], nota: 'Misa con niños' }, { hora: HORAS[(i + 2) % 6], nota: 'Misa solemne' }] }));
+    cfg.redes = REDES6.slice(0, nRedes);
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=gracias`, { tipo: 'dominical' });
+    await valida(p, cfg, 'Gracias con 12 horarios y ' + nRedes + ' redes');
+    const m = await p.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const hijos = [...document.getElementById('v-gracias').children].filter((e) => !e.hidden).map((e) => e.getBoundingClientRect());
+      return {
+        extraAbajo: r('#v-gracias .extra').bottom, franja: r('.franja-linea').top,
+        arriba: Math.min(...hijos.map((h) => h.top)), pildora: r('#g-pildora').top, titulo: r('#g-titulo').top,
+        filas: document.querySelectorAll('#v-gracias .extra .hora').length, redes: document.querySelectorAll('#v-gracias .extra .red').length
+      };
+    });
+    const nombre = 'Gracias (12 horarios, ' + nRedes + ' redes)';
+    revisar(m.extraAbajo <= m.franja, nombre + ': la caja no pisa la franja (abajo ' + Math.round(m.extraAbajo) + ', franja ' + m.franja + ')');
+    revisar(m.arriba >= 0 && m.pildora >= 0 && m.titulo >= 0, nombre + ': la píldora y el título quedan dentro del cuadro (arriba ' + Math.round(m.arriba) + ')');
+    revisar(m.filas >= 1 && m.filas <= 6, nombre + ': muestra de 1 a 6 horarios (' + m.filas + ')');
+    igual(m.redes, nRedes, nombre + ': muestra todas las redes');
+    await captura(p, 'revision_gracias_' + nRedes + '_redes');
+    await ctx.close();
+  }
+
+  // 4. Tipo propio con portada de evento: la portada lleva el nombre del evento escrito en el panel
+  {
+    const cfg = copia();
+    cfg.tipos = Object.assign({}, cfg.tipos, { propios: (cfg.tipos.propios || []).concat([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', portada: 'evento' }]) });
+    const ev = 'Rosario de la aurora · Barrio El Centro';
+    const a = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'rosario-aurora', evento: ev, fecha: '2026-12-20', lugar: 'Barrio El Centro' });
+    await valida(a.p, cfg, 'Propio con portada de evento');
+    igual((await texto(a.p, '#p-titulo')).trim(), ev.toUpperCase(), 'Propio con portada de evento: el título es el evento escrito en el panel');
+    await a.ctx.close();
+    const b = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=portada`, { tipo: 'rosario-aurora', fecha: '2026-12-20' });
+    igual((await texto(b.p, '#p-titulo')).trim(), 'ROSARIO DE LA AURORA', 'Propio con portada de evento: sin evento, el título del tipo');
+    await b.ctx.close();
+  }
+
+  // 5. Horarios: varias horas en un día caben en su píldora y no tapan el día (1, 2, 4 y 6 horas; 4, 6 y 12 filas)
+  const medirHorarios = (p) => p.evaluate(() => {
+    const t = document.getElementById('v-horarios');
+    const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+    return [...document.querySelectorAll('#h-filas .fila')].map((f) => {
+      const n = f.querySelector('.n'); const a = f.querySelector('.a');
+      const rn = n.getBoundingClientRect(); const ra = a.getBoundingClientRect();
+      return {
+        dia: a.textContent, horas: n.textContent,
+        dentro: n.scrollWidth <= n.clientWidth + 1 && n.scrollHeight <= n.clientHeight + 1,
+        noTapa: rn.right <= ra.left + 0.5 && a.scrollWidth <= a.clientWidth + 1,
+        enTarjeta: f.getBoundingClientRect().bottom <= fondo + 0.5
+      };
+    });
+  });
+  const casosHorarios = [
+    { nombre: '4 filas (1, 2, 4 y 6 horas)', horarios: [1, 2, 4, 6].map((k, i) => ({ dia: DIAS[i + 3], horas: HORAS.slice(0, k).map((h) => ({ hora: h })), lugar: i === 1 ? 'Templo parroquial' : undefined })) },
+    { nombre: '4 filas de 2 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: [{ hora: '11:00 a. m.', nota: 'Misa con niños' }, { hora: '11:00 p. m.' }], lugar: 'Templo parroquial' })) },
+    { nombre: '4 filas de 6 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: HORAS.map((h) => ({ hora: h })) })) },
+    { nombre: '6 filas de 6 horas', horarios: Array.from({ length: 6 }, (_, i) => ({ dia: DIAS[i], horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })) })) },
+    { nombre: '12 filas de 6 horas', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: HORAS.map((h) => ({ hora: h })) })) }
+  ];
+  for (const c of casosHorarios) {
+    const cfg = copia();
+    cfg.horarios = c.horarios.map((h) => JSON.parse(JSON.stringify(h)));
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=horarios`);
+    await valida(p, cfg, 'Horarios ' + c.nombre);
+    const filas = await medirHorarios(p);
+    igual(filas.length, c.horarios.length, 'Horarios ' + c.nombre + ': todas las filas');
+    const mal = (k) => filas.filter((f) => !f[k]).map((f) => f.dia + ' [' + f.horas + ']').join(' / ');
+    revisar(!mal('dentro'), 'Horarios ' + c.nombre + ': las horas caben en la píldora' + (mal('dentro') ? ' (' + mal('dentro') + ')' : ''));
+    revisar(!mal('noTapa'), 'Horarios ' + c.nombre + ': la píldora no tapa el día' + (mal('noTapa') ? ' (' + mal('noTapa') + ')' : ''));
+    revisar(!mal('enTarjeta'), 'Horarios ' + c.nombre + ': las filas caben en la tarjeta' + (mal('enTarjeta') ? ' (' + mal('enTarjeta') + ')' : ''));
+    const redesFuera = await p.evaluate(() => {
+      const t = document.getElementById('v-horarios');
+      const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+      return [...document.querySelectorAll('#h-redes .red')].filter((e) => e.getBoundingClientRect().bottom > fondo + 0.5).map((e) => e.textContent);
+    });
+    revisar(!redesFuera.length, 'Horarios ' + c.nombre + ': las redes caben en la tarjeta' + (redesFuera.length ? ' (fuera: ' + redesFuera.join(' / ') + ')' : ''));
+    igual(await p.evaluate(() => document.querySelectorAll('#h-redes .red').length), cfg.redes.length, 'Horarios ' + c.nombre + ': se ven todas las redes');
+    igual(filas[0].horas.replace(/\s+/g, ' ').trim(), c.horarios[0].horas.map((h) => h.hora).join(' · '), 'Horarios ' + c.nombre + ': el texto de las horas no cambia');
+    await captura(p, 'revision_horarios_' + (casosHorarios.indexOf(c) + 1));
+    await ctx.close();
+  }
+
+  // 6. Avisos: 6 filas (2 fijos y 4 de horarios) y 6 redes, todo dentro de la tarjeta
+  for (const dist of ['izquierda', 'derecha', 'centro']) {
+    const cfg = copia();
+    cfg.pantallas = Object.assign({}, cfg.pantallas, { avisos: { modo: 'personalizada', distribucion: dist, mostrar: ['horarios', 'redes'] } });
+    cfg.avisos = [{ texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 }, { texto: 'Catequesis de primera comunión', detalle: 'Sábado · 9:00 a. m.', orden: 2 }];
+    cfg.redes = REDES6;
+    const { ctx, p } = await conConfig(cfg, `/${SJ}/pantalla.html?tipo=avisos`, { tipo: 'dominical' });
+    await valida(p, cfg, 'Avisos (' + dist + ') con 6 filas y 6 redes');
+    const m = await p.evaluate(() => {
+      const t = document.getElementById('v-avisos');
+      const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
+      const fuera = [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => e.getBoundingClientRect().bottom > fondo + 0.5).map((e) => e.textContent);
+      return { fuera, filas: document.querySelectorAll('#a-filas .fila').length, redes: document.querySelectorAll('#a-redes .red').length };
+    });
+    igual(m.filas, 6, 'Avisos (' + dist + '): 6 filas');
+    igual(m.redes, 6, 'Avisos (' + dist + '): 6 redes');
+    revisar(!m.fuera.length, 'Avisos (' + dist + '): filas y redes caben en la tarjeta' + (m.fuera.length ? ' (fuera: ' + m.fuera.join(' / ') + ')' : ''));
+    await captura(p, 'revision_avisos_redes_' + dist);
+    await ctx.close();
+  }
+}
+
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
 const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
 
@@ -1271,6 +1420,15 @@ async function casoLineaBase() {
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = 'http://' + HOST + ':' + servidor.address().port;
   browser = await chromium.launch();
+  // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
+  const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
+  if (solo) {
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase };
+    try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
+    await browser.close(); servidor.close();
+    console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
+    process.exit(fallos + errores.length ? 1 : 0);
+  }
   try {
     await casoCarga();
     await casoNoSeCruzan();
@@ -1298,6 +1456,7 @@ async function casoLineaBase() {
     await casoRotulosRediseno();
     await casoPanelRediseno();
     await casoVistaPreviaEstado();
+    await casoRevisionFinal();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

@@ -107,7 +107,7 @@ El panel ofrece cada imagen de la galería como opción de imagen, con su `nombr
 
 ### `pantallas`: personalizar cada pantalla
 
-Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta última se abre con `?tipo=horarios`), `evento`, `produccion` y `envivo`. Solo se escribe la que se quiere cambiar. `evento` es la portada (`?tipo=portada`) cuando el tipo elegido trae la portada de evento: ahí manda el bloque `evento`, no el de `portada`.
+Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta última se abre con `?tipo=horarios`), `evento`, `produccion` y `envivo`. Solo se escribe la que se quiere cambiar. `evento` es la portada (`?tipo=portada`) cuando el tipo elegido trae la portada de evento: ahí manda el bloque `evento`, no el de `portada`. Si la configuración no trae el bloque `evento`, esa portada usa el de `portada`, como antes de que existiera `evento` (una portada ya personalizada se sigue viendo igual). El título de la portada de evento es el nombre del evento escrito en el panel; si está vacío, el título del tipo.
 
 > El ejemplo de abajo usa `galeria:taller`: funciona solo si el archivo también tiene la imagen `taller` en `galeria` (ver el ejemplo de `galeria` de arriba). Si no, el archivo se rechaza.
 
@@ -134,7 +134,7 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta 
 | `imagen` | La imagen grande de la pantalla: `automatica` (la de siempre, según la transmisión), `patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna`, o `galeria:<id>` con un `id` existente. |
 | `distribucion` | Dónde va la imagen: `izquierda` (por defecto), `derecha` o `centro`. El texto ocupa el otro lado. |
 | `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. |
-| `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Sin `mostrar` (o con `modo` `como-viene`) no se muestran: la pantalla se ve como siempre. En `avisos`, `horarios` agrega las filas de horarios después de los avisos (día y notas, y las horas), siempre dentro del máximo de 6 filas, y `redes` pone las redes debajo de las filas. En `inicio` y `gracias`, los horarios y las redes van en una caja debajo del texto, sin tapar la franja. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
+| `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Sin `mostrar` (o con `modo` `como-viene`) no se muestran: la pantalla se ve como siempre. En `avisos`, `horarios` agrega las filas de horarios después de los avisos (día y notas, y las horas), siempre dentro del máximo de 6 filas, y `redes` pone las redes debajo de las filas. En `inicio` y `gracias`, los horarios y las redes van en una caja debajo del texto, sin tapar la franja ni sacar el título del cuadro: en `gracias` van como mucho 6 filas de horarios; si aun así no caben, la caja se achica y deja fuera horarios desde el final (y, solo con textos muy largos, redes). En `avisos`, con `redes` las filas y las redes van más compactas para caber en la tarjeta. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
 
 En `produccion` y `envivo` se aceptan `fondo`, `imagen` y `distribucion`, pero no se aplican: ahí solo cuentan `ocultar` y `textos`.
@@ -232,7 +232,7 @@ Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = `{pa
 
 ### `horarios`: horarios de misa (hasta 12)
 
-Se ven en la pantalla `?tipo=horarios` (las horas del día juntas; al lado, el lugar y las notas) y, si la pantalla los pide con `mostrar`, en Avisos y Gracias.
+Se ven en la pantalla `?tipo=horarios` (las horas del día juntas; al lado, el lugar y las notas) y, si la pantalla los pide con `mostrar`, en Avisos y Gracias. Cuando un día tiene varias horas, su píldora crece y las horas pasan a otra línea dentro de ella; con días de más de dos horas la lista se compacta. Los horarios de una sola hora se ven como siempre.
 
 ```json
 "horarios": [

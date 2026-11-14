@@ -2372,6 +2372,14 @@ grupo('pantallas: lógica del rediseño', () => {
     ]);
     assert.deepEqual(plano(c.filasHorarios()), [], 'sin horarios');
   });
+  prueba('filasGracias: los horarios de Gracias, como mucho MAX_FILAS_GRACIAS (6), en orden', () => {
+    const doce = Array.from({ length: 12 }, (_, i) => ({ dia: 'Día ' + (i + 1), horas: [{ hora: '7:00 a. m.', nota: 'Misa' }, { hora: '9:00 a. m.' }] }));
+    const x = cargarP((cfg) => { cfg.horarios = doce; });
+    assert.equal(x.MAX_FILAS_GRACIAS, 6);
+    assert.deepEqual(plano(x.filasGracias()), plano(x.filasHorarios()).slice(0, 6));
+    const y = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(y.filasGracias()), plano(y.filasHorarios()), 'con pocos horarios, todos');
+  });
   prueba('avisosPara: sin los avisos con activo:false', () => {
     const x = cargarP((cfg) => {
       cfg.avisos = [{ texto: 'Activo', activo: true }, { texto: 'Apagado', activo: false }, { texto: 'Sin campo' }];
@@ -2531,6 +2539,19 @@ grupo('tipos: ajustes y propios del rediseño', () => {
     assert.equal(t.portadaCursiva, x.TIPOS.evento.portadaCursiva);
     assert.deepEqual(plano(t.datos), ['evento', 'fecha', 'lugar']);
     assert.notEqual(t.datos, x.TIPOS.evento.datos, 'lista nueva: no comparte la de TIPOS.evento');
+  });
+  prueba('portada de evento de un propio: el título es el evento escrito en el panel; sin él, el del tipo', () => {
+    const x = conPropios([{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', portada: 'evento' }, { clave: 'retiro', nombre: 'Retiro', titulo: 'Retiro de {evento}', portada: 'evento' }]);
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora', evento: 'Rosario de la aurora · Barrio El Centro' }), 'ROSARIO DE LA AURORA · BARRIO EL CENTRO');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora', evento: '   ' }), 'ROSARIO DE LA AURORA');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'rosario-aurora' }), 'ROSARIO DE LA AURORA');
+    assert.equal(x.tituloPortadaEvento({ tipo: 'retiro', evento: 'Jóvenes' }), 'RETIRO DE JÓVENES', 'si el título ya usa {evento}, manda la plantilla del tipo');
+  });
+  prueba('portada de evento del tipo evento: igual que tituloCelebracion, con y sin evento', () => {
+    for (const s of [{ tipo: 'evento', evento: 'Concierto' }, { tipo: 'evento' }]) {
+      assert.equal(c.tituloPortadaEvento(s), c.tituloCelebracion(s), JSON.stringify(s));
+    }
+    assert.equal(c.tituloPortadaEvento({ tipo: 'evento', evento: 'Concierto' }), 'CONCIERTO');
   });
   prueba('propio sin portada sigue igual que hoy', () => {
     for (const portada of [undefined, 'ninguna']) {
