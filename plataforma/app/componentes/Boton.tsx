@@ -10,6 +10,11 @@ export type PropsBoton = {
   anchoCompleto?: boolean;
   /** Con href se dibuja un enlace (next/link) con aspecto de botón. */
   href?: string;
+  /**
+   * Esperando la respuesta: aria-disabled en vez de `disabled`, para que el foco no se caiga al
+   * <body>. Quien lo usa ignora los envíos repetidos (useEnvio).
+   */
+  ocupado?: boolean;
   children: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
@@ -19,7 +24,7 @@ export function clasesBoton(variante: VarianteBoton = 'primario', compacto?: boo
     .join(' ');
 }
 
-export function Boton({ variante = 'primario', compacto, anchoCompleto, href, children, type, className, ...resto }: PropsBoton) {
+export function Boton({ variante = 'primario', compacto, anchoCompleto, href, ocupado, children, type, className, ...resto }: PropsBoton) {
   const clases = clasesBoton(variante, compacto, anchoCompleto, className);
   if (href) {
     const { 'aria-label': etiqueta, id, title } = resto;
@@ -30,7 +35,7 @@ export function Boton({ variante = 'primario', compacto, anchoCompleto, href, ch
     );
   }
   return (
-    <button type={type ?? 'button'} className={clases} {...resto}>
+    <button type={type ?? 'button'} className={clases} aria-disabled={ocupado || undefined} {...resto}>
       {children}
     </button>
   );

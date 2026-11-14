@@ -5,6 +5,7 @@ import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import type { Mensaje } from './correo';
 import { correoRecuperar } from './correo';
 import { MINIMO_CLAVE } from './clave';
+import { esFalloDeConexion } from './conexion';
 import { MENSAJES_ACCESO } from './mensajes-acceso';
 
 export { MINIMO_CLAVE };
@@ -29,17 +30,17 @@ export function esLimiteDeIntentos(error: { code?: string; status?: number } | n
   return !!error && (error.code === 'over_request_rate_limit' || error.status === 429);
 }
 
+export type ErrorEntrar = 'incorrectos' | 'muchos-intentos' | 'sin-conexion';
+
 /**
  * Inicia sesión. Ante credenciales malas, un solo código ('incorrectos'): no revela si el correo existe.
- * El límite de intentos se distingue para decir «espera unos minutos».
+ * El límite de intentos se distingue para decir «espera unos minutos», y la falta de conexión con
+ * Supabase para no decirle a alguien con el wifi caído que su contraseña está mal (ronda 2).
  */
-export async function entrar(
-  cliente: SupabaseClient,
-  correo: string,
-  clave: string,
-): Promise<{ error?: 'incorrectos' | 'muchos-intentos' }> {
+export async function entrar(cliente: SupabaseClient, correo: string, clave: string): Promise<{ error?: ErrorEntrar }> {
   const { error } = await cliente.auth.signInWithPassword({ email: normalizar(correo), password: clave });
   if (!error) return {};
+  if (esFalloDeConexion(error)) return { error: 'sin-conexion' };
   return { error: esLimiteDeIntentos(error) ? 'muchos-intentos' : 'incorrectos' };
 }
 
@@ -137,6 +138,12 @@ export interface DepsCambioConActual {
   verificador: () => SupabaseClient;
 }
 
+export type ResultadoCambioConActual = {
+  error?: string;
+  campo?: 'actual' | 'nueva';
+  codigo?: 'muchos-intentos' | 'sin-conexion';
+};
+
 /**
  * Cambia la clave desde Mi cuenta pidiendo la actual (Decisión 11 del plan 2). La actual se comprueba
  * con un cliente aparte (signInWithPassword y luego signOut local, que no toca otras sesiones); la
@@ -147,16 +154,19 @@ export async function cambiarClaveConActual(
   actual: string,
   nueva: string,
   repetida: string,
-): Promise<{ error?: string; campo?: 'actual' | 'nueva'; codigo?: 'muchos-intentos' }> {
+): Promise<ResultadoCambioConActual> {
   if (nueva.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA, campo: 'nueva' };
   if (nueva !== repetida) return { error: MENSAJE_CLAVES_DISTINTAS, campo: 'nueva' };
-  const { data } = await deps.sesion.auth.getUser();
+  const sinConexion = { codigo: 'sin-conexion', error: MENSAJES_ACCESO['sin-conexion'].texto } as const;
+  const { data, error: errorSesion } = await deps.sesion.auth.getUser();
+  if (esFalloDeConexion(errorSesion)) return sinConexion;
   const correo = data.user?.email;
   if (!data.user || !correo) return { error: MENSAJE_SESION_VENCIDA };
 
   const verificador = deps.verificador();
   const { error: errorActual } = await verificador.auth.signInWithPassword({ email: correo, password: actual });
   if (errorActual) {
+    if (esFalloDeConexion(errorActual)) return sinConexion;
     if (esLimiteDeIntentos(errorActual)) return { codigo: 'muchos-intentos', error: MENSAJES_ACCESO['muchos-intentos'].texto };
     return { error: MENSAJE_CLAVE_ACTUAL, campo: 'actual' };
   }

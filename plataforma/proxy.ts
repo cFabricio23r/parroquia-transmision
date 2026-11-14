@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
-import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { esFalloDeConexion } from './lib/conexion';
 import { MENSAJES_ACCESO } from './lib/mensajes-acceso';
 
 // Rutas del editor que se pueden ver sin sesión.
@@ -10,14 +10,7 @@ const esPublica = (ruta: string) => PUBLICAS.some((p) => ruta === p || ruta.star
 
 export const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento';
 
-/**
- * ¿El error de getUser() es que no se pudo hablar con Supabase (red caída, proyecto en pausa, 5xx)?
- * auth-js (lib/fetch.js, handleError) convierte un fallo de fetch o un 5xx en AuthRetryableFetchError,
- * y una respuesta que no se puede leer en AuthUnknownError. Sin sesión da AuthSessionMissingError, y
- * un token vencido o inválido, AuthApiError: eso sí es «no hay sesión» y lleva a entrar.
- */
-export const esFalloDeConexion = (error: unknown): boolean =>
-  isAuthRetryableFetchError(error) || (isAuthError(error) && error.name === 'AuthUnknownError');
+export { esFalloDeConexion }; // vive en lib/conexion.ts (también lo usa lib/sesion.ts)
 
 /**
  * La página que se muestra (con 503) en lugar de mandar a entrar cuando Supabase no responde:

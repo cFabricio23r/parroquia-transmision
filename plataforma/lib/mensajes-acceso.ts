@@ -45,10 +45,11 @@ export const MENSAJES_ACCESO: Record<CodigoMensajeAcceso, MensajeAcceso> = {
     texto: 'Esta invitación ya venció. Pídele a la Pastoral de Comunicaciones que te la reenvíe.',
     tono: 'ambar',
   },
-  // Sin artboard (Decisión 8 del plan 2): el texto de hoy, MENSAJE_INVITACION_INVALIDA + «.».
+  // Sin artboard (Decisión 8 del plan 2). Ronda 2: lo más común es alguien que ya creó su cuenta y
+  // vuelve a abrir el correo; la página suma «Ir a entrar». Texto pendiente de visto bueno del dueño.
   'invitacion-no-sirve': {
     titulo: 'Invitación que ya no sirve',
-    texto: 'Esta invitación ya no sirve. Pide una nueva al administrador.',
+    texto: 'Esta invitación ya no sirve. Si ya creaste tu cuenta, entra con tu correo. Si no, pide una nueva a la Pastoral de Comunicaciones.',
     tono: 'gris',
   },
   'enlace-vencido': {

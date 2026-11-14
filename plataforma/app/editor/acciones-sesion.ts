@@ -13,11 +13,13 @@ import {
   entrar as entrarLogica,
   pedirRecuperacionDiferida,
   resolverSitioUrl,
+  type ErrorEntrar,
+  type ResultadoCambioConActual,
 } from '../../lib/sesion';
 import { clienteServicio } from '../../lib/supabase/servicio';
 import { clienteServidor } from '../../lib/supabase/servidor';
 
-export async function entrar(correo: string, clave: string): Promise<{ error?: 'incorrectos' | 'muchos-intentos' }> {
+export async function entrar(correo: string, clave: string): Promise<{ error?: ErrorEntrar }> {
   const r = await entrarLogica(await clienteServidor(), String(correo ?? ''), String(clave ?? ''));
   if (r.error) return r;
   redirect('/editor');
@@ -53,7 +55,7 @@ export async function cambiarMiClave(
   actual: string,
   nueva: string,
   repetida: string,
-): Promise<{ error?: string; campo?: 'actual' | 'nueva'; codigo?: 'muchos-intentos' }> {
+): Promise<ResultadoCambioConActual> {
   return cambiarClaveConActual(
     {
       sesion: await clienteServidor(),

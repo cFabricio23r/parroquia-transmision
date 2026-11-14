@@ -49,7 +49,7 @@ describe('MENSAJES_ACCESO', () => {
     expect(MENSAJES_ACCESO['sesion-cerrada'].tono).toBe('azul');
     expect(MENSAJES_ACCESO['invitacion-no-sirve']).toEqual({
       titulo: 'Invitación que ya no sirve',
-      texto: 'Esta invitación ya no sirve. Pide una nueva al administrador.',
+      texto: 'Esta invitación ya no sirve. Si ya creaste tu cuenta, entra con tu correo. Si no, pide una nueva a la Pastoral de Comunicaciones.',
       tono: 'gris',
     });
   });

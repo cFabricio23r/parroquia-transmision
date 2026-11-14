@@ -6,21 +6,21 @@ import { CampoClave } from '../../componentes/CampoClave';
 import { CampoTexto } from '../../componentes/CampoTexto';
 import { EnlaceTexto } from '../../componentes/EnlaceTexto';
 import { MensajeEstado } from '../../componentes/MensajeEstado';
+import { useEnvio } from '../../componentes/useEnvio';
 import { entrar } from '../acciones-sesion';
 
 /** A1 · Entrar (AB/VicAccesoEntrar). */
 export function FormEntrar() {
-  const [error, setError] = useState<'incorrectos' | 'muchos-intentos'>();
+  const [error, setError] = useState<'incorrectos' | 'muchos-intentos' | 'sin-conexion'>();
   const [intento, setIntento] = useState(0); // vuelve a enfocar el mensaje aunque sea el mismo
-  const [ocupado, setOcupado] = useState(false);
+  const { ocupado, enviar: enviarAccion } = useEnvio();
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const datos = new FormData(e.currentTarget);
-    setOcupado(true);
-    const r = await entrar(String(datos.get('correo') ?? ''), String(datos.get('clave') ?? '')); // si sale bien, redirige
-    setOcupado(false);
-    setError(r?.error);
+    const r = await enviarAccion(() => entrar(String(datos.get('correo') ?? ''), String(datos.get('clave') ?? ''))); // si sale bien, redirige
+    if (r.tipo === 'ocupado') return;
+    setError(r.tipo === 'fallo' ? 'sin-conexion' : r.valor?.error);
     setIntento((n) => n + 1);
   }
 
@@ -57,9 +57,10 @@ export function FormEntrar() {
           }
         />
       )}
+      {error === 'sin-conexion' && <MensajeEstado key={intento} codigo="sin-conexion" incrustado rol="alert" enfocar />}
       <CampoTexto id="correo" etiqueta="Correo" type="email" autoComplete="username" required />
       <CampoClave id="clave" etiqueta="Contraseña" autoComplete="current-password" />
-      <Boton type="submit" anchoCompleto disabled={ocupado}>
+      <Boton type="submit" anchoCompleto ocupado={ocupado}>
         Entrar
       </Boton>
       <div className="pv-centro">

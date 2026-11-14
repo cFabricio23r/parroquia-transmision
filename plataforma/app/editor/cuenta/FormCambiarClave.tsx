@@ -5,9 +5,11 @@ import { Boton } from '../../componentes/Boton';
 import { CampoClave } from '../../componentes/CampoClave';
 import { ListaRequisitos } from '../../componentes/ListaRequisitos';
 import { MensajeEstado } from '../../componentes/MensajeEstado';
+import { MENSAJES_ACCESO } from '../../../lib/mensajes-acceso';
+import { useEnvio } from '../../componentes/useEnvio';
 import { cambiarMiClave } from '../acciones-sesion';
 
-type Resultado = { error?: string; campo?: 'actual' | 'nueva'; codigo?: 'muchos-intentos' };
+type Resultado = { error?: string; campo?: 'actual' | 'nueva'; codigo?: 'muchos-intentos' | 'sin-conexion' };
 
 /** Cambiar contraseña desde Mi cuenta, pidiendo la actual (Decisión 11 del plan 2). */
 export function FormCambiarClave() {
@@ -18,7 +20,7 @@ export function FormCambiarClave() {
   const [noSirve, setNoSirve] = useState(0);
   const [intento, setIntento] = useState(0);
   const [listo, setListo] = useState(false);
-  const [ocupado, setOcupado] = useState(false);
+  const { ocupado, enviar: enviarAccion } = useEnvio();
   const alerta = useRef<HTMLDivElement>(null);
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
@@ -30,10 +32,11 @@ export function FormCambiarClave() {
       return;
     }
     setNoSirve(0);
-    setOcupado(true);
-    const res = await cambiarMiClave(actual, nueva, repetida);
-    setOcupado(false);
+    const envio = await enviarAccion(() => cambiarMiClave(actual, nueva, repetida));
+    if (envio.tipo === 'ocupado') return;
     setIntento((n) => n + 1);
+    // Si la acción ni llegó al servidor, el mismo aviso que cuando Supabase no responde.
+    const res: Resultado = envio.tipo === 'fallo' ? { codigo: 'sin-conexion', error: MENSAJES_ACCESO['sin-conexion'].texto } : envio.valor;
     if (!res.error) {
       setActual('');
       setNueva('');
@@ -48,9 +51,10 @@ export function FormCambiarClave() {
 
   const errorGeneral = r?.error && !r.codigo && r.campo !== 'actual' ? r.error : undefined;
   return (
-    <form onSubmit={enviar} className="pv-cuenta-form">
+    // noValidate: la validación es la nuestra («Contraseña que no sirve»), no el globo del navegador.
+    <form onSubmit={enviar} noValidate className="pv-cuenta-form">
       <h2 className="pv-cuenta-subtitulo">Cambiar contraseña</h2>
-      {r?.codigo === 'muchos-intentos' && <MensajeEstado key={intento} codigo="muchos-intentos" incrustado rol="alert" enfocar />}
+      {r?.codigo && <MensajeEstado key={intento} codigo={r.codigo} incrustado rol="alert" enfocar />}
       {noSirve > 0 && <MensajeEstado key={`n${noSirve}`} codigo="clave-no-sirve" incrustado rol="alert" enfocar />}
       {errorGeneral && (
         <div ref={alerta} role="alert" tabIndex={-1} className="pv-alerta">
@@ -76,7 +80,7 @@ export function FormCambiarClave() {
       />
       <ListaRequisitos requisitos={requisitosClave(nueva, repetida)} />
       <div>
-        <Boton type="submit" disabled={ocupado}>
+        <Boton type="submit" ocupado={ocupado}>
           Cambiar contraseña
         </Boton>
       </div>

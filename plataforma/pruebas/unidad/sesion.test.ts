@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MENSAJES_ACCESO } from '../../lib/mensajes-acceso';
 import {
@@ -120,5 +121,45 @@ describe('cambiarClaveConActual', () => {
       error: 'Elige una contraseña distinta de la anterior',
       campo: 'nueva',
     });
+  });
+});
+
+// ---- Plan 2, ronda 2: sin conexión no es «contraseña incorrecta» ----
+
+describe('sin conexión con Supabase', () => {
+  const caido = () => new AuthRetryableFetchError('fetch failed', 0);
+  function clienteCaido(opciones: { getUser?: boolean } = {}) {
+    const auth = {
+      signInWithPassword: vi.fn().mockResolvedValue({ data: { user: null, session: null }, error: caido() }),
+      getUser: vi.fn().mockResolvedValue(
+        opciones.getUser ? { data: { user: null }, error: caido() } : { data: { user: { id: 'u1', email: 'a@b.test' } }, error: null },
+      ),
+      updateUser: vi.fn(),
+      signOut: vi.fn(),
+    };
+    return { cliente: { auth } as unknown as SupabaseClient, auth };
+  }
+
+  it('entrar con la red caída → sin-conexion (no «incorrectos»)', async () => {
+    expect(await entrar(clienteCaido().cliente, 'a@b.test', 'x')).toEqual({ error: 'sin-conexion' });
+    // Un 503 del proyecto en pausa también llega como AuthRetryableFetchError.
+    const pausa = clienteFalso();
+    pausa.auth.signInWithPassword.mockResolvedValue({ data: {}, error: new AuthRetryableFetchError('Service Unavailable', 503) });
+    expect(await entrar(pausa.cliente, 'a@b.test', 'x')).toEqual({ error: 'sin-conexion' });
+  });
+  it('un error de la API que no es de conexión sigue siendo «incorrectos»', async () => {
+    const malo = clienteFalso();
+    malo.auth.signInWithPassword.mockResolvedValue({ data: {}, error: new AuthApiError('Invalid login credentials', 400, 'invalid_credentials') });
+    expect(await entrar(malo.cliente, 'a@b.test', 'x')).toEqual({ error: 'incorrectos' });
+  });
+  it('cambiarClaveConActual: el verificador sin red → sin-conexion, no «la actual no es correcta»', async () => {
+    const sesion = clienteFalso();
+    const r = await cambiarClaveConActual({ sesion: sesion.cliente, verificador: () => clienteCaido().cliente }, 'buena', 'nueva-clave-1', 'nueva-clave-1');
+    expect(r).toEqual({ codigo: 'sin-conexion', error: MENSAJES_ACCESO['sin-conexion'].texto });
+    expect(sesion.auth.updateUser).not.toHaveBeenCalled();
+  });
+  it('cambiarClaveConActual: getUser sin red → sin-conexion, no «tu sesión venció»', async () => {
+    const r = await cambiarClaveConActual({ sesion: clienteCaido({ getUser: true }).cliente, verificador: () => clienteFalso().cliente }, 'x', 'nueva-clave-1', 'nueva-clave-1');
+    expect(r).toEqual({ codigo: 'sin-conexion', error: MENSAJES_ACCESO['sin-conexion'].texto });
   });
 });

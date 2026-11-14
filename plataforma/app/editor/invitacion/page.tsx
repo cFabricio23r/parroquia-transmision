@@ -22,7 +22,21 @@ export default async function Invitacion({ searchParams }: { searchParams: Promi
     return (
       <MarcoAcceso>
         <TarjetaAcceso ancho={480} separacion={12}>
-          <MensajeEstado codigo={inv.estado === 'vencida' ? 'invitacion-vencida' : 'invitacion-no-sirve'} incrustado rol="alert" />
+          {inv.estado === 'vencida' ? (
+            <MensajeEstado codigo="invitacion-vencida" incrustado rol="alert" />
+          ) : (
+            // Ronda 2: quien ya creó su cuenta y vuelve a abrir el correo cae aquí; tiene que poder entrar.
+            <MensajeEstado
+              codigo="invitacion-no-sirve"
+              incrustado
+              rol="alert"
+              accion={
+                <Boton variante="secundario" href="/editor/entrar">
+                  Ir a entrar
+                </Boton>
+              }
+            />
+          )}
         </TarjetaAcceso>
       </MarcoAcceso>
     );

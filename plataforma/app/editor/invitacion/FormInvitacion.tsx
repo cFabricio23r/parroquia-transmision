@@ -9,6 +9,7 @@ import { CampoTexto } from '../../componentes/CampoTexto';
 import { EnlaceTexto } from '../../componentes/EnlaceTexto';
 import { ListaRequisitos } from '../../componentes/ListaRequisitos';
 import { MensajeEstado } from '../../componentes/MensajeEstado';
+import { useEnvio } from '../../componentes/useEnvio';
 import { aceptarInvitacion } from '../admin/acciones';
 
 /**
@@ -22,7 +23,8 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
   const [errorNombre, setErrorNombre] = useState<string>();
   const [noSirve, setNoSirve] = useState(0);
   const [r, setR] = useState<(Resultado & { aviso?: string }) | undefined>();
-  const [ocupado, setOcupado] = useState(false);
+  const [fallos, setFallos] = useState(0); // >0: la acción no llegó al servidor
+  const { ocupado, enviar: enviarAccion } = useEnvio();
   const alerta = useRef<HTMLDivElement>(null);
   const aviso = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -33,6 +35,7 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setR(undefined);
+    setFallos(0);
     if (crearCuenta) {
       const v = validarNombre(nombre);
       setErrorNombre('error' in v ? v.error : undefined);
@@ -44,9 +47,15 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
       }
       if (!claveBien) return;
     }
-    setOcupado(true);
-    const res = await aceptarInvitacion(token, crearCuenta ? clave : '', crearCuenta ? repetida : '', crearCuenta ? nombre : ''); // si sale bien, redirige
-    setOcupado(false);
+    const envio = await enviarAccion(() =>
+      aceptarInvitacion(token, crearCuenta ? clave : '', crearCuenta ? repetida : '', crearCuenta ? nombre : ''),
+    ); // si sale bien, redirige
+    if (envio.tipo === 'ocupado') return;
+    if (envio.tipo === 'fallo') {
+      setFallos((n) => n + 1);
+      return;
+    }
+    const res = envio.valor;
     if (res.campo === 'nombre') setErrorNombre(res.error);
     setR(res);
   }
@@ -62,7 +71,9 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
 
   const errorServidor = r?.error && r.campo !== 'nombre' ? r.error : undefined;
   return (
-    <form onSubmit={enviar}>
+    // noValidate: la validación es la nuestra («Escribe tu nombre.», «Contraseña que no sirve»), no el globo del navegador.
+    <form onSubmit={enviar} noValidate>
+      {fallos > 0 && <MensajeEstado key={`f${fallos}`} codigo="sin-conexion" incrustado rol="alert" enfocar />}
       {noSirve > 0 && <MensajeEstado key={noSirve} codigo="clave-no-sirve" incrustado rol="alert" enfocar />}
       {errorServidor && (
         <div ref={alerta} role="alert" tabIndex={-1} className="pv-alerta">
@@ -95,7 +106,7 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
           <ListaRequisitos requisitos={requisitosClave(clave, repetida)} />
         </>
       )}
-      <Boton type="submit" anchoCompleto disabled={ocupado}>
+      <Boton type="submit" anchoCompleto ocupado={ocupado}>
         {crearCuenta ? 'Crear cuenta y entrar' : 'Aceptar la invitación'}
       </Boton>
       <div className="pv-pie-acceso">{pie}</div>

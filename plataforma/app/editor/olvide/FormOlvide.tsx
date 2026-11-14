@@ -4,6 +4,8 @@ import { Boton } from '../../componentes/Boton';
 import { CajaInfo } from '../../componentes/CajaInfo';
 import { CampoTexto } from '../../componentes/CampoTexto';
 import { EnlaceTexto } from '../../componentes/EnlaceTexto';
+import { MensajeEstado } from '../../componentes/MensajeEstado';
+import { useEnvio } from '../../componentes/useEnvio';
 import { pedirRecuperacion } from '../acciones-sesion';
 
 /**
@@ -12,7 +14,8 @@ import { pedirRecuperacion } from '../acciones-sesion';
  */
 export function FormOlvide() {
   const [enviado, setEnviado] = useState<string>();
-  const [ocupado, setOcupado] = useState(false);
+  const [fallos, setFallos] = useState(0); // >0: la acción no llegó al servidor
+  const { ocupado, enviar: enviarAccion } = useEnvio();
   const titulo = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (enviado !== undefined) titulo.current?.focus();
@@ -21,9 +24,13 @@ export function FormOlvide() {
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const correo = String(new FormData(e.currentTarget).get('correo') ?? '').trim();
-    setOcupado(true);
-    await pedirRecuperacion(correo);
-    setOcupado(false);
+    const r = await enviarAccion(() => pedirRecuperacion(correo));
+    if (r.tipo === 'ocupado') return;
+    if (r.tipo === 'fallo') {
+      setFallos((n) => n + 1);
+      return;
+    }
+    setFallos(0);
     setEnviado(correo);
   }
 
@@ -49,8 +56,9 @@ export function FormOlvide() {
     <form onSubmit={enviar}>
       <h1 className="pv-titulo-acceso pv-titulo-acceso--24">¿Olvidaste tu contraseña?</h1>
       <p className="pv-texto-acceso">Escribe tu correo y te mandamos un enlace para crear una nueva.</p>
+      {fallos > 0 && <MensajeEstado key={fallos} codigo="sin-conexion" incrustado rol="alert" enfocar />}
       <CampoTexto id="correo" etiqueta="Correo" type="email" autoComplete="email" required />
-      <Boton type="submit" anchoCompleto disabled={ocupado}>
+      <Boton type="submit" anchoCompleto ocupado={ocupado}>
         Enviar enlace
       </Boton>
       <div className="pv-centro">
