@@ -284,3 +284,29 @@ button.pv-enlace {
 .pv-dialogo::backdrop { background: var(--pv-velo); }
 .pv-dialogo-titulo { margin: 0; font-size: 20px; font-weight: 800; }
 .pv-dialogo-acciones { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ---- Alerta de texto (errores del servidor sin mensaje de A5) ---- */
+.pv-alerta {
+  border: 1px solid var(--pv-rojo-borde);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--pv-rojo-texto);
+  background: #fff;
+}
+.pv-alerta:focus { outline: none; }
+.pv-alerta:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+.pv-aviso {
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--pv-info-fondo);
+  color: var(--pv-info-texto);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pv-aviso:focus { outline: none; }

@@ -1,12 +1,19 @@
-import { FormNuevaClave } from '../formularios';
+import { clienteServidor } from '../../../lib/supabase/servidor';
+import { MarcoAcceso } from '../../componentes/MarcoAcceso';
+import { TarjetaAcceso } from '../../componentes/TarjetaAcceso';
+import { FormNuevaClave } from './FormNuevaClave';
 
-export const metadata = { title: 'Elige tu contraseña nueva' };
+export const metadata = { title: 'Crea una contraseña nueva · Parroquia en Vivo' };
+export const dynamic = 'force-dynamic';
 
-export default function NuevaContrasena() {
+// Se llega desde auth/confirmar con la sesión de recuperación (proxy.ts exige sesión en esta ruta).
+export default async function NuevaContrasena() {
+  const { data } = await (await clienteServidor()).auth.getUser();
   return (
-    <main className="tarjeta">
-      <h1>Elige tu contraseña nueva</h1>
-      <FormNuevaClave />
-    </main>
+    <MarcoAcceso>
+      <TarjetaAcceso separacion={14}>
+        <FormNuevaClave correo={data.user?.email ?? ''} />
+      </TarjetaAcceso>
+    </MarcoAcceso>
   );
 }

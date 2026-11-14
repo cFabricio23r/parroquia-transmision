@@ -1,9 +1,8 @@
 'use client';
-import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Campo as NombreCampo, Resultado } from '../../../lib/admin';
 import { Campo, Resumen } from '../formularios';
-import { aceptarInvitacion, crearParroquia, invitar, quitarAcceso } from './acciones';
+import { crearParroquia, invitar, quitarAcceso } from './acciones';
 
 const valor = (e: FormEvent<HTMLFormElement>, nombre: string) => String(new FormData(e.currentTarget).get(nombre) ?? '');
 
@@ -117,57 +116,5 @@ export function BotonQuitar({ parroquiaId, usuarioId, correo }: { parroquiaId: s
       )}
       <Resumen mensaje={error} />
     </>
-  );
-}
-
-export function FormAceptar({ token, correo, crearCuenta }: { token: string; correo: string; crearCuenta: boolean }) {
-  const [r, setR] = useState<(Resultado & { aviso?: string }) | undefined>();
-  const [ocupado, setOcupado] = useState(false);
-  const aviso = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (r?.aviso) aviso.current?.focus();
-  }, [r]);
-  async function enviar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const datos = crearCuenta
-      ? { clave: valor(e, 'clave'), repetida: valor(e, 'repetida'), nombre: valor(e, 'nombre') }
-      : { clave: '', repetida: '', nombre: '' };
-    setR(undefined);
-    setOcupado(true);
-    const res = await aceptarInvitacion(token, datos.clave, datos.repetida, datos.nombre); // si sale bien, redirige
-    setR(res);
-    setOcupado(false);
-  }
-  if (r?.aviso) {
-    return (
-      <div ref={aviso} role="status" tabIndex={-1} className="aviso">
-        <p>{r.aviso}</p>
-        <p>
-          <Link href="/editor/entrar">Ir a entrar</Link>
-        </p>
-      </div>
-    );
-  }
-  return (
-    <form onSubmit={enviar}>
-      <Resumen mensaje={r?.error} />
-      {crearCuenta ? (
-        <>
-          <p>
-            Vas a crear tu cuenta con el correo <strong>{correo}</strong>. Elige una contraseña.
-          </p>
-          <Campo id="nombre" etiqueta="Tu nombre" tipo="text" autoComplete="name" error={de(r, 'nombre')} />
-          <Campo id="clave" etiqueta="Contraseña" tipo="password" autoComplete="new-password" ayuda="Mínimo 8 caracteres." error={de(r, 'clave')} />
-          <Campo id="repetida" etiqueta="Repite la contraseña" tipo="password" autoComplete="new-password" />
-        </>
-      ) : (
-        <p>
-          Entraste como <strong>{correo}</strong>.
-        </p>
-      )}
-      <button className="boton" type="submit" disabled={ocupado}>
-        Aceptar la invitación
-      </button>
-    </form>
   );
 }

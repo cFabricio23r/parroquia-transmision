@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { cambiarClave } from './acciones-sesion';
+// Piezas del editor y la administración viejos (los reemplazan los planes 3 y 5).
+import { useEffect, useRef } from 'react';
 
 /** Resumen de errores: role="alert" y recibe el foco al aparecer. */
 export function Resumen({ mensaje }: { mensaje?: string }) {
@@ -42,31 +42,5 @@ export function Campo(props: { id: string; etiqueta: string; tipo: string; autoC
         </p>
       )}
     </div>
-  );
-}
-
-const valor = (e: FormEvent<HTMLFormElement>, nombre: string) => String(new FormData(e.currentTarget).get(nombre) ?? '');
-
-export function FormNuevaClave() {
-  const [error, setError] = useState<string>();
-  const [ocupado, setOcupado] = useState(false);
-  async function enviar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const datos = { clave: valor(e, 'clave'), repetida: valor(e, 'repetida') };
-    setError(undefined);
-    setOcupado(true);
-    const r = await cambiarClave(datos.clave, datos.repetida);
-    setError(r?.error);
-    setOcupado(false);
-  }
-  return (
-    <form onSubmit={enviar}>
-      <Resumen mensaje={error} />
-      <Campo id="clave" etiqueta="Contraseña nueva" tipo="password" autoComplete="new-password" ayuda="Mínimo 8 caracteres." error={error} />
-      <Campo id="repetida" etiqueta="Repite la contraseña" tipo="password" autoComplete="new-password" />
-      <button className="boton" type="submit" disabled={ocupado}>
-        Guardar la contraseña
-      </button>
-    </form>
   );
 }
