@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { MENSAJES_ACCESO } from '../../lib/mensajes-acceso';
 import { cambiarClave, entrar, pedirRecuperacion } from './acciones-sesion';
 
 /** Resumen de errores: role="alert" y recibe el foco al aparecer. */
@@ -67,7 +68,7 @@ export function FormEntrar() {
     setError(undefined); // se vuelve a anunciar y enfocar aunque el mensaje sea el mismo
     setOcupado(true);
     const r = await entrar(datos.correo, datos.clave);
-    setError(r?.error);
+    setError(r?.error ? MENSAJES_ACCESO[r.error].texto : undefined);
     setOcupado(false);
   }
   return (

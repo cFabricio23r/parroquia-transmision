@@ -4,23 +4,43 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import type { Mensaje } from './correo';
 import { correoRecuperar } from './correo';
+import { MINIMO_CLAVE } from './clave';
+import { MENSAJES_ACCESO } from './mensajes-acceso';
 
-export const MENSAJE_ENTRAR = 'El correo o la contraseña no coinciden';
+export { MINIMO_CLAVE };
+
 export const MENSAJE_RECUPERAR = 'Si ese correo tiene cuenta, te llegó un enlace. Vence en 1 hora';
 export const MENSAJE_CLAVE_CORTA = 'La contraseña necesita al menos 8 caracteres';
 export const MENSAJE_CLAVES_DISTINTAS = 'Las contraseñas no coinciden';
 export const MENSAJE_ENLACE = 'El enlace no sirve o ya venció. Pide uno nuevo';
-import { MINIMO_CLAVE } from './clave';
-export { MINIMO_CLAVE };
+export const MENSAJE_CLAVE_ACTUAL = 'La contraseña actual no es correcta.';
+const MENSAJE_SESION_VENCIDA = 'Tu sesión venció. Entra de nuevo';
+const MENSAJE_MISMA_CLAVE = 'Elige una contraseña distinta de la anterior';
 export const ESPERA_SEGUNDOS = 60;
 export const MAXIMO_POR_DIA = 5;
 
 const normalizar = (correo: string) => correo.trim().toLowerCase();
 
-/** Inicia sesión. Ante cualquier fallo el mismo mensaje: no revela si el correo existe. */
-export async function entrar(cliente: SupabaseClient, correo: string, clave: string): Promise<{ error?: string }> {
+/**
+ * ¿Es el límite de intentos de Auth? (Decisión 12 del plan 2). El código existe en ErrorCode de
+ * auth-js; que GoTrue lo devuelva en signInWithPassword no está verificado, por eso también vale el 429.
+ */
+export function esLimiteDeIntentos(error: { code?: string; status?: number } | null | undefined): boolean {
+  return !!error && (error.code === 'over_request_rate_limit' || error.status === 429);
+}
+
+/**
+ * Inicia sesión. Ante credenciales malas, un solo código ('incorrectos'): no revela si el correo existe.
+ * El límite de intentos se distingue para decir «espera unos minutos».
+ */
+export async function entrar(
+  cliente: SupabaseClient,
+  correo: string,
+  clave: string,
+): Promise<{ error?: 'incorrectos' | 'muchos-intentos' }> {
   const { error } = await cliente.auth.signInWithPassword({ email: normalizar(correo), password: clave });
-  return error ? { error: MENSAJE_ENTRAR } : {};
+  if (!error) return {};
+  return { error: esLimiteDeIntentos(error) ? 'muchos-intentos' : 'incorrectos' };
 }
 
 export interface DepsRecuperacion {
@@ -86,7 +106,7 @@ export async function cambiarClave(cliente: SupabaseClient, clave: string, repet
   if (clave.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA };
   if (clave !== repetida) return { error: MENSAJE_CLAVES_DISTINTAS };
   const { error } = await cliente.auth.updateUser({ password: clave });
-  if (error) return { error: error.code === 'same_password' ? 'Elige una contraseña distinta de la anterior' : 'No se pudo cambiar la contraseña. Pide un enlace nuevo' };
+  if (error) return { error: error.code === 'same_password' ? MENSAJE_MISMA_CLAVE : 'No se pudo cambiar la contraseña. Pide un enlace nuevo' };
   return {};
 }
 
@@ -108,4 +128,45 @@ export function resolverSitioUrl(env: { SITIO_URL?: string; NODE_ENV?: string })
   if (env.SITIO_URL) return env.SITIO_URL.replace(/\/+$/, '');
   if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') return 'http://localhost:3000';
   throw new Error('Falta SITIO_URL: sin ella los enlaces de los correos apuntarían a localhost');
+}
+
+export interface DepsCambioConActual {
+  /** La sesión de cookies de quien cambia la clave. */
+  sesion: SupabaseClient;
+  /** Crea un cliente aparte, sin persistencia, solo para comprobar la clave actual. */
+  verificador: () => SupabaseClient;
+}
+
+/**
+ * Cambia la clave desde Mi cuenta pidiendo la actual (Decisión 11 del plan 2). La actual se comprueba
+ * con un cliente aparte (signInWithPassword y luego signOut local, que no toca otras sesiones); la
+ * sesión de cookies no cambia hasta el updateUser.
+ */
+export async function cambiarClaveConActual(
+  deps: DepsCambioConActual,
+  actual: string,
+  nueva: string,
+  repetida: string,
+): Promise<{ error?: string; campo?: 'actual' | 'nueva'; codigo?: 'muchos-intentos' }> {
+  if (nueva.length < MINIMO_CLAVE) return { error: MENSAJE_CLAVE_CORTA, campo: 'nueva' };
+  if (nueva !== repetida) return { error: MENSAJE_CLAVES_DISTINTAS, campo: 'nueva' };
+  const { data } = await deps.sesion.auth.getUser();
+  const correo = data.user?.email;
+  if (!data.user || !correo) return { error: MENSAJE_SESION_VENCIDA };
+
+  const verificador = deps.verificador();
+  const { error: errorActual } = await verificador.auth.signInWithPassword({ email: correo, password: actual });
+  if (errorActual) {
+    if (esLimiteDeIntentos(errorActual)) return { codigo: 'muchos-intentos', error: MENSAJES_ACCESO['muchos-intentos'].texto };
+    return { error: MENSAJE_CLAVE_ACTUAL, campo: 'actual' };
+  }
+  await verificador.auth.signOut({ scope: 'local' });
+
+  const { error } = await deps.sesion.auth.updateUser({ password: nueva });
+  if (error) {
+    if (error.code === 'same_password') return { error: MENSAJE_MISMA_CLAVE, campo: 'nueva' };
+    console.error('[cambiarClaveConActual]', error.message);
+    return { error: 'No se pudo cambiar la contraseña. Intenta de nuevo' };
+  }
+  return {};
 }

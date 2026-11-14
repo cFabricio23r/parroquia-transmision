@@ -1,11 +1,13 @@
 // Entrar, salir y recuperar la contraseña, contra el Supabase LOCAL.
 // Las acciones se prueban como funciones puras con clientes y buzón inyectados.
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clienteAnonimo, clienteServicio, crearUsuario, sufijo } from './ayudas';
+import { clienteAnonimo, clienteServicio, crearUsuario, hacerAdmin, sufijo } from './ayudas';
+import { guardarNombre } from '../../lib/perfiles';
+import { usuarioActual } from '../../lib/usuario-actual';
 import {
-  MENSAJE_ENTRAR,
   MENSAJE_RECUPERAR,
   cambiarClave,
+  cambiarClaveConActual,
   confirmarRecuperacion,
   entrar,
   pedirRecuperacion,
@@ -36,7 +38,7 @@ describe('entrar', () => {
     const malo = clienteAnonimo();
     const r1 = await entrar(malo, correo, 'otra-clave-99');
     const r2 = await entrar(clienteAnonimo(), `nadie-${sufijo()}@ejemplo.test`, 'otra-clave-99');
-    expect(r1).toEqual({ error: 'El correo o la contraseña no coinciden' });
+    expect(r1).toEqual({ error: 'incorrectos' });
     expect(r2).toEqual(r1);
     expect((await malo.auth.getUser()).data.user).toBeNull();
   });
@@ -110,5 +112,34 @@ describe('cambiarClave', () => {
   it('exige que las dos coincidan', async () => {
     const u = await crearUsuario(`cc2-${sufijo()}@ejemplo.test`, 'clave-buena-1');
     expect(await cambiarClave(u.cliente, 'abcdefgh1', 'abcdefgh2')).toEqual({ error: 'Las contraseñas no coinciden' });
+  });
+});
+
+describe('cambiarClaveConActual', () => {
+  it('con la actual mala falla en ese campo; con la buena cambia la clave y la sesión sigue viva', async () => {
+    const correo = `cca-${sufijo()}@ejemplo.test`;
+    const u = await crearUsuario(correo, 'clave-buena-1');
+    const deps = { sesion: u.cliente, verificador: clienteAnonimo };
+    expect(await cambiarClaveConActual(deps, 'mala-clave-9', 'clave-nueva-2', 'clave-nueva-2')).toEqual({
+      error: 'La contraseña actual no es correcta.',
+      campo: 'actual',
+    });
+    expect(await cambiarClaveConActual(deps, 'clave-buena-1', 'clave-nueva-2', 'clave-nueva-2')).toEqual({});
+    expect(await entrar(clienteAnonimo(), correo, 'clave-nueva-2')).toEqual({});
+    expect(await entrar(clienteAnonimo(), correo, 'clave-buena-1')).toEqual({ error: 'incorrectos' });
+    expect((await u.cliente.auth.getUser()).data.user?.email).toBe(correo);
+  });
+});
+
+describe('usuarioActual', () => {
+  it('nombre null antes de guardarlo y el nombre después; esAdmin para un admin', async () => {
+    const u = await crearUsuario(`ua-${sufijo()}@ejemplo.test`, 'clave-buena-1');
+    expect(await usuarioActual(u.cliente)).toEqual({ id: u.id, correo: u.correo, nombre: null, esAdmin: false });
+    expect(await guardarNombre(u.cliente, 'Persona Actual')).toEqual({});
+    expect((await usuarioActual(u.cliente))?.nombre).toBe('Persona Actual');
+    const a = await crearUsuario(`uadm-${sufijo()}@ejemplo.test`, 'clave-buena-1');
+    await hacerAdmin(a.id);
+    expect((await usuarioActual(a.cliente))?.esAdmin).toBe(true);
+    expect(await usuarioActual(clienteAnonimo())).toBeNull();
   });
 });
