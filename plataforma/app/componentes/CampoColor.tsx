@@ -19,7 +19,9 @@ export function CampoColor({
   const valido = RE_HEX.test(valor);
   return (
     <label className="pv-campo">
-      <span className="pv-campo-etiqueta">{etiqueta}</span>
+      <span id={`${id}-etiqueta`} className="pv-campo-etiqueta">
+        {etiqueta}
+      </span>
       <span className={error ? 'pv-color pv-color--error' : 'pv-color'}>
         <span
           className={valido ? 'pv-color-muestra' : 'pv-color-muestra pv-color-muestra--vacia'}
@@ -35,6 +37,7 @@ export function CampoColor({
           autoComplete="off"
           value={valor}
           onChange={(e) => onCambiar(e.target.value)}
+          aria-labelledby={`${id}-etiqueta`}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
         />

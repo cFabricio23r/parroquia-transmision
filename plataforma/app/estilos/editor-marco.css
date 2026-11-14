@@ -172,3 +172,38 @@
 @media (max-width: 760px) {
   .pv-resumen-grilla { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Formularios de sección (Tareas 12–16) ---- */
+.pv-seccion-form { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pv-fila-campos { display: flex; gap: 12px; align-items: flex-start; }
+.pv-fila-campos > * { flex: 1 1 0; min-width: 0; }
+.pv-pastillas { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-imagen-subiendo { font-size: 14px; font-weight: 700; color: var(--pv-texto-suave); min-height: 22px; }
+
+/* Elegir de la galería */
+.pv-elegir-grilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pv-elegir-imagen {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 8px;
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  font: inherit;
+  color: var(--pv-texto);
+  text-align: left;
+}
+.pv-elegir-imagen:hover { border-color: var(--pv-primario); }
+.pv-elegir-imagen:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+.pv-elegir-miniatura { display: block; aspect-ratio: 4 / 3; background: var(--pv-miniatura-fondo, #dfe6ef); }
+.pv-elegir-miniatura img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pv-elegir-nombre { padding: 0 8px; font-size: 12px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.pv-elegir-vacia { margin: 0; font-size: 14px; color: var(--pv-texto-suave); line-height: 1.5; }
+@media (max-width: 760px) {
+  .pv-fila-campos { flex-direction: column; align-items: stretch; }
+  .pv-elegir-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

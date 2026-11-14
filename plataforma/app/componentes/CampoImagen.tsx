@@ -16,6 +16,8 @@ export function CampoImagen({
   onCambiar,
   onElegir,
   errorAlt,
+  error,
+  ocupado,
 }: {
   id: string;
   etiqueta: string;
@@ -27,6 +29,10 @@ export function CampoImagen({
   onCambiar: () => void;
   onElegir?: () => void;
   errorAlt?: string;
+  /** Error de la imagen (por ejemplo, de la subida), debajo del grupo. */
+  error?: string;
+  /** Subiendo: «Subiendo…» en lugar de los enlaces. */
+  ocupado?: boolean;
 }) {
   return (
     <div className="pv-imagen" role="group" aria-labelledby={`${id}-etiqueta`}>
@@ -45,18 +51,29 @@ export function CampoImagen({
             onChange={(e) => onAlt(e.target.value)}
             error={errorAlt}
           />
-          <span className="pv-imagen-acciones">
-            <button type="button" className="pv-enlace" onClick={onCambiar}>
-              Cambiar
-            </button>
-            {onElegir && (
-              <button type="button" className="pv-enlace" onClick={onElegir}>
-                Elegir de la galería
+          {ocupado ? (
+            <span className="pv-imagen-acciones pv-imagen-subiendo" role="status">
+              Subiendo…
+            </span>
+          ) : (
+            <span className="pv-imagen-acciones">
+              <button type="button" className="pv-enlace" onClick={onCambiar}>
+                Cambiar
               </button>
-            )}
-          </span>
+              {onElegir && (
+                <button type="button" className="pv-enlace" onClick={onElegir}>
+                  Elegir de la galería
+                </button>
+              )}
+            </span>
+          )}
         </div>
       </div>
+      {error && (
+        <span id={`${id}-error`} className="pv-campo-error" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

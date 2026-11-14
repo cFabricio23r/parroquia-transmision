@@ -46,6 +46,12 @@ describe('CampoColor', () => {
     const malo = html(<CampoColor id="x" etiqueta="X" valor="rojo" onCambiar={nada} />);
     expect(malo).toContain('pv-color-muestra--vacia');
   });
+  it('el nombre del input es solo la etiqueta, aunque haya error (aria-labelledby)', () => {
+    const h = html(<CampoColor id="principal" etiqueta="Color principal" valor="#8a1" onCambiar={nada} error="Escribe el color como #rrggbb." />);
+    expect(h).toContain('<span id="principal-etiqueta" class="pv-campo-etiqueta">Color principal</span>');
+    expect(h).toContain('aria-labelledby="principal-etiqueta"');
+    expect(h).toContain('aria-describedby="principal-error"');
+  });
 });
 
 describe('CampoImagen', () => {
@@ -105,5 +111,21 @@ describe('Dialogo', () => {
     );
     expect(con).toContain('class="pv-dialogo pv-dialogo--520"');
     expect(html(<Dialogo abierto={false} titulo="x" onCerrar={nada}><p>x</p></Dialogo>)).toContain('class="pv-dialogo"');
+  });
+});
+
+describe('CampoImagen (plan 3)', () => {
+  const base = { id: 'logo', etiqueta: 'Logo blanco (PNG o SVG)', textoVacio: 'logo blanco', alt: 'Escudo', onAlt: nada, onCambiar: nada };
+  it('ocupado muestra «Subiendo…» en lugar de los enlaces', () => {
+    const h = html(<CampoImagen {...base} ocupado onElegir={nada} />);
+    expect(h).toContain('Subiendo…');
+    expect(h).toContain('role="status"');
+    expect(h).not.toContain('Cambiar');
+  });
+  it('con error lleva un role=alert con el texto', () => {
+    const h = html(<CampoImagen {...base} error="X" />);
+    expect(h).toContain('role="alert"');
+    expect(h).toContain('id="logo-error"');
+    expect(h).toContain('>X<');
   });
 });
