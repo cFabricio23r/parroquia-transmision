@@ -28,3 +28,8 @@ export function mensajeContraste(hex: string): string {
   const texto = `${(Math.floor(razon * 10) / 10).toFixed(1)}:1`;
   return razon >= MIN_CONTRASTE ? `${texto}, se lee bien` : `${texto}, no se lee: elige uno más oscuro`;
 }
+
+/** «8,9:1»: trunca (no redondea) a un decimal, con coma, como el lienzo. */
+export function formatearRazon(razon: number): string {
+  return `${(Math.floor(razon * 10) / 10).toFixed(1).replace('.', ',')}:1`;
+}
