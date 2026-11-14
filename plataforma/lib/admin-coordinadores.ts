@@ -2,7 +2,6 @@
 // otra parroquia, anular y reenviar invitaciones. Sin dependencias de Next; recibe los clientes
 // inyectados como lib/admin.ts. Los envoltorios 'use server' están en app/editor/admin/acciones.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { TonoChip } from '../app/componentes/Chip';
 import {
   MENSAJE_PARROQUIA_DESACTIVADA,
   MENSAJE_SOLO_ADMIN,
@@ -14,32 +13,17 @@ import {
   type DepsAdmin,
   type Resultado,
 } from './admin';
-import { compararEs, personasPorId, todasLasFilas, type Persona } from './admin-parroquias';
+import { personasPorId, todasLasFilas, type Persona } from './admin-parroquias';
+import { compararEs, type EstadoCoordinador, type FilaCoordinador } from './admin-textos';
+
+export { chipCoordinador } from './admin-textos';
+export type { EstadoCoordinador, FilaCoordinador } from './admin-textos';
 import { nombreVisible } from './persona';
 
 export const MENSAJE_YA_COORDINA = 'Ya coordina esa parroquia.';
 export const MENSAJE_SIN_CUENTA = 'Esa persona no tiene cuenta.';
 export const MENSAJE_INVITACION_NO_PENDIENTE = 'Esa invitación ya no está pendiente.';
 const MENSAJE_NO_EXISTE = 'Esa parroquia no existe.';
-
-export type EstadoCoordinador = 'activo' | 'invitacion-enviada' | 'invitacion-vencida';
-
-export interface FilaCoordinador {
-  /** Única en la lista (para `key`). */
-  clave: string;
-  tipo: 'miembro' | 'invitacion';
-  usuarioId: string | null;
-  invitacionId: string | null;
-  /** Solo de un miembro con nombre en `perfiles`. */
-  nombre: string | null;
-  correo: string;
-  parroquiaId: string;
-  parroquiaNombre: string;
-  parroquiaSlug: string;
-  estado: EstadoCoordinador;
-  /** `last_sign_in_at` (ISO) de un miembro; null si nunca entró o es una invitación. */
-  ultimaEntrada: string | null;
-}
 
 export interface EntradaFilas {
   miembros: { usuarioId: string; parroquiaId: string }[];
@@ -109,12 +93,6 @@ export function armarFilasCoordinadores(e: EntradaFilas, ahora: number): FilaCoo
       compararEs(a.parroquiaNombre, b.parroquiaNombre) ||
       compararEs(nombreVisible(a.nombre, a.correo), nombreVisible(b.nombre, b.correo)),
   );
-}
-
-export function chipCoordinador(e: EstadoCoordinador): { texto: string; tono: TonoChip } {
-  if (e === 'activo') return { texto: 'Activo', tono: 'verde' };
-  if (e === 'invitacion-enviada') return { texto: 'Invitación enviada', tono: 'azul' };
-  return { texto: 'Invitación vencida', tono: 'ambar' };
 }
 
 /** Las filas de D2, opcionalmente de una sola parroquia (por slug; uno desconocido se ignora). Lee con el servicio. */

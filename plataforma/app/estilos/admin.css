@@ -58,3 +58,6 @@
   .pv-admin .pv-tabla { overflow-x: auto; }
   .pv-admin .pv-tabla-fila { min-width: 860px; }
 }
+
+/* Formularios dentro de los diálogos del admin: misma separación que el diálogo (16). */
+.pv-admin-formulario { display: flex; flex-direction: column; gap: 16px; }

@@ -2,10 +2,13 @@
 // puras del diálogo «Nueva parroquia». Sin dependencias de Next; recibe los clientes inyectados como
 // lib/admin.ts. Los envoltorios 'use server' están en app/editor/admin/acciones.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { TonoChip } from '../app/componentes/Chip';
 import { exigirAdmin, fallo, MENSAJE_SOLO_ADMIN, RE_UUID, registrar, type DepsAdmin, type Resultado } from './admin';
 import { avisarDespliegue, type EstadoHook } from './despliegue';
 import { nombreVisible } from './persona';
+import { compararEs, estadoParroquia, type FilaParroquia } from './admin-textos';
+
+export { chipParroquia, compararEs, estadoParroquia, sugerirSlug, textoCoordinadores } from './admin-textos';
+export type { EstadoParroquia, FilaParroquia } from './admin-textos';
 
 export const MENSAJE_YA_DESACTIVADA = 'Esa parroquia ya está desactivada.';
 export const MENSAJE_YA_ACTIVA = 'Esa parroquia ya está activa.';
@@ -62,77 +65,8 @@ export function reactivarParroquia(deps: DepsAdmin, parroquiaId: string): Promis
 }
 
 
-// ── Listado de D1 ────────────────────────────────────────────────────────────
-
-export type EstadoParroquia =
-  | { clave: 'publicada'; version: number }
-  | { clave: 'borrador' }
-  | { clave: 'sin-configurar' }
-  | { clave: 'desactivada' };
-
-/** Claves del borrador que pone «Nueva parroquia»: con solo estas, la parroquia está «Sin configurar». */
-const CLAVES_INICIALES = new Set(['nombre', 'lugar']);
-
-/** Decisión 7: desactivada → publicada (mayor versión) → borrador (alguna clave fuera de nombre y lugar) → sin configurar. */
-export function estadoParroquia(p: { desactivadaEn: string | null; version: number | null; clavesBorrador: string[] }): EstadoParroquia {
-  if (p.desactivadaEn) return { clave: 'desactivada' };
-  if (p.version !== null) return { clave: 'publicada', version: p.version };
-  if (p.clavesBorrador.some((c) => !CLAVES_INICIALES.has(c))) return { clave: 'borrador' };
-  return { clave: 'sin-configurar' };
-}
-
-export function chipParroquia(e: EstadoParroquia): { texto: string; tono: TonoChip } {
-  switch (e.clave) {
-    case 'publicada':
-      return { texto: `Publicada · v${e.version}`, tono: 'verde' };
-    case 'borrador':
-      return { texto: 'Borrador', tono: 'ambar' };
-    case 'sin-configurar':
-      return { texto: 'Sin configurar', tono: 'azul' };
-    case 'desactivada':
-      return { texto: 'Desactivada', tono: 'gris' };
-  }
-}
-
-/**
- * El link sugerido para «Nueva parroquia» (Decisión 10): sin tildes ni el prefijo «parroquia »,
- * minúsculas con guiones, hasta 40 caracteres. Si quedan menos de 3, ''.
- */
-export function sugerirSlug(nombre: string): string {
-  const base = nombre
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase()
-    .trim()
-    .replace(/^parroquia\s+/, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const corto = base.slice(0, 40).replace(/-+$/, '');
-  return corto.length >= 3 ? corto : '';
-}
-
-export interface FilaParroquia {
-  id: string;
-  slug: string;
-  nombre: string;
-  /** `lugar` de la última versión publicada o, si no hay, del borrador. */
-  lugar: string | null;
-  estado: EstadoParroquia;
-  /** `nombreVisible` de cada miembro, en orden alfabético. */
-  coordinadores: string[];
-  /** Hay una invitación de coordinador vigente (no usada, no anulada, no vencida). */
-  invitacionPendiente: boolean;
-}
-
-/** Columna Coordinadores (Decisión 8). */
-export function textoCoordinadores(f: FilaParroquia): string {
-  if (f.coordinadores.length) return f.coordinadores.join(', ');
-  return f.invitacionPendiente ? 'invitación enviada' : '—';
-}
-
 const esObjeto = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const textoDe = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-export const compararEs = (a: string, b: string) => a.localeCompare(b, 'es');
 
 export interface Persona {
   nombre: string | null;

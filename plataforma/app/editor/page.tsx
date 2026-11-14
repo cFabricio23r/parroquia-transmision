@@ -62,7 +62,13 @@ export default async function ElegirParroquia() {
                     <span className="pv-elegir-nombre">{p.nombre}</span>
                     <span className="pv-elegir-slug">Parroquia · {p.slug}</span>
                   </span>
-                  {p.version === null ? <Chip tono="ambar">Borrador</Chip> : <Chip tono="verde">Publicada · v{p.version}</Chip>}
+                  {p.desactivada ? (
+                    <Chip tono="gris">Desactivada</Chip>
+                  ) : p.version === null ? (
+                    <Chip tono="ambar">Borrador</Chip>
+                  ) : (
+                    <Chip tono="verde">Publicada · v{p.version}</Chip>
+                  )}
                   <Boton variante="secundario" href={`/editor/p/${p.slug}`} aria-label={`Editar ${p.nombre}`}>
                     Editar
                   </Boton>
