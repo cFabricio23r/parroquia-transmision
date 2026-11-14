@@ -137,8 +137,11 @@ const TIPOS_FONDO = ['degradado', 'color', 'imagen'];
 const IMAGENES_PANTALLA = ['automatica', 'patrono', 'fachada', 'logo', 'custodia', 'santo', 'ninguna'];
 const DISTRIBUCIONES = ['izquierda', 'derecha', 'centro'];
 const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina'];
-const TIPOGRAFIAS = ['montserrat'];
-const ESQUINAS_ROTULO = ['redondeadas', 'rectas'];
+const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
+const ESQUINAS_ROTULO = ['redondeadas', 'rectas', 'suaves'];
+/* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
+const COLORES_CON_NOMBRE = ['principal', 'oscuro', 'acento', 'blanco'];
+const MAX_HORAS = 6;
 const POSICIONES_ROTULO = ['izquierda', 'centro'];
 const ESQUINAS_TIPO = ['hoy', 'fecha', 'fiesta', 'texto'];
 const REDES = ['facebook', 'youtube', 'instagram', 'whatsapp', 'web'];
@@ -167,6 +170,19 @@ function _textoCorto(v, campo, errores, obligatorio) {
   else if (v.length > MAX_TEXTO) errores.push('El texto (' + campo + ') pasa de ' + MAX_TEXTO + ' caracteres.');
 }
 
+/* Resuelve un color de la config: un nombre (principal, oscuro, acento, blanco) o un #rrggbb.
+   Devuelve '#rrggbb' o null si el nombre no existe, falta ese color o el valor no es válido. */
+function colorDe(valor, colores) {
+  if (typeof valor !== 'string') return null;
+  if (valor === 'blanco') return '#ffffff';
+  if (RE_HEX.test(valor)) return valor;
+  if (COLORES_CON_NOMBRE.includes(valor) && _objeto(colores)) {
+    const hex = colores[valor];
+    return typeof hex === 'string' && RE_HEX.test(hex) ? hex : null;
+  }
+  return null;
+}
+
 function _unoDe(v, validos, campo, errores) {
   if (v !== undefined && !validos.includes(v)) errores.push('El valor (' + campo + ') debe ser uno de: ' + validos.join(', ') + '.');
 }
@@ -175,6 +191,17 @@ function _unoDe(v, validos, campo, errores) {
 function _validarColorConBlanco(v, campo, errores) {
   if (typeof v !== 'string' || !RE_HEX.test(v)) errores.push('El color (' + campo + ') debe tener la forma #rrggbb.');
   else if (contraste('#ffffff', v) < MIN_CONTRASTE) errores.push('El texto blanco no se lee sobre el color (' + campo + '): elige uno más oscuro.');
+}
+
+/* Color #rrggbb o uno de `nombres`. Sin exigir contraste: no va bajo texto blanco.
+   Un nombre que apunta a un color que la parroquia no definió (hoy, solo el acento) es error. */
+function _validarColorNombrado(v, nombres, campo, colores, errores) {
+  if (typeof v === 'string' && RE_HEX.test(v)) return;
+  if (typeof v !== 'string' || !nombres.includes(v)) {
+    errores.push('El color (' + campo + ') debe ser #rrggbb o uno de: ' + nombres.join(', ') + '.');
+  } else if (v === 'acento' && !(_objeto(colores) && colores.acento !== undefined)) {
+    errores.push('El color (' + campo + ') usa el acento, pero falta colores.acento.');
+  }
 }
 
 /* `id` debe ser el id de una imagen de la galería; ids = los ids válidos. */
@@ -243,7 +270,7 @@ function _validarPantallas(pantallas, ids, errores) {
   }
 }
 
-function _validarRotulos(r, errores) {
+function _validarRotulos(r, errores, colores) {
   if (r === undefined) return;
   if (!_objeto(r)) {
     errores.push('Los rótulos (rotulos) deben ser un objeto.');
@@ -252,7 +279,9 @@ function _validarRotulos(r, errores) {
   _unoDe(r.tipografia, TIPOGRAFIAS, 'rotulos.tipografia', errores);
   _unoDe(r.esquinas, ESQUINAS_ROTULO, 'rotulos.esquinas', errores);
   _unoDe(r.posicion, POSICIONES_ROTULO, 'rotulos.posicion', errores);
-  if (r.colorLado !== undefined) _validarColorConBlanco(r.colorLado, 'rotulos.colorLado', errores);
+  if (r.colorLado !== undefined) _validarColorNombrado(r.colorLado, COLORES_CON_NOMBRE, 'rotulos.colorLado', colores, errores);
+  if (r.colorLinea !== undefined) _validarColorNombrado(r.colorLinea, COLORES_CON_NOMBRE.filter((n) => n !== 'blanco'), 'rotulos.colorLinea', colores, errores);
+  if (r.logoEsquina !== undefined && typeof r.logoEsquina !== 'boolean') errores.push('El valor (rotulos.logoEsquina) debe ser verdadero o falso.');
   if (r.cargos !== undefined && _lista(r.cargos, 'rotulos.cargos', 12, errores)) {
     r.cargos.forEach((t, i) => _textoCorto(t, 'rotulos.cargos[' + i + ']', errores, true));
   }
@@ -327,6 +356,7 @@ function _validarGaleria(g, errores) {
     }
     if (!_texto(im.src)) errores.push('Falta el archivo de la imagen (' + campo + '.src).');
     else if (!RUTA_MEDIO.test(im.src)) errores.push('La ruta de la imagen (' + campo + '.src) debe ser medios/archivo con extensión png, jpg, jpeg, webp o svg.');
+    _textoCorto(im.nombre, campo + '.nombre', errores, false);
     if (!_texto(im.alt)) errores.push('Falta la descripción de la imagen (' + campo + '.alt).');
     else if (im.alt.length > MAX_TEXTO) errores.push('La descripción de la imagen (' + campo + '.alt) pasa de ' + MAX_TEXTO + ' caracteres.');
     if (im.etiquetas !== undefined && _lista(im.etiquetas, campo + '.etiquetas', 10, errores)) {
@@ -345,8 +375,25 @@ function _validarHorarios(h, errores) {
       return;
     }
     _textoCorto(x.dia, campo + '.dia', errores, true);
-    _textoCorto(x.hora, campo + '.hora', errores, true);
     _textoCorto(x.nota, campo + '.nota', errores, false);
+    _textoCorto(x.lugar, campo + '.lugar', errores, false);
+    if (x.horas === undefined) {
+      _textoCorto(x.hora, campo + '.hora', errores, true);
+      return;
+    }
+    // forma nueva: varias horas en el mismo día; no se mezcla con `hora`
+    if (x.hora !== undefined) errores.push('Usa hora o horas, no las dos (' + campo + '.horas).');
+    if (!_lista(x.horas, campo + '.horas', MAX_HORAS, errores)) return;
+    if (x.horas.length === 0) errores.push('Falta al menos una hora (' + campo + '.horas).');
+    x.horas.forEach((o, j) => {
+      const campoHora = campo + '.horas[' + j + ']';
+      if (!_objeto(o)) {
+        errores.push('La hora (' + campoHora + ') debe ser un objeto.');
+        return;
+      }
+      _textoCorto(o.hora, campoHora + '.hora', errores, true);
+      _textoCorto(o.nota, campoHora + '.nota', errores, false);
+    });
   });
 }
 
@@ -396,6 +443,7 @@ function _validarAvisos(av, errores) {
     if (fechasOk && x.desde !== undefined && x.hasta !== undefined && x.desde > x.hasta) {
       errores.push('La fecha de inicio (' + campo + '.desde) no puede ser posterior al fin (' + campo + '.hasta).');
     }
+    if (x.activo !== undefined && typeof x.activo !== 'boolean') errores.push('El valor (' + campo + '.activo) debe ser verdadero o falso.');
     if (x.orden !== undefined && !Number.isInteger(x.orden)) errores.push('El orden (' + campo + '.orden) debe ser un número entero.');
   });
 }
@@ -427,6 +475,10 @@ function validarConfig(c) {
       errores.push('El color oscuro (colores.oscuro) debe tener la forma #rrggbb.');
     } else if (contraste('#ffffff', col.oscuro) < MIN_CONTRASTE) {
       errores.push('El texto blanco no se lee sobre el color oscuro (colores.oscuro): elige uno más oscuro.');
+    }
+    // acento opcional: va como línea o filete, nunca bajo texto blanco, así que no exige contraste
+    if (col.acento !== undefined && (!_texto(col.acento) || !RE_HEX.test(col.acento))) {
+      errores.push('El color de acento (colores.acento) debe tener la forma #rrggbb.');
     }
   }
 
@@ -465,7 +517,7 @@ function validarConfig(c) {
 
   const ids = _validarGaleria(c.galeria, errores);
   _validarPantallas(c.pantallas, ids, errores);
-  _validarRotulos(c.rotulos, errores);
+  _validarRotulos(c.rotulos, errores, c.colores);
   _validarTipos(c.tipos, ids, errores);
   _validarHorarios(c.horarios, errores);
   _validarRedes(c.redes, errores);

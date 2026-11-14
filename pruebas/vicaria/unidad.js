@@ -1094,6 +1094,84 @@ grupo('parroquia', () => {
   });
 });
 
+grupo('validarConfig: campos del rediseño (1)', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cambios(c);
+    return c;
+  };
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+  const img = (extra) => Object.assign({ id: 'foto-1', src: 'medios/foto-1.png', alt: 'Una foto' }, extra);
+
+  prueba('colores.acento: opcional, #rrggbb, sin exigir contraste', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#ffff00'; })).ok, 'el acento no exige contraste con blanco');
+    assert.match(errs((c) => { c.colores.acento = 'dorado'; }), /colores\.acento/);
+  });
+  prueba('rotulos: lora, source-sans, suaves, logoEsquina y colorLinea', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: '#4b0f18', colorLinea: 'acento', logoEsquina: false }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia: 'source-sans', colorLinea: '#d9a441', logoEsquina: true }; })).ok);
+  });
+  prueba('rotulos.colorLado ya no exige contraste con blanco y acepta nombres', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'blanco' }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: '#f2e6c8' }; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'principal', colorLinea: 'oscuro' }; })).ok);
+    assert.match(errs((c) => { c.rotulos = { colorLado: 'verde' }; }), /rotulos\.colorLado/);
+  });
+  prueba('colorLado o colorLinea en acento sin colores.acento es error', () => {
+    const e = errs((c) => { c.rotulos = { colorLado: 'acento', colorLinea: 'acento' }; });
+    assert.match(e, /rotulos\.colorLado/); assert.match(e, /rotulos\.colorLinea/);
+    assert.match(e, /usa el acento, pero falta colores\.acento\./);
+  });
+  prueba('rotulos.colorLinea no acepta blanco; logoEsquina debe ser booleano', () => {
+    const e = errs((c) => { c.rotulos = { colorLinea: 'blanco', logoEsquina: 'si' }; });
+    assert.match(e, /colorLinea/); assert.match(e, /logoEsquina/);
+  });
+  prueba('galeria[].nombre opcional, texto de hasta 200', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.galeria = [img({ nombre: 'Fachada principal' })]; })).ok);
+    assert.ok(p.validarConfig(copia((c) => { c.galeria = [img({ nombre: 'x'.repeat(200) })]; })).ok);
+    assert.match(errs((c) => { c.galeria = [img({ nombre: 'x'.repeat(201) })]; }), /galeria\[0\]\.nombre/);
+    assert.match(errs((c) => { c.galeria = [img({ nombre: 5 })]; }), /galeria\[0\]\.nombre/);
+  });
+  prueba('avisos[].activo opcional y booleano', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.avisos = [{ texto: 'A', activo: true }, { texto: 'B', activo: false }]; })).ok);
+    assert.match(errs((c) => { c.avisos = [{ texto: 'A', activo: 'no' }]; }), /avisos\[0\]\.activo/);
+  });
+  prueba('horarios: forma nueva {dia, horas:[{hora, nota?}], lugar?} y la vieja conviven', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.horarios = [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '6:00 p. m.', nota: 'Hora Santa' }], lugar: 'Templo parroquial' },
+      { dia: 'Sábado', hora: '5:00 p. m.' }]; })).ok);
+  });
+  prueba('horarios: horas vacía, más de 6 horas, o hora y horas a la vez son errores', () => {
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [] }]; }), /horarios\[0\]\.horas/);
+    const siete = Array.from({ length: 7 }, (_, i) => ({ hora: i + ':00' }));
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: siete }]; }), /horarios\[0\]\.horas/);
+    assert.ok(p.validarConfig(copia((c) => { c.horarios = [{ dia: 'Domingo', horas: siete.slice(0, 6) }]; })).ok);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', hora: '7:00', horas: [{ hora: '8:00' }] }]; }), /horarios\[0\]\.horas/);
+  });
+  prueba('horarios: cada hora lleva hora obligatoria, nota y lugar opcionales de hasta 200', () => {
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ nota: 'sin hora' }] }]; }), /horarios\[0\]\.horas\[0\]\.hora/);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ hora: '7:00', nota: 'x'.repeat(201) }] }]; }), /horarios\[0\]\.horas\[0\]\.nota/);
+    assert.match(errs((c) => { c.horarios = [{ dia: 'Domingo', horas: [{ hora: '7:00' }], lugar: 'x'.repeat(201) }]; }), /horarios\[0\]\.lugar/);
+  });
+  prueba('horarios: el límite de 12 filas no cambia', () => {
+    assert.match(errs((c) => { c.horarios = Array.from({ length: 13 }, () => ({ dia: 'D', hora: '1' })); }), /horarios/);
+  });
+  prueba('colorDe resuelve nombres y hex', () => {
+    const col = { principal: '#1155a4', oscuro: '#0c3562', acento: '#d9a441' };
+    assert.equal(p.colorDe('acento', col), '#d9a441'); assert.equal(p.colorDe('blanco', col), '#ffffff');
+    assert.equal(p.colorDe('principal', col), '#1155a4'); assert.equal(p.colorDe('oscuro', col), '#0c3562');
+    assert.equal(p.colorDe('#123456', col), '#123456'); assert.equal(p.colorDe('acento', { principal: '#1155a4', oscuro: '#0c3562' }), null);
+    assert.equal(p.colorDe('rojo', col), null); assert.equal(p.colorDe(undefined, col), null);
+  });
+  prueba('constantes nuevas', () => {
+    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans']);
+    assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['redondeadas', 'rectas', 'suaves']);
+    assert.deepEqual(Array.from(p.COLORES_CON_NOMBRE), ['principal', 'oscuro', 'acento', 'blanco']);
+  });
+});
+
 grupo('aplicar paleta', () => {
   prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
     const puestas = {};
@@ -1585,7 +1663,7 @@ grupo('config 1b', () => {
   malo('rotulos.tipografia arial', (c) => { c.rotulos = { tipografia: 'arial' }; }, 'rotulos.tipografia');
   malo('rotulos.esquinas desconocida', (c) => { c.rotulos = { esquinas: 'ovaladas' }; }, 'rotulos.esquinas');
   malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'derecha' }; }, 'rotulos.posicion');
-  malo('rotulos.colorLado sin contraste', (c) => { c.rotulos = { colorLado: '#ffff00' }; }, 'rotulos.colorLado');
+  malo('rotulos.colorLado que no es #rrggbb ni un nombre de color', (c) => { c.rotulos = { colorLado: 'amarillo' }; }, 'rotulos.colorLado');
   malo('rotulos.cargos con 13 elementos', (c) => { c.rotulos = { cargos: Array.from({ length: 13 }, (_, i) => 'CARGO ' + i) }; }, 'rotulos.cargos');
   malo('tipo propio con clave dominical', (c) => { c.tipos = { propios: [{ clave: 'dominical', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
   malo('tipo propio con clave inválida', (c) => { c.tipos = { propios: [{ clave: 'Hora Misionera', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');

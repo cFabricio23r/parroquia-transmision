@@ -12,7 +12,7 @@ Esta guía no es parte de las pantallas: está en el repositorio solo como guía
 4. **Todo texto es texto plano.** No se usa HTML. Los textos de los bloques opcionales (segunda parte) admiten hasta 200 caracteres: si uno se pasa, **se rechaza el archivo** (no se corta). Sin límite de largo: `nombre`, `nombreCorto`, `lugar`, `patrono.nombre`, `patrono.corto`, `fiesta.lema` y los `alt` de `logos`, `fachada` y `patrono.imagen`.
 5. **Toda imagen lleva `alt`** (la descripción para quien no ve la imagen). Es obligatorio.
 6. **Rutas de imagen:** solo `medios/nombre.ext` (sin subcarpetas) y con extensión `png`, `jpg`, `jpeg`, `webp` o `svg`. No se aceptan `http://`, `https://`, `//`, `..` ni `\`. El nombre solo puede llevar letras, números, punto, guion y guion bajo.
-7. **Colores:** siempre `#rrggbb` (por ejemplo `#8a1c2b`). Todo color sobre el que va texto blanco debe tener contraste de al menos 4.5 a 1 con el blanco; si es muy claro, se rechaza.
+7. **Colores:** siempre `#rrggbb` (por ejemplo `#8a1c2b`). Todo color sobre el que va texto blanco debe tener contraste de al menos 4.5 a 1 con el blanco; si es muy claro, se rechaza. Las excepciones son `colores.acento`, `rotulos.colorLado` y `rotulos.colorLinea`, que no llevan texto blanco encima y no exigen contraste.
 8. **`id` y `clave`:** de 2 a 40 caracteres, solo minúsculas, números y guiones sueltos (`hora-misionera` sí; `Hora_Misionera` y `-hora` no).
 9. **Fechas:** `AAAA-MM-DD` y que existan (`2026-02-30` se rechaza).
 
@@ -65,6 +65,7 @@ Los cambios sin una `version` nueva **no llegan** a las pantallas que ya tienen 
 | `nombreCorto` | Nombre corto | Opcional; si está, no puede estar vacío. |
 | `lugar` | Ciudad o población | Texto, no vacío. |
 | `colores.principal`, `colores.oscuro` | Los dos colores de la parroquia | `#rrggbb`, contraste con blanco de 4.5 o más. |
+| `colores.acento` | Opcional: tercer color (dorado, por ejemplo) para filetes y líneas | `#rrggbb`. No exige contraste. Los rótulos pueden pedirlo por su nombre: `acento`. |
 | `logos.blanco` | Logo para fondos de color | Obligatorio: `{ "src", "alt" }`. |
 | `logos.color` | Logo a color | Opcional: `{ "src", "alt" }`. |
 | `fachada` | Foto o dibujo del templo | Obligatorio: `{ "src", "alt" }`. |
@@ -88,6 +89,7 @@ Imágenes que luego se eligen por su `id` en pantallas y tipos propios.
     "id": "taller",
     "src": "medios/taller.svg",
     "alt": "Dibujo de ejemplo de una escuadra, un martillo y un lirio",
+    "nombre": "Taller de San José",
     "etiquetas": ["patrono", "ejemplo"]
   }
 ]
@@ -98,6 +100,7 @@ Imágenes que luego se eligen por su `id` en pantallas y tipos propios.
 | `id` | Obligatorio, único; de 2 a 40, minúsculas, números y guiones. |
 | `src` | Obligatorio: `medios/archivo.ext` (ver reglas de rutas). |
 | `alt` | Obligatorio, hasta 200 caracteres. |
+| `nombre` | Opcional; texto corto de hasta 200 caracteres para reconocer la imagen. |
 | `etiquetas` | Opcional; hasta 10 textos de hasta 200 caracteres. |
 
 El panel ofrece cada imagen de la galería como opción de imagen, con su `alt` como nombre.
@@ -153,16 +156,20 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
   "esquinas": "rectas",
   "posicion": "izquierda",
   "colorLado": "#4b0f18",
+  "colorLinea": "acento",
+  "logoEsquina": true,
   "cargos": ["CELEBRANTE", "PREDICADOR", "DIÁCONO", "LECTOR", "MONAGUILLO"]
 }
 ```
 
 | Campo | Valores y límites |
 |---|---|
-| `tipografia` | Solo `montserrat` (la única fuente local que hay). |
-| `esquinas` | `redondeadas` (por defecto) o `rectas`. |
+| `tipografia` | `montserrat` (por defecto), `lora` o `source-sans`. |
+| `esquinas` | `redondeadas` (por defecto), `rectas` o `suaves`. |
 | `posicion` | `izquierda` (por defecto) o `centro`. |
-| `colorLado` | `#rrggbb` con contraste con blanco de 4.5 o más. Sin él, se usa el degradado de la paleta. |
+| `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. |
+| `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. |
+| `logoEsquina` | Opcional; `true` o `false`. |
 | `cargos` | Hasta 12 textos (no vacíos, hasta 200 caracteres) que reemplazan la lista sugerida de cargos del panel. |
 
 ### `tipos`: tipos de transmisión
@@ -209,15 +216,24 @@ Se ven en la pantalla `?tipo=horarios`.
 ```json
 "horarios": [
   { "dia": "Sábado", "hora": "6:00 p. m.", "nota": "Misa de vigilia" },
-  { "dia": "Domingo", "hora": "7:00 a. m." }
+  { "dia": "Domingo", "hora": "7:00 a. m." },
+  {
+    "dia": "Domingo",
+    "horas": [{ "hora": "9:00 a. m." }, { "hora": "6:00 p. m.", "nota": "Hora Santa" }],
+    "lugar": "Templo parroquial"
+  }
 ]
 ```
 
 | Campo | Valores y límites |
 |---|---|
 | `dia` | Obligatorio; hasta 200 caracteres. |
-| `hora` | Obligatorio; hasta 200 caracteres. |
+| `hora` | Forma de una sola hora: obligatoria si no hay `horas`; hasta 200 caracteres. |
+| `horas` | Forma de varias horas en el mismo día: de 1 a 6 entradas `{ "hora", "nota" }`; en cada una `hora` es obligatoria y `nota` opcional (hasta 200 caracteres). No se escribe junto con `hora`. |
 | `nota` | Opcional; hasta 200 caracteres. |
+| `lugar` | Opcional; hasta 200 caracteres. |
+
+Las dos formas (`hora` y `horas`) pueden convivir en la misma lista.
 
 Sin horarios ni redes, esa pantalla dice «Consulte los horarios en el panel».
 
@@ -252,6 +268,7 @@ Se ven en la pantalla de avisos, **antes** de los que se escriben en el panel. E
 |---|---|
 | `texto` | Obligatorio; hasta 200 caracteres. |
 | `detalle` | Opcional; hasta 200 caracteres. |
+| `activo` | Opcional; `true` o `false`. |
 | `desde`, `hasta` | Opcionales, `AAAA-MM-DD`. El aviso se ve desde el día `desde` hasta el día `hasta`, **ambos inclusive** (hora local de la pantalla). `desde` no puede ser posterior a `hasta`. Sin fechas, siempre se ve. |
 | `orden` | Opcional; número entero. Va primero el menor; si empatan, el que está antes en la lista. |
 
