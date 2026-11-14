@@ -92,3 +92,49 @@
   .pv-tarjeta-acceso { padding: 24px; }
   .pv-usuario-etiqueta { display: none; }
 }
+
+/* ---- Menú lateral del editor ---- */
+.pv-menu {
+  width: 236px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid var(--pv-borde);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pv-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: var(--pv-texto-suave);
+  background: transparent;
+}
+.pv-menu-item[aria-current='page'] { background: var(--pv-menu-activo); color: var(--pv-texto); }
+.pv-menu-pie { margin-top: auto; font-size: 12px; color: var(--pv-texto-suave); line-height: 1.5; padding: 10px; }
+
+/* ---- Pestañas ---- */
+.pv-pestanas {
+  display: flex;
+  gap: 28px;
+  padding: 0 40px;
+  background: #fff;
+  border-bottom: 1px solid var(--pv-borde);
+}
+.pv-pestana {
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  padding: 16px 4px;
+  border-bottom: 3px solid transparent;
+  color: var(--pv-texto-suave);
+}
+.pv-pestana[aria-current='page'] { border-bottom-color: var(--pv-primario); color: var(--pv-texto); }
