@@ -235,7 +235,7 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
         )}
       </div>
       <Dialogo abierto={confirmar === 'volver'} titulo="Volver a como venía" onCerrar={() => setConfirmar(null)}>
-        <p className="pv-dialogo-texto">{f.nombre} vuelve a verse como viene. Lo que cambiaste aquí se borra.</p>
+        <p className="pv-dialogo-texto">«{titulo}» vuelve a como lo mantiene la Pastoral. Tus cambios a este tipo se borran.</p>
         <div className="pv-dialogo-acciones">
           <Boton variante="secundario" onClick={() => setConfirmar(null)}>
             Cancelar
@@ -244,7 +244,7 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
         </div>
       </Dialogo>
       <Dialogo abierto={confirmar === 'borrar'} titulo="Borrar tipo" onCerrar={() => setConfirmar(null)}>
-        <p className="pv-dialogo-texto">«{titulo}» deja de aparecer en el panel. Esto no se puede deshacer.</p>
+        <p className="pv-dialogo-texto">¿Borrar el tipo «{titulo}»? Deja de aparecer en el panel.</p>
         <div className="pv-dialogo-acciones">
           <Boton variante="secundario" onClick={() => setConfirmar(null)}>
             Cancelar

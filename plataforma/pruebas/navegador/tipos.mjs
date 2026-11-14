@@ -243,6 +243,11 @@ try {
   revisar(iguales(cc.tipos?.ajustes?.horasanta, { ocultarRotulos: ['bendicion'] }), `ajustes.horasanta es { ocultarRotulos:['bendicion'] } (${JSON.stringify(cc.tipos?.ajustes)})`);
   await pc.goto(`${BASE}/editor/p/${C.slug}/tipos/horasanta`);
   await pc.getByRole('button', { name: 'Volver a como venía' }).click();
+  igual(
+    await pc.getByRole('dialog').locator('.pv-dialogo-texto').innerText(),
+    '«Hora Santa» vuelve a como lo mantiene la Pastoral. Tus cambios a este tipo se borran.',
+    'el texto de «Volver a como venía» es el de la Decisión 4',
+  );
   await pc.getByRole('dialog').getByRole('button', { name: 'Sí, volver' }).click();
   await esperarGuardado(pc);
   const cc2 = await esperarEnBase(C.id, (c) => !c.tipos?.ajustes?.horasanta);
@@ -259,7 +264,7 @@ try {
   revisar(['prenovena', 'novena', 'patronal'].every((k) => graciasDe(k) === 'Gracias, San José'), 'el grupo escribe el mismo textoGracias en sus tres claves');
 
   console.log('F8 · Propio viejo');
-  const V = await prepararParroquia({ config: { ...CONFIG_BASE, tipos: { propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', titulo: 'MISA X' }] } } });
+  const V = await prepararParroquia({ config: { ...CONFIG_BASE, tipos: { propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora', titulo: 'MISA X', rotulos: ['evangelio', 'persona'] }] } } });
   const pv = await nuevaPagina(V.correo);
   await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
   igual(await pv.locator('h1').innerText(), 'Rosario de la aurora', 'el título es el nombre guardado');
@@ -268,8 +273,14 @@ try {
   await pv.waitForURL(`${BASE}/editor/p/${V.slug}/tipos`);
   const cv = await esperarEnBase(V.id, (c) => c.tipos?.propios?.[0]?.nombrePanel === 'Aurora');
   igual(cv.tipos?.propios?.[0]?.titulo, 'MISA X', 'guardar conserva el titulo');
+  igual(JSON.stringify(cv.tipos?.propios?.[0]?.rotulos), JSON.stringify(['evangelio', 'persona']), 'y conserva los rótulos sin tocarlos ni reordenarlos');
   await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
   await pv.getByRole('button', { name: 'Borrar tipo' }).click();
+  igual(
+    await pv.getByRole('dialog').locator('.pv-dialogo-texto').innerText(),
+    '¿Borrar el tipo «Rosario de la aurora»? Deja de aparecer en el panel.',
+    'el texto de «Borrar tipo» es el de la Decisión 15',
+  );
   await pv.getByRole('dialog').getByRole('button', { name: 'Sí, borrar' }).click();
   await pv.waitForURL(`${BASE}/editor/p/${V.slug}/tipos`);
   const cv2 = await esperarEnBase(V.id, (c) => !c.tipos?.propios);
