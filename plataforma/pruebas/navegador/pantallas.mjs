@@ -229,6 +229,14 @@ try {
     'Revisar',
     'con el patrono sin imagen, el punto de «Pantallas» dice «Revisar»',
   );
+  const AVISO_PATRONO = 'La pantalla de Inicio usa la imagen del patrono, pero no hay una';
+  revisar(await p2.getByRole('region', { name: 'Para revisar' }).getByText(AVISO_PATRONO).isVisible(), 'F5 explica el ámbar en su caja «Para revisar»');
+  revisar(await p2.getByText('Súbela en Patrono y fiesta o elige otra imagen.').isVisible(), 'con qué hacer');
+  await esperarGuardado(p2);
+  await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.imagen === 'patrono');
+  await p2.goto(`${BASE}/editor/p/${R.slug}/pantallas`);
+  revisar(await p2.getByRole('region', { name: 'Para revisar' }).getByText(AVISO_PATRONO).isVisible(), 'F4 muestra la misma caja');
+  await p2.goto(`${BASE}/editor/p/${R.slug}/pantallas/inicio`);
   await p2.getByRole('button', { name: 'Color liso' }).click();
   await esperarGuardado(p2);
   c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.tipo === 'color');

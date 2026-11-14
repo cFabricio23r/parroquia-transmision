@@ -84,13 +84,18 @@ function problemaDeError(m: string, borrador: Config, seccion: IdSeccion): Probl
   return { titulo: limpiarMensaje(m), detalle: '', seccion };
 }
 
-/** Avisos de las pantallas personalizadas (plan 4, Decisión 2): «Siempre la misma» con el patrono sin imagen. */
-export function avisosDePantallas(borrador: Config): Problema[] {
-  return avisoImagenPatrono(borrador).map(({ nombre }) => ({
-    titulo: `La pantalla de ${nombre} usa la imagen del patrono, pero no hay una`,
-    detalle: 'Súbela en Patrono y fiesta o elige otra imagen.',
-    seccion: 'pantallas' as const,
-  }));
+/**
+ * Avisos de las pantallas personalizadas (plan 4, Decisión 2): «Siempre la misma» con el patrono
+ * sin imagen. Con `vista`, solo los de esa pantalla (F5 los muestra en su caja ámbar).
+ */
+export function avisosDePantallas(borrador: Config, vista?: string): Problema[] {
+  return avisoImagenPatrono(borrador)
+    .filter((a) => vista === undefined || a.vista === vista)
+    .map(({ nombre }) => ({
+      titulo: `La pantalla de ${nombre} usa la imagen del patrono, pero no hay una`,
+      detalle: 'Súbela en Patrono y fiesta o elige otra imagen.',
+      seccion: 'pantallas' as const,
+    }));
 }
 
 function colorResuelto(valor: unknown, colores: unknown): string | null {

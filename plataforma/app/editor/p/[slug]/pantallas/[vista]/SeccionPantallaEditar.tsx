@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { contraste, MIN_CONTRASTE } from '../../../../../../lib/contraste';
+import { avisosDePantallas } from '../../../../../../lib/editor/estados';
 import { MENSAJE_HEX, RE_HEX } from '../../../../../../lib/editor/imagen';
 import {
   conInterruptor,
@@ -25,6 +26,7 @@ import {
 } from '../../../../../../lib/editor/pantallas';
 import { hrefSeccion } from '../../../../../../lib/editor/secciones';
 import { Boton } from '../../../../../componentes/Boton';
+import { CajaRevisar } from '../../../../../componentes/CajaRevisar';
 import { CampoColor } from '../../../../../componentes/CampoColor';
 import { CampoSelect } from '../../../../../componentes/CampoSelect';
 import { CampoTexto } from '../../../../../componentes/CampoTexto';
@@ -191,6 +193,7 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
                 ))}
               </CampoSelect>
             )}
+            <CajaRevisar problemas={avisosDePantallas(borrador, vista)} />
           </div>
           <Segmentado
             etiqueta="Distribución"

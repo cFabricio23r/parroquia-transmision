@@ -3,6 +3,7 @@
 // personalizadas o como vienen, y el botón para editar cada una.
 import { VISTAS_PANTALLA } from '../../../../../lib/editor/pantallas';
 import { Boton } from '../../../../componentes/Boton';
+import { CajaRevisar } from '../../../../componentes/CajaRevisar';
 import { Chip } from '../../../../componentes/Chip';
 import { CabezaSeccion } from '../CabezaSeccion';
 import { useBorrador } from '../ProveedorBorrador';
@@ -13,11 +14,12 @@ export const TEXTO_PANTALLAS = 'Cada una viene lista con tu identidad. Personali
 const objeto = (v: unknown): Record<string, unknown> => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 export function SeccionPantallas() {
-  const { datos, borrador } = useBorrador();
+  const { datos, borrador, estados } = useBorrador();
   const pantallas = objeto(borrador.pantallas);
   return (
     <>
       <CabezaSeccion titulo="Pantallas de OBS" texto={TEXTO_PANTALLAS} />
+      <CajaRevisar problemas={estados.pantallas.avisos} />
       <div className="pv-pantallas-grilla">
         {VISTAS_PANTALLA.map((v) => {
           const personalizada = objeto(pantallas[v.vista]).modo === 'personalizada';

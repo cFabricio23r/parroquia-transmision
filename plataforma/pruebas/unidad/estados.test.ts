@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estadoDeSeccion, estadosDelEditor } from '../../lib/editor/estados';
+import { avisosDePantallas, estadoDeSeccion, estadosDelEditor } from '../../lib/editor/estados';
 import { hoyIso, MESES } from '../../lib/fecha';
 
 const hoy = '2026-11-14';
@@ -144,5 +144,12 @@ describe('pantallas: «Siempre la misma» sin imagen del patrono (plan 4, Tarea 
     const conImagen = { pantallas: { inicio: { modo: 'personalizada', imagen: 'patrono' } }, patrono: { imagen: { src: 'medios/p.png', alt: 'P' } } };
     expect(estadoDeSeccion(conImagen, 'pantallas', [], hoy).estado).toBe('listo');
     expect(estadoDeSeccion({ pantallas: { inicio: { modo: 'como-viene', imagen: 'patrono' } } }, 'pantallas', [], hoy).avisos).toEqual([]);
+  });
+
+  it('F5 pide solo el aviso de su pantalla (ronda 2)', () => {
+    const b = { pantallas: { inicio: { modo: 'personalizada', imagen: 'patrono' }, gracias: { modo: 'personalizada', imagen: 'patrono' } } };
+    expect(avisosDePantallas(b).map((a) => a.titulo)).toHaveLength(2);
+    expect(avisosDePantallas(b, 'gracias').map((a) => a.titulo)).toEqual(['La pantalla de Gracias usa la imagen del patrono, pero no hay una']);
+    expect(avisosDePantallas(b, 'portada')).toEqual([]);
   });
 });
