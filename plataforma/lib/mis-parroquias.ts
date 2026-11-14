@@ -10,25 +10,29 @@ export interface ParroquiaElegible {
   version: number | null;
 }
 
-/** Mayor número de versión por parroquia. */
-export function ultimaVersionPorParroquia(filas: { parroquia_id: string; numero: number }[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const f of filas) {
-    const actual = m.get(f.parroquia_id);
-    if (actual === undefined || f.numero > actual) m.set(f.parroquia_id, f.numero);
-  }
-  return m;
-}
-
 export async function misParroquias(sesion: SupabaseClient): Promise<ParroquiaElegible[]> {
   const { data: parroquias, error } = await sesion.from('parroquias').select('id, slug, nombre').order('nombre');
   if (error) throw error;
   const lista = (parroquias ?? []) as { id: string; slug: string; nombre: string }[];
   if (!lista.length) return [];
-  // RLS ya limita las versiones a las parroquias visibles (sin .in(): con muchas parroquias la URL crece).
-  const { data: versiones, error: errorVersiones } = await sesion.from('versiones').select('parroquia_id, numero');
-  if (errorVersiones) throw errorVersiones;
-  const ultimas = ultimaVersionPorParroquia((versiones ?? []) as { parroquia_id: string; numero: number }[]);
+  // Solo la mayor de cada parroquia (ronda 2): traer todas las filas de `versiones` las corta PostgREST
+  // en max_rows (1000 en config.toml) en un orden cualquiera, y el chip mostraría una versión vieja.
+  // Una consulta por parroquia, en paralelo, usa el índice único (parroquia_id, numero).
+  const maximos = await Promise.all(
+    lista.map(async (p) => {
+      const { data, error: errorVersion } = await sesion
+        .from('versiones')
+        .select('numero')
+        .eq('parroquia_id', p.id)
+        .order('numero', { ascending: false })
+        .limit(1);
+      if (errorVersion) throw errorVersion;
+      const fila = (data ?? [])[0] as { numero: number } | undefined;
+      return [p.id, fila?.numero] as const;
+    }),
+  );
+  const ultimas = new Map<string, number>();
+  for (const [id, n] of maximos) if (n !== undefined) ultimas.set(id, n);
   return lista.map((p) => ({ ...p, version: ultimas.get(p.id) ?? null }));
 }
 
