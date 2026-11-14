@@ -131,3 +131,27 @@ button.pv-enlace {
 .pv-requisito { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
 .pv-requisito--cumplido { color: var(--pv-verde-chip-texto); }
 .pv-requisito svg { flex-shrink: 0; }
+
+/* ---- Mensaje de estado (A5) ---- */
+.pv-mensaje {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pv-mensaje:focus { outline: none; }
+.pv-mensaje:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+.pv-mensaje--incrustado { background: none; border: 0; border-radius: 0; padding: 0; }
+.pv-mensaje-cabeza { display: flex; align-items: center; gap: 10px; }
+.pv-mensaje-punto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pv-mensaje-punto--rojo { background: var(--pv-rojo-texto); }
+.pv-mensaje-punto--ambar { background: var(--pv-ambar-oscuro); }
+.pv-mensaje-punto--gris { background: var(--pv-gris-chip-texto); }
+.pv-mensaje-punto--azul { background: var(--pv-primario); }
+.pv-mensaje-titulo { margin: 0; font-size: 16px; font-weight: 800; }
+.pv-mensaje-texto { margin: 0; font-size: 14px; line-height: 1.5; color: var(--pv-texto-suave); }
+.pv-mensaje-accion { margin-top: auto; }
+.pv-mensaje-nota { font-size: 13px; color: var(--pv-texto-suave); }
