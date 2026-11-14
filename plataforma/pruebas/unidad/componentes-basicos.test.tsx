@@ -21,6 +21,16 @@ const regla = (selector: string) => {
 };
 
 describe('Boton', () => {
+  it('Boton con href y target=_blank abre en otra pestaña con rel=noopener', () => {
+    const h = html(
+      <Boton href="/editor/entrar" variante="secundario" target="_blank">
+        Entrar de nuevo
+      </Boton>,
+    );
+    expect(h).toContain('target="_blank"');
+    expect(h).toContain('rel="noopener"');
+    expect(html(<Boton href="/x">x</Boton>)).not.toContain('target=');
+  });
   it('Boton primario es un button con sus clases y type=button por defecto', () => {
     expect(html(<Boton>Entrar</Boton>)).toBe('<button type="button" class="pv-boton pv-boton--primario">Entrar</button>');
   });

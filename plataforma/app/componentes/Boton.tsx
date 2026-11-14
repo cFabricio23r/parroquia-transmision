@@ -15,6 +15,8 @@ export type PropsBoton = {
    * <body>. Quien lo usa ignora los envíos repetidos (useEnvio).
    */
   ocupado?: boolean;
+  /** Solo con href: dónde abrir el enlace (por ejemplo `_blank` para «Entrar de nuevo» en otra pestaña). */
+  target?: string;
   children: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
@@ -24,12 +26,20 @@ export function clasesBoton(variante: VarianteBoton = 'primario', compacto?: boo
     .join(' ');
 }
 
-export function Boton({ variante = 'primario', compacto, anchoCompleto, href, ocupado, children, type, className, ...resto }: PropsBoton) {
+export function Boton({ variante = 'primario', compacto, anchoCompleto, href, ocupado, target, children, type, className, ...resto }: PropsBoton) {
   const clases = clasesBoton(variante, compacto, anchoCompleto, className);
   if (href) {
     const { 'aria-label': etiqueta, id, title } = resto;
     return (
-      <Link href={href} className={clases} aria-label={etiqueta} id={id} title={title}>
+      <Link
+        href={href}
+        className={clases}
+        aria-label={etiqueta}
+        id={id}
+        title={title}
+        target={target}
+        rel={target === '_blank' ? 'noopener' : undefined}
+      >
         {children}
       </Link>
     );

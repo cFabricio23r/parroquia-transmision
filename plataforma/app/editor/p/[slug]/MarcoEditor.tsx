@@ -8,6 +8,7 @@ import { hrefSeccion, SECCIONES, seccionDeRuta } from '../../../../lib/editor/se
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
+import { AvisoGuardado } from './AvisoGuardado';
 import { PanelVistaPrevia } from './PanelVistaPrevia';
 import { useBorrador } from './ProveedorBorrador';
 
@@ -59,6 +60,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
           <div className="pv-editor-celular">
             <CajaInfo>{AVISO_CELULAR}</CajaInfo>
           </div>
+          <AvisoGuardado />
           <div className="pv-editor-form">{children}</div>
           <PanelVistaPrevia />
         </main>

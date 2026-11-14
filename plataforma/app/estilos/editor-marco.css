@@ -52,6 +52,24 @@
 .pv-editor-main--avisos > .pv-aviso-guardado { margin-bottom: 0; }
 .pv-editor-main > .pv-previa { grid-area: previa; min-width: 0; }
 
+/* ---- Aviso del guardado (Tarea 10) ---- */
+.pv-aviso-guardado-nota { margin: 8px 0 0; font-size: 13px; color: var(--pv-texto-suave); line-height: 1.5; }
+.pv-conflicto {
+  border: 1px solid var(--pv-rojo-borde);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pv-conflicto:focus { outline: none; }
+.pv-conflicto:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+.pv-conflicto-titulo { margin: 0; font-size: 14px; font-weight: 700; }
+.pv-conflicto-acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+.pv-alerta-titulo { margin: 0; }
+.pv-alerta-lista { margin: 6px 0 0; padding-left: 20px; font-weight: 500; }
+
 /* ---- Vista previa continua (Tarea 9) ---- */
 .pv-previa { display: flex; flex-direction: column; gap: 12px; }
 .pv-previa[hidden] { display: none; }
