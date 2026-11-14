@@ -31,8 +31,27 @@ const conDominio = (s: string) => {
   return host.includes('.') && !/\s/.test(host);
 };
 
-/** `null` si está vacío; si no, la dirección y el texto que se muestra, o el error para el campo. */
+/** La misma regla que vicaria/parroquia.js (RE_HTTPS): sin espacios y con algo después de `https://`. */
+const RE_HTTPS = /^https:\/\/\S+$/i;
+
+const mensajeDe = (red: Red) =>
+  red === 'whatsapp'
+    ? MENSAJE_WHATSAPP
+    : red === 'web'
+      ? MENSAJE_WEB
+      : `No pudimos convertir esto en una dirección. Escríbelo como ${DOMINIOS[red]}/tu-pagina.`;
+
+/**
+ * `null` si está vacío; si no, la dirección y el texto que se muestra, o el error para el campo.
+ * Nunca devuelve una dirección que el servidor rechazaría por su forma (eso frenaría todo el guardado).
+ */
 export function normalizarRed(red: Red, escrito: string): { url: string; texto: string } | { error: string } | null {
+  const r = convertir(red, escrito);
+  if (r && 'url' in r && !RE_HTTPS.test(r.url)) return { error: mensajeDe(red) };
+  return r;
+}
+
+function convertir(red: Red, escrito: string): { url: string; texto: string } | { error: string } | null {
   const texto = escrito.trim();
   if (!texto) return null;
   if (texto.length > MAX) return { error: 'Hasta 200 caracteres.' };
@@ -53,7 +72,7 @@ export function normalizarRed(red: Red, escrito: string): { url: string; texto: 
 
   const dominio = DOMINIOS[red];
   const usuario = texto.replace(/^@/, '');
-  if (!usuario || /[\s/]/.test(usuario)) return { error: `No pudimos convertir esto en una dirección. Escríbelo como ${dominio}/tu-pagina.` };
+  if (!usuario || /[\s/]/.test(usuario)) return { error: mensajeDe(red) };
   return { url: red === 'youtube' ? `https://${dominio}/@${usuario}` : `https://${dominio}/${usuario}`, texto };
 }
 

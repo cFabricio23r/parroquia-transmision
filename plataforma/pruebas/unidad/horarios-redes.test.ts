@@ -52,6 +52,31 @@ describe('redes', () => {
       expect(r && 'url' in r && /^https:\/\//.test(r.url)).toBe(true);
     }
   });
+  it('normalizarRed nunca devuelve una dirección que vicaria rechaza (/^https:\\/\\/\\S+$/i)', () => {
+    const RE_HTTPS = /^https:\/\/\S+$/i;
+    const casos: [Parameters<typeof normalizarRed>[0], string][] = [
+      ['facebook', 'facebook.com/Parroquia San Jose'],
+      ['facebook', 'http://'],
+      ['facebook', 'https://'],
+      ['web', 'https://mi parroquia.org'],
+      ['web', 'http://mi parroquia.org'],
+      ['web', 'parroquia.org/mi pagina'],
+      ['whatsapp', 'https://'],
+      ['whatsapp', 'https://wa.me/503 7000'],
+      ['youtube', 'https://youtube.com/@a b'],
+    ];
+    for (const [red, v] of casos) {
+      const r = normalizarRed(red, v);
+      expect(r, `${red}: ${v}`).not.toBeNull();
+      if (r && 'url' in r) expect(RE_HTTPS.test(r.url), `${red}: ${v} → ${r.url}`).toBe(true);
+      else expect(r).toHaveProperty('error');
+    }
+    expect(normalizarRed('web', 'https://mi parroquia.org')).toEqual({ error: 'Escribe la dirección completa, por ejemplo parroquia.org.' });
+    expect(normalizarRed('facebook', 'facebook.com/Parroquia San Jose')).toEqual({
+      error: 'No pudimos convertir esto en una dirección. Escríbelo como facebook.com/tu-pagina.',
+    });
+    expect(normalizarRed('whatsapp', 'https://')).toEqual({ error: 'Escribe el número con 8 dígitos, o con el código del país.' });
+  });
   it('ponerRed conserva el orden, agrega al final y quita el bloque vacío', () => {
     const w = { red: 'whatsapp', url: 'https://wa.me/50370000000', texto: '7000-0000' };
     const f = { red: 'facebook', url: 'https://facebook.com/x', texto: 'facebook.com/x' };
