@@ -160,3 +160,28 @@
 @media (max-width: 900px) {
   .pv-muestrario-grilla, .pv-muestra-columnas { grid-template-columns: 1fr; }
 }
+
+/* ---- C2 · Mi cuenta ---- */
+.pv-cuenta {
+  padding: 32px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  max-width: 1100px;
+}
+.pv-cuenta-seccion { display: flex; flex-direction: column; }
+.pv-cuenta-seccion--datos { gap: 14px; }
+.pv-cuenta-seccion--clave { gap: 12px; }
+.pv-cuenta-form { display: contents; }
+.pv-cuenta-titulo { margin: 0; font-size: 24px; font-weight: 800; }
+.pv-cuenta-subtitulo { margin: 0; font-size: 20px; font-weight: 800; }
+.pv-cuenta-roles { display: flex; flex-direction: column; gap: 8px; }
+.pv-cuenta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-cuenta-acciones { display: flex; gap: 10px; margin-top: 8px; }
+.pv-cuenta-acciones form { display: contents; }
+.pv-cuenta-estado { font-size: 14px; font-weight: 700; color: var(--pv-verde-chip-texto); }
+/* Vacío sale del flujo (sin hueco del gap) pero sigue en el árbol: la región viva anuncia al llenarse. */
+.pv-cuenta-estado:empty { position: absolute; }
+@media (max-width: 900px) {
+  .pv-cuenta { grid-template-columns: 1fr; padding: 24px 16px; }
+}
