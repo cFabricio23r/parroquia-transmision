@@ -73,7 +73,7 @@ const navegador = await chromium.launch();
 let P;
 try {
   P = await preparar();
-  const contexto = await navegador.newContext({ viewport: { width: 1000, height: 1400 } });
+  const contexto = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
   const pagina = await contexto.newPage();
   const erroresJs = [];
   pagina.on('pageerror', (e) => erroresJs.push(e.message));
@@ -88,40 +88,40 @@ try {
   console.log('Entrar y abrir la página');
   await pagina.goto(`${BASE}/editor/entrar`);
   await pagina.getByLabel('Correo').fill(P.correo);
-  await pagina.getByLabel('Contraseña').fill(CLAVE);
-  await pagina.getByRole('button', { name: 'Entrar' }).click();
+  await pagina.getByLabel('Contraseña', { exact: true }).fill(CLAVE);
+  await pagina.getByRole('button', { name: 'Entrar', exact: true }).click();
   await pagina.waitForURL(`${BASE}/editor/p/${P.slug}`);
-  await pagina.getByText('Todavía no publicaste').waitFor();
-  revisar(true, 'sin versiones dice «Todavía no publicaste»');
-  revisar(await pagina.getByText('Todavía no has publicado ninguna versión.').isVisible(), 'la lista de versiones está vacía');
+  const estadoGuardado = () => pagina.locator('[role="status"].pv-guardado').innerText();
 
-  console.log('Con cambios sin guardar, «Publicar» queda bloqueado');
+  console.log('El guardado automático deja el cambio en el borrador');
+  await pagina.goto(`${BASE}/editor/p/${P.slug}/identidad`);
+  const campoLugar = pagina.getByLabel('Lugar', { exact: true });
+  const lugarOriginal = await campoLugar.inputValue();
+  await campoLugar.fill(lugarOriginal + ' (cambio)');
+  await pagina.waitForFunction(() => document.querySelector('[role="status"].pv-guardado')?.textContent === 'Guardado', null, { timeout: 10_000 });
+  igual((await leerBorrador(P.id)).config.lugar, lugarOriginal + ' (cambio)', 'el lugar nuevo quedó en el borrador sin botón de guardar');
+
+  console.log('Con el guardado pendiente, «Publicar» queda bloqueado');
+  // El PUT se demora 3 s: mientras tanto el guardado no está en «Guardado».
+  await pagina.route('**/editor/api/*/borrador', async (ruta) => {
+    if (ruta.request().method() === 'PUT') await new Promise((ok) => setTimeout(ok, 3000));
+    await ruta.continue();
+  });
+  await campoLugar.fill(lugarOriginal);
+  await pagina.locator('nav[aria-label="Secciones del editor"]').getByRole('link', { name: /^Publicar/ }).click();
+  await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/publicar`);
   const botonPublicar = pagina.getByRole('button', { name: 'Publicar', exact: true });
-  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'sin cambios, «Publicar» no está bloqueado');
-  const lugarOriginal = await pagina.getByLabel('Lugar').inputValue();
-  await pagina.getByLabel('Lugar').fill(lugarOriginal + ' (cambio)');
-  const avisoSinGuardar = pagina.getByText('Tienes cambios sin guardar. Guarda antes de publicar');
-  await avisoSinGuardar.waitFor();
-  revisar(await avisoSinGuardar.isVisible(), 'aparece «Tienes cambios sin guardar. Guarda antes de publicar»');
-  igual(await botonPublicar.getAttribute('aria-disabled'), 'true', '«Publicar» tiene aria-disabled="true"');
-  const descrito = await botonPublicar.getAttribute('aria-describedby');
-  revisar(!!descrito && (await pagina.locator(`#${descrito}`).innerText()).includes('Tienes cambios sin guardar'), 'el aviso está ligado al botón con aria-describedby');
-  await botonPublicar.click({ force: true }); // aria-disabled no bloquea el clic real: lo frena la guarda del componente
-  await pagina.waitForTimeout(500);
-  igual(JSON.stringify(await numeros(P.id)), '[]', 'el clic con cambios sin guardar no publica nada');
-  await pagina.getByLabel('Lugar').fill(lugarOriginal);
-  await avisoSinGuardar.waitFor({ state: 'detached' });
-  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'volver a lo guardado desbloquea «Publicar»');
-  await pagina.getByLabel('Lugar').fill(lugarOriginal + ' (cambio)');
-  await avisoSinGuardar.waitFor();
-  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
-  await pagina.getByText('Borrador guardado.').waitFor();
-  await avisoSinGuardar.waitFor({ state: 'detached' });
-  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'al guardar, «Publicar» se desbloquea');
-  await pagina.getByLabel('Lugar').fill(lugarOriginal);
-  await pagina.getByRole('button', { name: 'Guardar borrador' }).click();
-  await avisoSinGuardar.waitFor({ state: 'detached' });
-  await pagina.waitForFunction(() => document.querySelector('[role="status"].aviso')?.textContent === 'Borrador guardado.');
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'true', '«Publicar» tiene aria-disabled="true" mientras se guarda');
+  revisar(await pagina.getByText('Tienes cambios sin guardar. Guarda antes de publicar').isVisible(), 'se ve «Tienes cambios sin guardar. Guarda antes de publicar»');
+  revisar((await estadoGuardado()) !== 'Guardado', 'el encabezado no dice «Guardado» todavía');
+  await botonPublicar.click({ force: true }); // aria-disabled no frena el clic real: lo frena la guarda del componente
+  await pagina.waitForTimeout(300);
+  igual(JSON.stringify(await numeros(P.id)), '[]', 'el clic con el guardado pendiente no publica nada');
+  await pagina.waitForFunction(() => document.querySelector('[role="status"].pv-guardado')?.textContent === 'Guardado', null, { timeout: 10_000 });
+  await pagina.unroute('**/editor/api/*/borrador');
+  igual(await botonPublicar.getAttribute('aria-disabled'), 'false', 'al quedar «Guardado», «Publicar» se desbloquea');
+  await pagina.getByText('Todavía no publicaste').waitFor();
+  revisar(await pagina.getByText('Todavía no has publicado ninguna versión.').isVisible(), 'la lista de versiones está vacía');
   const antes = await leerBorrador(P.id);
 
   console.log('Publicar');

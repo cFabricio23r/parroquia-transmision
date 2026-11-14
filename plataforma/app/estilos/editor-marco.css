@@ -1,0 +1,98 @@
+/* Marco del editor de una parroquia (plan 3): encabezado con el chip del borrador, menú lateral y
+   las disposiciones del <main>. Medidas de AB/VicEdResumen.dc.html (iguales en todos los F). */
+
+.pv-editor { display: flex; flex-direction: column; min-height: 100vh; }
+.pv-editor-cuerpo { display: flex; height: calc(100vh - 64px); min-height: 0; }
+.pv-editor-cuerpo .pv-menu { overflow-y: auto; }
+
+/* Estado del guardado (Decisión 6) y chip del borrador (Decisión 7). */
+.pv-guardado { font-size: 13px; font-weight: 600; color: var(--pv-encabezado-sub); white-space: nowrap; }
+.pv-chip-borrador {
+  background: var(--pv-ambar-chip);
+  color: var(--pv-ambar-chip-texto);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pv-chip-borrador--verde { background: var(--pv-verde-chip); color: var(--pv-verde-chip-texto); }
+
+/* ---- main y sus disposiciones ---- */
+.pv-editor-main { flex-grow: 1; min-width: 0; overflow-y: auto; }
+.pv-editor-main--una-columna,
+.pv-editor-main--avisos { padding: 26px 32px; }
+.pv-editor-main--dos-columnas { padding: 24px 32px; }
+
+.pv-editor-main--una-columna { display: flex; flex-direction: column; gap: 16px; }
+.pv-editor-main--una-columna > .pv-editor-form { display: flex; flex-direction: column; gap: 16px; }
+
+.pv-editor-main--dos-columnas {
+  display: grid;
+  grid-template-columns: 560px minmax(0, 1fr);
+  column-gap: 28px;
+  grid-template-areas: 'aviso aviso' 'form previa';
+  align-content: start;
+  align-items: start;
+}
+.pv-editor-main--avisos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 20px;
+  row-gap: 16px;
+  grid-template-areas: 'aviso aviso' 'cabeza cabeza' 'lista lista' 'form previa';
+  align-content: start;
+  align-items: start;
+}
+.pv-editor-main--dos-columnas > .pv-editor-form { grid-area: form; min-width: 0; }
+.pv-editor-main--avisos > .pv-editor-form { display: contents; }
+.pv-editor-main > .pv-aviso-guardado { grid-area: aviso; }
+.pv-editor-main--dos-columnas > .pv-aviso-guardado,
+.pv-editor-main--avisos > .pv-aviso-guardado { margin-bottom: 16px; }
+.pv-editor-main--avisos > .pv-aviso-guardado { margin-bottom: 0; }
+.pv-editor-main > .pv-previa { grid-area: previa; min-width: 0; }
+
+/* Aviso de celular (Decisión 23): solo por debajo de 760 px. */
+.pv-editor-celular { display: none; grid-column: 1 / -1; }
+
+/* ---- Título de sección ---- */
+.pv-seccion-cabeza { display: flex; flex-direction: column; gap: 6px; }
+.pv-seccion-titulo { margin: 0; font-size: 24px; font-weight: 800; }
+.pv-seccion-titulo:focus { outline: none; }
+.pv-seccion-texto { margin: 0; font-size: 14px; color: var(--pv-texto-suave); line-height: 1.5; }
+.pv-subtitulo { margin: 0; font-size: 16px; font-weight: 800; }
+
+/* Publicar (transición, Decisión 18): el componente viejo con editor.css, sin el fondo de página. */
+.pv-publicar-transicion.editor { min-height: 0; background: transparent; padding: 0; font-family: inherit; color: inherit; }
+
+/* ---- Anchos menores ---- */
+@media (max-width: 1100px) {
+  .pv-editor-main--dos-columnas {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'aviso' 'form' 'previa';
+    row-gap: 24px;
+  }
+  .pv-editor-main--avisos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'aviso' 'cabeza' 'lista' 'form' 'previa';
+  }
+}
+@media (max-width: 760px) {
+  .pv-editor-celular { display: block; margin-bottom: 16px; }
+  .pv-editor-cuerpo { flex-direction: column; height: auto; }
+  .pv-editor-cuerpo .pv-menu {
+    width: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--pv-borde);
+    padding: 8px 12px;
+  }
+  .pv-editor-cuerpo .pv-menu-item { flex-shrink: 0; }
+  .pv-editor-cuerpo .pv-menu-pie { display: none; }
+  .pv-editor-main--una-columna,
+  .pv-editor-main--avisos,
+  .pv-editor-main--dos-columnas { padding: 20px 16px; overflow: visible; }
+  .pv-guardado { display: none; }
+  .pv-chip-borrador { white-space: normal; }
+}
