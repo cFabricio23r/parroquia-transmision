@@ -107,7 +107,7 @@ El panel ofrece cada imagen de la galería como opción de imagen, con su `alt` 
 
 ### `pantallas`: personalizar cada pantalla
 
-Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos` y `horarios` (esta última se abre con `?tipo=horarios`). Solo se escribe la que se quiere cambiar.
+Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta última se abre con `?tipo=horarios`), `evento`, `produccion` y `envivo`. Solo se escribe la que se quiere cambiar.
 
 > El ejemplo de abajo usa `galeria:taller`: funciona solo si el archivo también tiene la imagen `taller` en `galeria` (ver el ejemplo de `galeria` de arriba). Si no, el archivo se rechaza.
 
@@ -133,7 +133,8 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos` y `horarios` (esta
 | `fondo.imagen` | `id` de una imagen de la `galeria`. Obligatorio si el tipo es `imagen`. |
 | `imagen` | La imagen grande de la pantalla: `automatica` (la de siempre, según la transmisión), `patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna`, o `galeria:<id>` con un `id` existente. |
 | `distribucion` | Dónde va la imagen: `izquierda` (por defecto), `derecha` o `centro`. El texto ocupa el otro lado. |
-| `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`. **El título nunca se oculta**: la pantalla no queda en blanco. |
+| `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. |
+| `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
 
 Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo. Igual con `fondo.color` y `fondo.imagen`: se validan siempre que estén escritos, aunque `fondo.tipo` sea otro (un `color` mal escrito o una `imagen` que no está en la galería rechaza el archivo aunque el tipo sea `degradado`).
@@ -142,7 +143,7 @@ Si una imagen de la galería ya no existe, la pantalla usa la automática (o el 
 
 #### Claves de `textos`
 
-`marca`, `inicio_pildora`, `inicio_ceja`, `inicio_titulo`, `inicio_cursiva`, `inicio_cuenta`, `portada_ceja`, `portada_cursiva`, `portada_titulo`, `portada_fecha`, `portada_sub`, `gracias_pildora`, `gracias_titulo`, `gracias_cursiva`, `gracias_ceja`, `avisos_sub`, `avisos_titulo`, `horarios_titulo`, `capa_logo`, `barra_y`, `franja`, `k_lectura1`, `k_salmo`, `k_lectura2`, `k_evangelio`, `k_rosario`, `t_rosario`.
+`marca`, `inicio_pildora`, `inicio_ceja`, `inicio_titulo`, `inicio_cursiva`, `inicio_cuenta`, `portada_ceja`, `portada_cursiva`, `portada_titulo`, `portada_fecha`, `portada_sub`, `gracias_pildora`, `gracias_titulo`, `gracias_cursiva`, `gracias_ceja`, `avisos_sub`, `avisos_titulo`, `horarios_titulo`, `capa_logo`, `barra_y`, `franja`, `k_lectura1`, `k_salmo`, `k_lectura2`, `k_evangelio`, `k_rosario`, `t_rosario`, `prod_ceja`, `prod_nombre` (estas dos son de la pantalla `produccion`: «UNA PRODUCCIÓN DE» y «Comunicaciones» si no se escriben).
 
 Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia: `{parroquia}`, `{patrono}`, `{patronoCorto}`, `{fiesta}`, `{fiestaMayus}`, `{lema}` y `{anio}`. Un salto de línea se escribe `\n`.
 
@@ -199,13 +200,28 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 | Campo | Valores y límites |
 |---|---|
 | `apagados` | Claves de tipos comunes que el panel no ofrece: `dominical`, `semana`, `horasanta`, `sector`, `patronalsector`, `procesion`, `otros`, `prenovena`, `novena`, `patronal`, `evento`. Debe quedar al menos un tipo disponible (común o propio). |
+| `ajustes` | Objeto `clave del tipo común: ajustes` para cambiar un tipo que ya existe sin reemplazarlo. La clave debe ser un tipo común (la lista de `apagados`); un tipo desconocido, como `navidad`, rechaza el archivo («Ese tipo común no existe (tipos.ajustes.navidad).»). Los ajustes de un tipo apagado son válidos. Cada ajuste admite: `nombrePanel` (cómo se llama el tipo en el panel; no vacío, hasta 40 caracteres), `textoInicio` y `textoGracias` (hasta 200 caracteres; admiten los huecos de abajo), `imagen` (`patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna` o `galeria:<id>`; `automatica` no aplica) y `ocultarRotulos` (ids de rótulos **de ese tipo** que el panel no ofrece; uno de otro tipo, como `santisimo` en `dominical`, rechaza el archivo). |
 | `propios` | Hasta 10 tipos nuevos, que aparecen al final de la lista del panel en el orden escrito. |
 | `propios[].clave` | Obligatoria, única; 2 a 40, minúsculas, números y guiones; **no puede ser la de un tipo común**. |
 | `propios[].nombre` | Obligatorio; hasta 200 caracteres. |
 | `descripcion`, `titulo`, `ceja`, `cursiva`, `franja`, `esquinaTexto` | Opcionales; hasta 200 caracteres; admiten los huecos de arriba. |
 | `imagen` | `patrono` (por defecto), `fachada`, `logo`, `custodia`, `santo`, `ninguna` o `galeria:<id>`. (`automatica` no aplica aquí.) |
 | `esquina` | Qué va en la esquina: `hoy` (por defecto), `fecha`, `fiesta` o `texto` (el de `esquinaTexto`). |
+| `nombrePanel`, `textoInicio`, `textoGracias` | Opcionales, con los mismos límites que en `ajustes` (`nombrePanel` hasta 40 caracteres; los otros dos hasta 200). |
+| `portada` | Opcional: `ninguna`, `fiesta` o `evento`. |
 | `rotulos` | Hasta 10 rótulos del panel, elegidos entre: `persona`, `lectura1`, `lectura2`, `salmo`, `evangelio`, `rosario`, `santisimo`, `lugar`, `oracion`, `libre`. |
+
+Ejemplo de `ajustes` (Hora Santa con otro nombre y sin el rótulo de bendición):
+
+```json
+"tipos": {
+  "ajustes": {
+    "horasanta": { "nombrePanel": "Hora Santa", "textoInicio": "En breve comenzamos", "imagen": "custodia", "ocultarRotulos": ["bendicion"] }
+  }
+}
+```
+
+Los ids de rótulo de cada tipo común: `dominical`, `patronalsector` y `otros` tienen `persona`, `lectura1`, `salmo`, `lectura2`, `evangelio`; `semana`, `persona`, `lectura1`, `salmo`, `evangelio`; `horasanta`, `guia`, `santisimo`, `lectura1`, `oracion`, `bendicion`; `sector`, `persona`, `lugar`, `lectura1`, `salmo`, `evangelio`; `procesion`, `lugar`, `oracion`, `rosario`, `persona`; `prenovena`, `novena` y `patronal`, los de `dominical` más `rosario`; `evento`, `persona`, `libre`.
 
 Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = `{parroquia}` (nombre de la parroquia y su lugar, «nombre · lugar»); `cursiva` en blanco; `franja` = el lema de la fiesta entre comillas; `imagen` = `patrono`; `esquina` = `hoy`. Un tipo propio no tiene cuenta regresiva ni portada. Si un tipo propio se borra de la configuración y alguien lo tenía elegido, el panel y la pantalla pasan al primer tipo disponible, sin error.
 

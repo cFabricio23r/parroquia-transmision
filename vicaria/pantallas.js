@@ -6,12 +6,6 @@
 
 const MAX_FILAS_AVISOS = 6;
 
-/* El bloque de configuración de la vista, o null si no está personalizada. */
-function _bloquePantalla(vista) {
-  const b = PARROQUIA.pantallas && PARROQUIA.pantallas[vista];
-  return b && typeof b === 'object' && b.modo === 'personalizada' ? b : null;
-}
-
 /* Imagen de la galería { src, alt } o null si no existe ese id. */
 function imagenGaleria(id) {
   const g = Array.isArray(PARROQUIA.galeria) ? PARROQUIA.galeria.find((im) => im && im.id === id) : null;
@@ -21,7 +15,7 @@ function imagenGaleria(id) {
 /* Fondo de la vista: { tipo: 'degradado' } | { tipo: 'color', color } | { tipo: 'imagen', src, alt }.
    Un fondo de imagen cuya galería ya no existe cae al degradado. */
 function fondoDe(vista) {
-  const b = _bloquePantalla(vista);
+  const b = bloquePantalla(vista);
   const f = b && b.fondo;
   if (f && f.tipo === 'color' && typeof f.color === 'string') return { tipo: 'color', color: f.color };
   if (f && f.tipo === 'imagen') {
@@ -33,7 +27,7 @@ function fondoDe(vista) {
 
 /* Ajustes de la vista. Sin personalizar: los valores de hoy. El título no es ocultable: 'titulo' nunca está en `ocultar`. */
 function ajustesDe(vista) {
-  const b = _bloquePantalla(vista);
+  const b = bloquePantalla(vista);
   return {
     personalizada: b !== null,
     fondo: fondoDe(vista),

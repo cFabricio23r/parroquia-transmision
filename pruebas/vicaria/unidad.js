@@ -275,7 +275,9 @@ grupo('textos heredados', () => {
     k_lectura2: 'SEGUNDA LECTURA',
     k_evangelio: 'SANTO EVANGELIO',
     k_rosario: 'ORACIÓN',
-    t_rosario: 'Santo Rosario'
+    t_rosario: 'Santo Rosario',
+    prod_ceja: 'UNA PRODUCCIÓN DE',   // claves nuevas de la pantalla final, con el texto que ya tenía produccion.html
+    prod_nombre: 'Comunicaciones'
   };
   const cuenta = 'días para nuestra\nFiesta Patronal';
   const esperado = {
@@ -1172,6 +1174,70 @@ grupo('validarConfig: campos del rediseño (1)', () => {
   });
 });
 
+grupo('validarConfig: campos del rediseño (2)', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cambios(c);
+    return c;
+  };
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+
+  prueba('pantallas evento, produccion y envivo son válidas; mostrar acepta redes y horarios', () => {
+    const r = p.validarConfig(copia((c) => { c.pantallas = {
+      evento: { modo: 'personalizada', ocultar: ['franja'] },
+      produccion: { modo: 'personalizada', ocultar: ['marca'], textos: { prod_ceja: 'UN TRABAJO DE', prod_nombre: 'Pastoral' } },
+      envivo: { modo: 'personalizada', ocultar: ['envivo'] },
+      inicio: { modo: 'personalizada', ocultar: ['cuenta'], mostrar: ['redes'] },
+      horarios: { modo: 'personalizada', mostrar: ['redes', 'horarios'] } }; }));
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.ok(r.ok);
+  });
+  prueba('mostrar con un elemento desconocido es error', () => {
+    const e = errs((c) => { c.pantallas = { inicio: { modo: 'personalizada', mostrar: ['logo'] } }; });
+    assert.ok(e.includes('pantallas.inicio.mostrar[0]'), e);
+  });
+  prueba('mostrar que no es lista, o con más de dos elementos, es error', () => {
+    assert.ok(errs((c) => { c.pantallas = { inicio: { mostrar: 'redes' } }; }).includes('pantallas.inicio.mostrar'));
+    assert.ok(errs((c) => { c.pantallas = { inicio: { mostrar: ['redes', 'horarios', 'redes'] } }; }).includes('pantallas.inicio.mostrar'));
+  });
+  prueba('las listas nuevas coinciden con lo pedido', () => {
+    assert.deepEqual(Array.from(p.VISTAS_PERSONALIZABLES), ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo']);
+    assert.ok(p.ELEMENTOS_OCULTABLES.includes('cuenta'));
+    assert.deepEqual(Array.from(p.ELEMENTOS_MOSTRABLES), ['redes', 'horarios']);
+    assert.ok(p.CLAVES_TEXTOS.includes('prod_ceja') && p.CLAVES_TEXTOS.includes('prod_nombre'));
+    assert.deepEqual(Array.from(p.PORTADAS_PROPIO), ['ninguna', 'fiesta', 'evento']);
+  });
+  prueba('tipos.ajustes: claves comunes, textos, imagen y ocultarRotulos del propio tipo', () => {
+    const r = p.validarConfig(copia((c) => { c.tipos = { ajustes: { horasanta: { nombrePanel: 'Hora Santa', textoInicio: 'En breve comenzamos', textoGracias: 'Gracias por adorar con nosotros', imagen: 'custodia', ocultarRotulos: ['bendicion'] } } }; }));
+    assert.deepEqual(Array.from(r.errores), []);
+    assert.ok(r.ok);
+  });
+  prueba('tipos.ajustes: clave desconocida, rótulo ajeno, imagen de galería inexistente y nombrePanel de 41 son errores', () => {
+    const e = errs((c) => { c.tipos = { ajustes: {
+      navidad: {}, dominical: { ocultarRotulos: ['santisimo'], imagen: 'galeria:no-existe', nombrePanel: 'x'.repeat(41) } } }; });
+    ['tipos.ajustes.navidad', 'tipos.ajustes.dominical.ocultarRotulos[0]', 'tipos.ajustes.dominical.imagen', 'tipos.ajustes.dominical.nombrePanel'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+  });
+  prueba('tipos.ajustes: imagen automatica no aplica, nombrePanel vacío y textos largos son errores; un tipo apagado admite ajustes', () => {
+    const e = errs((c) => { c.tipos = { ajustes: { dominical: { imagen: 'automatica', nombrePanel: '', textoInicio: 'x'.repeat(201), textoGracias: 5 } } }; });
+    ['tipos.ajustes.dominical.imagen', 'tipos.ajustes.dominical.nombrePanel', 'tipos.ajustes.dominical.textoInicio', 'tipos.ajustes.dominical.textoGracias'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+    assert.ok(errs((c) => { c.tipos = { ajustes: [] }; }).includes('tipos.ajustes'));
+    assert.ok(errs((c) => { c.tipos = { ajustes: { semana: [] } }; }).includes('tipos.ajustes.semana'));
+    assert.ok(errs((c) => { c.tipos = { ajustes: { semana: { ocultarRotulos: 'persona' } } }; }).includes('tipos.ajustes.semana.ocultarRotulos'));
+    assert.ok(p.validarConfig(copia((c) => { c.tipos = { apagados: ['procesion'], ajustes: { procesion: { nombrePanel: 'Procesión' } } }; })).ok);
+  });
+  prueba('tipos.propios: nombrePanel, textoInicio, textoGracias y portada', () => {
+    const base = { clave: 'misa-de-ninos', nombre: 'Misa de niños' };
+    const ok = p.validarConfig(copia((c) => { c.tipos = { propios: [Object.assign({ nombrePanel: 'Niños', textoInicio: 'Ya empezamos', textoGracias: 'Gracias', portada: 'fiesta' }, base)] }; }));
+    assert.deepEqual(Array.from(ok.errores), []);
+    for (const v of ['ninguna', 'fiesta', 'evento']) {
+      assert.ok(p.validarConfig(copia((c) => { c.tipos = { propios: [Object.assign({ portada: v }, base)] }; })).ok, v);
+    }
+    const e = errs((c) => { c.tipos = { propios: [Object.assign({ portada: 'otra', nombrePanel: 'x'.repeat(41), textoInicio: 'x'.repeat(201) }, base)] }; });
+    ['tipos.propios[0].portada', 'tipos.propios[0].nombrePanel', 'tipos.propios[0].textoInicio'].forEach((k) => assert.ok(e.includes(k), k + ' en ' + e));
+  });
+});
+
 grupo('aplicar paleta', () => {
   prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
     const puestas = {};
@@ -1724,6 +1790,10 @@ grupo('config 1b', () => {
   });
   prueba('CLAVES_COMUNES coincide con ORDEN_TIPOS', () => {
     assert.deepEqual(Array.from(p.CLAVES_COMUNES), Array.from(p.ORDEN_TIPOS));
+  });
+  prueba('IDS_ROTULO_COMUN coincide con los rótulos de cada tipo de tipos.js', () => {
+    assert.deepEqual(Object.keys(p.IDS_ROTULO_COMUN), Array.from(p.ORDEN_TIPOS));
+    for (const k of p.ORDEN_TIPOS) assert.deepEqual(Array.from(p.IDS_ROTULO_COMUN[k]), Array.from(p.TIPOS[k].rotulos, (r) => r.id), k);
   });
   prueba('BASES_ROTULO coincide con las claves de ROTULOS', () => {
     assert.deepEqual(Array.from(p.BASES_ROTULO).sort(), Object.keys(p.ROTULOS).sort());

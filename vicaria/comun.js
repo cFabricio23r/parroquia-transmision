@@ -245,7 +245,9 @@ function textosBase(s) {
     k_lectura2: 'SEGUNDA LECTURA',
     k_evangelio: 'SANTO EVANGELIO',
     k_rosario: 'ORACIÓN',
-    t_rosario: 'Santo Rosario'
+    t_rosario: 'Santo Rosario',
+    prod_ceja: 'UNA PRODUCCIÓN DE',
+    prod_nombre: 'Comunicaciones'
   };
 }
 

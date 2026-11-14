@@ -128,15 +128,35 @@ const CLAVES_TEXTOS = [
   'portada_ceja', 'portada_cursiva', 'portada_titulo', 'portada_fecha', 'portada_sub',
   'gracias_pildora', 'gracias_titulo', 'gracias_cursiva', 'gracias_ceja',
   'avisos_sub', 'avisos_titulo', 'horarios_titulo', 'capa_logo', 'barra_y', 'franja',
-  'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario'
+  'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario',
+  'prod_ceja', 'prod_nombre'
 ];
 
-const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios'];
+/* Ids de los rótulos de cada tipo común, copiados de tipos.js (que se carga después). Una prueba los compara. */
+const IDS_ROTULO_COMUN = {
+  dominical: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  semana: ['persona', 'lectura1', 'salmo', 'evangelio'],
+  horasanta: ['guia', 'santisimo', 'lectura1', 'oracion', 'bendicion'],
+  sector: ['persona', 'lugar', 'lectura1', 'salmo', 'evangelio'],
+  patronalsector: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  procesion: ['lugar', 'oracion', 'rosario', 'persona'],
+  otros: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  prenovena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  novena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  patronal: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  evento: ['persona', 'libre']
+};
+
+const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo'];
 const MODOS_PANTALLA = ['como-viene', 'personalizada'];
 const TIPOS_FONDO = ['degradado', 'color', 'imagen'];
 const IMAGENES_PANTALLA = ['automatica', 'patrono', 'fachada', 'logo', 'custodia', 'santo', 'ninguna'];
 const DISTRIBUCIONES = ['izquierda', 'derecha', 'centro'];
-const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina'];
+const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 'franja', 'esquina', 'cuenta'];
+/* Elementos que la parroquia puede pedir a propósito (lo opuesto a ocultar). */
+const ELEMENTOS_MOSTRABLES = ['redes', 'horarios'];
+const PORTADAS_PROPIO = ['ninguna', 'fiesta', 'evento'];
+const MAX_NOMBRE_PANEL = 40;
 const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
 const ESQUINAS_ROTULO = ['redondeadas', 'rectas', 'suaves'];
 /* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
@@ -204,6 +224,13 @@ function _validarColorNombrado(v, nombres, campo, colores, errores) {
   }
 }
 
+/* El bloque de configuración de la vista, o null si no está personalizada. Vive aquí (y no en pantallas.js)
+   para que produccion.html lo use sin cargar pantallas.js. PARROQUIA se lee AL LLAMARSE. */
+function bloquePantalla(vista) {
+  const b = PARROQUIA.pantallas && PARROQUIA.pantallas[vista];
+  return b && typeof b === 'object' && b.modo === 'personalizada' ? b : null;
+}
+
 /* `id` debe ser el id de una imagen de la galería; ids = los ids válidos. */
 function _validarRefGaleria(id, campo, ids, errores) {
   if (typeof id !== 'string' || !ids.includes(id)) errores.push('La imagen (' + campo + ') no está en la galería (galeria).');
@@ -244,6 +271,11 @@ function _validarPantalla(pa, campo, ids, errores) {
   if (pa.ocultar !== undefined && _lista(pa.ocultar, campo + '.ocultar', ELEMENTOS_OCULTABLES.length, errores)) {
     pa.ocultar.forEach((e, i) => {
       if (!ELEMENTOS_OCULTABLES.includes(e)) errores.push('Ese elemento no se puede ocultar (' + campo + '.ocultar[' + i + ']): solo ' + ELEMENTOS_OCULTABLES.join(', ') + '.');
+    });
+  }
+  if (pa.mostrar !== undefined && _lista(pa.mostrar, campo + '.mostrar', ELEMENTOS_MOSTRABLES.length, errores)) {
+    pa.mostrar.forEach((e, i) => {
+      if (!ELEMENTOS_MOSTRABLES.includes(e)) errores.push('Ese elemento no se puede mostrar (' + campo + '.mostrar[' + i + ']): solo ' + ELEMENTOS_MOSTRABLES.join(', ') + '.');
     });
   }
   if (pa.textos !== undefined) {
@@ -287,6 +319,34 @@ function _validarRotulos(r, errores, colores) {
   }
 }
 
+/* nombrePanel (1 a MAX_NOMBRE_PANEL caracteres si viene), textoInicio y textoGracias (hasta MAX_TEXTO). */
+function _validarTextosTipo(t, campo, errores) {
+  if (t.nombrePanel !== undefined) {
+    _textoCorto(t.nombrePanel, campo + '.nombrePanel', errores, true);
+    if (typeof t.nombrePanel === 'string' && t.nombrePanel.length > MAX_NOMBRE_PANEL) {
+      errores.push('El nombre en el panel (' + campo + '.nombrePanel) pasa de ' + MAX_NOMBRE_PANEL + ' caracteres.');
+    }
+  }
+  _textoCorto(t.textoInicio, campo + '.textoInicio', errores, false);
+  _textoCorto(t.textoGracias, campo + '.textoGracias', errores, false);
+}
+
+/* Ajustes de un tipo común: tipos.ajustes.<clave>. Valen aunque el tipo esté apagado. */
+function _validarAjusteTipo(a, clave, ids, errores) {
+  const campo = 'tipos.ajustes.' + clave;
+  if (!_objeto(a)) {
+    errores.push('Los ajustes del tipo (' + campo + ') deben ser un objeto.');
+    return;
+  }
+  _validarTextosTipo(a, campo, errores);
+  _validarImagenElegida(a.imagen, campo + '.imagen', ids, errores, IMAGENES_PANTALLA.filter((k) => k !== 'automatica'));
+  if (a.ocultarRotulos !== undefined && _lista(a.ocultarRotulos, campo + '.ocultarRotulos', IDS_ROTULO_COMUN[clave].length, errores)) {
+    a.ocultarRotulos.forEach((r, j) => {
+      if (!IDS_ROTULO_COMUN[clave].includes(r)) errores.push('Ese rótulo no existe en este tipo (' + campo + '.ocultarRotulos[' + j + ']): solo ' + IDS_ROTULO_COMUN[clave].join(', ') + '.');
+    });
+  }
+}
+
 function _validarTipoPropio(t, i, claves, ids, errores) {
   const campo = 'tipos.propios[' + i + ']';
   if (!_objeto(t)) {
@@ -306,6 +366,8 @@ function _validarTipoPropio(t, i, claves, ids, errores) {
   for (const k of ['descripcion', 'titulo', 'ceja', 'cursiva', 'franja', 'esquinaTexto']) _textoCorto(t[k], campo + '.' + k, errores, false);
   _validarImagenElegida(t.imagen, campo + '.imagen', ids, errores, IMAGENES_PANTALLA.filter((k) => k !== 'automatica'));
   _unoDe(t.esquina, ESQUINAS_TIPO, campo + '.esquina', errores);
+  _unoDe(t.portada, PORTADAS_PROPIO, campo + '.portada', errores);
+  _validarTextosTipo(t, campo, errores);
   if (t.rotulos !== undefined && _lista(t.rotulos, campo + '.rotulos', BASES_ROTULO.length, errores)) {
     t.rotulos.forEach((b, j) => {
       if (!BASES_ROTULO.includes(b)) errores.push('Ese rótulo no existe (' + campo + '.rotulos[' + j + ']): solo ' + BASES_ROTULO.join(', ') + '.');
@@ -325,6 +387,16 @@ function _validarTipos(tp, ids, errores) {
       if (!CLAVES_COMUNES.includes(k)) errores.push('Ese tipo común no existe (tipos.apagados[' + i + ']).');
     });
     apagados = tp.apagados.filter((k) => CLAVES_COMUNES.includes(k));
+  }
+  if (tp.ajustes !== undefined) {
+    if (!_objeto(tp.ajustes)) {
+      errores.push('Los ajustes (tipos.ajustes) deben ser un objeto.');
+    } else {
+      for (const k of Object.keys(tp.ajustes)) {
+        if (!CLAVES_COMUNES.includes(k)) errores.push('Ese tipo común no existe (tipos.ajustes.' + k + ').');
+        else _validarAjusteTipo(tp.ajustes[k], k, ids, errores);
+      }
+    }
   }
   let propios = 0;
   if (tp.propios !== undefined && _lista(tp.propios, 'tipos.propios', 10, errores)) {
