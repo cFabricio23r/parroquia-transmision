@@ -249,3 +249,25 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
    pos-centro centra con márgenes automáticos (sin transform) para no pisar las animaciones .en/.sale. */
 .esquinas-rectas .rotulo,.esquinas-rectas .capa-logo,.esquinas-rectas .barra{border-radius:0}
 .pos-centro .rotulo{left:0;right:0;margin-left:auto;margin-right:auto;width:max-content}
+
+/* ================= Rediseño =================
+   Acento: solo con colores.acento (clase con-acento en <html>); sin él, la franja se ve como siempre. */
+.con-acento .franja-linea{background:var(--acento)}
+.con-acento .franja .frase i{color:var(--acento)}
+
+/* Caja .extra de Inicio y Gracias: horarios y redes pedidos a propósito (mostrar), debajo del texto.
+   Como las redes de Horarios, pero en claro sobre el fondo de color. */
+.extra{display:flex;flex-direction:column;gap:10px;margin-top:8px;padding-top:16px;border-top:2px solid rgba(255,255,255,.35);max-width:100%}
+.con-acento .extra{border-top-color:var(--acento)}
+.extra .horas{display:flex;flex-wrap:wrap;gap:8px 30px}
+.extra .hora{display:flex;align-items:baseline;gap:10px;font-weight:700;font-size:24px;line-height:1.2}
+.extra .hora b{font-weight:900;font-size:18px;letter-spacing:3px;text-transform:uppercase;color:#bfe0ff}
+.extra .redes{border-top:0;padding-top:0;gap:8px 30px}
+.extra .redes .red{color:#fff;font-size:24px}
+.extra .redes .red b{font-size:18px;color:#bfe0ff}
+.escenario.dist-centro .extra{align-items:center}
+.escenario.dist-centro .extra .horas,.escenario.dist-centro .extra .redes{justify-content:center}
+.entra > *:nth-child(7){animation-delay:.83s}
+
+/* Redes debajo de los avisos (#a-redes, solo si la pantalla de avisos las pide) */
+#a-redes{flex-shrink:0}

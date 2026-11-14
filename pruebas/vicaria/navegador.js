@@ -774,6 +774,101 @@ async function casoTiposPropios() {
   await ctx.close();
 }
 
+/* Rediseño: acento, portada de evento con sus ajustes, horarios y redes pedidos a propósito, aviso apagado. */
+async function casoPantallasRediseno() {
+  console.log('Rediseño · Pantallas con acento, evento, horarios y redes');
+  const cfg = JSON.parse(JSON.stringify(CONFIG[SJ]));
+  cfg.colores.acento = '#d9a441';
+  cfg.pantallas = {
+    inicio: { modo: 'personalizada', ocultar: ['cuenta'], mostrar: ['redes'] },
+    evento: { modo: 'personalizada', ocultar: ['franja'] },
+    avisos: { modo: 'personalizada', mostrar: ['horarios'] },
+    gracias: { modo: 'personalizada', mostrar: ['horarios', 'redes'] }
+  };
+  cfg.horarios = [
+    { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '9:00 a. m.', nota: 'Misa con niños' }], lugar: 'Templo parroquial' },
+    { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }] }
+  ];
+  cfg.avisos = [
+    { texto: 'Ensayo del coro', detalle: 'Jueves · 7:00 p. m.', orden: 1 },
+    { texto: 'Aviso apagado', detalle: 'No se ve', orden: 2, activo: false }
+  ];
+  const ctx = await nuevoContexto();
+  await ctx.route(`**/${SJ}/config.json`, servirConfig(cfg));
+  const estado = (e) => (p) => p.addInitScript(([k, v]) => localStorage.setItem(k, v), [`pev_${SJ}_estado_v1`, JSON.stringify(e)]);
+  const textos = (p, sel) => p.evaluate((s) => [...document.querySelectorAll(s)].map((e) => e.innerText.replace(/\s+/g, ' ').trim()), sel);
+
+  // Inicio: sin cuenta, con redes; la línea de la franja es el acento
+  const ini = await abrir(ctx, `/${SJ}/pantalla.html?tipo=inicio`, 1920, 1080, estado({ tipo: 'novena', cuenta: true }));
+  await ini.waitForTimeout(1500);
+  igual(await ini.evaluate(() => getComputedStyle(document.getElementById('i-cuenta')).display), 'none', 'Inicio: la cuenta regresiva se oculta');
+  revisar(await visibleEl(ini, '#v-inicio .extra'), 'Inicio: la caja de redes se ve');
+  igual((await textos(ini, '#v-inicio .extra .red')).join(' | '), 'FACEBOOK /ParroquiaSanJoseEjemplo | YOUTUBE @ParroquiaSanJoseEjemplo | WHATSAPP 0000-0000', 'Inicio: muestra las redes');
+  igual(await ini.evaluate(() => getComputedStyle(document.querySelector('.franja-linea')).backgroundColor), 'rgb(217, 164, 65)', 'la línea de la franja es el acento');
+  igual(await ini.evaluate(() => getComputedStyle(document.querySelector('.franja .frase i')).color), 'rgb(217, 164, 65)', 'los adornos del lema son el acento');
+  revisar(!(await ini.evaluate(() => document.documentElement.outerHTML.match(/facebook\.com|wa\.me/))), 'Inicio: ninguna URL de redes en el HTML');
+  igual((await imagenesRotas(ini)).length, 0, 'Inicio: ninguna imagen rota');
+  await captura(ini, 'rediseno_inicio');
+
+  // Portada: el tipo evento usa el bloque evento; patronal, no
+  const ev = await abrir(ctx, `/${SJ}/pantalla.html?tipo=portada`, 1920, 1080, estado({ tipo: 'evento', evento: 'Concierto', fecha: '2026-12-20', lugar: 'Atrio' }));
+  await ev.waitForTimeout(1200);
+  revisar(await ev.evaluate(() => document.getElementById('escenario').classList.contains('oculto-franja')), 'Portada de evento: el escenario lleva oculto-franja');
+  const pat = await abrir(ctx, `/${SJ}/pantalla.html?tipo=portada`, 1920, 1080, estado({ tipo: 'patronal' }));
+  await pat.waitForTimeout(1200);
+  revisar(!(await pat.evaluate(() => document.getElementById('escenario').classList.contains('oculto-franja'))), 'Portada de la fiesta: sin oculto-franja');
+
+  // Avisos: el apagado no está; los horarios van al final
+  const av = await abrir(ctx, `/${SJ}/pantalla.html?tipo=avisos`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await av.waitForSelector('#a-filas .fila');
+  await av.waitForTimeout(1200);
+  const filas = await av.evaluate(() => [...document.querySelectorAll('#a-filas .fila')].map((f) => f.querySelector('.a').textContent + ' | ' + f.querySelector('.f').textContent));
+  igual(filas[filas.length - 1], 'Jueves · Hora Santa | 6:00 p. m.', 'Avisos: la última fila es la de horarios del jueves');
+  revisar(!filas.some((f) => f.includes('Aviso apagado')), 'Avisos: el aviso con activo:false no aparece (' + filas.join(' / ') + ')');
+  revisar(!(await visibleEl(av, '#a-redes')), 'Avisos: sin redes en mostrar, no hay redes');
+  await captura(av, 'rediseno_avisos');
+
+  // Horarios: varias horas en una fila; lugar y notas en el detalle
+  const ho = await abrir(ctx, `/${SJ}/pantalla.html?tipo=horarios`);
+  await ho.waitForSelector('#h-filas .fila');
+  await ho.waitForTimeout(800);
+  igual((await textos(ho, '#h-filas .n'))[0], '7:00 a. m. · 9:00 a. m.', 'Horarios: el domingo muestra sus dos horas');
+  igual((await textos(ho, '#h-filas .a'))[0], 'Domingo', 'Horarios: el día');
+  igual((await textos(ho, '#h-filas .f'))[0], 'Templo parroquial · Misa con niños', 'Horarios: el lugar y las notas');
+
+  // Gracias: horarios y redes en la caja de abajo
+  const gr = await abrir(ctx, `/${SJ}/pantalla.html?tipo=gracias`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await gr.waitForTimeout(1500);
+  revisar(await visibleEl(gr, '#v-gracias .extra'), 'Gracias: la caja de horarios y redes se ve');
+  const extra = await gr.evaluate(() => document.querySelector('#v-gracias .extra').textContent);   // textContent: sin las mayúsculas del CSS
+  revisar(extra.includes('Domingo') && extra.includes('7:00 a. m. · 9:00 a. m.') && extra.includes('Jueves · Hora Santa') && extra.includes('6:00 p. m.'), 'Gracias: trae los horarios (' + extra + ')');
+  revisar(extra.includes('/ParroquiaSanJoseEjemplo') && extra.includes('0000-0000'), 'Gracias: trae las redes');
+  const pisa = await gr.evaluate(() => {
+    const e = document.querySelector('#v-gracias .extra');
+    if (!e) return true;
+    return e.getBoundingClientRect().bottom > document.querySelector('.franja-linea').getBoundingClientRect().top;
+  });
+  revisar(!pisa, 'Gracias: la caja no pisa la franja');
+  igual((await imagenesRotas(gr)).length, 0, 'Gracias: ninguna imagen rota');
+  await captura(gr, 'rediseno_gracias');
+  await ctx.close();
+
+  // Avisos con redes pedidas: van debajo de las filas, dentro de la tarjeta
+  const cfg2 = JSON.parse(JSON.stringify(cfg));
+  cfg2.pantallas.avisos.mostrar = ['horarios', 'redes'];
+  cfg2.avisos = Array.from({ length: 5 }, (_, i) => ({ texto: 'Aviso fijo número ' + (i + 1), detalle: 'Detalle ' + (i + 1), orden: i + 1 }));   // el peor caso: 6 filas y redes
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(`**/${SJ}/config.json`, servirConfig(cfg2));
+  const av2 = await abrir(ctx2, `/${SJ}/pantalla.html?tipo=avisos`, 1920, 1080, estado({ tipo: 'dominical' }));
+  await av2.waitForSelector('#a-filas .fila');
+  await av2.waitForTimeout(1200);
+  igual((await textos(av2, '#a-redes .red')).join(' | '), 'FACEBOOK /ParroquiaSanJoseEjemplo | YOUTUBE @ParroquiaSanJoseEjemplo | WHATSAPP 0000-0000', 'Avisos: con mostrar redes, las redes se ven');
+  const fueraAv = await av2.evaluate(() => { const t = document.getElementById('v-avisos').getBoundingClientRect(); return [...document.querySelectorAll('#a-filas .fila, #a-redes .red')].filter((e) => e.getBoundingClientRect().bottom > t.bottom - 20).length; });
+  igual(fueraAv, 0, 'Avisos: 6 filas y las redes caben en la tarjeta');
+  await captura(av2, 'rediseno_avisos_redes');
+  await ctx2.close();
+}
+
 async function casoPanelNeutroConservaPropio() {
   console.log('1b · Panel con configuración neutra al arrancar conserva el tipo propio');
   const ctx = await nuevoContexto();
@@ -1048,6 +1143,7 @@ async function casoLineaBase() {
     await casoPlaceholdersTextos();
     await casoSanJoseCompleto();
     await casoVistaPrevia();
+    await casoPantallasRediseno();
     await casoLineaBase();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

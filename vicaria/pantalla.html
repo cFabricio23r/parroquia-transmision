@@ -30,6 +30,7 @@
     <p class="cursiva multilinea" id="i-cursiva"></p>
     <div class="cuenta" id="i-cuenta"><b id="i-dias"></b><span class="multilinea" id="i-cuenta-txt"></span></div>
     <div class="salida" id="i-salida" hidden><span>SALIDA</span><span id="i-salida-lugar"></span></div>
+    <div class="extra" hidden></div>   <!-- redes, solo si la pantalla las pide (mostrar) -->
   </div>
 
   <!-- PORTADA 8 DE DICIEMBRE -->
@@ -55,6 +56,7 @@
     <h1 class="titulo" style="font-size:88px;line-height:1;letter-spacing:-1px;margin-top:10px"><span class="brilla multilinea" id="g-titulo"></span></h1>
     <p class="cursiva multilinea" style="font-size:60px" id="g-cursiva"></p>
     <p class="ceja" style="font-size:26px;letter-spacing:6px" id="g-ceja"></p>
+    <div class="extra" hidden></div>   <!-- horarios y redes, solo si la pantalla los pide (mostrar) -->
   </div>
 
   <!-- AVISOS -->
@@ -141,16 +143,47 @@ $('virgen').addEventListener('error', () => {
 
 let firmaAnterior = '';
 const NOMBRES_RED = { facebook: 'Facebook', youtube: 'YouTube', instagram: 'Instagram', whatsapp: 'WhatsApp', web: 'Web' };
+/* Redes como texto (la URL nunca se muestra: OBS no hace clic). */
+function llenarRedes(caja, redes) {
+  caja.textContent = '';
+  redes.forEach((r) => {
+    const el = document.createElement('span'); el.className = 'red';
+    const k = document.createElement('b'); k.textContent = NOMBRES_RED[r.red] || '';
+    const x = document.createElement('span'); x.textContent = r.texto || '';
+    el.append(k, x); caja.append(el);
+  });
+}
+/* Caja .extra de Inicio y Gracias: horarios [{a, f}] (día y notas, horas) y redes. Sin nada, queda oculta. */
+function pintarExtra(caja, horarios, redes) {
+  caja.textContent = '';
+  if (horarios.length) {
+    const lista = document.createElement('div'); lista.className = 'horas';
+    horarios.forEach((h) => {
+      const el = document.createElement('span'); el.className = 'hora';
+      const k = document.createElement('b'); k.textContent = h.a;
+      const x = document.createElement('span'); x.textContent = h.f;
+      el.append(k, x); lista.append(el);
+    });
+    caja.append(lista);
+  }
+  if (redes.length) {
+    const r = document.createElement('div'); r.className = 'redes';
+    llenarRedes(r, redes); caja.append(r);
+  }
+  caja.hidden = !horarios.length && !redes.length;
+}
 function reanimar(el) { el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra'); }
 
 function pintar(s) {
   if (PARROQUIA_NO_EXISTE) return;
   const tipo = tipoDe(s);
   const efectiva = vistaDe(s);
-  // Ajustes, fondo y textos son los de la vista que se pinta de verdad: si la portada pinta Inicio, los del bloque `inicio`.
-  const T = (clave) => textoDe(s, efectiva, clave);
-  aplicarAjustes(efectiva);
   const esPortadaEvento = efectiva === 'portada' && tipo.portada === 'evento';
+  // Ajustes, fondo y textos son los de la vista que se pinta de verdad: si la portada pinta Inicio, los del bloque `inicio`;
+  // la portada de un tipo con portada de evento usa el bloque `evento`.
+  const vistaCfg = esPortadaEvento ? 'evento' : efectiva;
+  const T = (clave) => textoDe(s, vistaCfg, clave);
+  aplicarAjustes(vistaCfg);
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
   const v = $('virgen');
@@ -186,11 +219,12 @@ function pintar(s) {
     $('i-titulo').textContent = T('inicio_titulo');
     $('i-cursiva').textContent = T('inicio_cursiva');
     const d = diasFaltan(s);
-    $('i-cuenta').style.display = cuentaVisible(s) ? 'flex' : 'none';
+    $('i-cuenta').style.display = cuentaVisible(s) && visible(vistaCfg, 'cuenta') ? 'flex' : 'none';
     $('i-dias').textContent = d;
     $('i-cuenta-txt').textContent = T('inicio_cuenta');
     $('i-salida').hidden = !tipo.salida;
     $('i-salida-lugar').textContent = tipo.salida ? rellenar('{lugar}', s) : '';
+    pintarExtra($('v-inicio').querySelector('.extra'), [], redesVisibles(vistaCfg));
     firma = 'inicio|' + s.tipo + '|' + src + '|' + $('i-pildora').textContent;
   }
   if (efectiva === 'portada') {
@@ -230,6 +264,7 @@ function pintar(s) {
     $('g-titulo').textContent = T('gracias_titulo');
     $('g-cursiva').textContent = T('gracias_cursiva');
     $('g-ceja').textContent = T('gracias_ceja');
+    pintarExtra($('v-gracias').querySelector('.extra'), visible(vistaCfg, 'horarios') ? filasHorarios() : [], redesVisibles(vistaCfg));
     firma = 'gracias|' + s.tipo + '|' + src + '|' + $('g-pildora').textContent;
   }
   if (efectiva === 'avisos') {
@@ -246,7 +281,15 @@ function pintar(s) {
       const f = document.createElement('span'); f.className = 'f'; f.textContent = x.f || '';
       fila.append(n, a, f); filas.append(fila);
     });
-    firma = 'avisos|' + src + '|' + JSON.stringify(lista);
+    // redes debajo de los avisos, solo si la pantalla las pide; la caja se crea al necesitarla
+    const redesAv = redesVisibles('avisos');
+    let cajaAv = $('a-redes');
+    if (redesAv.length && !cajaAv) {
+      cajaAv = document.createElement('div'); cajaAv.className = 'redes'; cajaAv.id = 'a-redes';
+      $('v-avisos').append(cajaAv);
+    }
+    if (cajaAv) { llenarRedes(cajaAv, redesAv); cajaAv.hidden = !redesAv.length; }
+    firma = 'avisos|' + src + '|' + JSON.stringify([lista, redesAv]);
   }
   if (efectiva === 'horarios') {
     $('h-sub').textContent = T('avisos_sub');
@@ -255,24 +298,19 @@ function pintar(s) {
     const horarios = horariosPara();
     const redes = redesPara();
     horarios.forEach((h) => {
-      // horariosPara da {dia, horas:[{hora, nota}], lugar}; una hora sola (la forma vieja) se ve como siempre
+      // horariosPara da {dia, horas:[{hora, nota}], lugar}; una hora sola (la forma vieja, sin lugar) se ve como siempre
       const unir = (l) => l.filter((t) => typeof t === 'string' && t !== '').join(' · ');
       const fila = document.createElement('div'); fila.className = 'fila horario';
       const n = document.createElement('span'); n.className = 'n'; n.textContent = unir(h.horas.map((o) => o.hora));
       const a = document.createElement('span'); a.className = 'a'; a.textContent = h.dia || '';
-      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir(h.horas.map((o) => o.nota));
+      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir([h.lugar].concat(h.horas.map((o) => o.nota)));
       fila.append(n, a, f); filas.append(fila);
     });
     filas.hidden = !horarios.length && !redes.length;   // sin nada que mostrar solo queda el título: ninguna instrucción al aire
     filas.classList.toggle('compacta', horarios.length > 4);
     filas.classList.toggle('dos-col', horarios.length > 6);
-    const cajaRedes = $('h-redes'); cajaRedes.textContent = '';
-    redes.forEach((r) => {   // solo el texto: la URL nunca se muestra
-      const el = document.createElement('span'); el.className = 'red';
-      const k = document.createElement('b'); k.textContent = NOMBRES_RED[r.red] || '';
-      const x = document.createElement('span'); x.textContent = r.texto || '';
-      el.append(k, x); cajaRedes.append(el);
-    });
+    const cajaRedes = $('h-redes');
+    llenarRedes(cajaRedes, redes);
     cajaRedes.hidden = !redes.length;
     firma = 'horarios|' + src + '|' + JSON.stringify([horarios, redes]);
   }
