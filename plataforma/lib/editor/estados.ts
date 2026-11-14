@@ -5,6 +5,7 @@ import type { Estado } from '../../app/componentes/PuntoEstado';
 import { contraste, MIN_CONTRASTE } from '../contraste';
 import { MESES } from '../fecha';
 import { bloqueDeError, limpiarMensaje } from './errores';
+import { avisoImagenPatrono } from './pantallas';
 import { SECCIONES, type IdSeccion } from './secciones';
 
 export interface Problema {
@@ -82,9 +83,13 @@ function problemaDeError(m: string, borrador: Config, seccion: IdSeccion): Probl
   return { titulo: limpiarMensaje(m), detalle: '', seccion };
 }
 
-/** Avisos que dependen de las pantallas personalizadas (plan 4, Decisión 25). Hoy no hay ninguno. */
-export function avisosDePantallas(_borrador: Config): Problema[] {
-  return [];
+/** Avisos de las pantallas personalizadas (plan 4, Decisión 2): «Siempre la misma» con el patrono sin imagen. */
+export function avisosDePantallas(borrador: Config): Problema[] {
+  return avisoImagenPatrono(borrador).map(({ nombre }) => ({
+    titulo: `La pantalla de ${nombre} usa la imagen del patrono, pero no hay una`,
+    detalle: 'Súbela en Patrono y fiesta o elige otra imagen.',
+    seccion: 'pantallas' as const,
+  }));
 }
 
 function colorResuelto(valor: unknown, colores: unknown): string | null {

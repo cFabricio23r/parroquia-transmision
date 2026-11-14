@@ -124,3 +124,22 @@ describe('fechas', () => {
     expect(MESES[2]).toBe('marzo');
   });
 });
+
+describe('pantallas: «Siempre la misma» sin imagen del patrono (plan 4, Tarea 2)', () => {
+  it('avisa en ámbar si una pantalla personalizada usa el patrono y no hay imagen', () => {
+    const e = estadoDeSeccion({ pantallas: { inicio: { modo: 'personalizada', imagen: 'patrono' } } }, 'pantallas', [], hoy);
+    expect(e.estado).toBe('revisar');
+    expect(e.frase).toBe('La pantalla de Inicio usa la imagen del patrono, pero no hay una.');
+    expect(e.avisos[0]).toEqual({
+      titulo: 'La pantalla de Inicio usa la imagen del patrono, pero no hay una',
+      detalle: 'Súbela en Patrono y fiesta o elige otra imagen.',
+      seccion: 'pantallas',
+    });
+  });
+
+  it('con la imagen del patrono, o como viene, no avisa', () => {
+    const conImagen = { pantallas: { inicio: { modo: 'personalizada', imagen: 'patrono' } }, patrono: { imagen: { src: 'medios/p.png', alt: 'P' } } };
+    expect(estadoDeSeccion(conImagen, 'pantallas', [], hoy).estado).toBe('listo');
+    expect(estadoDeSeccion({ pantallas: { inicio: { modo: 'como-viene', imagen: 'patrono' } } }, 'pantallas', [], hoy).avisos).toEqual([]);
+  });
+});
