@@ -1,8 +1,8 @@
 'use client';
 // «Subir imagen» (AB/VicEdGaleria): archivo, descripción, nombre (Decisión 2) y etiqueta.
 import { useId, useState } from 'react';
-import { ETIQUETAS_GALERIA, imagenesDe, nuevoIdGaleria } from '../../../../../lib/editor/galeria';
-import { MENSAJE_ALT_VACIO, subirImagen, TIPOS_IMAGEN } from '../../../../../lib/editor/imagen';
+import { erroresTextosImagen, ETIQUETAS_GALERIA, imagenesDe, MAX_TEXTO_IMAGEN, nuevoIdGaleria } from '../../../../../lib/editor/galeria';
+import { subirImagen, TIPOS_IMAGEN } from '../../../../../lib/editor/imagen';
 import { Boton } from '../../../../componentes/Boton';
 import { CajaInfo } from '../../../../componentes/CajaInfo';
 import { CampoSelect } from '../../../../componentes/CampoSelect';
@@ -22,7 +22,7 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
   const [alt, setAlt] = useState('');
   const [nombre, setNombre] = useState('');
   const [etiqueta, setEtiqueta] = useState<string>('patrono');
-  const [errores, setErrores] = useState<{ archivo?: string; alt?: string; servidor?: string }>({});
+  const [errores, setErrores] = useState<{ archivo?: string; alt?: string; nombre?: string; servidor?: string }>({});
   const [ocupado, setOcupado] = useState(false);
 
   const limpiar = () => {
@@ -40,9 +40,9 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
 
   const subir = async () => {
     if (ocupado) return;
-    const nuevos = { archivo: archivo ? undefined : MENSAJE_SIN_ARCHIVO, alt: alt.trim() ? undefined : MENSAJE_ALT_VACIO };
+    const nuevos = { archivo: archivo ? undefined : MENSAJE_SIN_ARCHIVO, ...erroresTextosImagen({ alt, nombre }) };
     setErrores(nuevos);
-    if (nuevos.archivo || nuevos.alt || !archivo) return;
+    if (nuevos.archivo || nuevos.alt || nuevos.nombre || !archivo) return;
     setOcupado(true);
     const r = await subirImagen(datos.slug, 'galeria', archivo);
     setOcupado(false);
@@ -90,13 +90,18 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
           {errores.archivo}
         </span>
       )}
-      <CampoTexto id="subir-alt" etiqueta="Descripción (alt)" ayuda={AYUDA_ALT} value={alt} error={errores.alt}
+      <CampoTexto id="subir-alt" etiqueta="Descripción (alt)" ayuda={AYUDA_ALT} value={alt} error={errores.alt} maxLength={MAX_TEXTO_IMAGEN}
         onChange={(e) => {
           setAlt(e.target.value);
-          if (e.target.value.trim()) setErrores((x) => ({ ...x, alt: undefined }));
+          if (!erroresTextosImagen({ alt: e.target.value, nombre: '' }).alt) setErrores((x) => ({ ...x, alt: undefined }));
         }}
       />
-      <CampoTexto id="subir-nombre" etiqueta="Nombre (opcional)" ayuda={AYUDA_NOMBRE} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <CampoTexto id="subir-nombre" etiqueta="Nombre (opcional)" ayuda={AYUDA_NOMBRE} value={nombre} error={errores.nombre} maxLength={MAX_TEXTO_IMAGEN}
+        onChange={(e) => {
+          setNombre(e.target.value);
+          if (!erroresTextosImagen({ alt: 'x', nombre: e.target.value }).nombre) setErrores((x) => ({ ...x, nombre: undefined }));
+        }}
+      />
       <CampoSelect id="subir-etiqueta" etiqueta="Etiqueta" value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)}>
         {ETIQUETAS_GALERIA.map((e) => (
           <option key={e.valor} value={e.valor}>

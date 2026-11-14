@@ -63,3 +63,13 @@ describe('nombreDeImagen', () => {
     expect(nombreDeImagen({ id: 'img-a', src: 'medios/a.png', alt: '' })).toBe('Imagen sin descripción');
   });
 });
+
+describe('textoDeBloque (Identidad)', () => {
+  it('un texto de solo espacios en un campo opcional quita la clave', async () => {
+    const { textoDeBloque } = await import('../../lib/editor/imagen');
+    expect(textoDeBloque('', true)).toBeUndefined();
+    expect(textoDeBloque('   ', true)).toBeUndefined();
+    expect(textoDeBloque(' San José', true)).toBe(' San José');
+    expect(textoDeBloque('  ', false)).toBe('  ');
+  });
+});

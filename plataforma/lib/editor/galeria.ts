@@ -1,5 +1,6 @@
 // Galería del borrador (plan 3; la completa la Tarea 14). Sin React: se prueba sola.
 import { NOMBRES_VISTAS } from './secciones';
+import { MENSAJE_ALT_VACIO } from './imagen';
 
 export interface ImagenGaleria {
   id: string;
@@ -145,4 +146,17 @@ export function quitarImagen(config: object, id: string): Partial<Record<'galeri
   }
   if (tiposCambian) cambios.tipos = nuevosTipos;
   return cambios;
+}
+
+/** Límite de vicaria/parroquia.js (MAX_TEXTO) para la descripción y el nombre de una imagen. */
+export const MAX_TEXTO_IMAGEN = 200;
+export const MENSAJE_LARGO = 'Hasta 200 caracteres.';
+
+/** Errores de la descripción y el nombre de una imagen, sobre el texto ya recortado. */
+export function erroresTextosImagen({ alt, nombre }: { alt: string; nombre: string }): { alt?: string; nombre?: string } {
+  const e: { alt?: string; nombre?: string } = {};
+  if (!alt.trim()) e.alt = MENSAJE_ALT_VACIO;
+  else if (alt.trim().length > MAX_TEXTO_IMAGEN) e.alt = MENSAJE_LARGO;
+  if (nombre.trim().length > MAX_TEXTO_IMAGEN) e.nombre = MENSAJE_LARGO;
+  return e;
 }

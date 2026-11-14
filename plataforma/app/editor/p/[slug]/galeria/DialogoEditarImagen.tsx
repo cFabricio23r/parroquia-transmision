@@ -2,8 +2,15 @@
 // «Editar imagen» (Decisión 3): descripción, nombre y etiqueta; «Borrar imagen» pide confirmación y
 // dice dónde se usa. Borrar no deja ninguna referencia `galeria:<id>` colgando (Review Focus 5).
 import { useEffect, useState } from 'react';
-import { ETIQUETAS_GALERIA, imagenesDe, quitarImagen, usosDeImagen, type ImagenGaleria } from '../../../../../lib/editor/galeria';
-import { MENSAJE_ALT_VACIO } from '../../../../../lib/editor/imagen';
+import {
+  erroresTextosImagen,
+  ETIQUETAS_GALERIA,
+  imagenesDe,
+  MAX_TEXTO_IMAGEN,
+  quitarImagen,
+  usosDeImagen,
+  type ImagenGaleria,
+} from '../../../../../lib/editor/galeria';
 import { Boton } from '../../../../componentes/Boton';
 import { CampoSelect } from '../../../../componentes/CampoSelect';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
@@ -24,7 +31,7 @@ export function DialogoEditarImagen({ imagen, onCerrar }: { imagen: ImagenGaleri
   const [alt, setAlt] = useState('');
   const [nombre, setNombre] = useState('');
   const [etiqueta, setEtiqueta] = useState('');
-  const [error, setError] = useState<string | undefined>();
+  const [errores, setErrores] = useState<{ alt?: string; nombre?: string }>({});
   const [confirmar, setConfirmar] = useState(false);
 
   useEffect(() => {
@@ -32,7 +39,7 @@ export function DialogoEditarImagen({ imagen, onCerrar }: { imagen: ImagenGaleri
     setAlt(imagen.alt ?? '');
     setNombre(imagen.nombre ?? '');
     setEtiqueta((imagen.etiquetas ?? []).find(esConocida) ?? '');
-    setError(undefined);
+    setErrores({});
     setConfirmar(false);
   }, [imagen]);
 
@@ -42,7 +49,9 @@ export function DialogoEditarImagen({ imagen, onCerrar }: { imagen: ImagenGaleri
 
   const guardar = () => {
     if (!imagen) return;
-    if (!alt.trim()) return setError(MENSAJE_ALT_VACIO);
+    const e = erroresTextosImagen({ alt, nombre });
+    setErrores(e);
+    if (e.alt || e.nombre) return;
     const lista = Array.isArray(borrador.galeria) ? borrador.galeria : [];
     cambiar(
       'galeria',
@@ -75,13 +84,18 @@ export function DialogoEditarImagen({ imagen, onCerrar }: { imagen: ImagenGaleri
         {imagen && (
           <>
             <div className="pv-editar-miniatura">{urls[imagen.src] ? <img alt="" src={urls[imagen.src]} /> : null}</div>
-            <CampoTexto id="editar-alt" etiqueta="Descripción (alt)" ayuda={AYUDA_ALT} value={alt} error={error}
+            <CampoTexto id="editar-alt" etiqueta="Descripción (alt)" ayuda={AYUDA_ALT} value={alt} error={errores.alt} maxLength={MAX_TEXTO_IMAGEN}
               onChange={(e) => {
                 setAlt(e.target.value);
-                if (e.target.value.trim()) setError(undefined);
+                if (!erroresTextosImagen({ alt: e.target.value, nombre: '' }).alt) setErrores((x) => ({ ...x, alt: undefined }));
               }}
             />
-            <CampoTexto id="editar-nombre" etiqueta="Nombre (opcional)" ayuda={AYUDA_NOMBRE} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <CampoTexto id="editar-nombre" etiqueta="Nombre (opcional)" ayuda={AYUDA_NOMBRE} value={nombre} error={errores.nombre} maxLength={MAX_TEXTO_IMAGEN}
+              onChange={(e) => {
+                setNombre(e.target.value);
+                if (!erroresTextosImagen({ alt: 'x', nombre: e.target.value }).nombre) setErrores((x) => ({ ...x, nombre: undefined }));
+              }}
+            />
             <CampoSelect id="editar-etiqueta" etiqueta="Etiqueta" value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)}>
               {!etiqueta && <option value="">Sin etiqueta</option>}
               {ETIQUETAS_GALERIA.map((e) => (

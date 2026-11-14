@@ -45,3 +45,8 @@ export async function subirImagen(slug: string, campo: string, archivo: File, f:
   if (r.status === 200 && typeof datos.src === 'string' && typeof datos.url === 'string') return { src: datos.src, url: datos.url };
   return { error: typeof datos.error === 'string' ? datos.error : MENSAJE_RED_SUBIDA, estado: r.status };
 }
+
+/** Un texto de Identidad para el borrador: en un campo opcional, vacío o solo espacios quita la clave. */
+export function textoDeBloque(v: string, quitarVacio: boolean): string | undefined {
+  return quitarVacio && v.trim() === '' ? undefined : v;
+}

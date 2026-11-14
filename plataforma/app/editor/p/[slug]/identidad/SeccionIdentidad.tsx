@@ -3,7 +3,7 @@
 // la fachada. Cada cambio va al borrador (guardado automático); un color a medio escribir no.
 import { useEffect, useRef, useState } from 'react';
 import { contraste } from '../../../../../lib/contraste';
-import { MENSAJE_HEX, RE_HEX, textoSobreAcento } from '../../../../../lib/editor/imagen';
+import { MENSAJE_HEX, RE_HEX, textoDeBloque, textoSobreAcento } from '../../../../../lib/editor/imagen';
 import { CampoColor } from '../../../../componentes/CampoColor';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
 import { PastillaContraste } from '../../../../componentes/PastillaContraste';
@@ -71,7 +71,7 @@ export function SeccionIdentidad() {
     cambiar('logos', actuales);
   };
   const ponerTexto = (bloque: 'nombre' | 'nombreCorto' | 'lugar', quitarVacio: boolean) => (v: string) =>
-    cambiar(bloque, quitarVacio && v === '' ? undefined : v);
+    cambiar(bloque, textoDeBloque(v, quitarVacio));
 
   const acentoValido = RE_HEX.test(texto(colores.acento));
   const sobreAcento = acentoValido ? textoSobreAcento(texto(colores.acento)) : null;

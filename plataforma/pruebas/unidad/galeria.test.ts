@@ -92,3 +92,20 @@ describe('textoBorrar (Decisión 3)', () => {
     expect(textoBorrar([])).toBe('¿Borrar esta imagen de la galería?');
   });
 });
+
+describe('erroresTextosImagen: lo que el servidor rechazaría se avisa en el diálogo', () => {
+  it('alt vacío, alt o nombre de más de 200 caracteres', async () => {
+    const { erroresTextosImagen, MENSAJE_LARGO, MAX_TEXTO_IMAGEN } = await import('../../lib/editor/galeria');
+    const { MENSAJE_ALT_VACIO } = await import('../../lib/editor/imagen');
+    expect(MAX_TEXTO_IMAGEN).toBe(200);
+    expect(erroresTextosImagen({ alt: 'Fachada', nombre: '' })).toEqual({});
+    expect(erroresTextosImagen({ alt: '   ', nombre: '' })).toEqual({ alt: MENSAJE_ALT_VACIO });
+    expect(erroresTextosImagen({ alt: 'a'.repeat(201), nombre: '' })).toEqual({ alt: MENSAJE_LARGO });
+    expect(erroresTextosImagen({ alt: ` ${'a'.repeat(200)} `, nombre: '' })).toEqual({});
+    expect(erroresTextosImagen({ alt: 'ok', nombre: 'n'.repeat(201) })).toEqual({ nombre: MENSAJE_LARGO });
+    // Lo que el diálogo deja pasar, el servidor lo acepta.
+    const galeria = [{ id: 'img-z', src: 'medios/z.png', alt: 'a'.repeat(200), nombre: 'n'.repeat(200) }];
+    const errores = validarBorrador({ ...CONFIG, galeria, pantallas: {}, tipos: {} }, 'x').errores.filter((e) => e.includes('galeria'));
+    expect(errores).toEqual([]);
+  });
+});
