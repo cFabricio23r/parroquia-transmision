@@ -1,16 +1,15 @@
-import Link from 'next/link';
-import { FormEntrar } from '../formularios';
+import { MarcoAcceso } from '../../componentes/MarcoAcceso';
+import { TarjetaAcceso } from '../../componentes/TarjetaAcceso';
+import { FormEntrar } from './FormEntrar';
 
-export const metadata = { title: 'Entrar al editor' };
+export const metadata = { title: 'Entrar · Parroquia en Vivo' };
 
 export default function Entrar() {
   return (
-    <main className="tarjeta">
-      <h1>Entrar al editor</h1>
-      <FormEntrar />
-      <p className="enlaces">
-        <Link href="/editor/olvide">Olvidé mi contraseña</Link>
-      </p>
-    </main>
+    <MarcoAcceso>
+      <TarjetaAcceso>
+        <FormEntrar />
+      </TarjetaAcceso>
+    </MarcoAcceso>
   );
 }
