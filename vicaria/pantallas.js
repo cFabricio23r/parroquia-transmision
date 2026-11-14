@@ -15,7 +15,7 @@ function imagenGaleria(id) {
 /* Fondo de la vista: { tipo: 'degradado' } | { tipo: 'color', color } | { tipo: 'imagen', src, alt }.
    Un fondo de imagen cuya galería ya no existe cae al degradado. */
 function fondoDe(vista) {
-  const b = bloquePantalla(vista);
+  const b = _sinFondo(vista) ? null : bloquePantalla(vista);
   const f = b && b.fondo;
   if (f && f.tipo === 'color' && typeof f.color === 'string') return { tipo: 'color', color: f.color };
   if (f && f.tipo === 'imagen') {
@@ -25,22 +25,34 @@ function fondoDe(vista) {
   return { tipo: 'degradado' };
 }
 
-/* Ajustes de la vista. Sin personalizar: los valores de hoy. El título no es ocultable: 'titulo' nunca está en `ocultar`. */
+/* Producción y la capa EN VIVO no tienen fondo, imagen ni distribución: si la configuración los trae, se ignoran. */
+function _sinFondo(vista) {
+  return vista === 'produccion' || vista === 'envivo';
+}
+
+/* Ajustes de la vista. Sin personalizar: los valores de hoy. El título no es ocultable: 'titulo' nunca está en `ocultar`.
+   `mostrar` son los elementos pedidos a propósito (ELEMENTOS_MOSTRABLES); sin personalizar, ninguno. */
 function ajustesDe(vista) {
   const b = bloquePantalla(vista);
+  const conFondo = b && !_sinFondo(vista);
   return {
     personalizada: b !== null,
     fondo: fondoDe(vista),
-    imagen: b && typeof b.imagen === 'string' ? b.imagen : 'automatica',
-    distribucion: b && typeof b.distribucion === 'string' ? b.distribucion : 'izquierda',
+    imagen: conFondo && typeof b.imagen === 'string' ? b.imagen : 'automatica',
+    distribucion: conFondo && typeof b.distribucion === 'string' ? b.distribucion : 'izquierda',
     ocultar: b && Array.isArray(b.ocultar) ? b.ocultar.filter((e) => typeof e === 'string' && e !== 'titulo') : [],
+    mostrar: b && Array.isArray(b.mostrar) ? b.mostrar.filter((e) => ELEMENTOS_MOSTRABLES.includes(e)) : [],
     textos: b && b.textos && typeof b.textos === 'object' ? Object.assign({}, b.textos) : {}
   };
 }
 
-/* ¿Se muestra este elemento? El título siempre. */
+/* ¿Se muestra este elemento? El título siempre. Redes y horarios solo si la vista los pide en `mostrar`;
+   lo demás, salvo que esté en `ocultar`. */
 function visible(vista, elemento) {
-  return elemento === 'titulo' || ajustesDe(vista).ocultar.indexOf(elemento) === -1;
+  if (elemento === 'titulo') return true;
+  const a = ajustesDe(vista);
+  if (ELEMENTOS_MOSTRABLES.includes(elemento)) return a.mostrar.indexOf(elemento) !== -1;
+  return a.ocultar.indexOf(elemento) === -1;
 }
 
 /* Imagen de la vista { src, alt, clase }. 'automatica' = la de hoy; 'ninguna' = sin imagen;
@@ -87,12 +99,13 @@ function _vigente(a, hoy) {
   return true;
 }
 
-/* Filas de la pantalla de avisos [{a, f}]: primero los fijos vigentes (por `orden`, y a igual orden por
-   posición; sin `orden` van al final), después los del panel con texto o detalle (como en la 1a). Máximo 6. */
+/* Filas de la pantalla de avisos [{a, f}]: primero los fijos activos y vigentes (por `orden`, y a igual orden por
+   posición; sin `orden` van al final), después los del panel con texto o detalle (como en la 1a) y, si la
+   pantalla de avisos pide los horarios (mostrar), las filas de horarios. Máximo 6. */
 function avisosPara(s, hoy = new Date()) {
   const fijos = (Array.isArray(PARROQUIA.avisos) ? PARROQUIA.avisos : [])
     .map((a, i) => ({ a, i }))
-    .filter((x) => x.a && typeof x.a.texto === 'string' && x.a.texto.trim() !== '' && _vigente(x.a, hoy))
+    .filter((x) => x.a && x.a.activo !== false && typeof x.a.texto === 'string' && x.a.texto.trim() !== '' && _vigente(x.a, hoy))
     .sort((p, q) => {
       const po = Number.isInteger(p.a.orden) ? p.a.orden : Infinity;
       const qo = Number.isInteger(q.a.orden) ? q.a.orden : Infinity;
@@ -102,14 +115,33 @@ function avisosPara(s, hoy = new Date()) {
   const delPanel = (s && Array.isArray(s.avisos) ? s.avisos : [])
     .map((x) => (x && typeof x === 'object' ? { a: typeof x.a === 'string' ? x.a : '', f: typeof x.f === 'string' ? x.f : '' } : null))
     .filter((x) => x && (x.a.trim() !== '' || x.f.trim() !== ''));
-  return fijos.concat(delPanel).slice(0, MAX_FILAS_AVISOS);
+  const horarios = visible('avisos', 'horarios') ? filasHorarios() : [];
+  return fijos.concat(delPanel, horarios).slice(0, MAX_FILAS_AVISOS);
 }
 
-/* Horarios de misa de la configuración [{dia, hora, nota}]. */
+/* Horarios de misa de la configuración [{dia, horas: [{hora, nota}], lugar}]. La forma vieja {dia, hora, nota}
+   se lee como una sola hora con esa nota. */
 function horariosPara() {
+  const texto = (v) => (typeof v === 'string' ? v : '');
   return (Array.isArray(PARROQUIA.horarios) ? PARROQUIA.horarios : [])
     .filter((h) => h && typeof h === 'object')
-    .map((h) => ({ dia: h.dia, hora: h.hora, nota: typeof h.nota === 'string' ? h.nota : '' }));
+    .map((h) => ({
+      dia: h.dia,
+      horas: Array.isArray(h.horas)
+        ? h.horas.filter((o) => o && typeof o === 'object').map((o) => ({ hora: o.hora, nota: texto(o.nota) }))
+        : [{ hora: h.hora, nota: texto(h.nota) }],
+      lugar: texto(h.lugar)
+    }));
+}
+
+/* Horarios como filas de avisos [{a, f}]: `a` es el día y sus notas no vacías, `f` las horas; unidos con « · ».
+   Ejemplo (artboard F11): { a: 'Jueves · Hora Santa', f: '6:00 p. m.' }. */
+function filasHorarios() {
+  const unir = (l) => l.filter((t) => typeof t === 'string' && t.trim() !== '').join(' · ');
+  return horariosPara().map((h) => ({
+    a: unir([h.dia].concat(h.horas.map((o) => o.nota))),
+    f: unir(h.horas.map((o) => o.hora))
+  }));
 }
 
 /* Redes [{red, texto}]. La URL no se muestra (OBS no hace clic): solo el texto. */
@@ -117,17 +149,31 @@ function redesPara() {
   return (Array.isArray(PARROQUIA.redes) ? PARROQUIA.redes : []).filter((r) => r && typeof r === 'object').map((r) => ({ red: r.red, texto: r.texto }));
 }
 
+/* Redes de una vista que no es la de horarios: solo si la vista las pide (mostrar: ['redes']); si no, []. */
+function redesVisibles(vista) {
+  return visible(vista, 'redes') ? redesPara() : [];
+}
+
 /* ---------- Rótulos ---------- */
 
 /* Estilo de los rótulos. Sin bloque `rotulos` (o con valores fuera de lo permitido): los de hoy.
-   colorLado solo si es un #rrggbb válido. */
+   colorLado y colorLinea: #rrggbb o un nombre (principal, oscuro, acento, blanco), resueltos con colorDe; null si
+   no hay o no se resuelve. Sin colorLinea, la línea es el acento si existe (si no, null: la de hoy).
+   ladoClaro: el lateral es claro (contraste con blanco menor que 3), y lleva el logo a color.
+   logoEsquina: el logo de la capa sigue visible mientras hay rótulo; vale true cuando falta (como hoy). */
 function estiloRotulos() {
   const r = PARROQUIA.rotulos && typeof PARROQUIA.rotulos === 'object' ? PARROQUIA.rotulos : {};
+  const colores = PARROQUIA.colores;
+  const colorLado = colorDe(r.colorLado, colores);
+  const linea = colorDe(r.colorLinea, colores);
   return {
-    tipografia: 'montserrat',
-    esquinas: r.esquinas === 'rectas' ? 'rectas' : 'redondeadas',
+    tipografia: TIPOGRAFIAS.includes(r.tipografia) ? r.tipografia : 'montserrat',
+    esquinas: ESQUINAS_ROTULO.includes(r.esquinas) ? r.esquinas : 'redondeadas',
     posicion: r.posicion === 'centro' ? 'centro' : 'izquierda',
-    colorLado: typeof r.colorLado === 'string' && RE_HEX.test(r.colorLado) ? r.colorLado : null
+    colorLado,
+    colorLinea: linea || colorDe('acento', colores),
+    ladoClaro: colorLado !== null && contraste('#ffffff', colorLado) < 3,
+    logoEsquina: r.logoEsquina !== false
   };
 }
 

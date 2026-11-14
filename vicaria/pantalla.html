@@ -255,10 +255,12 @@ function pintar(s) {
     const horarios = horariosPara();
     const redes = redesPara();
     horarios.forEach((h) => {
+      // horariosPara da {dia, horas:[{hora, nota}], lugar}; una hora sola (la forma vieja) se ve como siempre
+      const unir = (l) => l.filter((t) => typeof t === 'string' && t !== '').join(' · ');
       const fila = document.createElement('div'); fila.className = 'fila horario';
-      const n = document.createElement('span'); n.className = 'n'; n.textContent = h.hora || '';
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = unir(h.horas.map((o) => o.hora));
       const a = document.createElement('span'); a.className = 'a'; a.textContent = h.dia || '';
-      const f = document.createElement('span'); f.className = 'f'; f.textContent = h.nota;
+      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir(h.horas.map((o) => o.nota));
       fila.append(n, a, f); filas.append(fila);
     });
     filas.hidden = !horarios.length && !redes.length;   // sin nada que mostrar solo queda el título: ninguna instrucción al aire

@@ -1243,12 +1243,60 @@ grupo('aplicar paleta', () => {
   prueba('aplicarPaleta pone las seis variables CSS de :root con los colores de la parroquia', () => {
     const puestas = {};
     const documento = { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
-      documentElement: { style: { setProperty: (k, v) => { puestas[k] = v; } } } };
+      documentElement: {
+        style: { setProperty: (k, v) => { puestas[k] = v; }, removeProperty: (k) => { delete puestas[k]; } },
+        classList: { add() {}, remove() {}, toggle() {}, contains: () => false }
+      } };
     const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: documento });
     c.aplicarPaleta(CONFIG_SAN_JOSE);
     assert.deepEqual(Object.keys(puestas).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
     assert.equal(puestas['--rey'], '#7a3b12');
     assert.equal(puestas['--oscuro'], '#4a2008');
+  });
+  /* documentElement falso que anota variables y clases. */
+  const raizFalsa = () => {
+    const vars = {};
+    const clases = new Set();
+    return {
+      vars, clases,
+      documento: {
+        addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
+        documentElement: {
+          style: { setProperty: (k, v) => { vars[k] = v; }, removeProperty: (k) => { delete vars[k]; } },
+          classList: {
+            add: (k) => { clases.add(k); },
+            remove: (k) => { clases.delete(k); },
+            toggle: (k, si) => { if (si) clases.add(k); else clases.delete(k); return !!si; },
+            contains: (k) => clases.has(k)
+          }
+        }
+      }
+    };
+  };
+  const conAcento = (acento) => Object.assign({}, CONFIG_SAN_JOSE, { colores: Object.assign({}, CONFIG_SAN_JOSE.colores, { acento }) });
+  prueba('aplicarPaleta con colores.acento pone --acento y la clase con-acento', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, conAcento('#d9a441'), { document: r.documento });
+    c.aplicarPaleta(conAcento('#d9a441'));
+    assert.equal(r.vars['--acento'], '#d9a441');
+    assert.ok(r.clases.has('con-acento'));
+    assert.equal(r.vars['--rey'], '#7a3b12');
+  });
+  prueba('aplicarPaleta sin acento quita --acento y la clase con-acento, y no agrega otras', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: r.documento });
+    c.aplicarPaleta(conAcento('#d9a441'));
+    c.aplicarPaleta(CONFIG_SAN_JOSE);
+    assert.equal(r.vars['--acento'], undefined);
+    assert.equal(r.clases.size, 0);
+    assert.deepEqual(Object.keys(r.vars).sort(), ['--celeste', '--claro', '--medio', '--oscuro', '--palido', '--rey']);
+  });
+  prueba('aplicarPaleta con un acento que no es #rrggbb lo trata como ausente', () => {
+    const r = raizFalsa();
+    const c = cargarCon([], {}, CONFIG_SAN_JOSE, { document: r.documento });
+    c.aplicarPaleta(conAcento('dorado'));
+    assert.equal(r.vars['--acento'], undefined);
+    assert.equal(r.clases.has('con-acento'), false);
   });
 });
 
@@ -2056,9 +2104,9 @@ grupo('pantallas', () => {
       cfg.horarios = [{ dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' }, { dia: 'Lunes', hora: '6:00 p. m.' }];
       cfg.redes = [{ red: 'facebook', url: 'https://facebook.com/x', texto: '/ParroquiaCiudadArce' }];
     });
-    assert.deepEqual(arr(x.horariosPara(), plano), [
-      { dia: 'Domingo', hora: '7:00 a. m.', nota: 'Misa con niños' },
-      { dia: 'Lunes', hora: '6:00 p. m.', nota: '' }
+    assert.deepEqual(JSON.parse(JSON.stringify(x.horariosPara())), [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.', nota: 'Misa con niños' }], lugar: '' },
+      { dia: 'Lunes', horas: [{ hora: '6:00 p. m.', nota: '' }], lugar: '' }
     ]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'facebook', texto: '/ParroquiaCiudadArce' }]);
   });
@@ -2096,24 +2144,24 @@ grupo('pantallas', () => {
       horarios: [null, 'x', { dia: 'Lunes', hora: '6:00 p. m.' }],
       redes: [null, 7, { red: 'web', url: 'https://x.org', texto: 'x.org' }]
     }));
-    assert.deepEqual(arr(x.horariosPara(), plano), [{ dia: 'Lunes', hora: '6:00 p. m.', nota: '' }]);
+    assert.deepEqual(JSON.parse(JSON.stringify(x.horariosPara())), [{ dia: 'Lunes', horas: [{ hora: '6:00 p. m.', nota: '' }], lugar: '' }]);
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
-    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
   });
   prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
     const x = cargarPantallas((cfg) => {
       cfg.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] };
     });
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276' }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), ['LECTOR', 'MONAGUILLO']);
   });
   prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
     const x = cargarPantallas();
     forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
@@ -2243,6 +2291,150 @@ grupo('tipos propios y apagados', () => {
     assert.equal(Object.keys(x.TIPOS).length, 11);
     assert.equal(x.TIPOS.dominical.rotulos.length, 5);
     assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
+  });
+});
+
+/* ---------- Rediseño: opcionales, horarios, avisos, rótulos (Plan 1, Tarea 5) ---------- */
+
+grupo('pantallas: lógica del rediseño', () => {
+  const base = () => JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+  const cargarP = (cambios) => {
+    const cfg = base();
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const forzar = (x, cfg) => vm.runInContext('PARROQUIA = ' + JSON.stringify(cfg) + ';', x);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const dia = (a, m, d) => new Date(a, m - 1, d);
+  const c = cargarP();
+  const HORARIOS = [
+    { dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }, { hora: '9:00 a. m.' }], lugar: 'Templo parroquial' },
+    { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }] },
+    { dia: 'Sábado', hora: '6:00 p. m.', nota: 'Misa de vigilia' }
+  ];
+
+  prueba('visible: redes y horarios solo con mostrar; sin personalizar, falso', () => {
+    assert.equal(c.visible('inicio', 'redes'), false);
+    assert.equal(c.visible('inicio', 'horarios'), false);
+    assert.deepEqual(plano(c.ajustesDe('inicio').mostrar), []);
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] } }; });
+    assert.equal(x.visible('inicio', 'redes'), true);
+    assert.equal(x.visible('inicio', 'horarios'), false);
+    assert.deepEqual(plano(x.ajustesDe('inicio').mostrar), ['redes']);
+    assert.equal(x.visible('gracias', 'redes'), false, 'otra vista no cambia');
+  });
+  prueba('visible: mostrar se ignora en modo como-viene', () => {
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'como-viene', mostrar: ['redes'] } }; });
+    assert.equal(x.visible('inicio', 'redes'), false);
+  });
+  prueba('ajustesDe.mostrar ignora elementos que no se pueden mostrar', () => {
+    const x = cargarP();
+    forzar(x, Object.assign(base(), { pantallas: { inicio: { modo: 'personalizada', mostrar: ['logo', 'horarios', 7] } } }));
+    assert.deepEqual(plano(x.ajustesDe('inicio').mostrar), ['horarios']);
+  });
+  prueba('ocultar cuenta: visible(inicio, cuenta) es falso; sin ocultar, verdadero', () => {
+    assert.equal(c.visible('inicio', 'cuenta'), true);
+    const x = cargarP((cfg) => { cfg.pantallas = { inicio: { modo: 'personalizada', ocultar: ['cuenta'] } }; });
+    assert.equal(x.visible('inicio', 'cuenta'), false);
+  });
+  prueba('produccion y envivo: fondo, imagen y distribución se ignoran; ocultar y textos cuentan', () => {
+    const x = cargarP((cfg) => {
+      cfg.pantallas = {};
+      for (const v of ['produccion', 'envivo', 'inicio']) {
+        cfg.pantallas[v] = { modo: 'personalizada', fondo: { tipo: 'color', color: '#123456' }, imagen: 'ninguna', distribucion: 'centro', ocultar: ['marca'], textos: { capa_logo: 'Pastoral' } };
+      }
+    });
+    for (const v of ['produccion', 'envivo']) {
+      const a = x.ajustesDe(v);
+      assert.equal(a.fondo.tipo, 'degradado', v);
+      assert.equal(a.imagen, 'automatica', v);
+      assert.equal(a.distribucion, 'izquierda', v);
+      assert.equal(x.visible(v, 'marca'), false, v);
+      assert.equal(a.textos.capa_logo, 'Pastoral', v);
+    }
+    assert.equal(x.ajustesDe('inicio').fondo.tipo, 'color', 'en inicio sí cuentan');
+    assert.equal(x.ajustesDe('inicio').distribucion, 'centro');
+  });
+  prueba('horariosPara normaliza la forma vieja como {dia, horas:[{hora, nota}], lugar:""}', () => {
+    const x = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(x.horariosPara()), [
+      { dia: 'Domingo', horas: [{ hora: '7:00 a. m.', nota: '' }, { hora: '9:00 a. m.', nota: '' }], lugar: 'Templo parroquial' },
+      { dia: 'Jueves', horas: [{ hora: '6:00 p. m.', nota: 'Hora Santa' }], lugar: '' },
+      { dia: 'Sábado', horas: [{ hora: '6:00 p. m.', nota: 'Misa de vigilia' }], lugar: '' }
+    ]);
+  });
+  prueba('filasHorarios: día y notas a la izquierda, horas a la derecha (artboard F11)', () => {
+    const x = cargarP((cfg) => { cfg.horarios = HORARIOS; });
+    assert.deepEqual(plano(x.filasHorarios()), [
+      { a: 'Domingo', f: '7:00 a. m. · 9:00 a. m.' },
+      { a: 'Jueves · Hora Santa', f: '6:00 p. m.' },
+      { a: 'Sábado · Misa de vigilia', f: '6:00 p. m.' }
+    ]);
+    assert.deepEqual(plano(c.filasHorarios()), [], 'sin horarios');
+  });
+  prueba('avisosPara: sin los avisos con activo:false', () => {
+    const x = cargarP((cfg) => {
+      cfg.avisos = [{ texto: 'Activo', activo: true }, { texto: 'Apagado', activo: false }, { texto: 'Sin campo' }];
+    });
+    assert.deepEqual(plano(x.avisosPara(x.normalizarEstado({}), dia(2026, 11, 15))).map((r) => r.a), ['Activo', 'Sin campo']);
+  });
+  prueba('avisosPara: los horarios van al final solo con mostrar:[horarios], y se corta en 6', () => {
+    const avisos = [{ texto: 'Fijo 1' }, { texto: 'Fijo 2' }];
+    const sin = cargarP((cfg) => { cfg.avisos = avisos; cfg.horarios = HORARIOS; });
+    const s = sin.normalizarEstado({ avisos: [{ a: 'Panel', f: 'x' }] });
+    assert.deepEqual(plano(sin.avisosPara(s, dia(2026, 11, 15))).map((r) => r.a), ['Fijo 1', 'Fijo 2', 'Panel']);
+    const con = cargarP((cfg) => {
+      cfg.avisos = avisos; cfg.horarios = HORARIOS;
+      cfg.pantallas = { avisos: { modo: 'personalizada', mostrar: ['horarios'] } };
+    });
+    const r = plano(con.avisosPara(s, dia(2026, 11, 15)));
+    assert.equal(r.length, 6);
+    assert.deepEqual(r.map((e) => e.a), ['Fijo 1', 'Fijo 2', 'Panel', 'Domingo', 'Jueves · Hora Santa', 'Sábado · Misa de vigilia']);
+    assert.deepEqual(r[4], { a: 'Jueves · Hora Santa', f: '6:00 p. m.' });
+    const mas = cargarP((cfg) => {
+      cfg.avisos = [1, 2, 3, 4, 5].map((n) => ({ texto: 'Fijo ' + n })); cfg.horarios = HORARIOS;
+      cfg.pantallas = { avisos: { modo: 'personalizada', mostrar: ['horarios'] } };
+    });
+    assert.deepEqual(plano(mas.avisosPara(mas.normalizarEstado({}), dia(2026, 11, 15))).map((e) => e.a),
+      ['Fijo 1', 'Fijo 2', 'Fijo 3', 'Fijo 4', 'Fijo 5', 'Domingo']);
+  });
+  prueba('redesVisibles: las redes solo si la vista las muestra', () => {
+    const redes = [{ red: 'facebook', url: 'https://facebook.com/x', texto: '/Parroquia' }];
+    const sin = cargarP((cfg) => { cfg.redes = redes; });
+    assert.deepEqual(plano(sin.redesVisibles('inicio')), []);
+    const con = cargarP((cfg) => { cfg.redes = redes; cfg.pantallas = { inicio: { modo: 'personalizada', mostrar: ['redes'] } }; });
+    assert.deepEqual(plano(con.redesVisibles('inicio')), [{ red: 'facebook', texto: '/Parroquia' }]);
+    assert.deepEqual(plano(con.redesVisibles('gracias')), []);
+  });
+  prueba('estiloRotulos sin bloque rotulos: los valores de hoy más colorLinea null, ladoClaro false, logoEsquina true', () => {
+    assert.deepEqual(plano(c.estiloRotulos()), {
+      tipografia: 'montserrat', esquinas: 'redondeadas', posicion: 'izquierda', colorLado: null,
+      colorLinea: null, ladoClaro: false, logoEsquina: true
+    });
+  });
+  prueba('estiloRotulos: tipografía, esquinas suaves, logoEsquina y colores con nombre', () => {
+    const x = cargarP((cfg) => {
+      cfg.colores.acento = '#d9a441';
+      cfg.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: 'oscuro', colorLinea: 'principal', logoEsquina: false };
+    });
+    assert.deepEqual(plano(x.estiloRotulos()), {
+      tipografia: 'lora', esquinas: 'suaves', posicion: 'izquierda', colorLado: '#0c3562',
+      colorLinea: '#1155a4', ladoClaro: false, logoEsquina: false
+    });
+  });
+  prueba('estiloRotulos: colorLado blanco da ladoClaro', () => {
+    const x = cargarP((cfg) => { cfg.rotulos = { colorLado: 'blanco' }; });
+    const e = x.estiloRotulos();
+    assert.equal(e.colorLado, '#ffffff');
+    assert.equal(e.ladoClaro, true);
+    const y = cargarP((cfg) => { cfg.rotulos = { colorLado: '#f0e6c8' }; });
+    assert.equal(y.estiloRotulos().ladoClaro, true, 'un hex claro también');
+  });
+  prueba('estiloRotulos: con acento y sin colorLinea, la línea es el acento', () => {
+    const x = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; });
+    assert.equal(x.estiloRotulos().colorLinea, '#d9a441');
+    const y = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; cfg.rotulos = { colorLado: 'acento' }; });
+    assert.equal(y.estiloRotulos().colorLado, '#d9a441');
   });
 });
 

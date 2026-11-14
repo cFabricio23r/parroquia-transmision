@@ -134,8 +134,10 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta 
 | `imagen` | La imagen grande de la pantalla: `automatica` (la de siempre, según la transmisión), `patrono`, `fachada`, `logo`, `custodia`, `santo`, `ninguna`, o `galeria:<id>` con un `id` existente. |
 | `distribucion` | Dónde va la imagen: `izquierda` (por defecto), `derecha` o `centro`. El texto ocupa el otro lado. |
 | `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. |
-| `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
+| `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Sin `mostrar` (o con `modo` `como-viene`) no se muestran: la pantalla se ve como siempre. En `avisos`, `horarios` agrega las filas de horarios después de los avisos (día y notas, y las horas), siempre dentro del máximo de 6 filas. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
+
+En `produccion` y `envivo` se aceptan `fondo`, `imagen` y `distribucion`, pero no se aplican: ahí solo cuentan `ocultar` y `textos`.
 
 Aunque el `modo` sea `como-viene`, el bloque **se valida igual**: un campo mal escrito rechaza el archivo. Igual con `fondo.color` y `fondo.imagen`: se validan siempre que estén escritos, aunque `fondo.tipo` sea otro (un `color` mal escrito o una `imagen` que no está en la galería rechaza el archivo aunque el tipo sea `degradado`).
 
@@ -168,9 +170,9 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 | `tipografia` | `montserrat` (por defecto), `lora` o `source-sans`. |
 | `esquinas` | `redondeadas` (por defecto), `rectas` o `suaves`. |
 | `posicion` | `izquierda` (por defecto) o `centro`. |
-| `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. |
-| `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. |
-| `logoEsquina` | Opcional; `true` o `false`. |
+| `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
+| `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
+| `logoEsquina` | Opcional; `true` (por defecto: el logo de la esquina sigue visible mientras hay rótulo, como siempre) o `false` (se esconde mientras hay rótulo). |
 | `cargos` | Hasta 12 textos (no vacíos, hasta 200 caracteres) que reemplazan la lista sugerida de cargos del panel. |
 
 ### `tipos`: tipos de transmisión
@@ -284,7 +286,7 @@ Se ven en la pantalla de avisos, **antes** de los que se escriben en el panel. E
 |---|---|
 | `texto` | Obligatorio; hasta 200 caracteres. |
 | `detalle` | Opcional; hasta 200 caracteres. |
-| `activo` | Opcional; `true` o `false`. |
+| `activo` | Opcional; `true` (por defecto) o `false`. Con `false` el aviso no se ve, aunque esté en fecha. |
 | `desde`, `hasta` | Opcionales, `AAAA-MM-DD`. El aviso se ve desde el día `desde` hasta el día `hasta`, **ambos inclusive** (hora local de la pantalla). `desde` no puede ser posterior a `hasta`. Sin fechas, siempre se ve. |
 | `orden` | Opcional; número entero. Va primero el menor; si empatan, el que está antes en la lista. |
 

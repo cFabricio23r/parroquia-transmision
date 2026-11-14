@@ -82,10 +82,21 @@ function paleta(principal, oscuro) {
   };
 }
 
-/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido). */
+/* Pone la paleta de la parroquia en las variables CSS de :root (--oscuro --rey --medio --celeste --claro --palido).
+   Con colores.acento (#rrggbb) pone también --acento y la clase con-acento en <html>; sin acento quita las dos,
+   así una configuración sin acento deja <html> como siempre. */
 function aplicarPaleta(c) {
+  const raiz = document.documentElement;
   const p = paleta(c.colores.principal, c.colores.oscuro);
-  for (const k of Object.keys(p)) document.documentElement.style.setProperty('--' + k, p[k]);
+  for (const k of Object.keys(p)) raiz.style.setProperty('--' + k, p[k]);
+  const acento = c.colores.acento;
+  if (typeof acento === 'string' && RE_HEX.test(acento)) {
+    raiz.style.setProperty('--acento', acento);
+    raiz.classList.add('con-acento');
+  } else {
+    raiz.style.removeProperty('--acento');
+    raiz.classList.remove('con-acento');
+  }
 }
 
 /* ---------- Validación de config.json (esquema 1) ---------- */
