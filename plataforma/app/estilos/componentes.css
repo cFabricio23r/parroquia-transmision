@@ -1,0 +1,101 @@
+/* Componentes del sistema visual (spec, sección 1). Valores de los artboards del lienzo. */
+
+/* ---- Botón ---- */
+.pv-boton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.2;
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 0 20px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pv-boton--primario { background: var(--pv-primario); color: #fff; border: 0; }
+.pv-boton--secundario { background: #fff; color: var(--pv-texto); border: 1.5px solid var(--pv-borde); }
+.pv-boton--peligro { background: #fff; color: var(--pv-rojo-texto); border: 1.5px solid var(--pv-rojo-borde); }
+.pv-boton--ancho { width: 100%; }
+.pv-boton--compacto {
+  font-size: 13px;
+  min-height: 40px;
+  padding: 0 12px;
+}
+/* Decisión 2 del plan: 40 px dibujados, 44 px de zona de toque. */
+.pv-boton--compacto::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+}
+.pv-boton:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ---- Chip ---- */
+.pv-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.pv-chip--verde { background: #e2f6ec; color: #11643c; }
+.pv-chip--ambar { background: #fff4d6; color: #6b4f00; }
+.pv-chip--gris { background: #eceff3; color: #4a5568; }
+.pv-chip--azul { background: #e6f1fb; color: #1155a4; }
+
+/* ---- Caja de información ---- */
+.pv-info {
+  background: var(--pv-info-fondo);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pv-info-texto);
+}
+
+/* ---- Tarjeta ---- */
+.pv-tarjeta {
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+}
+.pv-tarjeta--0 { padding: 0; overflow: hidden; }
+.pv-tarjeta--22 { padding: 22px; }
+.pv-tarjeta--26 { padding: 26px; }
+
+/* ---- Punto de estado ---- */
+.pv-punto {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pv-punto--listo { background: var(--pv-verde); }
+.pv-punto--revisar { background: var(--pv-ambar); }
+.pv-punto--falta { background: var(--pv-rojo); }
+.pv-punto--opcional { background: var(--pv-gris); }
+
+/* ---- Enlace de texto ---- */
+.pv-enlace {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--pv-primario);
+  text-decoration: underline;
+}
+button.pv-enlace {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.pv-enlace--12 { font-size: 12px; }

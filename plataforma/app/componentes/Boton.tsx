@@ -1,0 +1,37 @@
+import Link from 'next/link';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+export type VarianteBoton = 'primario' | 'secundario' | 'peligro';
+
+export type PropsBoton = {
+  variante?: VarianteBoton;
+  /** 40 px visibles (botones de fila); la zona de toque sigue en 44 px. */
+  compacto?: boolean;
+  anchoCompleto?: boolean;
+  /** Con href se dibuja un enlace (next/link) con aspecto de botón. */
+  href?: string;
+  children: ReactNode;
+} & ButtonHTMLAttributes<HTMLButtonElement>;
+
+export function clasesBoton(variante: VarianteBoton = 'primario', compacto?: boolean, anchoCompleto?: boolean, extra?: string): string {
+  return ['pv-boton', `pv-boton--${variante}`, compacto && 'pv-boton--compacto', anchoCompleto && 'pv-boton--ancho', extra]
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function Boton({ variante = 'primario', compacto, anchoCompleto, href, children, type, className, ...resto }: PropsBoton) {
+  const clases = clasesBoton(variante, compacto, anchoCompleto, className);
+  if (href) {
+    const { 'aria-label': etiqueta, id, title } = resto;
+    return (
+      <Link href={href} className={clases} aria-label={etiqueta} id={id} title={title}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type={type ?? 'button'} className={clases} {...resto}>
+      {children}
+    </button>
+  );
+}

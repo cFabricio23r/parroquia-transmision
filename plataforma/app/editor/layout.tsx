@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import '../estilos/fuentes.css';
 import '../estilos/tokens.css';
 import '../estilos/base.css';
+import '../estilos/componentes.css';
 
 export default function EditorLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;
