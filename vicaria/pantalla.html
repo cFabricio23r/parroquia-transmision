@@ -215,24 +215,39 @@ function encajarRedesAvisos(redes) {
   while (r.length && seSale(t, abajo)) { r.pop(); llenarRedes(caja, r); }
   caja.hidden = !r.length;
 }
-/* Tarjeta de horarios (forma nueva) que no cabe: se compacta la lista; si aún no cabe, redes más chicas; como
-   último recurso, se dejan redes fuera desde el final. Las filas de horarios no se quitan nunca. */
+/* Tarjeta de horarios (forma nueva) que no cabe. Pasos, en orden, hasta que quepa:
+   1. se compacta la lista;
+   2. el día toma el ancho de su nombre y el lugar y las notas (.f) se cortan a tres líneas (una, a dos
+      columnas) con «…» (f-corta);
+   3. redes más chicas;
+   4. el lugar y las notas, a una línea y más chicos (f-una);
+   5. se dejan redes fuera desde el final;
+   6. último recurso: sin lugar ni notas (f-sin).
+   Las filas de horarios no se quitan nunca. */
+const CLASES_ENCAJE_HORARIOS = ['redes-chicas', 'f-corta', 'f-una', 'f-sin'];
 function encajarHorarios(filas, cajaRedes, redes) {
   const t = $('v-horarios');
   const abajo = parseFloat(getComputedStyle(t).paddingBottom) || 0;
   const compactaAntes = filas.classList.contains('compacta');
   reencajar = () => {
-    filas.classList.toggle('compacta', compactaAntes); t.classList.remove('redes-chicas');
+    filas.classList.toggle('compacta', compactaAntes); t.classList.remove(...CLASES_ENCAJE_HORARIOS);
     llenarRedes(cajaRedes, redes); cajaRedes.hidden = !redes.length;
     encajarHorarios(filas, cajaRedes, redes);
   };
-  if (!seSale(t, abajo)) return;
+  const cabe = () => !seSale(t, abajo);
+  if (cabe()) return;
   filas.classList.add('compacta');
-  if (!seSale(t, abajo)) return;
+  if (cabe()) return;
+  t.classList.add('f-corta');
+  if (cabe()) return;
   t.classList.add('redes-chicas');
+  if (cabe()) return;
+  t.classList.add('f-una');
+  if (cabe()) return;
   const r = redes.slice();
-  while (r.length && seSale(t, abajo)) { r.pop(); llenarRedes(cajaRedes, r); }
+  while (r.length && !cabe()) { r.pop(); llenarRedes(cajaRedes, r); }
   cajaRedes.hidden = !r.length;
+  if (!cabe()) t.classList.add('f-sin');
 }
 /* Lo último que se encajó, para medirlo de nuevo cuando terminan de cargar las fuentes. */
 let reencajar = () => {};
@@ -388,7 +403,9 @@ function pintar(s) {
         n.textContent = unir(horas);
       }
       const a = document.createElement('span'); a.className = 'a'; a.textContent = h.dia || '';
-      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir([h.lugar].concat(h.horas.map((o) => o.nota)));
+      // la misma nota en varias horas («Misa · Misa · Misa») se escribe una sola vez
+      const notas = h.horas.map((o) => o.nota).filter((t, i, l) => l.indexOf(t) === i);
+      const f = document.createElement('span'); f.className = 'f'; f.textContent = unir([h.lugar].concat(notas));
       fila.append(n, a, f); filas.append(fila);
     });
     filas.hidden = !horarios.length && !redes.length;   // sin nada que mostrar solo queda el título: ninguna instrucción al aire
@@ -399,7 +416,7 @@ function pintar(s) {
     cajaRedes.hidden = !redes.length;
     // Solo con la forma nueva (varias horas o lugar), que trae filas más altas: los horarios de una hora sin lugar
     // se ven exactamente como siempre.
-    $('v-horarios').classList.remove('redes-chicas');   // pintar siempre parte de la tarjeta sin encajar
+    $('v-horarios').classList.remove(...CLASES_ENCAJE_HORARIOS);   // pintar siempre parte de la tarjeta sin encajar
     if (varias || horarios.some((h) => h.lugar)) encajarHorarios(filas, cajaRedes, redes);
     firma = 'horarios|' + src + '|' + JSON.stringify([horarios, redes]);
   }

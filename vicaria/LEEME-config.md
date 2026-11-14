@@ -232,7 +232,7 @@ Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = `{pa
 
 ### `horarios`: horarios de misa (hasta 12)
 
-Se ven en la pantalla `?tipo=horarios` (las horas del día juntas; al lado, el lugar y las notas) y, si la pantalla los pide con `mostrar`, en Avisos y Gracias. Cuando un día tiene varias horas, su píldora crece y las horas pasan a otra línea dentro de ella; con días de más de dos horas la lista se compacta. Los horarios de una sola hora se ven como siempre.
+Se ven en la pantalla `?tipo=horarios` (las horas del día juntas; al lado, el lugar y las notas) y, si la pantalla los pide con `mostrar`, en Avisos y Gracias. Cuando un día tiene varias horas, su píldora crece y las horas pasan a otra línea dentro de ella; con días de más de dos horas la lista se compacta. Los horarios de una sola hora se ven como siempre. Si la misma nota se repite en todas las horas de un día («Misa», «Misa»…), se escribe una sola vez. Si con lugares o notas largas la tarjeta no cabe, la pantalla la ajusta en este orden hasta que quepa: compacta la lista; corta el lugar y las notas con «…» (a tres líneas, o a una si hay dos columnas); achica las redes; deja el lugar y las notas en una línea más chica; y, solo si todavía no cabe, deja redes fuera desde el final. Los días y las horas no se quitan nunca. El texto cortado no avisa en el panel: conviene escribir lugares y notas cortos.
 
 ```json
 "horarios": [

@@ -312,3 +312,14 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 #v-horarios.redes-chicas .redes{gap:6px 26px;padding-top:6px}
 #v-horarios.redes-chicas .redes .red{font-size:22px;gap:8px}
 #v-horarios.redes-chicas .redes .red b{font-size:16px;letter-spacing:2px}
+/* Lugar y notas de horarios que no caben (encajarHorarios): se cortan con «…»; el texto completo sigue en el DOM.
+   A una columna, el día se queda con el ancho de su nombre y el lugar y las notas con lo que sobra. Van alineados
+   a la izquierda: en Chromium, el «…» del corte a varias líneas no aparece con el texto a la derecha. */
+#v-horarios.f-corta .filas:not(.dos-col) .fila.horario{grid-template-columns:200px minmax(min-content,max-content) minmax(0,1fr)}
+#v-horarios.f-corta .filas.varias:not(.dos-col) .fila.horario{grid-template-columns:fit-content(400px) minmax(min-content,max-content) minmax(0,1fr)}
+#v-horarios.f-corta .fila.horario .f{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;min-width:0;line-height:1.2;text-align:left}
+/* En una línea, el texto no ensancha su columna (width:0 con min-width:100%): llena lo que queda y se corta. */
+#v-horarios.f-corta .filas.dos-col .fila.horario .f,#v-horarios.f-una .fila.horario .f{display:block;white-space:nowrap;text-overflow:ellipsis;width:0;min-width:100%}
+#v-horarios.f-una .fila.horario .f{font-size:18px}
+#v-horarios.f-una .filas.dos-col .fila.horario .a{font-size:22px}
+#v-horarios.f-sin .fila.horario .f{display:none}

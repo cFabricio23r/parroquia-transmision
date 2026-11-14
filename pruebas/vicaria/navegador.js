@@ -1313,7 +1313,9 @@ async function casoRevisionFinal() {
         dia: a.textContent, horas: n.textContent,
         dentro: n.scrollWidth <= n.clientWidth + 1 && n.scrollHeight <= n.clientHeight + 1,
         noTapa: rn.right <= ra.left + 0.5 && a.scrollWidth <= a.clientWidth + 1,
-        enTarjeta: f.getBoundingClientRect().bottom <= fondo + 0.5
+        enTarjeta: f.getBoundingClientRect().bottom <= fondo + 0.5,
+        // el lugar y las notas (.f) quedan dentro de su fila y del cuadro
+        fDentro: (() => { const e = f.querySelector('.f'); const r = e.getBoundingClientRect(); return !r.height || (r.bottom <= f.getBoundingClientRect().bottom + 0.5 && r.right <= f.getBoundingClientRect().right + 0.5 && r.bottom <= 1080); })()
       };
     });
   });
@@ -1322,7 +1324,13 @@ async function casoRevisionFinal() {
     { nombre: '4 filas de 2 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: [{ hora: '11:00 a. m.', nota: 'Misa con niños' }, { hora: '11:00 p. m.' }], lugar: 'Templo parroquial' })) },
     { nombre: '4 filas de 6 horas', horarios: Array.from({ length: 4 }, (_, i) => ({ dia: DIAS[i + 2], horas: HORAS.map((h) => ({ hora: h })) })) },
     { nombre: '6 filas de 6 horas', horarios: Array.from({ length: 6 }, (_, i) => ({ dia: DIAS[i], horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })) })) },
-    { nombre: '12 filas de 6 horas', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: HORAS.map((h) => ({ hora: h })) })) }
+    { nombre: '12 filas de 6 horas', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: HORAS.map((h) => ({ hora: h })) })) },
+    // Ronda 2: notas en todas las horas y lugar, al máximo del validador; y 12 filas con un lugar de largo normal
+    { nombre: '4 filas de 6 horas con nota larga y lugar largo', horarios: Array.from({ length: 4 }, () => ({ dia: 'Miércoles de Ceniza', horas: HORAS.map((h) => ({ hora: h, nota: 'Misa con imposición de ceniza' })), lugar: 'Capilla Nuestra Señora de Guadalupe, Cantón El Tránsito' })) },
+    { nombre: '12 filas de 6 horas con nota y lugar', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7] + ' (vigilia)', horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })), lugar: 'Templo parroquial' })), fEsperado: 'Templo parroquial · Misa' },
+    { nombre: '6 filas de 6 horas con nota y lugar', horarios: Array.from({ length: 6 }, (_, i) => ({ dia: DIAS[i], horas: HORAS.map((h) => ({ hora: h, nota: 'Misa' })), lugar: 'Capilla del Cantón San Antonio de los Ranchos' })) },
+    { nombre: '12 filas de una hora con lugar de 39 letras', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7], horas: [{ hora: HORAS[i % 6] }], lugar: 'Capilla San Antonio de Padua del cantón' })) },
+    { nombre: '12 filas de 6 horas, cada hora con otra nota, y lugar largo', horarios: Array.from({ length: 12 }, (_, i) => ({ dia: DIAS[i % 7] + ' (vigilia)', horas: HORAS.map((h, k) => ({ hora: h, nota: ['Misa con niños', 'Misa solemne', 'Confesiones', 'Adoración', 'Misa de sanación', 'Rosario'][k] })), lugar: 'Capilla Nuestra Señora de Guadalupe, Cantón El Tránsito' })) }
   ];
   for (const c of casosHorarios) {
     const cfg = copia();
@@ -1335,6 +1343,7 @@ async function casoRevisionFinal() {
     revisar(!mal('dentro'), 'Horarios ' + c.nombre + ': las horas caben en la píldora' + (mal('dentro') ? ' (' + mal('dentro') + ')' : ''));
     revisar(!mal('noTapa'), 'Horarios ' + c.nombre + ': la píldora no tapa el día' + (mal('noTapa') ? ' (' + mal('noTapa') + ')' : ''));
     revisar(!mal('enTarjeta'), 'Horarios ' + c.nombre + ': las filas caben en la tarjeta' + (mal('enTarjeta') ? ' (' + mal('enTarjeta') + ')' : ''));
+    revisar(!mal('fDentro'), 'Horarios ' + c.nombre + ': el lugar y las notas quedan dentro de su fila' + (mal('fDentro') ? ' (' + mal('fDentro') + ')' : ''));
     const redesFuera = await p.evaluate(() => {
       const t = document.getElementById('v-horarios');
       const fondo = t.getBoundingClientRect().bottom - parseFloat(getComputedStyle(t).paddingBottom);
@@ -1343,6 +1352,7 @@ async function casoRevisionFinal() {
     revisar(!redesFuera.length, 'Horarios ' + c.nombre + ': las redes caben en la tarjeta' + (redesFuera.length ? ' (fuera: ' + redesFuera.join(' / ') + ')' : ''));
     igual(await p.evaluate(() => document.querySelectorAll('#h-redes .red').length), cfg.redes.length, 'Horarios ' + c.nombre + ': se ven todas las redes');
     igual(filas[0].horas.replace(/\s+/g, ' ').trim(), c.horarios[0].horas.map((h) => h.hora).join(' · '), 'Horarios ' + c.nombre + ': el texto de las horas no cambia');
+    if (c.fEsperado) igual(await p.evaluate(() => document.querySelector('#h-filas .fila .f').textContent), c.fEsperado, 'Horarios ' + c.nombre + ': la misma nota en todas las horas se escribe una vez');
     await captura(p, 'revision_horarios_' + (casosHorarios.indexOf(c) + 1));
     await ctx.close();
   }
