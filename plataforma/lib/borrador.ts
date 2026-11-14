@@ -7,9 +7,8 @@ import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_BYTES_IMAGEN, revisarImagen } from './imagenes';
 import { validarBorrador } from './validar';
-
-/** Claves del borrador que edita el formulario de identidad. El resto (pantallas, avisos, tipos…) no se toca. */
-export const CAMPOS_IDENTIDAD = ['nombre', 'nombreCorto', 'lugar', 'colores', 'logos', 'fachada', 'patrono', 'fiesta'] as const;
+import { BLOQUES } from './editor/secciones';
+import { clavesDesconocidas, erroresDeFormaEn } from './editor/validacion';
 
 const MAX_CARACTERES_CUERPO = 100 * 1024;
 export const SEGUNDOS_URL_FIRMADA = 3600;
@@ -19,17 +18,18 @@ export const MENSAJE_SIN_PERMISO = 'No tienes permiso para editar esta parroquia
 export const MENSAJE_CONFLICTO =
   'Otra persona guardó cambios mientras editabas. Recarga la página para ver la versión nueva';
 const MENSAJE_FALLO = 'No se pudo completar. Intenta de nuevo';
+export const MENSAJE_FORMA = 'Hay datos que no tienen la forma correcta.';
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /**
- * Reemplaza solo las claves de identidad que vienen en `cambios` y conserva todo lo demás del borrador.
- * Una clave de identidad con valor `null` se quita (así se borra un campo opcional). No muta los argumentos.
+ * Reemplaza cada bloque del borrador que viene en `cambios` (solo claves propias que son bloques) y
+ * conserva todo lo demás. Un bloque con `null` se quita. No muta los argumentos.
  */
-export function aplicarIdentidad(borrador: object, cambios: object): object {
+export function aplicarCambios(borrador: object, cambios: object): object {
   const resultado: Record<string, unknown> = { ...(borrador as Record<string, unknown>) };
   const nuevos = cambios as Record<string, unknown>;
-  for (const clave of CAMPOS_IDENTIDAD) {
+  for (const clave of BLOQUES) {
     if (!Object.prototype.hasOwnProperty.call(nuevos, clave)) continue;
     if (nuevos[clave] === null || nuevos[clave] === undefined) delete resultado[clave];
     else resultado[clave] = nuevos[clave];
@@ -65,17 +65,19 @@ export interface GuardadoOk {
   actualizadoEn: string;
   errores: string[];
 }
+export type RechazoForma = { error: string; errores: string[] };
 
 /**
- * Guarda los cambios de identidad. `actualizadoEn` es el valor que el cliente leyó: el guardado solo
+ * Guarda los bloques que vienen en `cambios`. `actualizadoEn` es el valor que el cliente leyó: el guardado solo
  * ocurre si sigue siendo el de la base (UPDATE condicionado, atómico). Guardar con errores de
- * validación está permitido; publicar no.
+ * completitud está permitido; publicar no. Los errores de forma de los bloques que cambian (y las
+ * claves que no son bloques) se rechazan con 422 antes del UPDATE: la base no cambia.
  */
 export async function guardarBorrador(
   sesion: SupabaseClient,
   slug: string,
   entrada: unknown,
-): Promise<Respuesta<GuardadoOk | ConError>> {
+): Promise<Respuesta<GuardadoOk | RechazoForma | ConError>> {
   try {
     const acceso = await comprobarAcceso(sesion, slug);
     if (!acceso.ok) return acceso.respuesta;
@@ -91,7 +93,16 @@ export async function guardarBorrador(
     if (errorLectura) throw errorLectura;
     if (!actual) return conError(404, 'Esta parroquia todavía no tiene borrador.');
 
-    const config = aplicarIdentidad(actual.config as object, entrada.cambios);
+    const desconocidas = clavesDesconocidas(entrada.cambios);
+    if (desconocidas.length) {
+      return {
+        estado: 422,
+        cuerpo: { error: MENSAJE_FORMA, errores: desconocidas.map((c) => `Esa parte del borrador no existe (${c}).`) },
+      };
+    }
+    const config = aplicarCambios(actual.config as object, entrada.cambios);
+    const deForma = erroresDeFormaEn(config, slug, Object.keys(entrada.cambios));
+    if (deForma.length) return { estado: 422, cuerpo: { error: MENSAJE_FORMA, errores: deForma } };
     // El candado va en el propio UPDATE: si otra persona guardó antes, no se actualiza ninguna fila.
     // actualizado_en y actualizado_por los fija un disparador de la base, no el cliente.
     const { data: filas, error: errorGuardar } = await sesion
@@ -112,6 +123,27 @@ export async function guardarBorrador(
     };
   } catch (e) {
     return fallo('guardarBorrador', e);
+  }
+}
+
+/** El borrador y su `actualizadoEn`, para volver a leerlo después de un conflicto. */
+export async function leerBorrador(
+  sesion: SupabaseClient,
+  slug: string,
+): Promise<Respuesta<{ config: object; actualizadoEn: string } | ConError>> {
+  try {
+    const acceso = await comprobarAcceso(sesion, slug);
+    if (!acceso.ok) return acceso.respuesta;
+    const { data, error } = await sesion
+      .from('borradores')
+      .select('config, actualizado_en')
+      .eq('parroquia_id', acceso.parroquiaId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return conError(404, 'Esta parroquia todavía no tiene borrador.');
+    return { estado: 200, cuerpo: { config: data.config as object, actualizadoEn: data.actualizado_en as string } };
+  } catch (e) {
+    return fallo('leerBorrador', e);
   }
 }
 

@@ -72,7 +72,7 @@ export function completarParaForma(borrador: unknown): Record<string, unknown> {
         if (vacioOpcional(h.hora)) h.hora = RELLENO;
       } else if (Array.isArray(h.horas)) {
         if (h.horas.length === 0) h.horas = [{ hora: RELLENO }];
-        for (const o of h.horas) if (esObjeto(o) && vacioOpcional(o.hora)) o.hora = RELLENO;
+        for (const o of h.horas as unknown[]) if (esObjeto(o) && vacioOpcional(o.hora)) o.hora = RELLENO;
       }
     }
   }

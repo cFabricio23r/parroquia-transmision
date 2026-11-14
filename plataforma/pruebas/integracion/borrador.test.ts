@@ -12,7 +12,7 @@ import {
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
-import { guardarBorrador, subirImagen, type EntradaImagen } from '../../lib/borrador';
+import { guardarBorrador, leerBorrador, MENSAJE_FORMA, subirImagen, type EntradaImagen } from '../../lib/borrador';
 
 const servicio = clienteServicio();
 const CLAVE = 'clave-de-prueba-123';
@@ -165,6 +165,86 @@ describe('guardarBorrador', () => {
       expect(r.estado, JSON.stringify(caso)?.slice(0, 60)).toBe(400);
     }
     expect(await leer(A)).toEqual(antes);
+  });
+});
+
+describe('guardarBorrador: cualquier bloque y el 422 de forma', () => {
+  const restaurar = () =>
+    servicio.from('borradores').update({ config: { nombre: 'Original', lugar: 'Lugar original', ...BLOQUES } }).eq('parroquia_id', A.id);
+
+  it('guarda la galería aunque falte un alt y devuelve ese error', async () => {
+    await restaurar();
+    const antes = await leer(A);
+    const galeria = [{ id: 'img-aaaaaa', src: 'medios/x.png', alt: '' }];
+    const r = await guardarBorrador(cA.cliente, A.slug, { cambios: { galeria }, actualizadoEn: antes.actualizado_en });
+    expect(r.estado).toBe(200);
+    expect((await leer(A)).config.galeria).toEqual(galeria);
+    expect((r.cuerpo as { errores: string[] }).errores).toContain('Falta la descripción de la imagen (galeria[0].alt).');
+  });
+
+  it('rechaza con 422 un color mal formado y la base no cambia', async () => {
+    const antes = await leer(A);
+    const r = await guardarBorrador(cA.cliente, A.slug, {
+      cambios: { colores: { principal: '#8a1', oscuro: '#0c3562' } },
+      actualizadoEn: antes.actualizado_en,
+    });
+    expect(r.estado).toBe(422);
+    const cuerpo = r.cuerpo as { error: string; errores: string[] };
+    expect(cuerpo.error).toBe(MENSAJE_FORMA);
+    expect(cuerpo.errores).toContain('El color principal (colores.principal) debe tener la forma #rrggbb.');
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('rechaza con 422 una clave que no es un bloque', async () => {
+    const antes = await leer(A);
+    const r = await guardarBorrador(cA.cliente, A.slug, { cambios: { esquema: 1 }, actualizadoEn: antes.actualizado_en });
+    expect(r.estado).toBe(422);
+    expect((r.cuerpo as { errores: string[] }).errores).toContain('Esa parte del borrador no existe (esquema).');
+    expect(await leer(A)).toEqual(antes);
+  });
+
+  it('un bloque viejo mal formado que no se toca no impide guardar otro', async () => {
+    await servicio
+      .from('borradores')
+      .update({ config: { nombre: 'Original', lugar: 'Lugar original', avisos: [{ texto: 'a', desde: 'malo' }] } })
+      .eq('parroquia_id', A.id);
+    const antes = await leer(A);
+    const r = await guardarBorrador(cA.cliente, A.slug, { cambios: { lugar: 'Otro' }, actualizadoEn: antes.actualizado_en });
+    expect(r.estado).toBe(200);
+    expect((await leer(A)).config.avisos).toEqual([{ texto: 'a', desde: 'malo' }]);
+    await restaurar();
+  });
+
+  it('el registro anota los bloques que cambiaron', async () => {
+    const antes = await leer(A);
+    const horarios = [{ dia: 'Domingo', horas: [{ hora: '7:00 a. m.' }] }];
+    const r = await guardarBorrador(cA.cliente, A.slug, { cambios: { horarios }, actualizadoEn: antes.actualizado_en });
+    expect(r.estado).toBe(200);
+    const { data, error } = await servicio
+      .from('registro')
+      .select('detalle')
+      .eq('parroquia_id', A.id)
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+    expect(error).toBeNull();
+    expect((data!.detalle as { campos: string[] }).campos).toEqual(['horarios']);
+  });
+});
+
+describe('leerBorrador', () => {
+  it('devuelve el borrador y su actualizadoEn a un miembro', async () => {
+    const enBase = await leer(A);
+    const r = await leerBorrador(cA.cliente, A.slug);
+    expect(r.estado).toBe(200);
+    const cuerpo = r.cuerpo as { config: Record<string, unknown>; actualizadoEn: string };
+    expect(cuerpo.config.lugar).toBe(enBase.config.lugar);
+    expect(new Date(cuerpo.actualizadoEn).getTime()).toBe(new Date(enBase.actualizado_en).getTime());
+  });
+
+  it('401 sin sesión y 403 a otra parroquia', async () => {
+    expect((await leerBorrador(clienteAnonimo(), A.slug)).estado).toBe(401);
+    expect((await leerBorrador(cB.cliente, A.slug)).estado).toBe(403);
   });
 });
 
