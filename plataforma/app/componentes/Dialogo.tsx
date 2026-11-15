@@ -15,7 +15,7 @@ export function Dialogo({
   abierto: boolean;
   titulo: string;
   onCerrar: () => void;
-  /** 500 (por defecto, relleno 28) o 520 (relleno 26 y separación 14, como los diálogos de la Galería). */
+  /** 500 de contenido (por defecto, relleno 28) o 520 (relleno 26 y separación 14, como los diálogos de la Galería). */
   ancho?: 500 | 520;
   children: ReactNode;
 }) {
