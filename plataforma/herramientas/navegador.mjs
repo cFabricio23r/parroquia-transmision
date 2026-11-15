@@ -92,6 +92,11 @@ let codigo = 1;
 try {
   await esperarServidor();
   const dirPruebas = resolve(raiz, 'pruebas', 'navegador');
+  // Primero compila cada ruta una vez (fix2): la primera compilación de `next dev` bajo carga pasaba
+  // a veces de los 30 s de page.goto. CALENTAR=0 lo salta (para correr un archivo suelto más rápido).
+  if (process.env.CALENTAR !== '0') {
+    spawnSync(process.execPath, [resolve(dirPruebas, 'lib', 'calentar.mjs')], { cwd: raiz, env: entorno, stdio: 'inherit' });
+  }
   const archivos = process.argv.length > 2 ? process.argv.slice(2) : readdirSync(dirPruebas).filter((f) => f.endsWith('.mjs'));
   codigo = 0;
   for (const archivo of archivos) {

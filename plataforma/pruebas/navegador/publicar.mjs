@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
-import { camposSinEtiqueta } from './lib/editor.mjs';
+import { camposSinEtiqueta, entrar } from './lib/editor.mjs';
 
 const BASE = process.env.BASE_URL;
 const servicio = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
@@ -87,13 +87,6 @@ async function borrarCarpeta(bucket, carpeta) {
   if (rutas.length) await servicio.storage.from(bucket).remove(rutas);
 }
 
-async function entrar(pagina, correo) {
-  await pagina.goto(`${BASE}/editor/entrar`);
-  await pagina.getByLabel('Correo').fill(correo);
-  await pagina.getByLabel('Contraseña', { exact: true }).fill(CLAVE);
-  await pagina.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await pagina.waitForURL((u) => u.pathname.startsWith('/editor') && !u.pathname.startsWith('/editor/entrar'));
-}
 const esperarGuardado = (pagina) =>
   pagina.waitForFunction(() => document.querySelector('[role="status"].pv-guardado')?.textContent === 'Guardado', null, { timeout: 10_000 });
 

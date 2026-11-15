@@ -114,27 +114,37 @@ try {
   });
   const pi = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
   await entrar(pi, I.correo);
-  // Cada subida tarda 2,5 s: da tiempo a escribir mientras dice «Subiendo…».
+  // Cada subida queda retenida hasta que la prueba termina de escribir el alt (`soltar()`): con un
+  // retraso fijo, bajo carga el alt podía llegar después de la imagen y la comprobación fallaba (fix2).
+  let soltar = () => {};
+  let retenida = Promise.resolve();
+  const retener = () => (retenida = new Promise((ok) => (soltar = ok)));
   await pi.route('**/editor/api/*/imagen', async (r) => {
-    await new Promise((ok) => setTimeout(ok, 2500));
+    await retenida;
     await r.continue();
   });
   await pi.goto(`${BASE}/editor/p/${I.slug}/identidad`);
   const grupo = (n) => pi.getByRole('group', { name: n, exact: true });
   const altDe = (n) => grupo(n).getByLabel('Descripción para lectores de pantalla (alt)');
 
+  retener();
   await pi.locator('input[type=file][data-campo="logo-color"]').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: PNG });
   await grupo('Logo a color (opcional)').getByText('Subiendo…').waitFor();
   await altDe('Logo a color (opcional)').fill('Escudo a color');
   await altDe('Logo blanco (PNG o SVG)').fill('Escudo en blanco');
-  const conColor = await esperarEnBase(I.id, (c) => typeof c.logos?.color?.src === 'string', 10_000);
+  revisar(await grupo('Logo a color (opcional)').getByText('Subiendo…').isVisible(), 'el alt se escribe mientras dice «Subiendo…»');
+  soltar();
+  const conColor = await esperarEnBase(I.id, (c) => typeof c.logos?.color?.src === 'string', 20_000);
   igual(conColor.logos?.color?.alt, 'Escudo a color', 'el alt escrito durante la subida (campo vacío) se guarda con la imagen');
   igual((await esperarEnBase(I.id, (c) => c.logos?.blanco?.alt === 'Escudo en blanco')).logos?.blanco?.alt, 'Escudo en blanco', 'y el alt del otro logo no se pisa');
 
+  retener();
   await pi.locator('input[type=file][data-campo="logo-blanco"]').setInputFiles({ name: 'logo2.png', mimeType: 'image/png', buffer: PNG });
   await grupo('Logo blanco (PNG o SVG)').getByText('Subiendo…').waitFor();
   await altDe('Logo blanco (PNG o SVG)').fill('Escudo nuevo');
-  const nuevo = await esperarEnBase(I.id, (c) => c.logos?.blanco?.src !== 'medios/logo-blanco-00000000.png', 10_000);
+  revisar(await grupo('Logo blanco (PNG o SVG)').getByText('Subiendo…').isVisible(), 'el alt nuevo se escribe mientras dice «Subiendo…»');
+  soltar();
+  const nuevo = await esperarEnBase(I.id, (c) => c.logos?.blanco?.src !== 'medios/logo-blanco-00000000.png', 20_000);
   await esperarGuardado(pi);
   const final = await leerConfig(I.id);
   revisar(final.logos.blanco.src !== 'medios/logo-blanco-00000000.png', `la imagen nueva entra (${nuevo.logos?.blanco?.src})`);
