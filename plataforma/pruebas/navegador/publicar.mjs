@@ -181,6 +181,13 @@ try {
   revisar(true, 'v1 lleva «En OBS ahora»');
   igual(await filaVersion(1).getByRole('button', { name: 'Volver a la versión 1' }).count(), 0, 'y no lleva «Volver a esta»');
   igual(await pagina.getByRole('button', { name: 'Comprobar de nuevo' }).count(), 0, 'ya llegó: no hay «Comprobar de nuevo»');
+  // Revisión fix2: el botón desaparece al llegar la versión; el foco no se cae al <body>, va a la línea de estado.
+  await pagina.waitForFunction(() => document.activeElement?.classList.contains('pv-publicar-estado'), null, { timeout: 5_000 }).catch(() => {});
+  igual(
+    await pagina.evaluate(() => (document.activeElement?.classList.contains('pv-publicar-estado') ? document.activeElement.textContent : document.activeElement?.tagName)),
+    'Publicaste la versión 1. Ya está en las pantallas (versión 1).',
+    'tras «Comprobar de nuevo», el foco va a la línea de estado, que dice que ya llegó',
+  );
 
   console.log('Qué cambia');
   await pagina.goto(`${BASE}/editor/p/${P.slug}/identidad`);
@@ -213,6 +220,13 @@ try {
   await filaVersion(8).locator('.pv-chip', { hasText: 'En OBS ahora' }).waitFor();
   const volver1 = pagina.getByRole('button', { name: 'Volver a la versión 1' });
   igual(await estilo(volver1, 'text-decoration-line'), 'underline', '«Volver a esta» subrayado');
+  {
+    // Revisión fix2: zona de toque de 44 px sin agrandar la fila.
+    const caja = await volver1.boundingBox();
+    revisar(Boolean(caja && caja.height >= 44), `«Volver a esta» con 44 px de alto para tocar (mide ${caja?.height})`);
+    const alto = await filaVersion(1).evaluate((e) => e.getBoundingClientRect().height);
+    revisar(alto <= 58, `la fila de la versión no crece: unos 57 px como antes (mide ${alto})`);
+  }
   await volver1.click();
   const dialogo = pagina.getByRole('dialog', { name: 'Volver a la versión 1' });
   await dialogo.waitFor();

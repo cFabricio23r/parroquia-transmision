@@ -32,8 +32,9 @@ const TODO_LISTO: ItemRevision = { titulo: 'Todo listo', detalle: 'No hay nada q
  * Lo que dice la línea de estado sobre las pantallas (Decisión 22), sin repetir «Publicaste…»: la
  * parte de `estadoDeLlegada` que va después del «;», o nada si ya llegó.
  */
-function llegada(enPantallas: number | null, ultima: number): string | null {
-  if (enPantallas !== null && enPantallas >= ultima) return null;
+function llegada(enPantallas: number | null, ultima: number, comprobada: boolean): string | null {
+  // Tras «Comprobar de nuevo» sí se dice que llegó: el botón desaparece y el foco viene a esta línea.
+  if (enPantallas !== null && enPantallas >= ultima) return comprobada ? `Ya está en las pantallas (versión ${enPantallas}).` : null;
   const t = estadoDeLlegada(enPantallas, ultima);
   const resto = t.includes('; ') ? t.slice(t.indexOf('; ') + 2) : t;
   return `${resto.charAt(0).toUpperCase()}${resto.slice(1)}.`;
@@ -74,6 +75,12 @@ export function PaginaPublicar() {
   const [error, setError] = useState<{ texto: string; lista: string[] } | null>(null);
   const [restaurar, setRestaurar] = useState<number | null>(null);
   const alerta = useRef<HTMLDivElement>(null);
+  // «Comprobar de nuevo» (revisión fix2): mientras comprueba, el botón sigue ahí (ocupado); si al terminar
+  // la versión llegó, el botón se va y el foco pasa a la línea de estado en vez de caer al <body>.
+  const [comprobando, setComprobando] = useState(false);
+  const [comprobada, setComprobada] = useState(false);
+  const lineaEstadoRef = useRef<HTMLParagraphElement>(null);
+  const enfocarEstado = useRef(false);
 
   const comprobar = useCallback(async () => {
     setEnPantallas(undefined);
@@ -88,8 +95,17 @@ export function PaginaPublicar() {
   }, [slug]);
   // Al abrir la página y cada vez que cambia la última versión (después de publicar o restaurar).
   useEffect(() => {
+    setComprobada(false);
     void comprobar();
   }, [comprobar, ultima]);
+  async function comprobarDeNuevo() {
+    if (comprobando) return;
+    setComprobando(true);
+    await comprobar();
+    setComprobando(false);
+    setComprobada(true);
+    enfocarEstado.current = true;
+  }
   useEffect(() => {
     if (error) alerta.current?.focus();
   }, [error]);
@@ -138,10 +154,17 @@ export function PaginaPublicar() {
   }
 
   const noLlego = ultima !== null && enPantallas !== undefined && (enPantallas === null || enPantallas < ultima);
-  const textoLlegada = ultima !== null && enPantallas !== undefined ? llegada(enPantallas, ultima) : null;
+  const textoLlegada = ultima !== null && enPantallas !== undefined ? llegada(enPantallas, ultima, comprobada) : null;
   const lineaEstado = [publicada !== null ? `Publicaste la versión ${publicada}.` : null, textoLlegada, aviso ?? null].filter(Boolean).join(' ');
   const frases = cambios.flatMap((c) => c.frases);
   const vacia = revision.errores.length === 0 && revision.avisos.length === 0;
+  const mostrarComprobar = noLlego || comprobando;
+  useEffect(() => {
+    if (!enfocarEstado.current || comprobando) return;
+    enfocarEstado.current = false;
+    // Si el botón sigue (todavía no llegó), el foco se queda en él; si se fue, a la línea de estado.
+    if (!mostrarComprobar && document.activeElement === document.body) lineaEstadoRef.current?.focus();
+  });
 
   return (
     <div className="pv-publicar">
@@ -218,11 +241,11 @@ export function PaginaPublicar() {
           )}
         </div>
         <div className="pv-publicar-estado-fila">
-          <p role="status" className="pv-publicar-estado">
+          <p ref={lineaEstadoRef} role="status" tabIndex={-1} className="pv-publicar-estado">
             {lineaEstado}
           </p>
-          {noLlego && (
-            <Boton variante="secundario" compacto onClick={() => void comprobar()}>
+          {mostrarComprobar && (
+            <Boton variante="secundario" compacto ocupado={comprobando} onClick={() => void comprobarDeNuevo()}>
               Comprobar de nuevo
             </Boton>
           )}

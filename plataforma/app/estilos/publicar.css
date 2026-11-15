@@ -62,6 +62,8 @@
 .pv-publicar-estado-fila { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pv-publicar-estado { margin: 0; font-size: 13px; color: var(--pv-texto-suave); line-height: 1.5; }
 .pv-publicar-estado:empty { display: none; }
+.pv-publicar-estado:focus { outline: none; }
+.pv-publicar-estado:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
 .pv-publicar-error {
   border: 1.5px solid var(--pv-rojo-borde);
   border-radius: 10px;
@@ -96,7 +98,10 @@
   background: none;
   border: 0;
   padding: 0;
-  min-height: 24px;
+  /* Zona de toque de 44 px (revisión fix2); el margen negativo se come el relleno de la fila (10 + 10),
+     así la fila no crece respecto al artboard. */
+  min-height: 44px;
+  margin: -10px 0;
   font: inherit;
   color: var(--pv-primario);
   font-weight: 700;
