@@ -128,6 +128,24 @@ try {
   await pa.getByRole('button', { name: 'Mover Colecta para el techo' }).click();
   await pa.keyboard.press('Escape');
   igual(await pa.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Mover Colecta para el techo', 'Esc cierra el menú y el foco vuelve al tirador');
+  // Con el teclado, después de «Bajar» o «Subir» el foco sigue en el tirador del aviso movido y se anuncia
+  // el lugar nuevo (ronda final): sin esto había que volver a recorrer la página desde arriba.
+  const enfocado = () => pa.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+  const anuncio = () => pa.locator('#pv-avisos-anuncio').innerText();
+  await pa.getByRole('button', { name: 'Mover Retiro de jóvenes' }).focus();
+  await pa.keyboard.press('Enter');
+  await pa.keyboard.press('ArrowDown');
+  await pa.keyboard.press('Enter');
+  igual(JSON.stringify(await titulos()), JSON.stringify(['Colecta para el techo', 'Retiro de jóvenes', 'Inscripciones de catequesis']), '«Bajar» con el teclado la baja un lugar');
+  await pa.waitForTimeout(200);
+  igual(await enfocado(), 'Mover Retiro de jóvenes', 'después de «Bajar» el foco sigue en su tirador');
+  igual(await anuncio(), 'Retiro de jóvenes, ahora 2.º de 3', 'y se anuncia el lugar nuevo');
+  await pa.keyboard.press('Enter');
+  await pa.keyboard.press('Enter');
+  igual((await titulos())[0], 'Retiro de jóvenes', '«Subir» con el teclado la sube');
+  await pa.waitForTimeout(200);
+  igual(await enfocado(), 'Mover Retiro de jóvenes', 'después de «Subir» el foco sigue en su tirador');
+  igual(await anuncio(), 'Retiro de jóvenes, ahora 1.º de 3', 'y se anuncia que quedó primera');
 
   console.log('F11 · Editar');
   await pa.getByRole('button', { name: 'Editar Inscripciones de catequesis' }).click();
@@ -162,6 +180,38 @@ try {
   await pa.getByRole('dialog', { name: 'Borrar aviso' }).getByRole('button', { name: 'Sí, borrar' }).click();
   igual(await pa.getByRole('button', { name: 'Editar Bautizos' }).count(), 0, '«Borrar aviso» lo quita');
   await esperarEnBase(A.id, (c) => c.avisos.length === 3);
+
+  console.log('F11 · Salir de la sección con el aviso sin guardar');
+  // «Editar aviso» no se guarda solo: ir a otra sección pregunta antes (ronda final).
+  const menuIdentidad = () => pa.getByRole('navigation').getByRole('link', { name: /^Identidad/ });
+  const sinGuardar = pa.getByRole('dialog', { name: 'Cambios sin guardar' });
+  await pa.getByRole('button', { name: 'Editar Colecta para el techo' }).click();
+  await pa.getByLabel('Título', { exact: true }).fill('Colecta cambiada');
+  await menuIdentidad().click();
+  await sinGuardar.waitFor({ timeout: 3000 });
+  revisar(pa.url().endsWith('/avisos'), 'con el aviso sin guardar, el menú no cambia de sección sin preguntar');
+  igual(await sinGuardar.locator('.pv-dialogo-texto').innerText(), 'Lo que escribiste en «Colecta cambiada» todavía no está guardado.', 'el diálogo nombra el aviso');
+  await sinGuardar.getByRole('button', { name: 'Seguir editando' }).click();
+  igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Colecta cambiada', '«Seguir editando» deja lo escrito');
+  revisar(pa.url().endsWith('/avisos'), 'y se queda en Avisos');
+  await menuIdentidad().click();
+  await sinGuardar.getByRole('button', { name: 'Guardar aviso' }).click();
+  await pa.waitForURL(/\/identidad$/, { timeout: 5000 });
+  const guardadoAlSalir = await esperarEnBase(A.id, (c) => c.avisos.some((x) => x.texto === 'Colecta cambiada'), 3000);
+  revisar(guardadoAlSalir.avisos.some((x) => x.texto === 'Colecta cambiada'), '«Guardar aviso» guarda y lleva a la sección elegida');
+  await pa.getByRole('navigation').getByRole('link', { name: /^Avisos fijos/ }).click();
+  await pa.waitForURL(/\/avisos$/);
+  await pa.getByRole('button', { name: 'Editar Colecta cambiada' }).click();
+  await pa.getByLabel('Título', { exact: true }).fill('Esto no se guarda');
+  await menuIdentidad().click();
+  await sinGuardar.getByRole('button', { name: 'Descartar cambios' }).click();
+  await pa.waitForURL(/\/identidad$/, { timeout: 5000 });
+  await pa.getByRole('navigation').getByRole('link', { name: /^Avisos fijos/ }).click();
+  await pa.waitForURL(/\/avisos$/);
+  igual(await pa.getByRole('button', { name: 'Editar Esto no se guarda' }).count(), 0, '«Descartar cambios» no lo escribe en la lista');
+  revisar((await pa.getByLabel('Título', { exact: true }).inputValue()) !== 'Esto no se guarda', 'y al volver el formulario no trae lo descartado');
+  await pa.waitForFunction(() => document.querySelector('.pv-guardado')?.textContent === 'Guardado', null, { timeout: 5000 }).catch(() => {});
+  igual(await pa.locator('.pv-guardado').innerText(), 'Guardado', 'el encabezado ya no dice «Sin guardar»');
 } finally {
   await navegador.close();
   await limpiar();

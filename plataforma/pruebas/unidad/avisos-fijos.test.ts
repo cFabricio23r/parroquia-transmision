@@ -1,6 +1,6 @@
 // Avisos fijos (plan 3, Tarea 16; Decisiones 15 y 16).
 import { describe, expect, it } from 'vitest';
-import { erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoRango, vencido } from '../../lib/editor/avisos';
+import { clavesDeFilas, erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoLugar, textoRango, vencido } from '../../lib/editor/avisos';
 
 const HOY = '2026-11-14';
 const lista3 = [{ texto: 'a', orden: 1 }, { texto: 'b', orden: 2 }, { texto: 'c', orden: 3 }];
@@ -49,5 +49,24 @@ describe('avisos fijos', () => {
     expect(erroresAviso({ texto: 'x'.repeat(201) })).toEqual({ texto: 'Hasta 200 caracteres.' });
     expect(erroresAviso({ texto: 'Colecta', detalle: 'y'.repeat(201) })).toEqual({ detalle: 'Hasta 200 caracteres.' });
     expect(erroresAviso({ texto: 'Colecta' })).toEqual({});
+  });
+});
+
+describe('filas de avisos estables al reordenar (ronda final)', () => {
+  it('la clave de una fila no depende de su lugar: sigue al aviso al moverlo', () => {
+    const lista = [{ texto: 'A' }, { texto: 'B' }, { texto: 'C' }];
+    const antes = clavesDeFilas(lista);
+    const despues = clavesDeFilas(mover(lista, 0, 1));
+    expect(despues).toEqual([antes[1], antes[0], antes[2]]);
+  });
+
+  it('dos avisos con el mismo título tienen claves distintas', () => {
+    const claves = clavesDeFilas([{ texto: 'Misa' }, { texto: 'Misa' }, { texto: 'Otra' }]);
+    expect(new Set(claves).size).toBe(3);
+  });
+
+  it('el anuncio dice el lugar nuevo', () => {
+    expect(textoLugar('Retiro de jóvenes', 0, 3)).toBe('Retiro de jóvenes, ahora 1.º de 3');
+    expect(textoLugar('Colecta', 2, 3)).toBe('Colecta, ahora 3.º de 3');
   });
 });

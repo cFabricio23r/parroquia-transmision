@@ -39,6 +39,25 @@ export function mover<T extends Partial<AvisoFijo>>(lista: T[], i: number, delta
   return numerar(copia);
 }
 
+/**
+ * La clave de cada fila de la lista (para `key`): el título y cuántas veces apareció antes, nunca el
+ * lugar. Así, al subir o bajar un aviso, React mueve la fila en vez de rehacerla y el foco no se pierde.
+ */
+export function clavesDeFilas(lista: Partial<AvisoFijo>[]): string[] {
+  const vistos = new Map<string, number>();
+  return lista.map((a) => {
+    const t = a.texto ?? '';
+    const n = vistos.get(t) ?? 0;
+    vistos.set(t, n + 1);
+    return `${n}:${t}`;
+  });
+}
+
+/** Lo que se anuncia al mover un aviso con el teclado: «Retiro de jóvenes, ahora 1.º de 3». */
+export function textoLugar(texto: string, i: number, total: number): string {
+  return `${texto}, ahora ${i + 1}.º de ${total}`;
+}
+
 const partes = (iso: string) => {
   const [a, m, d] = iso.split('-').map(Number);
   return { a, m, d };

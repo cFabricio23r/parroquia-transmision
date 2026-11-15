@@ -3,7 +3,19 @@
 // interruptor por aviso y el formulario «Editar aviso» / «Nuevo aviso» junto a la vista previa.
 // Al cargar no se reescribe nada: la lista se muestra ordenada y se numera al primer cambio.
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoRango, vencido, type AvisoFijo } from '../../../../../lib/editor/avisos';
+import {
+  clavesDeFilas,
+  erroresAviso,
+  MAX_AVISOS,
+  mover,
+  moverA,
+  numerar,
+  ordenarAvisos,
+  textoLugar,
+  textoRango,
+  vencido,
+  type AvisoFijo,
+} from '../../../../../lib/editor/avisos';
 import { hoyIso } from '../../../../../lib/fecha';
 import { Boton } from '../../../../componentes/Boton';
 import { CajaRevisar } from '../../../../componentes/CajaRevisar';
@@ -135,7 +147,7 @@ export function textoSinGuardar(texto: string): string {
 }
 
 export function SeccionAvisos() {
-  const { borrador, cambiar, guardarYa, estados, formularios, recordarFormulario } = useBorrador();
+  const { borrador, cambiar, guardarYa, estados, formularios, recordarFormulario, protegerSalida } = useBorrador();
   useNotaVistaPrevia(null, 'avisos');
   const crudos = Array.isArray(borrador.avisos) ? (borrador.avisos as AvisoFijo[]) : [];
   const lista = ordenarAvisos(crudos.filter((a) => a && typeof a === 'object'));
@@ -156,6 +168,17 @@ export function SeccionAvisos() {
   const [sobre, setSobre] = useState<number | null>(null);
   const [pendiente, setPendiente] = useState<Seleccion>(null);
   const [borrando, setBorrando] = useState<number | null>(null);
+  // Después de «Subir» o «Bajar», el foco vuelve al tirador del aviso movido (ya redibujado) y se
+  // anuncia su lugar nuevo (spec, sección 5: el teclado es la forma accesible de reordenar).
+  const [movido, setMovido] = useState<{ clave: string; n: number } | null>(null);
+  const [anuncio, setAnuncio] = useState('');
+  const filas = clavesDeFilas(lista);
+  const listaRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (!movido) return;
+    const fila = [...(listaRef.current?.querySelectorAll<HTMLElement>('.pv-aviso-fila') ?? [])].find((li) => li.dataset.clave === movido.clave);
+    fila?.querySelector<HTMLElement>('.pv-tirador')?.focus();
+  }, [movido]);
 
   useEffect(() => {
     recordarFormulario(CLAVE_FORMULARIO_AVISOS, sucio ? { valor: { seleccion, formulario, original } satisfies Recuerdo, sucio: true } : undefined);
@@ -209,6 +232,15 @@ export function SeccionAvisos() {
     }
   };
 
+  /** «Subir» / «Bajar» desde el menú del tirador. */
+  const moverConMenu = (i: number, delta: -1 | 1) => {
+    const hasta = Math.min(lista.length - 1, Math.max(0, i + delta));
+    const nueva = mover(lista, i, delta);
+    reordenar(nueva, i, hasta);
+    setMovido((m) => ({ clave: clavesDeFilas(nueva)[hasta], n: (m?.n ?? 0) + 1 }));
+    setAnuncio(textoLugar(lista[i]?.texto ?? '', hasta, lista.length));
+  };
+
   const borrar = (i: number) => {
     const nueva = lista.filter((_, j) => j !== i);
     escribir(nueva);
@@ -250,6 +282,35 @@ export function SeccionAvisos() {
     return true;
   };
 
+  // Ir a otra sección con lo escrito sin guardar pregunta antes (GuardiaSalida, ronda final): «Editar
+  // aviso» no se guarda solo. Se pone en cada render, así la guardia usa siempre lo escrito de ahora.
+  useEffect(() => {
+    protegerSalida(
+      CLAVE_FORMULARIO_AVISOS,
+      sucio
+        ? {
+            texto: textoSinGuardar(formulario.texto),
+            etiquetaGuardar: 'Guardar aviso',
+            guardar: () => {
+              if (!guardar()) return false;
+              recordarFormulario(CLAVE_FORMULARIO_AVISOS, undefined);
+              return true;
+            },
+            descartar: () => {
+              cargar(efectiva);
+              recordarFormulario(CLAVE_FORMULARIO_AVISOS, undefined);
+            },
+          }
+        : null,
+    );
+  });
+  useEffect(
+    () => () => protegerSalida(CLAVE_FORMULARIO_AVISOS, null),
+    // protegerSalida escribe en una referencia del proveedor, pero cambia de identidad en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const resolverPendiente = (accion: 'guardar' | 'descartar') => {
     const destino = pendiente;
     setPendiente(null);
@@ -277,13 +338,17 @@ export function SeccionAvisos() {
         </div>
       </div>
       <CajaRevisar problemas={estados.avisos.avisos} etiqueta="Avisos para revisar" />
-      <ul className="pv-avisos-lista" aria-label="Avisos fijos">
+      <p id="pv-avisos-anuncio" className="pv-solo-lectores" aria-live="polite">
+        {anuncio}
+      </p>
+      <ul ref={listaRef} className="pv-avisos-lista" aria-label="Avisos fijos">
         {lista.length === 0 && <li className="pv-avisos-vacia">Todavía no hay avisos fijos.</li>}
         {lista.map((a, i) => {
           const termino = a.activo !== false && vencido(a, hoy);
           return (
             <li
-              key={`${i}-${a.texto}`}
+              key={filas[i]}
+              data-clave={filas[i]}
               className={['pv-aviso-fila', efectiva === i && 'pv-aviso-fila--elegido', sobre === i && arrastrando !== null && arrastrando !== i && 'pv-aviso-fila--sobre']
                 .filter(Boolean)
                 .join(' ')}
@@ -302,8 +367,8 @@ export function SeccionAvisos() {
             >
               <MenuTirador
                 texto={a.texto}
-                onSubir={() => reordenar(mover(lista, i, -1), i, Math.max(0, i - 1))}
-                onBajar={() => reordenar(mover(lista, i, 1), i, Math.min(lista.length - 1, i + 1))}
+                onSubir={() => moverConMenu(i, -1)}
+                onBajar={() => moverConMenu(i, 1)}
                 onBorrar={() => setBorrando(i)}
                 arrastre={{ onDragStart: () => setArrastrando(i), onDragEnd: () => (setArrastrando(null), setSobre(null)) }}
               />

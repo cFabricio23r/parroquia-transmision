@@ -75,6 +75,23 @@ export interface ContextoBorrador {
    */
   vistaPreviaExtra: VistaPreviaExtra | null;
   ponerVistaPreviaExtra(v: VistaPreviaExtra | null): void;
+  /**
+   * Un formulario montado con lo escrito sin guardar y con su propio botón de guardar (por ejemplo
+   * «Guardar aviso»): mientras esté puesto, seguir un enlace del editor pregunta antes de salir
+   * (`GuardiaSalida`). `null` lo quita. No vuelve a dibujar nada: se guarda en una referencia.
+   */
+  protegerSalida(clave: string, s: SalidaProtegida | null): void;
+  salidaProtegida(): SalidaProtegida | null;
+}
+
+export interface SalidaProtegida {
+  /** El texto del diálogo «Cambios sin guardar». */
+  texto: string;
+  /** El botón que guarda, como el de la sección: «Guardar aviso». */
+  etiquetaGuardar: string;
+  /** Guarda; `false` si el formulario tiene errores (entonces no se sale). */
+  guardar(): boolean;
+  descartar(): void;
 }
 
 export interface VistaPreviaExtra {
@@ -129,6 +146,7 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
   const [tipoVistaPrevia, elegirTipoVistaPrevia] = useState<string | null>(null);
   const [formularios, setFormularios] = useState<Record<string, FormularioPendiente>>({});
   const [vistaPreviaExtra, ponerVistaPreviaExtra] = useState<VistaPreviaExtra | null>(null);
+  const salidas = useRef(new Map<string, SalidaProtegida>());
   const formulariosSucios = useRef(false);
   formulariosSucios.current = Object.values(formularios).some((f) => f.sucio);
 
@@ -170,6 +188,11 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
     formularios,
     vistaPreviaExtra,
     ponerVistaPreviaExtra,
+    protegerSalida: (clave, s) => {
+      if (s) salidas.current.set(clave, s);
+      else salidas.current.delete(clave);
+    },
+    salidaProtegida: () => salidas.current.values().next().value ?? null,
     recordarFormulario: (clave, f) =>
       setFormularios((x) => {
         if (f === undefined) {

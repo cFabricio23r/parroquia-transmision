@@ -9,6 +9,7 @@ import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
 import { AvisoGuardado } from './AvisoGuardado';
+import { GuardiaSalida } from './GuardiaSalida';
 import { PanelVistaPrevia } from './PanelVistaPrevia';
 import { useBorrador } from './ProveedorBorrador';
 
@@ -74,6 +75,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
           <PanelVistaPrevia />
         </main>
       </div>
+      <GuardiaSalida />
     </div>
   );
 }
