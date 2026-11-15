@@ -59,7 +59,7 @@ try {
   igual(estados[1], 'Falta algo', 'con el borrador mínimo, «Identidad» dice «Falta algo»');
   igual(estados[8], 'Opcional', '«Avisos fijos» dice «Opcional»');
   revisar(
-    await menu.getByText('Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques.').isVisible(),
+    await menu.getByText('Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques. App y transmisión se guarda al instante y no necesita Publicar.').isVisible(),
     'la nota del pie está en el menú',
   );
   await menu.getByRole('link', { name: /^Galería/ }).click();

@@ -13,7 +13,7 @@ import { GuardiaSalida } from './GuardiaSalida';
 import { PanelVistaPrevia } from './PanelVistaPrevia';
 import { useBorrador } from './ProveedorBorrador';
 
-export const NOTA_MENU = 'Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques.';
+export const NOTA_MENU = 'Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques. App y transmisión se guarda al instante y no necesita Publicar.';
 export const AVISO_CELULAR =
   'El editor está pensado para una computadora. Desde el celular puedes mirar, pero para editar usa una pantalla más grande.';
 
