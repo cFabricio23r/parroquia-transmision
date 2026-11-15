@@ -2012,6 +2012,46 @@ async function casoFaltasIguales() {
   }
 }
 
+/* 3b: en la app (modo-app) el panel no tiene Guardadas; en la PC sí. */
+async function casoModoAppSinGuardadas() {
+  console.log('3b · Sin Guardadas en modo-app');
+  const sembrar = (p) => p.addInitScript(([ca]) => {
+    localStorage.setItem('pev_' + ca + '_panel_hoja', 'guardadas');
+    localStorage.setItem('pev_' + ca + '_guardadas_v1', JSON.stringify([{ id: 'g1', nombre: 'Hora Santa jueves', tipo: 'horasanta', guardadaEn: 1, usadaEn: 1, datos: { tipo: 'horasanta' } }]));
+  }, [CA]);
+  const visible = (p, sel) => p.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el) return false;
+    for (let n = el; n; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+    }
+    return el.getBoundingClientRect().width > 0;
+  }, sel);
+
+  const ctx = await nuevoContexto();
+  const app = await abrir(ctx, `/${CA}/panel.html?modo=app`, 360, 640, sembrar);
+  await app.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+  await app.waitForTimeout(300);
+  for (const sel of ['#tab-guardadas', '#hoja-guardadas', '#sec-rapidas', '#guardar-esta']) igual(await visible(app, sel), false, 'modo-app: ' + sel + ' no se ve');
+  igual(await app.evaluate(() => document.getElementById('hoja-preparar').classList.contains('activa')), true, 'modo-app: con la hoja Guardadas recordada abre Preparar');
+  const medidas = await app.evaluate(() => {
+    const a = document.getElementById('tab-preparar').getBoundingClientRect();
+    const b = document.getElementById('tab-vivo').getBoundingClientRect();
+    const fila = document.querySelector('.pestanas').getBoundingClientRect();
+    return { a: a.width, b: b.width, total: b.right - a.left, fila: fila.width };
+  });
+  revisar(Math.abs(medidas.a - medidas.b) <= 1, 'modo-app: las dos pestañas miden lo mismo (' + medidas.a + ' y ' + medidas.b + ')');
+  revisar(Math.abs(medidas.total - medidas.fila) <= 2, 'modo-app: las dos pestañas llenan la fila (' + medidas.total + ' de ' + medidas.fila + ')');
+  await ctx.close();
+
+  const ctx2 = await nuevoContexto();
+  const pc = await abrir(ctx2, `/${CA}/panel.html`, 360, 640, sembrar);
+  await pc.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+  igual(await visible(pc, '#tab-guardadas'), true, 'en la PC la pestaña Guardadas se ve');
+  await ctx2.close();
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -2022,7 +2062,7 @@ async function casoFaltasIguales() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2063,6 +2103,7 @@ async function casoFaltasIguales() {
     await casoDisenoProduccion();
     await casoLineaBase();
     await casoFaltasIguales();
+    await casoModoAppSinGuardadas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
