@@ -135,3 +135,40 @@ describe('galería y las secciones de estilo (plan 4, Tarea 10)', () => {
     expect(deGaleria).toEqual([]);
   });
 });
+
+describe('agregar una imagen subida a la galería (revisión: «Cambiar» y «Subir imagen»)', () => {
+  it('usa la galería que se le pasa (la de después de subir) y el alt escrito', async () => {
+    const { agregarImagenSubida } = await import('../../lib/editor/galeria');
+    const r = agregarImagenSubida([img('img-x'), img('img-y')], { src: 'medios/n.png', alt: '  Fachada nueva ', etiqueta: 'fachada' }, azarQueDevuelve('abcdef'));
+    expect(r).toEqual({
+      id: 'img-abcdef',
+      galeria: [img('img-x'), img('img-y'), { id: 'img-abcdef', src: 'medios/n.png', alt: 'Fachada nueva', etiquetas: ['fachada'] }],
+    });
+  });
+
+  it('el nombre opcional va solo si se escribió', async () => {
+    const { agregarImagenSubida } = await import('../../lib/editor/galeria');
+    const r = agregarImagenSubida([], { src: 'medios/n.png', alt: 'Virgen', nombre: ' Virgen de la entrada ', etiqueta: 'santos' }, azarQueDevuelve('000001'));
+    expect('galeria' in r && r.galeria[0]).toEqual({ id: 'img-000001', src: 'medios/n.png', alt: 'Virgen', nombre: 'Virgen de la entrada', etiquetas: ['santos'] });
+  });
+
+  it('sin alt no agrega nada: el alt es obligatorio y no se inventa', async () => {
+    const { agregarImagenSubida } = await import('../../lib/editor/galeria');
+    const { MENSAJE_ALT_VACIO } = await import('../../lib/editor/imagen');
+    expect(agregarImagenSubida([img('img-x')], { src: 'medios/n.png', alt: '   ', etiqueta: 'santos' })).toEqual({ error: MENSAJE_ALT_VACIO });
+  });
+
+  it('con la galería llena no agrega nada', async () => {
+    const { agregarImagenSubida, MENSAJE_GALERIA_LLENA } = await import('../../lib/editor/galeria');
+    const llena = Array.from({ length: MAX_GALERIA }, (_, i) => img(`img-${i}`));
+    expect(agregarImagenSubida(llena, { src: 'medios/n.png', alt: 'Algo', etiqueta: 'santos' })).toEqual({ error: MENSAJE_GALERIA_LLENA });
+    expect(MENSAJE_GALERIA_LLENA).toBe('La galería ya tiene 30 imágenes. Borra una en Galería para subir otra.');
+  });
+
+  it('galeriaLlena dice si ya no cabe otra (se mira antes de subir: así no queda un archivo suelto)', async () => {
+    const { galeriaLlena } = await import('../../lib/editor/galeria');
+    expect(galeriaLlena(Array.from({ length: MAX_GALERIA - 1 }, (_, i) => img(`img-${i}`)))).toBe(false);
+    expect(galeriaLlena(Array.from({ length: MAX_GALERIA }, (_, i) => img(`img-${i}`)))).toBe(true);
+    expect(galeriaLlena(undefined)).toBe(false);
+  });
+});

@@ -53,6 +53,15 @@ export interface Guardador {
   hayCambiosSinGuardar(): boolean;
 }
 
+/**
+ * El bloque `b` ya está en el servidor como en el borrador: lo que se escribió en él quedó guardado.
+ * Mira el bloque y no el estado general: un «rechazado» por otro bloque retenido no impide salir, y un
+ * «pendiente» por un cambio que llegó mientras se guardaba tampoco. En conflicto, nunca.
+ */
+export function bloqueGuardado(i: InstantaneaGuardado, b: Bloque): boolean {
+  return i.estado !== 'conflicto' && iguales(i.base[b], i.local[b]);
+}
+
 type Remoto = { config: Record<string, unknown>; actualizadoEn: string };
 
 export function crearGuardador(

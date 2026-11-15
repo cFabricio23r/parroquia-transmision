@@ -1,7 +1,15 @@
 'use client';
-// «Subir imagen» (AB/VicEdGaleria): archivo, descripción, nombre (Decisión 2) y etiqueta.
-import { useId, useState } from 'react';
-import { erroresTextosImagen, ETIQUETAS_GALERIA, imagenesDe, MAX_TEXTO_IMAGEN, nuevoIdGaleria } from '../../../../../lib/editor/galeria';
+// «Subir imagen» (AB/VicEdGaleria): archivo, descripción, nombre (Decisión 2) y etiqueta. También lo
+// abre «Cambiar» en la imagen de un tipo (F8): la descripción es obligatoria igual.
+import { useId, useRef, useState } from 'react';
+import {
+  agregarImagenSubida,
+  erroresTextosImagen,
+  ETIQUETAS_GALERIA,
+  galeriaLlena,
+  MAX_TEXTO_IMAGEN,
+  MENSAJE_GALERIA_LLENA,
+} from '../../../../../lib/editor/galeria';
 import { subirImagen, TIPOS_IMAGEN } from '../../../../../lib/editor/imagen';
 import { Boton } from '../../../../componentes/Boton';
 import { CajaInfo } from '../../../../componentes/CajaInfo';
@@ -15,13 +23,27 @@ export const AYUDA_NOMBRE = 'Para reconocerla en las listas. Si lo dejas vacío,
 export const NOTA_EXIF = 'Al subirla se le quitan los datos ocultos de la foto, como la ubicación (GPS).';
 export const MENSAJE_SIN_ARCHIVO = 'Elige un archivo.';
 
-export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
+export function DialogoSubir({
+  abierto,
+  onCerrar,
+  etiquetaInicial = 'patrono',
+  alSubir,
+}: {
+  abierto: boolean;
+  onCerrar: () => void;
+  etiquetaInicial?: string;
+  /** Después de agregarla a la galería, con su id (por ejemplo, para que el tipo la use). */
+  alSubir?: (id: string) => void;
+}) {
   const { datos, borrador, cambiar, agregarUrl, guardarYa } = useBorrador();
+  // La subida tarda: al terminar se agrega a la galería de ese momento, no a la de antes de subir.
+  const galeria = useRef(borrador.galeria);
+  galeria.current = borrador.galeria;
   const idArchivo = useId();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [alt, setAlt] = useState('');
   const [nombre, setNombre] = useState('');
-  const [etiqueta, setEtiqueta] = useState<string>('patrono');
+  const [etiqueta, setEtiqueta] = useState<string>(etiquetaInicial);
   const [errores, setErrores] = useState<{ archivo?: string; alt?: string; nombre?: string; servidor?: string }>({});
   const [ocupado, setOcupado] = useState(false);
 
@@ -29,7 +51,7 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
     setArchivo(null);
     setAlt('');
     setNombre('');
-    setEtiqueta('patrono');
+    setEtiqueta(etiquetaInicial);
     setErrores({});
   };
   const cerrar = () => {
@@ -43,6 +65,8 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
     const nuevos = { archivo: archivo ? undefined : MENSAJE_SIN_ARCHIVO, ...erroresTextosImagen({ alt, nombre }) };
     setErrores(nuevos);
     if (nuevos.archivo || nuevos.alt || nuevos.nombre || !archivo) return;
+    // Con la galería llena no se sube: el archivo quedaría suelto en Storage.
+    if (galeriaLlena(galeria.current)) return setErrores({ servidor: MENSAJE_GALERIA_LLENA });
     setOcupado(true);
     const r = await subirImagen(datos.slug, 'galeria', archivo);
     setOcupado(false);
@@ -51,18 +75,14 @@ export function DialogoSubir({ abierto, onCerrar }: { abierto: boolean; onCerrar
       return;
     }
     agregarUrl(r.src, r.url);
-    const actual = Array.isArray(borrador.galeria) ? borrador.galeria : [];
-    cambiar('galeria', [
-      ...actual,
-      {
-        id: nuevoIdGaleria(imagenesDe(actual).map((i) => i.id)),
-        src: r.src,
-        alt: alt.trim(),
-        ...(nombre.trim() ? { nombre: nombre.trim() } : {}),
-        etiquetas: [etiqueta],
-      },
-    ]);
+    const nueva = agregarImagenSubida(galeria.current, { src: r.src, alt, nombre, etiqueta });
+    if ('error' in nueva) {
+      setErrores({ servidor: nueva.error });
+      return;
+    }
+    cambiar('galeria', nueva.galeria);
     void guardarYa();
+    alSubir?.(nueva.id);
     limpiar();
     onCerrar();
   };

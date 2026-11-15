@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { bloqueGuardado } from '../../../../../../lib/editor/guardado';
 import { hrefSeccion } from '../../../../../../lib/editor/secciones';
 import {
   aplicarTipo,
@@ -14,6 +15,7 @@ import {
   formularioDeTipo,
   puedeBorrarPropio,
   quitarAjustes,
+  textoNoSeBorroTipo,
   type ErroresTipo,
   type FormularioTipo,
   type Portada,
@@ -42,7 +44,7 @@ interface Recuerdo {
 }
 
 export function SeccionTipoEditar({ clave }: { clave: string }) {
-  const { datos, borrador, cambiar, guardarYa, formularios, recordarFormulario, ponerVistaPreviaExtra } = useBorrador();
+  const { datos, borrador, cambiar, guardarYa, guardadoAhora, formularios, recordarFormulario, ponerVistaPreviaExtra } = useBorrador();
   useNotaVistaPrevia(NOTA_VISTA_PREVIA_TIPO, 'tipo');
   const router = useRouter();
   const base = hrefSeccion(datos.slug, 'tipos');
@@ -119,7 +121,9 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
     cambiar('tipos', aplicarTipo(tipos, f, datos.tiposComunes, clavesPropias).tipos);
     await guardarYa();
     setGuardando(false);
-    salir();
+    // Solo se sale si el tipo quedó guardado. Si no (sin conexión, rechazado, conflicto…), se queda
+    // aquí con lo escrito y el aviso del guardado dice qué pasó y cómo seguir (revisión).
+    if (bloqueGuardado(guardadoAhora(), 'tipos')) salir();
   };
 
   const volver = () => {
@@ -134,9 +138,15 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
 
   const borrar = async () => {
     setConfirmar(null);
+    const antes = tipos;
     cambiar('tipos', borrarPropio(tipos, f.id));
     await guardarYa();
-    salir();
+    const ahora = guardadoAhora();
+    if (bloqueGuardado(ahora, 'tipos')) return salir();
+    // El borrado no llegó: el tipo vuelve al borrador (si no, se borraría solo más tarde, con esta
+    // página abierta) y se dice por qué, aquí mismo (revisión).
+    cambiar('tipos', antes);
+    setErrores({ general: textoNoSeBorroTipo(ahora.estado) });
   };
 
   return (
@@ -185,7 +195,6 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
         etiqueta="Imagen"
         valor={f.imagen}
         textoSinValor={comun ? 'La de siempre' : 'Imagen del patrono'}
-        altAlSubir={f.nombre.trim() ? `Imagen de ${f.nombre.trim()}` : undefined}
         onCambiar={(v) => poner1('imagen', v)}
       />
       {!comun && <Segmentado etiqueta="Portada" opciones={OPCIONES_PORTADA} valor={f.portada} onCambiar={(v) => poner1('portada', v)} />}

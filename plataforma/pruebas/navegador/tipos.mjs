@@ -211,9 +211,29 @@ try {
   console.log('F8 · Cambiar');
   await pn.goto(`${BASE}/editor/p/${N.slug}/tipos/nuevo`);
   await pn.getByLabel('Nombre', { exact: true }).fill('Con foto');
-  await pn.locator('input[type=file][data-campo="galeria"]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: PNG });
+  // Revisión: la imagen nueva llevaba el alt de la anterior o uno inventado. «Cambiar» abre «Subir
+  // imagen» y la descripción la escribe la persona, como en la Galería.
+  const subidasCambiar = [];
+  pn.on('request', (r) => r.method() === 'POST' && r.url().includes('/imagen') && subidasCambiar.push(r.url()));
+  await pn.getByRole('group', { name: 'Imagen' }).getByRole('button', { name: 'Cambiar' }).click();
+  const dialogoCambiar = pn.getByRole('dialog', { name: 'Subir imagen' });
+  await dialogoCambiar.waitFor();
+  await dialogoCambiar.locator('input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: PNG });
+  await dialogoCambiar.getByRole('button', { name: 'Subir' }).click();
+  revisar(await dialogoCambiar.getByText('Escribe la descripción.').isVisible(), 'sin descripción, «Subir» pide «Escribe la descripción.»');
+  igual(subidasCambiar.length, 0, 'y no sube nada');
+  igual(await dialogoCambiar.getByLabel('Etiqueta').inputValue(), 'santos', 'la etiqueta empieza en «Santos»');
+  await dialogoCambiar.getByLabel('Descripción (alt)').fill('Foto de la procesión con la imagen de San José');
+  await dialogoCambiar.getByRole('button', { name: 'Subir' }).click();
+  await dialogoCambiar.waitFor({ state: 'hidden', timeout: 15_000 });
   const cg = await esperarEnBase(N.id, (c) => c.galeria?.length === 2, 15_000);
   igual(cg.galeria?.length, 2, '«Cambiar» agregó la imagen a la galería de la base');
+  igual(cg.galeria?.[1]?.alt, 'Foto de la procesión con la imagen de San José', 'con la descripción escrita para ella');
+  igual(
+    await pn.getByLabel('Descripción para lectores de pantalla (alt)').inputValue(),
+    'Foto de la procesión con la imagen de San José',
+    'y el tipo queda con la imagen nueva',
+  );
   await pn.getByRole('button', { name: 'Cancelar' }).click();
   await pn.waitForURL(`${BASE}/editor/p/${N.slug}/tipos`);
   await pn.waitForTimeout(1200);
@@ -269,12 +289,31 @@ try {
   await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
   igual(await pv.locator('h1').innerText(), 'Rosario de la aurora', 'el título es el nombre guardado');
   await pv.getByLabel('Nombre en el panel', { exact: true }).fill('Aurora');
+  // Revisión: «Guardar tipo» salía a la lista aunque el guardado fallara. Sin conexión, se queda.
+  await pv.route('**/borrador', (r) => (r.request().method() === 'PUT' ? r.abort() : r.continue()));
+  await pv.getByRole('button', { name: 'Guardar tipo' }).click();
+  await pv.getByText('Sin conexión').first().waitFor({ timeout: 5000 });
+  revisar(pv.url().endsWith('/tipos/rosario-aurora'), 'sin conexión, «Guardar tipo» no sale de la página');
+  igual(await pv.getByLabel('Nombre en el panel', { exact: true }).inputValue(), 'Aurora', 'y lo escrito sigue ahí');
+  igual((await leerConfig(V.id)).tipos?.propios?.[0]?.nombrePanel, undefined, 'la base no cambió');
+  await pv.unroute('**/borrador');
   await pv.getByRole('button', { name: 'Guardar tipo' }).click();
   await pv.waitForURL(`${BASE}/editor/p/${V.slug}/tipos`);
   const cv = await esperarEnBase(V.id, (c) => c.tipos?.propios?.[0]?.nombrePanel === 'Aurora');
   igual(cv.tipos?.propios?.[0]?.titulo, 'MISA X', 'guardar conserva el titulo');
   igual(JSON.stringify(cv.tipos?.propios?.[0]?.rotulos), JSON.stringify(['evangelio', 'persona']), 'y conserva los rótulos sin tocarlos ni reordenarlos');
   await pv.goto(`${BASE}/editor/p/${V.slug}/tipos/rosario-aurora`);
+  // Sin conexión, «Sí, borrar» tampoco sale: el tipo sigue y se dice por qué.
+  await pv.route('**/borrador', (r) => (r.request().method() === 'PUT' ? r.abort() : r.continue()));
+  await pv.getByRole('button', { name: 'Borrar tipo' }).click();
+  await pv.getByRole('dialog').getByRole('button', { name: 'Sí, borrar' }).click();
+  await pv.getByText('No se pudo borrar el tipo. Revisa tu conexión y vuelve a intentarlo.').waitFor({ timeout: 5000 });
+  revisar(pv.url().endsWith('/tipos/rosario-aurora'), 'sin conexión, «Sí, borrar» no sale de la página');
+  await pv.waitForTimeout(1500);
+  revisar(!!(await leerConfig(V.id)).tipos?.propios?.length, 'y el tipo sigue en la base');
+  await pv.unroute('**/borrador');
+  await pv.waitForTimeout(1500);
+  revisar(!!(await leerConfig(V.id)).tipos?.propios?.length, 'al volver la conexión, el borrado fallido no sale solo');
   await pv.getByRole('button', { name: 'Borrar tipo' }).click();
   igual(
     await pv.getByRole('dialog').locator('.pv-dialogo-texto').innerText(),

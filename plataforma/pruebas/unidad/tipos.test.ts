@@ -234,3 +234,14 @@ describe('formulario y aplicar', () => {
     expect(quitarAjustes(congelar({ ajustes: { horasanta: {} } }), ['horasanta'])).toBeUndefined();
   });
 });
+
+describe('«Borrar tipo» que no se pudo guardar (revisión)', () => {
+  it('el texto dice qué pasó, según el estado del guardado', async () => {
+    const { textoNoSeBorroTipo } = await import('../../lib/editor/tipos');
+    expect(textoNoSeBorroTipo('sin-conexion')).toBe('No se pudo borrar el tipo. Revisa tu conexión y vuelve a intentarlo.');
+    expect(textoNoSeBorroTipo('sesion-cerrada')).toBe('No se pudo borrar el tipo: tu sesión se cerró. Entra de nuevo y vuelve a intentarlo.');
+    expect(textoNoSeBorroTipo('conflicto')).toBe('No se pudo borrar el tipo: otra persona cambió el borrador mientras editabas. Vuelve a intentarlo.');
+    expect(textoNoSeBorroTipo('error')).toBe('No se pudo borrar el tipo. Intenta de nuevo.');
+    expect(textoNoSeBorroTipo('rechazado')).toBe('No se pudo borrar el tipo. Intenta de nuevo.');
+  });
+});

@@ -52,6 +52,8 @@ export interface ContextoBorrador {
   cambiar(b: Bloque, v: unknown): void;
   cambiarVarios(c: Partial<Record<Bloque, unknown>>): void;
   guardarYa(): Promise<EstadoGuardado>;
+  /** La foto del guardado en este momento (después de un `await guardarYa()`, la de ahora y no la del render). */
+  guardadoAhora(): InstantaneaGuardado;
   usarLoMio(): void;
   verLoSuyo(): void;
   urls: Record<string, string>;
@@ -177,6 +179,7 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
     cambiar: (b, v) => g.cambiar(b, v),
     cambiarVarios: (c) => g.cambiarVarios(c),
     guardarYa: () => g.guardarYa(),
+    guardadoAhora: () => g.instantanea(),
     usarLoMio: () => g.usarLoMio(),
     verLoSuyo: () => g.verLoSuyo(),
     urls,

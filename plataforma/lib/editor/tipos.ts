@@ -325,3 +325,11 @@ export function quitarAjustes(tipos: unknown, claves: string[]): Objeto | undefi
   else delete t.ajustes;
   return limpiarTipos(t);
 }
+
+/** El aviso de «Borrar tipo» cuando el borrado no llegó al servidor (el tipo vuelve a estar). */
+export function textoNoSeBorroTipo(estado: string): string {
+  if (estado === 'sin-conexion') return 'No se pudo borrar el tipo. Revisa tu conexión y vuelve a intentarlo.';
+  if (estado === 'sesion-cerrada') return 'No se pudo borrar el tipo: tu sesión se cerró. Entra de nuevo y vuelve a intentarlo.';
+  if (estado === 'conflicto') return 'No se pudo borrar el tipo: otra persona cambió el borrador mientras editabas. Vuelve a intentarlo.';
+  return 'No se pudo borrar el tipo. Intenta de nuevo.';
+}

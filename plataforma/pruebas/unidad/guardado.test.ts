@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  bloqueGuardado,
   crearGuardador,
   ESPERA_GUARDADO_MS,
   type DepsGuardador,
@@ -370,5 +371,56 @@ describe('un bloque rechazado (422) no frena el guardado de los demás', () => {
     expect(await g.guardarYa()).toBe('rechazado');
     expect(f.envios).toHaveLength(1);
     expect(g.instantanea().erroresForma).toEqual(['El nombre corto (nombreCorto) está vacío.']);
+  });
+});
+
+describe('bloqueGuardado: si un bloque quedó en el servidor (revisión, F8 «Guardar tipo»)', () => {
+  const tipos = { propios: [{ clave: 'x', nombre: 'X' }] };
+
+  it('guardado: sí', async () => {
+    const f = falsas({ auto: () => ok('t2') });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('tipos', tipos);
+    expect(bloqueGuardado(g.instantanea(), 'tipos')).toBe(false);
+    await g.guardarYa();
+    expect(bloqueGuardado(g.instantanea(), 'tipos')).toBe(true);
+  });
+
+  it('sin conexión, error o sesión cerrada: no', async () => {
+    for (const r of [{ estado: 503, cuerpo: {} }, { estado: 500, cuerpo: {} }, { estado: 401, cuerpo: {} }]) {
+      const f = falsas({ auto: () => r });
+      const g = crearGuardador(inicial, f.deps);
+      g.cambiar('tipos', tipos);
+      await g.guardarYa();
+      expect(bloqueGuardado(g.instantanea(), 'tipos')).toBe(false);
+    }
+  });
+
+  it('rechazado por el mismo bloque: no; rechazado por otro bloque retenido: sí', async () => {
+    const rechazo = (errores: string[]): RespuestaHttp => ({ estado: 422, cuerpo: { error: 'Forma', errores } });
+    const f1 = falsas({ auto: () => rechazo(['Un tipo no tiene nombre (tipos.propios[0].nombre).']) });
+    const g1 = crearGuardador(inicial, f1.deps);
+    g1.cambiar('tipos', tipos);
+    expect(await g1.guardarYa()).toBe('rechazado');
+    expect(bloqueGuardado(g1.instantanea(), 'tipos')).toBe(false);
+
+    const f2 = falsas({ auto: (c) => ('nombreCorto' in c.cambios ? rechazo(['El nombre corto (nombreCorto) está vacío.']) : ok('t2')) });
+    const g2 = crearGuardador(inicial, f2.deps);
+    g2.cambiar('nombreCorto', ' ');
+    await vi.advanceTimersByTimeAsync(800);
+    g2.cambiar('tipos', tipos);
+    expect(await g2.guardarYa()).toBe('rechazado');
+    expect(bloqueGuardado(g2.instantanea(), 'tipos')).toBe(true);
+  });
+
+  it('en conflicto: no', async () => {
+    const f = falsas({
+      auto: () => ({ estado: 409, cuerpo: {} }),
+      leer: () => ({ estado: 200, cuerpo: { config: { ...inicial.config, tipos: { apagados: ['horasanta'] } }, actualizadoEn: 't9' } }),
+    });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('tipos', tipos);
+    expect(await g.guardarYa()).toBe('conflicto');
+    expect(bloqueGuardado(g.instantanea(), 'tipos')).toBe(false);
   });
 });

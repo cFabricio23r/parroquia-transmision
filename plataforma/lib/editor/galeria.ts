@@ -160,3 +160,35 @@ export function erroresTextosImagen({ alt, nombre }: { alt: string; nombre: stri
   if (nombre.trim().length > MAX_TEXTO_IMAGEN) e.nombre = MENSAJE_LARGO;
   return e;
 }
+
+export const MENSAJE_GALERIA_LLENA = `La galería ya tiene ${MAX_GALERIA} imágenes. Borra una en Galería para subir otra.`;
+
+/** Ya no cabe otra imagen. Se mira antes de subir el archivo: así no queda un archivo suelto en Storage. */
+export function galeriaLlena(galeria: unknown): boolean {
+  return imagenesDe(galeria).length >= MAX_GALERIA;
+}
+
+/**
+ * La galería con una imagen recién subida al final («Subir imagen» y «Cambiar» del tipo). Recibe la
+ * galería de después de subir (no la de antes: mientras subía pudo cambiar) y el alt escrito por la
+ * persona: el alt es obligatorio y describe esta imagen, así que nunca se inventa ni se copia de otra.
+ */
+export function agregarImagenSubida(
+  galeria: unknown,
+  datos: { src: string; alt: string; nombre?: string; etiqueta: string },
+  azar?: () => string,
+): { galeria: unknown[]; id: string } | { error: string } {
+  const e = erroresTextosImagen({ alt: datos.alt, nombre: datos.nombre ?? '' });
+  if (e.alt || e.nombre) return { error: (e.alt ?? e.nombre) as string };
+  if (galeriaLlena(galeria)) return { error: MENSAJE_GALERIA_LLENA };
+  const actual = Array.isArray(galeria) ? galeria : [];
+  const id = nuevoIdGaleria(
+    imagenesDe(actual).map((x) => x.id),
+    azar,
+  );
+  const nombre = (datos.nombre ?? '').trim();
+  return {
+    id,
+    galeria: [...actual, { id, src: datos.src, alt: datos.alt.trim(), ...(nombre ? { nombre } : {}), etiquetas: [datos.etiqueta] }],
+  };
+}
