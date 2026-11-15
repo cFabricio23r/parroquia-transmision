@@ -1,5 +1,8 @@
+import type { Metadata } from 'next';
+import { cache } from 'react';
 import { consultarInvitacion } from '../../../lib/admin';
 import { formatearDiaMes } from '../../../lib/fecha';
+import { tituloInvitacion } from '../../../lib/mensajes-acceso';
 import { clienteServicio } from '../../../lib/supabase/servicio';
 import { clienteServidor } from '../../../lib/supabase/servidor';
 import { Boton } from '../../componentes/Boton';
@@ -9,26 +12,43 @@ import { MensajeEstado } from '../../componentes/MensajeEstado';
 import { TarjetaAcceso } from '../../componentes/TarjetaAcceso';
 import { FormInvitacion } from './FormInvitacion';
 
-export const metadata = { title: 'Te invitaron a coordinar · Parroquia en Vivo', referrer: 'no-referrer' };
 export const dynamic = 'force-dynamic';
 
+type Props = { searchParams: Promise<{ token?: string | string[] }> };
+
+const leerToken = async (searchParams: Props['searchParams']) => {
+  const { token } = await searchParams;
+  return typeof token === 'string' ? token : '';
+};
+
+// Una sola consulta por pedido: la usan generateMetadata y la página.
+const consultar = cache(async (token: string) =>
+  consultarInvitacion({ servicio: clienteServicio(), sesion: await clienteServidor() }, token),
+);
+
+/** El título de la pestaña es el mismo texto que el h1 (vigente según el rol, vencida o que ya no sirve). */
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const inv = await consultar(await leerToken(searchParams));
+  return { title: `${tituloInvitacion(inv)} · Parroquia en Vivo`, referrer: 'no-referrer' };
+}
+
 /** A2 · Invitación (AB/VicAccesoInvitacion). */
-export default async function Invitacion({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
-  const { token: crudo } = await searchParams;
-  const token = typeof crudo === 'string' ? crudo : '';
-  const inv = await consultarInvitacion({ servicio: clienteServicio(), sesion: await clienteServidor() }, token);
+export default async function Invitacion({ searchParams }: Props) {
+  const token = await leerToken(searchParams);
+  const inv = await consultar(token);
 
   if (inv.estado !== 'vigente') {
     return (
       <MarcoAcceso>
         <TarjetaAcceso ancho={480} separacion={12}>
           {inv.estado === 'vencida' ? (
-            <MensajeEstado codigo="invitacion-vencida" incrustado rol="alert" />
+            <MensajeEstado codigo="invitacion-vencida" incrustado rol="alert" nivel={1} />
           ) : (
             // Ronda 2: quien ya creó su cuenta y vuelve a abrir el correo cae aquí; tiene que poder entrar.
             <MensajeEstado
               codigo="invitacion-no-sirve"
               incrustado
+              nivel={1}
               rol="alert"
               accion={
                 <Boton variante="secundario" href="/editor/entrar">
@@ -43,7 +63,7 @@ export default async function Invitacion({ searchParams }: { searchParams: Promi
   }
 
   const esAdmin = inv.rol === 'administrador';
-  const titulo = esAdmin ? 'Te invitaron a administrar' : 'Te invitaron a coordinar';
+  const titulo = tituloInvitacion(inv);
   const texto = esAdmin ? (
     <>La Pastoral de Comunicaciones te invitó a administrar la plataforma.</>
   ) : (

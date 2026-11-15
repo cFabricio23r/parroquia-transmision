@@ -151,9 +151,18 @@ button.pv-enlace {
 .pv-campo--compacto .pv-campo-control { min-height: 40px; padding: 0 12px; font-size: 14px; }
 
 .pv-campo-clave { display: flex; flex-direction: column; gap: 6px; }
-.pv-mostrar-clave { align-self: flex-start; text-decoration: none; }
-/* El botón va 6 px debajo del campo (gap): la zona de toque arranca justo ahí y crece hacia abajo, sin tapar el campo. */
-.pv-mostrar-clave::after { top: -6px; height: 44px; transform: none; }
+/* La zona de toque de 44 px es el propio botón (revisión fix2): un ::after de 44 px se metía en la
+   etiqueta del campo siguiente. Arranca justo bajo el campo (se come el gap de 6 px) y el texto queda
+   centrado; así ni tapa el campo ni la etiqueta que sigue. */
+.pv-mostrar-clave {
+  align-self: flex-start;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: -6px;
+}
+.pv-mostrar-clave::after { content: none; }
 
 /* ---- Requisitos de la contraseña ---- */
 .pv-requisitos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }

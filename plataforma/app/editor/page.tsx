@@ -30,6 +30,7 @@ export default async function ElegirParroquia() {
           <MensajeEstado
             codigo="no-se-pudo-cargar"
             rol="alert"
+            nivel={1}
             accion={
               <Boton variante="secundario" href="/editor">
                 Volver a intentar
@@ -50,6 +51,7 @@ export default async function ElegirParroquia() {
           <MensajeEstado
             codigo="sin-parroquia"
             rol="alert"
+            nivel={1}
             accion={
               <form action={salir}>
                 <Boton variante="secundario" type="submit">
@@ -67,7 +69,9 @@ export default async function ElegirParroquia() {
     <MarcoPagina usuario={usuario}>
       <main className="pv-elegir">
         <h1 className="pv-elegir-titulo">¿Qué vas a editar?</h1>
-        <p className="pv-elegir-texto">Ves solo las parroquias que te asignaron.</p>
+        <p className="pv-elegir-texto">
+          {u.esAdmin ? 'Como administrador, ves todas las parroquias.' : 'Ves solo las parroquias que te asignaron.'}
+        </p>
         <Tarjeta>
           {parroquias.length ? (
             <ul className="pv-elegir-lista">

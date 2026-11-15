@@ -70,7 +70,8 @@ export async function entrar(pagina, correo) {
   await pagina.getByLabel('Correo').fill(correo);
   await pagina.getByLabel('Contraseña', { exact: true }).fill(CLAVE);
   await pagina.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await pagina.waitForURL((url) => !url.pathname.startsWith('/editor/entrar'), { timeout: 15_000 });
+  // 60 s: la base local compartida junta cientos de parroquias de pruebas viejas y C1 de un admin tarda.
+  await pagina.waitForURL((url) => !url.pathname.startsWith('/editor/entrar'), { timeout: 60_000 });
 }
 
 export const leerConfig = async (id) => (await servicio.from('borradores').select('config').eq('parroquia_id', id).single()).data.config;

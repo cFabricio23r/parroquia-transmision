@@ -56,6 +56,13 @@ async function crearUsuario(correo) {
 const fondo = (loc) => loc.evaluate((e) => getComputedStyle(e).backgroundColor);
 const enMain = (p) => p.locator('main');
 
+const unH1 = async (pag, texto, msg) => {
+  const h1 = pag.locator('h1');
+  igual(await h1.count(), 1, `${msg}: un solo h1`);
+  igual((await h1.first().textContent())?.trim(), texto, `${msg}: h1 «${texto}»`);
+  igual(await pag.title(), `${texto} · Parroquia en Vivo`, `${msg}: el título de la pestaña es el del h1`);
+};
+
 const navegador = await chromium.launch();
 try {
   const p = await crearParroquia();
@@ -129,6 +136,7 @@ try {
   const vencida = await crearInvitacion(`vencida-${sufijo()}@prueba.test`, p.id, { vence_en: new Date(Date.now() - 60_000).toISOString() });
   await p2.goto(`${BASE}/editor/invitacion?token=${vencida}`);
   revisar((await enMain(p2).getByRole('alert').textContent()).includes('Invitación vencida'), 'vencida: «Invitación vencida»');
+  await unH1(p2, 'Invitación vencida', 'vencida');
   const usada = await crearInvitacion(`usada-${sufijo()}@prueba.test`, p.id, {
     usada_en: new Date().toISOString(),
     vence_en: new Date(Date.now() - 60_000).toISOString(),
@@ -136,6 +144,19 @@ try {
   await p2.goto(`${BASE}/editor/invitacion?token=${usada}`);
   revisar((await enMain(p2).getByRole('alert').textContent()).includes('Invitación que ya no sirve'), 'usada y vencida: «Invitación que ya no sirve»');
   revisar((await enMain(p2).getByRole('link', { name: 'Ir a entrar' }).getAttribute('href')) === '/editor/entrar', 'usada: «Ir a entrar» lleva a entrar');
+  await unH1(p2, 'Invitación que ya no sirve', 'usada');
+  await p2.goto(`${BASE}/editor/invitacion`);
+  await unH1(p2, 'Invitación que ya no sirve', 'sin token');
+
+  // ---------------- invitación de administrador ----------------
+  console.log('A2 · invitación de administrador');
+  const tAdmin = await crearInvitacion(`invitado-admin-${sufijo()}@prueba.test`, null, { rol: 'administrador' });
+  try {
+    await p2.goto(`${BASE}/editor/invitacion?token=${tAdmin}`);
+    await unH1(p2, 'Te invitaron a administrar', 'administrador');
+  } finally {
+    await servicio.from('invitaciones').delete().eq('token_hash', createHash('sha256').update(tAdmin).digest('hex'));
+  }
 
   // ---------------- cuenta existente sin sesión ----------------
   console.log('A2 · cuenta existente');

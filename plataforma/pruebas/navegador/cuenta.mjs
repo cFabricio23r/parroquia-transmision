@@ -44,7 +44,8 @@ async function entrar(pagina, correo, clave = CLAVE) {
   await pagina.getByLabel('Correo').fill(correo);
   await pagina.getByLabel('Contraseña', { exact: true }).fill(clave);
   await pagina.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await pagina.waitForURL((url) => !url.pathname.startsWith('/editor/entrar'), { timeout: 15_000 });
+  // 60 s: la base local compartida junta cientos de parroquias de pruebas viejas y C1 de un admin tarda.
+  await pagina.waitForURL((url) => !url.pathname.startsWith('/editor/entrar'), { timeout: 60_000 });
 }
 const estilo = (loc, prop) => loc.evaluate((e, p) => getComputedStyle(e).getPropertyValue(p), prop);
 const nuevaPagina = async () => (await navegador.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
@@ -121,8 +122,13 @@ try {
   const q = await nuevaPagina();
   await entrar(q, dos.correo);
   igual(new URL(q.url()).pathname, '/editor', 'con dos parroquias se queda en /editor');
+  // Se llega por la redirección de la acción de entrar (navegación del cliente): la URL cambia antes de que
+  // React ponga el <title> nuevo, y justo en ese instante document.title está vacío. Se espera a que haya
+  // título (máximo 10 s) y recién ahí se compara el texto exacto.
+  await q.waitForFunction(() => document.title !== '', null, { timeout: 10_000 }).catch(() => {});
   igual(await q.title(), '¿Qué vas a editar? · Parroquia en Vivo', 'título de la pestaña');
   igual(await estilo(q.locator('h1'), 'font-size'), '26px', 'h1 de 26 px');
+  igual((await q.locator('.pv-elegir-texto').textContent())?.trim(), 'Ves solo las parroquias que te asignaron.', 'un coordinador lee «Ves solo las parroquias que te asignaron.»');
   const filaA = q.locator('li', { hasText: A.nombre });
   const filaB = q.locator('li', { hasText: B.nombre });
   const chipA = filaA.locator('.pv-chip');
@@ -151,6 +157,8 @@ try {
   const alerta = s.locator('main').getByRole('alert');
   await alerta.waitFor();
   revisar((await alerta.textContent()).includes('Sin parroquia asignada'), 'sin parroquias: «Sin parroquia asignada»');
+  igual(await s.locator('h1').count(), 1, 'sin parroquias: un solo h1');
+  igual((await s.locator('h1').first().textContent())?.trim(), 'Sin parroquia asignada', 'sin parroquias: el h1 es el título del mensaje');
   await s.getByRole('button', { name: 'Cerrar sesión' }).click();
   await s.waitForURL(`${BASE}/editor/entrar`);
   revisar(true, '«Cerrar sesión» lo saca');
@@ -162,6 +170,11 @@ try {
   await entrar(t, admin.correo);
   igual(await t.locator('main').getByRole('alert').count(), 0, 'un admin sin membresías no ve «Sin parroquia asignada»');
   revisar(await t.getByRole('link', { name: 'Administrar parroquias' }).isVisible(), 'y tiene «Administrar parroquias»');
+  igual(
+    (await t.locator('.pv-elegir-texto').textContent())?.trim(),
+    'Como administrador, ves todas las parroquias.',
+    'un admin lee que ve todas las parroquias (no «las que te asignaron»)',
+  );
   await t.context().close();
 } catch (e) {
   console.error(e);

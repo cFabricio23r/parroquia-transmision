@@ -95,3 +95,13 @@ export const COLOR_TONO: Record<TonoMensaje, string> = {
   gris: '#4a5568',
   azul: '#1155a4',
 };
+
+/**
+ * Título de la página de la invitación (A2), el mismo texto que su h1: el de la invitación vigente
+ * según el rol, o el del mensaje A5 cuando venció o ya no sirve (revisión fix2).
+ */
+export function tituloInvitacion(c: { estado: 'vencida' } | { estado: 'no-sirve' } | { estado: 'vigente'; rol: string }): string {
+  if (c.estado === 'vencida') return MENSAJES_ACCESO['invitacion-vencida'].titulo;
+  if (c.estado === 'no-sirve') return MENSAJES_ACCESO['invitacion-no-sirve'].titulo;
+  return c.rol === 'administrador' ? 'Te invitaron a administrar' : 'Te invitaron a coordinar';
+}

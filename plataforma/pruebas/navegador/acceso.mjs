@@ -33,6 +33,42 @@ const estilo = (loc, props) =>
     return Object.fromEntries(p.map((k) => [k, s.getPropertyValue(k)]));
   }, props);
 
+// Ancho de borde escrito en la hoja de estilos (la última regla que aplica al elemento). Chromium
+// redondea el ancho calculado a píxeles enteros (1.5px sale «1px» en getComputedStyle), así que el
+// valor del artboard se compara contra lo declarado. Con var() en el atajo `border`, el navegador no
+// separa los largos: se lee la primera medida del atajo.
+const bordeDeclarado = (loc) =>
+  loc.evaluate((e) => {
+    let valor = '';
+    for (const hoja of document.styleSheets) {
+      let reglas;
+      try {
+        reglas = hoja.cssRules;
+      } catch {
+        continue;
+      }
+      for (const r of reglas) {
+        if (!(r instanceof CSSStyleRule)) continue;
+        const v =
+          r.style.getPropertyValue('border-top-width') ||
+          (r.style.getPropertyValue('border') || r.style.getPropertyValue('border-width')).match(/(^|\s)(\d*\.?\d+px)/)?.[2] ||
+          '';
+        if (!v) continue;
+        try {
+          if (e.matches(r.selectorText)) valor = v;
+        } catch {
+          // selector con pseudoelemento: no aplica al elemento
+        }
+      }
+    }
+    return valor;
+  });
+const unH1 = async (p, texto, msg) => {
+  const h1 = p.locator('h1');
+  igual(await h1.count(), 1, `${msg}: un solo h1`);
+  igual((await h1.first().textContent())?.trim(), texto, `${msg}: h1 «${texto}»`);
+};
+
 const navegador = await chromium.launch();
 try {
   const contexto = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
@@ -73,7 +109,7 @@ try {
   igual(eh['font-weight'], '800', 'h1 en 800');
   const correoInput = pagina.getByLabel('Correo');
   revisar((await correoInput.boundingBox()).height >= 44, 'campo de al menos 44 px');
-  igual((await estilo(correoInput, ['border-top-width']))['border-top-width'], '1.5px', 'borde del campo de 1.5 px');
+  igual(await bordeDeclarado(correoInput), '1.5px', 'borde del campo de 1.5 px (declarado, como el artboard)');
   igual(
     (await estilo(pagina.getByRole('button', { name: 'Entrar', exact: true }), ['background-color']))['background-color'],
     'rgb(17, 85, 164)',
@@ -130,6 +166,8 @@ try {
   const vencido = pagina.locator('main').getByRole('alert');
   await vencido.waitFor();
   revisar((await vencido.textContent()).includes('Enlace vencido o usado'), '?error=enlace: «Enlace vencido o usado»');
+  await unH1(pagina, 'Enlace vencido o usado', '?error=enlace');
+  igual(await pagina.title(), 'Enlace vencido o usado · Parroquia en Vivo', '?error=enlace: el título de la pestaña es el del h1');
   await pagina.getByRole('link', { name: 'Pedir otro enlace' }).click();
   await pagina.getByRole('button', { name: 'Enviar enlace' }).waitFor();
   igual(new URL(pagina.url()).search, '', '«Pedir otro enlace» lleva al formulario');
@@ -147,6 +185,22 @@ try {
   await pagina.waitForURL(`${BASE}/editor/nueva-contrasena`);
   igual(await pagina.title(), 'Crea una contraseña nueva · Parroquia en Vivo', 'título de la pestaña');
   igual((await pagina.locator('p.pv-texto-acceso').first().textContent()), `Para ${r.correo}.`, '«Para {correo}.»');
+  const mostrarNueva = pagina.getByRole('button', { name: 'Mostrar contraseña nueva', exact: true });
+  const mostrarRepetida = pagina.getByRole('button', { name: 'Mostrar contraseña repetida', exact: true });
+  revisar(await mostrarNueva.isVisible(), '«Mostrar contraseña nueva» con su propio nombre');
+  revisar(await mostrarRepetida.isVisible(), '«Mostrar contraseña repetida» con su propio nombre');
+  // La zona de toque (el botón o su ::after) mide 44 px y no se mete en la etiqueta del campo siguiente.
+  const zona = await mostrarNueva.evaluate((e) => {
+    const b = e.getBoundingClientRect();
+    const a = getComputedStyle(e, '::after');
+    const conAfter = a.content !== 'none' && a.position === 'absolute';
+    const top = conAfter ? b.top + parseFloat(a.top) : b.top;
+    const alto = conAfter ? parseFloat(a.height) : b.height;
+    return { alto, abajo: top + alto };
+  });
+  const etiquetaSiguiente = await pagina.locator('.pv-campo-etiqueta', { hasText: 'Repite la contraseña' }).boundingBox();
+  revisar(zona.alto >= 44, `zona de «Mostrar contraseña» de 44 px (mide ${zona.alto})`);
+  revisar(zona.abajo <= etiquetaSiguiente.y + 0.5, `la zona no tapa la etiqueta siguiente (termina en ${zona.abajo}, la etiqueta empieza en ${etiquetaSiguiente.y})`);
   await pagina.getByLabel('Contraseña nueva', { exact: true }).fill('clave-1234');
   await pagina.getByLabel('Repite la contraseña', { exact: true }).fill('clave-1235');
   revisar(await pagina.getByText('Las dos contraseñas no son iguales.').isVisible(), 'claves distintas: el error bajo el campo');

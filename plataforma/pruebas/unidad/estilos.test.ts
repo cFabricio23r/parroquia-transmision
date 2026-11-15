@@ -98,10 +98,9 @@ describe('zona de toque de 44 px en enlaces y «Mostrar contraseña» (plan 2, r
     expect(after).toMatch(/position:\s*absolute/);
     expect(after).toMatch(/height:\s*44px/);
   });
-  it('«Mostrar contraseña» no sube su zona sobre el campo (6 px de separación)', () => {
-    const after = regla('.pv-mostrar-clave::after');
-    expect(after).toMatch(/top:\s*-6px/);
-    expect(after).toMatch(/transform:\s*none/);
+  it('«Mostrar contraseña» no sube su zona sobre el campo: arranca en el gap de 6 px (revisión fix2: la zona es el botón)', () => {
+    expect(regla('.pv-mostrar-clave')).toMatch(/margin-top:\s*-6px/);
+    expect(regla('.pv-mostrar-clave')).toMatch(/min-height:\s*44px/);
     expect(regla('.pv-campo-clave')).toMatch(/gap:\s*6px/);
   });
 });
