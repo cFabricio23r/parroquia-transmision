@@ -79,6 +79,12 @@ describe('TEXTOS', () => {
     expect(TEXTOS.aviso.etiqueta).toBe('SIN TRANSMITIR');
     expect(TEXTOS.sinParroquias.titulo).toBe('Todavía no tienes una parroquia para transmitir');
     expect(TEXTOS.sinParroquias.cuerpo).toBe('Pídele a la Pastoral de Comunicaciones que te asigne una.');
+    expect(TEXTOS.cerrarSesion).toEqual({
+      titulo: '¿Cerrar sesión?',
+      cuerpo: 'Para volver a entrar se necesita internet.',
+      cancelar: 'Cancelar',
+      cerrar: 'Cerrar sesión',
+    });
     expect(textoConfig('EXPO_PUBLIC_SUPABASE_URL')).toBe('La app está mal armada: falta EXPO_PUBLIC_SUPABASE_URL.');
   });
 });

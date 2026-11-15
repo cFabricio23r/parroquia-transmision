@@ -50,6 +50,12 @@ export const TEXTOS = {
     elegir: 'Elegir otra parroquia',
     cerrar: 'Cerrar sesión',
   },
+  cerrarSesion: {
+    titulo: '¿Cerrar sesión?',
+    cuerpo: 'Para volver a entrar se necesita internet.',
+    cancelar: 'Cancelar',
+    cerrar: 'Cerrar sesión',
+  },
   sinParroquias: {
     titulo: 'Todavía no tienes una parroquia para transmitir',
     cuerpo: 'Pídele a la Pastoral de Comunicaciones que te asigne una.',

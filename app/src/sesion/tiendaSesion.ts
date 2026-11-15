@@ -76,7 +76,10 @@ export function reducirSesion(e: EstadoSesion, ev: EventoSesion): EstadoSesion {
       return { ...e, fase: 'lista', parroquia: ev.parroquia, perdida: null, aviso: null };
 
     case 'cambiar':
-      return e.fase === 'lista' ? { ...e, fase: 'elegir' } : e;
+      if (e.fase === 'lista') return { ...e, fase: 'elegir' };
+      // «Elegir otra parroquia» en Sin acceso: la limpieza de la perdida ya quedó encolada.
+      if (e.fase === 'sin-acceso') return { ...e, fase: 'elegir', parroquia: null, perdida: null };
+      return e;
 
     case 'lista-revisada': {
       if (ev.enVivo) {

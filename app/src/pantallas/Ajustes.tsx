@@ -22,6 +22,8 @@ import {
   limpiarClave,
   validar,
 } from '../ajustes/ajustes';
+import type { Cuenta, ParroquiaApp } from '../sesion/tipos';
+import { confirmarCerrarSesion } from './acceso/Aviso';
 
 const C = {
   fondo: '#061224',
@@ -38,8 +40,76 @@ const C = {
   rojo: '#c8281e',
 };
 
+/** La sección Cuenta (plan 3a, Tarea 16; lienzo VicAppCuenta y VicAppCuentaVertical). */
+export interface DatosCuenta {
+  cuenta: Cuenta | null;
+  parroquia: ParroquiaApp;
+  /** Hay más de una parroquia asignada. */
+  puedeCambiar: boolean;
+  /** «Pantallas guardadas hoy, 18:42» o «Sin pantallas guardadas: se usan las de la app.». */
+  textoCopia: string;
+  enVivo: boolean;
+  onCambiarParroquia(): void;
+  onCerrarSesion(): void;
+}
+
 interface Props {
   onVolver: () => void;
+  cuenta?: DatosCuenta;
+}
+
+const ROJO_BORDE = '#8f3b33';
+const ROJO_TEXTO = '#ffb3aa';
+
+function SeccionCuenta({ d }: { d: DatosCuenta }) {
+  const nombre = d.cuenta?.nombre?.trim() || d.cuenta?.correo || '';
+  const rol = d.cuenta?.esAdmin ? 'Admin de vicaría' : 'Coordinador';
+  const linea = d.cuenta ? `${d.cuenta.correo} · ${rol}` : rol;
+  return (
+    <>
+      <Text style={estilos.seccion}>CUENTA</Text>
+      <View style={estilos.caja}>
+        {nombre ? (
+          <View style={{ gap: 2 }}>
+            <Text style={[estilos.cajaTitulo, { fontSize: 15 }]}>{nombre}</Text>
+            <Text style={estilos.etiqueta}>{linea}</Text>
+          </View>
+        ) : null}
+        <View style={estilos.desde}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={estilos.etiqueta}>Transmites desde</Text>
+            <Text style={[estilos.cajaTitulo, { fontSize: 14 }]}>{d.parroquia.nombre}</Text>
+          </View>
+          {d.puedeCambiar && !d.enVivo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar la parroquia"
+              onPress={d.onCambiarParroquia}
+              style={[estilos.boton, estilos.botonFijo]}
+            >
+              <Text style={estilos.botonTexto}>Cambiar</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <Text style={estilos.nota}>{d.textoCopia}</Text>
+        <View style={[estilos.fila, { alignItems: 'center' }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar sesión"
+            accessibilityState={{ disabled: d.enVivo }}
+            disabled={d.enVivo}
+            onPress={() => confirmarCerrarSesion(d.onCerrarSesion)}
+            style={[estilos.boton, estilos.botonFijo, estilos.cerrarSesion, d.enVivo && { opacity: 0.5 }]}
+          >
+            <Text style={[estilos.botonTexto, { color: ROJO_TEXTO }]}>Cerrar sesión</Text>
+          </Pressable>
+          <Text style={[estilos.nota, { flex: 1, fontSize: 11, lineHeight: 16 }]}>
+            No se puede durante una transmisión. La clave de Facebook se queda en el celular.
+          </Text>
+        </View>
+      </View>
+    </>
+  );
 }
 
 function textoRed(estado: Network.NetworkState): { texto: string; color: string } {
@@ -81,7 +151,7 @@ const ESTILOS_FINALES: [EstiloFinal, string][] = [
   ['azul', 'Azul'],
 ];
 
-export default function Ajustes({ onVolver }: Props) {
+export default function Ajustes({ onVolver, cuenta }: Props) {
   // En vertical (Preparar, Tarea 9c) las dos columnas van una debajo de la otra.
   const { width, height } = useWindowDimensions();
   const vertical = height > width;
@@ -204,6 +274,7 @@ export default function Ajustes({ onVolver }: Props) {
       {fallaGuardar && <Text style={estilos.error}>No se pudo guardar. Intente de nuevo.</Text>}
       <ScrollView contentContainerStyle={[estilos.cuerpo, vertical && estilos.cuerpoVertical]}>
         <View style={[estilos.columna, vertical && estilos.columnaVertical]}>
+          {cuenta ? <SeccionCuenta d={cuenta} /> : null}
           <Text style={estilos.seccion}>DESTINO</Text>
           <View style={estilos.caja}>
             <Text style={estilos.cajaTitulo}>Facebook Live</Text>
@@ -370,4 +441,6 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   youtubeTitulo: { color: C.suave, fontSize: 14, fontWeight: '800' },
+  desde: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.fondo, borderRadius: 10, paddingVertical: 8, paddingLeft: 12, paddingRight: 8 },
+  cerrarSesion: { backgroundColor: 'transparent', borderWidth: 1, borderColor: ROJO_BORDE },
 });

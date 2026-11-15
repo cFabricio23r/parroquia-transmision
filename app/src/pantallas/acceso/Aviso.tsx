@@ -1,10 +1,19 @@
 // Fila E del lienzo: «Ya no tienes acceso a …» (VicAppSinAcceso), celular acostado. La misma tarjeta
 // sirve para «Todavía no tienes una parroquia para transmitir» y para la app mal armada (Decisión 13).
 // La nota de diseño «Aparece al abrir la app con internet, nunca durante una transmisión» no se dibuja.
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { C, F } from '../../componentes/tema';
 import { TEXTOS, textoConfig, textoSinAcceso } from './textos';
+
+/** La confirmación de la Decisión 12 del plan, antes de cerrar la sesión (Aviso y Ajustes). */
+export function confirmarCerrarSesion(alConfirmar: () => void): void {
+  const t = TEXTOS.cerrarSesion;
+  Alert.alert(t.titulo, t.cuerpo, [
+    { text: t.cancelar, style: 'cancel' },
+    { text: t.cerrar, style: 'destructive', onPress: alConfirmar },
+  ]);
+}
 
 export default function Aviso({
   tipo,

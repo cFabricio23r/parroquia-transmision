@@ -28,8 +28,12 @@ import {
   noMolestarActivo,
   addEstadoListener,
   cambiarEscena,
+  estadoCopia,
+  fijarEnVivo,
   fijarEstiloFinal,
   fijarOrientacion,
+  fijarParroquia,
+  recargarEscenas,
   zonasSeguras,
   type ZonasSeguras,
   iniciar,
@@ -44,6 +48,8 @@ import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES, M } from './src/componentes/tema';
 import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
 import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
+import { alCambiarPaginas, textoCopia } from './src/copias/copias';
+import { aHayRed } from './src/estado/red';
 import {
   accionRegistro,
   crearRegistrador,
@@ -63,13 +69,15 @@ import Portada from './src/pantallas/Portada';
 import PrepararVertical, { type Rect } from './src/pantallas/PrepararVertical';
 import { ESPERA_MAXIMA_MS, fasePortada } from './src/portada/portada';
 import { SCRIPT_ESCENA, SCRIPT_IR_A_EN_VIVO, SCRIPT_IR_A_PREPARAR } from './src/puente/puente';
+import { guardiaEnVivo } from './src/sesion/guardia';
+import type { Cuenta, ParroquiaApp } from './src/sesion/tipos';
+import type { Momento } from './src/sincronizar/sincronizar';
 
-// El splash del sistema queda hasta que carguen las fuentes (Tarea 9b, src/portada/portada.ts).
-// Se llama acá, fuera del componente, como pide expo-splash-screen.
-SplashScreen.preventAutoHideAsync().catch(() => undefined);
+// El splash del sistema lo retiene src/Raiz.tsx (plan 3a, Tarea 16); acá se oculta al pasar a la portada.
 
 const AVISO_ESCENA = 'No se pudo cambiar la escena.';
 const AVISO_CAMARA_LISTA = 'La cámara se volvió a preparar. Ya puede transmitir.';
+const AVISO_PARROQUIA = 'No se pudo preparar la parroquia.';
 
 const enAire = (e: EstadoTransmision): boolean =>
   e.fase === 'iniciando' || e.fase === 'en_vivo' || e.fase === 'reconectando' || e.fase === 'terminando';
@@ -189,10 +197,20 @@ const registrador = crearRegistrador({
 const SIN_ZONAS: ZonasSeguras = { top: 0, bottom: 0, left: 0, right: 0 };
 
 /**
- * Puente hasta la Tarea 16 del plan 3a, que le da a App sus props completas (la parroquia, la
- * cuenta, los momentos): por ahora el panel sale solo si llegan el origen y el slug.
+ * La app de transmisión de una parroquia (plan 3a, Tarea 16). La monta src/Raiz.tsx en la fase
+ * `lista`. La parroquia se fija en lo nativo antes de preparar la cámara; `onMomento` corre las
+ * descargas ('antes-de-iniciar' y 'al-terminar').
  */
-export default function App(p: { origen?: string; slug?: string; [otra: string]: unknown } = {}) {
+export default function App(p: {
+  parroquia: ParroquiaApp;
+  cuenta: Cuenta | null;
+  cantidadParroquias: number;
+  origen: string;
+  onMomento(m: Momento): void;
+  onCambiarParroquia(): void;
+  onCerrarSesion(): Promise<{ error?: 'en-vivo' }>;
+}) {
+  const slug = p.parroquia.slug;
   const [fuentesListas, errorFuentes] = useFonts(FUENTES);
   const listo = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(tienda.suscribir, tienda.obtener);
@@ -218,6 +236,11 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
   }, [fase]);
 
   const [enAjustes, setEnAjustes] = useState(false);
+  // La parroquia elegida, fijada en lo nativo (capa y copias) antes de la cámara (recon D6).
+  const [parroquiaLista, setParroquiaLista] = useState(false);
+  // Cada vez que cambian las páginas de la copia, el panel se vuelve a montar.
+  const [recargas, setRecargas] = useState(0);
+  const [textoDeCopia, setTextoDeCopia] = useState<string>(() => textoCopia(null, new Date()));
   const [confirmar, setConfirmar] = useState(false);
   const [vista, setVista] = useState<EstadoVista>('preparando');
   const [claveLista, setClaveLista] = useState<boolean | null>(null);
@@ -370,16 +393,43 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
     }
   }, []);
 
+  /** Fija la parroquia en lo nativo. Si falla, la vista queda en 'error' con «Preparar otra vez». */
+  const prepararParroquia = useCallback(async (): Promise<boolean> => {
+    try {
+      await fijarParroquia(p.origen, slug);
+      setParroquiaLista(true);
+      return true;
+    } catch {
+      setParroquiaLista(false);
+      setVista('error');
+      setAviso(AVISO_PARROQUIA);
+      return false;
+    }
+  }, [p.origen, slug]);
+
+  useEffect(() => {
+    setParroquiaLista(false);
+    void prepararParroquia();
+  }, [prepararParroquia]);
+
   // Corte de tipo «preparar» (review N3 de la Tarea 6, M6 de la Tarea 8): se vuelve a preparar
   // la cámara sola y, si sale bien, el «Cierre la app…» se cambia por un aviso de que ya está lista.
+  // Si la parroquia no quedó fijada, primero se vuelve a fijar; al quedar lista, el efecto de
+  // preparar corre solo.
   const volverAPreparar = useCallback(() => {
     preparadaCon.current = null;
+    if (!parroquiaLista) {
+      void prepararParroquia().then((bien) => {
+        if (bien) setAviso(null);
+      });
+      return;
+    }
     void preparar(true).then((bien) => {
       if (!bien) return;
       setErrorSuperado(tienda.obtener().error);
       setAviso(AVISO_CAMARA_LISTA);
     });
-  }, [preparar]);
+  }, [preparar, parroquiaLista, prepararParroquia]);
 
   pantalla.alArrancar = () => {
     // Un arranque cierra Ajustes aunque se haya abierto mientras se leían los Ajustes (review M4).
@@ -397,8 +447,8 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
   pantalla.volverAPreparar = volverAPreparar;
 
   useEffect(() => {
-    if (listo) void preparar(true);
-  }, [listo, preparar]);
+    if (listo && parroquiaLista) void preparar(true);
+  }, [listo, parroquiaLista, preparar]);
 
   // Eventos de la conexión: el estado lo maneja el orquestador; acá solo Mbps y el mensaje.
   useEffect(() => {
@@ -430,8 +480,6 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
 
   // Red (expo-network). Si no se sabe, se supone que hay: el aviso es solo para «sin internet» seguro.
   useEffect(() => {
-    const aHayRed = (s: Network.NetworkState) =>
-      !(s.isConnected === false || s.type === Network.NetworkStateType.NONE || s.isInternetReachable === false);
     Network.getNetworkStateAsync().then((s) => setHayRed(aHayRed(s)), () => undefined);
     const r = Network.addNetworkStateListener((s) => setHayRed(aHayRed(s)));
     return () => r.remove();
@@ -504,15 +552,57 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
     panelRef.current?.inyectar(SCRIPT_ESCENA(escenaPanel));
   }, [escenaPanel]);
 
-  // Al dejar el aire: se cierra el diálogo de terminar y el panel vuelve a Preparar (review M9).
+  // Al aire, todo fijo: la guardia de la app y la copia nativa (plan 3a, Decisión 2).
+  // Al dejar el aire: se cierra el diálogo de terminar, el panel vuelve a Preparar (review M9) y
+  // corre el momento 'al-terminar'. La guardia se suelta primero, así lo agendado en vivo corre antes.
   const estabaAlAire = useRef(false);
+  const onMomentoRef = useRef(p.onMomento);
+  onMomentoRef.current = p.onMomento;
   useEffect(() => {
+    guardiaEnVivo.fijar(alAire);
+    fijarEnVivo(alAire).catch(() => undefined);
     if (!alAire) {
       setConfirmar(false);
-      if (estabaAlAire.current) panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);
+      if (estabaAlAire.current) {
+        panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);
+        onMomentoRef.current('al-terminar');
+      }
     }
     estabaAlAire.current = alAire;
   }, [alAire]);
+
+  // 'antes-de-iniciar': cada vez que se muestra Antes de iniciar.
+  useEffect(() => {
+    if (visible === 'antes') onMomentoRef.current('antes-de-iniciar');
+  }, [visible]);
+
+  // Páginas nuevas en la copia (fuera del vivo): se vuelve a montar el panel y se recargan las escenas.
+  useEffect(
+    () =>
+      alCambiarPaginas((s) => {
+        if (s !== slug || enAire(tienda.obtener())) return;
+        setRecargas((n) => n + 1);
+        recargarEscenas().catch(() => undefined);
+      }),
+    [slug],
+  );
+
+  // La línea de la copia en Ajustes: se lee al abrir Ajustes.
+  useEffect(() => {
+    if (!enAjustes) return;
+    let vigente = true;
+    estadoCopia(slug).then(
+      (e) => {
+        if (vigente) setTextoDeCopia(textoCopia(e, new Date()));
+      },
+      () => {
+        if (vigente) setTextoDeCopia(textoCopia(null, new Date()));
+      },
+    );
+    return () => {
+      vigente = false;
+    };
+  }, [enAjustes, slug]);
 
   const alCargarPanel = useCallback(() => {
     setPanelCargado(true);
@@ -540,16 +630,15 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
       {/* El orden de estos hijos no cambia nunca: la vista previa y el panel siguen montados al girar. */}
       <View style={[estilos.lienzo, lugares.lienzo]}>
         <VistaTransmisor style={[estilos.vista, lugares.vista]} />
-        {p.origen && p.slug ? (
-          <ColumnaPanel
-            panelRef={panelRef}
-            origen={p.origen}
-            slug={p.slug}
-            onEstado={actualizarEstado}
-            onCargado={alCargarPanel}
-            estilo={[estilos.zona, lugares.panel]}
-          />
-        ) : null}
+        <ColumnaPanel
+          key={`${slug}-${recargas}`}
+          panelRef={panelRef}
+          origen={p.origen}
+          slug={slug}
+          onEstado={actualizarEstado}
+          onCargado={alCargarPanel}
+          estilo={[estilos.zona, lugares.panel]}
+        />
         <View style={[estilos.zona, lugares.barra]}>
           {enCompleta ? null : (
             <BarraSuperior
@@ -635,6 +724,20 @@ export default function App(p: { origen?: string; slug?: string; [otra: string]:
             onVolver={() => {
               setEnAjustes(false);
               void preparar(false);
+            }}
+            cuenta={{
+              cuenta: p.cuenta,
+              parroquia: p.parroquia,
+              puedeCambiar: p.cantidadParroquias > 1,
+              textoCopia: textoDeCopia,
+              enVivo: alAire,
+              onCambiarParroquia: () => {
+                setEnAjustes(false);
+                p.onCambiarParroquia();
+              },
+              onCerrarSesion: () => {
+                void p.onCerrarSesion();
+              },
             }}
           />
         </View>

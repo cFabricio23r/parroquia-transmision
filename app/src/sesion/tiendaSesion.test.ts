@@ -102,6 +102,11 @@ describe('eligio y cambiar', () => {
     expect(reducirSesion(LISTA, { tipo: 'cambiar' }).fase).toBe('elegir');
   });
 
+  it('cambiar desde sin-acceso va a elegir («Elegir otra parroquia»), sin la perdida', () => {
+    const e = reducirSesion({ ...LISTA, fase: 'sin-acceso', parroquia: null, perdida: A }, { tipo: 'cambiar' });
+    expect(e).toMatchObject({ fase: 'elegir', parroquia: null, perdida: null });
+  });
+
   it('cambiar fuera de lista no hace nada', () => {
     const e = { ...LISTA, fase: 'entrar' as const };
     expect(reducirSesion(e, { tipo: 'cambiar' })).toBe(e);
