@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -21,9 +22,12 @@ import org.json.JSONObject
  * La capa que va encima de la cámara: un contenedor de 1920×1080 con las WebViews de escena y,
  * arriba de todo, la de la transición. Se dibuja sobre el video con FiltroCapa.
  *
- * - Siempre cargadas: «camara» (obs/rotulos.html), «inicio» y la transición.
- * - «portada», «avisos», «gracias» y «produccion» se cargan al pedirlas y se descargan al salir (calor, Tarea 1).
- * - «produccion» (Tarea 9d) carga obs/produccion.html con el estilo elegido en Ajustes (claro o azul).
+ * - Las escenas cargan las páginas de la parroquia elegida, `https://<plataforma>/<slug>/…` (etapa 3a).
+ *   Interceptor.kt responde cada pedido: desde la copia guardada, el respaldo de la app o la red.
+ * - Siempre cargadas: «camara» (rotulos.html), «inicio» y la transición.
+ * - «portada», «avisos», «horarios», «gracias» y «produccion» se cargan al pedirlas y se descargan al
+ *   salir (calor, Tarea 1).
+ * - «produccion» (Tarea 9d) carga produccion.html con el estilo elegido en Ajustes (claro o azul).
  * - Se ve una sola escena a la vez; las demás quedan INVISIBLE.
  * - El contenedor va dentro de la ventana (debajo del contenido, índice 0) para que las WebViews
  *   dibujen; no se ve en la pantalla del celular, solo en el video.
@@ -35,7 +39,6 @@ object Capa {
   private const val TAG = "Transmisor"
   private const val ANCHO = 1920
   private const val ALTO = 1080
-  private const val CLAVE_ESTADO = "parroquia_obs_estado_v1"
 
   // Transición (Transicion_2000ms_Logo.webm): el logo tapa la pantalla a los 1000 ms.
   private const val CORTE_MS = 1000L
@@ -44,20 +47,32 @@ object Capa {
   private const val MAX_CARGA_MS = 3000L
   private const val REVISAR_MS = 50L
 
-  private const val BASE = "file:///android_asset/obs/"
-  private val URLS = mapOf(
-    "camara" to BASE + "rotulos.html",
-    "inicio" to BASE + "pantalla.html?tipo=inicio",
-    "portada" to BASE + "pantalla.html?tipo=portada",
-    "avisos" to BASE + "pantalla.html?tipo=avisos",
-    "gracias" to BASE + "pantalla.html?tipo=gracias",
-    "produccion" to BASE + "produccion.html?estilo=azul",
+  // La página de cada escena, dentro de `<origen>/<slug>/` (decisión 6 del plan de la etapa 3a).
+  private val PAGINAS = mapOf(
+    "camara" to "rotulos.html",
+    "inicio" to "pantalla.html?tipo=inicio",
+    "portada" to "pantalla.html?tipo=portada",
+    "avisos" to "pantalla.html?tipo=avisos",
+    "horarios" to "pantalla.html?tipo=horarios",
+    "gracias" to "pantalla.html?tipo=gracias",
+    "produccion" to "produccion.html?estilo=azul",
   )
   // Pantalla final (Tarea 9d): solo estos dos estilos; Azul por defecto.
-  private val URLS_PRODUCCION = mapOf(
-    "claro" to BASE + "produccion.html?estilo=claro",
-    "azul" to BASE + "produccion.html?estilo=azul",
+  private val PAGINAS_PRODUCCION = mapOf(
+    "claro" to "produccion.html?estilo=claro",
+    "azul" to "produccion.html?estilo=azul",
   )
+
+  /** `<origen>/<slug>/<página>` de una escena. Lanza SIN_PARROQUIA si todavía no se eligió. */
+  private fun urls(nombre: String): String {
+    val origen = Copias.origen
+    val slug = Copias.slug
+    if (origen == null || slug == null) throw sinParroquia()
+    val pagina = if (nombre == "produccion") PAGINAS_PRODUCCION.getValue(estiloProduccion) else PAGINAS.getValue(nombre)
+    return "$origen/$slug/$pagina"
+  }
+
+  private fun sinParroquia() = CodedException("SIN_PARROQUIA", "Falta elegir la parroquia.", null)
   private var estiloProduccion = "azul"
   private val FIJAS = setOf("camara", "inicio")
   private const val URL_TRANSICION = "file:///android_asset/app/transicion.html"
@@ -91,6 +106,7 @@ object Capa {
   /** Crea el contenedor y las escenas fijas. Sin efecto si ya existe. */
   fun crear(actividad: Activity) {
     if (contenedor != null) return
+    if (Copias.origen == null || Copias.slug == null) throw sinParroquia()
     val c = FrameLayout(actividad)
     contenedor = c
     for (nombre in listOf("camara", "inicio")) agregarEscena(nombre)
@@ -170,7 +186,7 @@ object Capa {
    * nuevo; si no, se usa la próxima vez que se pida. Un estilo desconocido se rechaza.
    */
   fun fijarEstiloProduccion(estilo: String) {
-    require(estilo in URLS_PRODUCCION) { "Estilo desconocido." }
+    require(estilo in PAGINAS_PRODUCCION) { "Estilo desconocido." }
     if (estilo == estiloProduccion) return
     estiloProduccion = estilo
     val w = vistas["produccion"] ?: return
@@ -179,8 +195,25 @@ object Capa {
     Log.w(TAG, "produccion: estilo $estilo")
   }
 
-  private fun urlDe(nombre: String): String =
-    if (nombre == "produccion") URLS_PRODUCCION.getValue(estiloProduccion) else URLS.getValue(nombre)
+  private fun urlDe(nombre: String): String = urls(nombre)
+
+  /**
+   * Vuelve a cargar cada escena cargada: otra parroquia (fijarParroquia) o páginas nuevas en la
+   * copia (recargarEscenas). La escena que se ve sigue siendo la misma.
+   */
+  fun recargar() {
+    if (contenedor == null) return
+    for ((nombre, w) in vistas) {
+      cargadas.remove(nombre)
+      w.loadUrl(urlDe(nombre))
+    }
+    Log.w(TAG, "capa: escenas recargadas")
+  }
+
+  /** Olvida el estado del panel: al cambiar de parroquia no se escribe el de la anterior. */
+  fun olvidarEstado() {
+    ultimoEstado = null
+  }
 
   /** Guarda el estado y lo escribe en las escenas cargadas. Las que carguen después lo reciben al cargar. */
   fun actualizarEstado(json: String) {
@@ -193,7 +226,7 @@ object Capa {
    * se ve esa escena.
    */
   fun cambiarEscena(escena: String, listo: () -> Unit, fallo: (CodedException) -> Unit) {
-    require(escena in URLS) { "Escena desconocida." }
+    require(escena in PAGINAS) { "Escena desconocida." }
     check(contenedor != null) { "La capa no está creada." }
     // La cola de TS manda una a la vez; si igual llega otra, se rechaza.
     if (destino != null) throw CodedException("ERR_OCUPADO", "Hay una transición en curso.", null)
@@ -281,19 +314,25 @@ object Capa {
   }
 
   private fun escribirEstado(w: WebView, json: String) {
+    // La clave es la de la parroquia elegida, `pev_<slug>_estado_v1`; el slug ya pasó por Copias.fijar.
+    val slug = Copias.slug ?: return
     // JSONObject.quote arma un literal de texto válido (comillas, barras, saltos de línea y «</»).
-    val js = "try{localStorage.setItem('$CLAVE_ESTADO',${JSONObject.quote(json)})}catch(e){}"
+    val js = "try{localStorage.setItem('pev_${slug}_estado_v1',${JSONObject.quote(json)})}catch(e){}"
     w.evaluateJavascript(js, null)
   }
 
   private fun nuevaWeb(ctx: android.content.Context, nombre: String): WebView {
     val w = WebView(ctx)
+    val app = ctx.applicationContext
     w.settings.javaScriptEnabled = true
     w.settings.domStorageEnabled = true
-    // Las páginas y sus fuentes, imágenes y el video están en file:///android_asset/.
+    // La transición y su video están en file:///android_asset/app/. Las escenas son del origen de
+    // la plataforma, y Chromium no les deja leer file://.
     w.settings.allowFileAccess = true
-    @Suppress("DEPRECATION")
-    w.settings.allowFileAccessFromFileURLs = true
+    if (nombre == "transicion") {
+      @Suppress("DEPRECATION")
+      w.settings.allowFileAccessFromFileURLs = true
+    }
     w.settings.mediaPlaybackRequiresUserGesture = false
     // Sin esto la página se ve a 1/2,6 del escenario (Tarea 1, arreglo 2).
     w.settings.useWideViewPort = true
@@ -301,9 +340,13 @@ object Capa {
     w.setBackgroundColor(Color.TRANSPARENT)
     w.isFocusable = false
     w.webViewClient = object : WebViewClient() {
-      // Solo páginas propias de la app: nunca se navega fuera de los assets.
+      // Solo los assets de la app o el origen exacto de la plataforma: nunca se navega a otro lado.
       override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-        !request.url.toString().startsWith("file:///android_asset/")
+        !Interceptor.esPermitida(request.url)
+
+      // Todo pedido, también los subrecursos: la copia, el respaldo, la red o un bloqueo.
+      override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+        Interceptor.responder(app, request)
 
       override fun onPageFinished(view: WebView, url: String) {
         if (vistas[nombre] !== view) return

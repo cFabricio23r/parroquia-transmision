@@ -39,6 +39,19 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   zonasSeguras(): Promise<ZonasSeguras>;
   /** Estilo de la escena Producción; la recarga si ya está cargada (Tarea 9d). */
   fijarEstiloFinal(estilo: EstiloFinal): Promise<void>;
+  /** La plataforma y la parroquia de la capa y del panel (etapa 3a). Rechaza EN_VIVO con la copia congelada. */
+  fijarParroquia(origen: string, slug: string): Promise<void>;
+  /** Congela la copia guardada (en vivo) o la suelta. `iniciar` ya la congela. */
+  fijarEnVivo(enVivo: boolean): Promise<void>;
+  /** Baja las páginas y los medios a copias/<slug>/nueva/ y la cambia por la actual. Rechaza EN_VIVO si está congelada. */
+  descargarCopia(slug: string, config: string, medios: string[]): Promise<unknown>;
+  /** { version, guardadaEn } de la copia actual de esa parroquia, o null. */
+  estadoCopia(slug: string): Promise<unknown>;
+  /** Rechazan EN_VIVO con la copia congelada. */
+  borrarCopia(slug: string): Promise<void>;
+  borrarCopias(): Promise<void>;
+  /** Vuelve a cargar las escenas que estén cargadas. */
+  recargarEscenas(): Promise<void>;
 }
 
 export type ZonasSeguras = { top: number; bottom: number; left: number; right: number };

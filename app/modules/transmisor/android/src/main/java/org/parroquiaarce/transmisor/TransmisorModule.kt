@@ -59,6 +59,9 @@ class TransmisorModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("iniciar") { url: String, clave: String ->
+      // En vivo, todo fijo (etapa 3a): la copia guardada se congela antes de salir al aire. La
+      // suelta el JS con fijarEnVivo(false) al terminar.
+      Copias.fijarEnVivo(true)
       Motor.iniciar(url, clave)
     }.runOnQueue(Queues.MAIN)
 
@@ -187,6 +190,51 @@ class TransmisorModule : Module() {
           "right" to ins.systemWindowInsetRight / d.toDouble(),
         )
       }
+    }.runOnQueue(Queues.MAIN)
+
+    // --- Etapa 3a: la parroquia elegida y su copia guardada ---
+
+    // La plataforma y la parroquia de la capa y del panel. Si cambió y la capa existe, se recarga.
+    AsyncFunction("fijarParroquia") { origen: String, slug: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.preparar(ctx)
+      if (Copias.fijar(origen, slug) && Capa.creada) {
+        Capa.olvidarEstado()
+        Capa.recargar()
+      }
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("fijarEnVivo") { enVivo: Boolean ->
+      Copias.fijarEnVivo(enVivo)
+    }
+
+    // Baja la copia; corre en la cola de fondo (como medir). Rechaza EN_VIVO si está congelada.
+    AsyncFunction("descargarCopia") { slug: String, config: String, medios: List<String> ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.preparar(ctx)
+      Copias.descargar(slug, config, medios)
+    }
+
+    AsyncFunction("estadoCopia") { slug: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.preparar(ctx)
+      Copias.estado(slug)
+    }
+
+    AsyncFunction("borrarCopia") { slug: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.preparar(ctx)
+      Copias.borrar(slug)
+    }
+
+    AsyncFunction("borrarCopias") {
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.preparar(ctx)
+      Copias.borrarTodo()
+    }
+
+    AsyncFunction("recargarEscenas") {
+      Capa.recargar()
     }.runOnQueue(Queues.MAIN)
 
     View(TransmisorView::class) {}

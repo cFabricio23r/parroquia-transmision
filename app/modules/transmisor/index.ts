@@ -3,6 +3,7 @@ import { estiloFinalValido, type Calidad, type EstiloFinal, type Microfono } fro
 import Modulo from './src/TransmisorModule';
 import type { Orientacion } from '../../src/estado/orientacion';
 import type { Escena } from '../../src/estado/transmision';
+import { esRutaDeMedio, esSlugValido, normalizarOrigen } from '../../src/plataforma/direcciones';
 import { crearColaEscenas } from './src/escenas';
 import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from './src/eventos';
 export { MENSAJES } from './src/eventos';
@@ -101,7 +102,7 @@ export function cambiarEscena(escena: Escena): Promise<void> {
 let ultimoEstado: string | null = null;
 
 /**
- * Pasa el estado del panel (JSON de parroquia_obs_estado_v1) a las escenas de la capa.
+ * Pasa el estado del panel (JSON de pev_<slug>_estado_v1) a las escenas de la capa.
  * Si es igual al último enviado no hace nada (el puente lo lee cada 300 ms).
  */
 export function actualizarEstado(json: string): void {
@@ -198,11 +199,77 @@ export function zonasSeguras() {
 // --- Tarea 9d: pantalla final «Producción» ---
 
 /**
- * Elige el estilo de la escena Producción (obs/produccion.html?estilo=…). Si la escena ya está
+ * Elige el estilo de la escena Producción (produccion.html?estilo=…). Si la escena ya está
  * cargada, el nativo la recarga con el estilo nuevo. Solo pasan «claro» o «azul».
  */
 export function fijarEstiloFinal(estilo: EstiloFinal): Promise<void> {
   const valido = estiloFinalValido(estilo);
   // Dentro de una promesa: con un dev client viejo, sin la función nativa, rechaza en vez de tirar.
   return Promise.resolve().then(() => Modulo.fijarEstiloFinal(valido));
+}
+
+// --- Etapa 3a: la parroquia elegida y su copia guardada ---
+
+/**
+ * Elige la plataforma y la parroquia de la capa y del panel. El origen tiene que venir ya
+ * normalizado (`https://host[:puerto]`, sin barra) y el slug ser válido: si no, rechaza sin
+ * llamar al nativo. Lo nativo rechaza EN_VIVO si la copia está congelada.
+ */
+export function fijarParroquia(origen: string, slug: string): Promise<void> {
+  if (normalizarOrigen(origen) !== origen || !esSlugValido(slug)) {
+    return Promise.reject(new Error('Parroquia inválida.'));
+  }
+  return Promise.resolve()
+    .then(() => Modulo.fijarParroquia(origen, slug))
+    .then(() => {
+      // Otra parroquia: el próximo estado del panel se manda aunque sea igual al último (el nativo
+      // olvida el de la anterior).
+      ultimoEstado = null;
+    });
+}
+
+/** Congela (true) o suelta (false) la copia guardada. `iniciar` la congela del lado nativo. */
+export function fijarEnVivo(enVivo: boolean): Promise<void> {
+  return Promise.resolve().then(() => Modulo.fijarEnVivo(enVivo === true));
+}
+
+export type ResultadoCopia = { version: number; guardadaEn: string; paginasCambiaron: boolean };
+export type EstadoCopia = { version: number; guardadaEn: string };
+
+/**
+ * Baja la copia de la parroquia: las páginas comunes, `config` (ya validado) y los medios.
+ * Rechaza sin llamar al nativo si el slug no vale o un medio no es `medios/<archivo>`.
+ */
+export function descargarCopia(slug: string, config: string, medios: readonly string[]): Promise<ResultadoCopia> {
+  if (!esSlugValido(slug)) return Promise.reject(new Error('Parroquia inválida.'));
+  if (!medios.every(esRutaDeMedio)) return Promise.reject(new Error('Medio inválido.'));
+  return Promise.resolve()
+    .then(() => Modulo.descargarCopia(slug, config, [...medios]))
+    .then((r) => r as ResultadoCopia);
+}
+
+/** La copia guardada de la parroquia, o null si no hay (o si lo nativo da algo que no es una copia). */
+export async function estadoCopia(slug: string): Promise<EstadoCopia | null> {
+  if (!esSlugValido(slug)) return null;
+  const e = (await Modulo.estadoCopia(slug)) as { version?: unknown; guardadaEn?: unknown } | null;
+  if (!e || typeof e !== 'object') return null;
+  if (typeof e.version !== 'number' || !Number.isInteger(e.version) || e.version < 1) return null;
+  if (typeof e.guardadaEn !== 'string' || e.guardadaEn === '') return null;
+  return { version: e.version, guardadaEn: e.guardadaEn };
+}
+
+/** Borra la copia de una parroquia. Rechaza EN_VIVO con la copia congelada. */
+export function borrarCopia(slug: string): Promise<void> {
+  if (!esSlugValido(slug)) return Promise.reject(new Error('Parroquia inválida.'));
+  return Promise.resolve().then(() => Modulo.borrarCopia(slug));
+}
+
+/** Borra las copias de todas las parroquias. Rechaza EN_VIVO con la copia congelada. */
+export function borrarCopias(): Promise<void> {
+  return Promise.resolve().then(() => Modulo.borrarCopias());
+}
+
+/** Vuelve a cargar las escenas cargadas (después de una copia con páginas nuevas). */
+export function recargarEscenas(): Promise<void> {
+  return Promise.resolve().then(() => Modulo.recargarEscenas());
 }

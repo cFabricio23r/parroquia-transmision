@@ -324,3 +324,85 @@ describe('fijarEstiloFinal (Tarea 9d)', () => {
     await expect(r).rejects.toBeInstanceOf(TypeError);
   });
 });
+
+describe('parroquia y copia guardada (etapa 3a)', () => {
+  // Pone funciones nativas nuevas en el módulo simulado.
+  function conNativo<T extends Record<string, jest.Mock>>(modulo: object, fns: T): T {
+    Object.assign(modulo, fns);
+    return fns;
+  }
+
+  it('fijarParroquia pasa el origen y el slug al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { fijarParroquia: jest.fn((_o: string, _s: string) => Promise.resolve()) });
+    await api.fijarParroquia('https://p.app', 'ciudad-arce');
+    expect(n.fijarParroquia).toHaveBeenCalledWith('https://p.app', 'ciudad-arce');
+  });
+
+  it('fijarParroquia rechaza un origen sin normalizar o un slug inválido sin llamar al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { fijarParroquia: jest.fn(() => Promise.resolve()) });
+    await expect(api.fijarParroquia('https://p.app/', 'ciudad-arce')).rejects.toThrow('Parroquia inválida.');
+    await expect(api.fijarParroquia('https://p.app/', 'x')).rejects.toThrow('Parroquia inválida.');
+    await expect(api.fijarParroquia('https://p.app', "a');x")).rejects.toThrow('Parroquia inválida.');
+    await expect(api.fijarParroquia('http://p.app', 'ciudad-arce')).rejects.toThrow('Parroquia inválida.');
+    expect(n.fijarParroquia).not.toHaveBeenCalled();
+  });
+
+  it('fijarEnVivo pasa el valor al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { fijarEnVivo: jest.fn((_b: boolean) => Promise.resolve()) });
+    await api.fijarEnVivo(true);
+    expect(n.fijarEnVivo).toHaveBeenCalledWith(true);
+  });
+
+  it('descargarCopia rechaza un medio fuera de medios/ o un slug inválido sin llamar al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { descargarCopia: jest.fn(() => Promise.resolve({})) });
+    await expect(api.descargarCopia('ciudad-arce', '{}', ['medios/../x.png'])).rejects.toBeInstanceOf(Error);
+    await expect(api.descargarCopia('../x', '{}', [])).rejects.toBeInstanceOf(Error);
+    expect(n.descargarCopia).not.toHaveBeenCalled();
+  });
+
+  it('descargarCopia pasa el slug, el config y los medios, y devuelve lo del nativo', async () => {
+    const { api, modulo } = cargar();
+    const r = { version: 3, guardadaEn: '2026-11-14T18:42:00Z', paginasCambiaron: true };
+    const n = conNativo(modulo, { descargarCopia: jest.fn(() => Promise.resolve(r)) });
+    await expect(api.descargarCopia('ciudad-arce', '{"a":1}', ['medios/logo.png'])).resolves.toEqual(r);
+    expect(n.descargarCopia).toHaveBeenCalledWith('ciudad-arce', '{"a":1}', ['medios/logo.png']);
+  });
+
+  it.each([[null], [{}], [{ version: '3' }], [{ version: 3 }], [{ version: 3, guardadaEn: 5 }]])(
+    'estadoCopia normaliza %p a null',
+    async (valor) => {
+      const { api, modulo } = cargar();
+      conNativo(modulo, { estadoCopia: jest.fn(() => Promise.resolve(valor)) });
+      await expect(api.estadoCopia('ciudad-arce')).resolves.toBeNull();
+    },
+  );
+
+  it('estadoCopia devuelve una copia válida tal cual', async () => {
+    const { api, modulo } = cargar();
+    const e = { version: 3, guardadaEn: '2026-11-14T18:42:00Z' };
+    const n = conNativo(modulo, { estadoCopia: jest.fn(() => Promise.resolve({ ...e, otro: 1 })) });
+    await expect(api.estadoCopia('ciudad-arce')).resolves.toEqual(e);
+    expect(n.estadoCopia).toHaveBeenCalledWith('ciudad-arce');
+  });
+
+  it('borrarCopia rechaza un slug inválido; borrarCopias y recargarEscenas llaman al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, {
+      borrarCopia: jest.fn(() => Promise.resolve()),
+      borrarCopias: jest.fn(() => Promise.resolve()),
+      recargarEscenas: jest.fn(() => Promise.resolve()),
+    });
+    await expect(api.borrarCopia('../x')).rejects.toBeInstanceOf(Error);
+    expect(n.borrarCopia).not.toHaveBeenCalled();
+    await api.borrarCopia('ciudad-arce');
+    await api.borrarCopias();
+    await api.recargarEscenas();
+    expect(n.borrarCopia).toHaveBeenCalledWith('ciudad-arce');
+    expect(n.borrarCopias).toHaveBeenCalled();
+    expect(n.recargarEscenas).toHaveBeenCalled();
+  });
+});
