@@ -17,6 +17,7 @@ export function CampoImagen({
   onElegir,
   errorAlt,
   error,
+  falta,
   ocupado,
 }: {
   id: string;
@@ -31,11 +32,13 @@ export function CampoImagen({
   errorAlt?: string;
   /** Error de la imagen (por ejemplo, de la subida), debajo del grupo. */
   error?: string;
+  /** «Falta …» de una imagen obligatoria sin archivo: debajo del grupo, sin role=alert (no es un evento). */
+  falta?: string;
   /** Subiendo: «Subiendo…» en lugar de los enlaces. */
   ocupado?: boolean;
 }) {
   return (
-    <div className="pv-imagen" role="group" aria-labelledby={`${id}-etiqueta`}>
+    <div className="pv-imagen" role="group" aria-labelledby={`${id}-etiqueta`} aria-describedby={falta && !error ? `${id}-falta` : undefined}>
       <span id={`${id}-etiqueta`} className="pv-campo-etiqueta">
         {etiqueta}
         {opcional && <span className="pv-opcional"> (opcional)</span>}
@@ -72,6 +75,11 @@ export function CampoImagen({
       {error && (
         <span id={`${id}-error`} className="pv-campo-error" role="alert">
           {error}
+        </span>
+      )}
+      {falta && !error && (
+        <span id={`${id}-falta`} className="pv-campo-error">
+          {falta}
         </span>
       )}
     </div>

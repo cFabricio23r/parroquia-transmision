@@ -20,3 +20,29 @@ export function bloqueDeError(mensaje: string): Bloque | null {
 export function limpiarMensaje(mensaje: string): string {
   return mensaje.replace(/ \(([A-Za-z0-9_.\[\]]+)\)/g, (todo, ruta: string) => (ruta === 'alt' ? todo : ''));
 }
+
+/**
+ * El «Falta …» de cada campo obligatorio de Identidad y de Patrono y fiesta, para mostrarlo junto al
+ * campo (con aria-invalid). Son los mismos campos que `validarConfig` exige: el punto del menú y el
+ * Resumen se ponen en rojo por el mismo dato vacío.
+ */
+export const FALTA_CAMPO = {
+  nombre: 'Falta el nombre de la parroquia.',
+  lugar: 'Falta el lugar.',
+  'colores.principal': 'Falta el color principal.',
+  'colores.oscuro': 'Falta el color oscuro.',
+  'logos.blanco': 'Falta el logo blanco.',
+  fachada: 'Falta la foto de la fachada.',
+  'patrono.nombre': 'Falta el nombre del patrono.',
+  'patrono.corto': 'Falta el título corto del patrono.',
+  'fiesta.dia': 'Falta el día de la fiesta.',
+  'fiesta.mes': 'Falta el mes de la fiesta.',
+} as const;
+
+export type CampoObligatorio = keyof typeof FALTA_CAMPO;
+
+/** El «Falta …» del campo si su valor está vacío (sin valor, o texto con solo espacios); si no, nada. */
+export function faltaCampo(campo: CampoObligatorio, valor: unknown): string | undefined {
+  const vacio = valor === undefined || valor === null || (typeof valor === 'string' && valor.trim() === '');
+  return vacio ? FALTA_CAMPO[campo] : undefined;
+}

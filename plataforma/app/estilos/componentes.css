@@ -142,7 +142,8 @@ button.pv-enlace {
 }
 .pv-campo-select { padding: 0 12px; }
 .pv-campo-control[readonly] { background: var(--pv-campo-lectura); }
-.pv-campo-control[aria-invalid='true'] { border-color: var(--pv-rojo); }
+.pv-campo-control[aria-invalid='true'],
+.pv-campo-select[aria-invalid='true'] { border-color: var(--pv-rojo); }
 .pv-campo-ayuda { font-size: 12px; color: var(--pv-texto-suave); line-height: 1.45; }
 .pv-campo-error { font-size: 12px; font-weight: 700; color: var(--pv-rojo-texto); }
 .pv-campo--compacto { gap: 4px; }

@@ -3,6 +3,7 @@
 // la fachada. Cada cambio va al borrador (guardado automático); un color a medio escribir no.
 import { useEffect, useRef, useState } from 'react';
 import { contraste } from '../../../../../lib/contraste';
+import { FALTA_CAMPO, faltaCampo } from '../../../../../lib/editor/errores';
 import { MENSAJE_HEX, RE_HEX, textoDeBloque, textoSobreAcento } from '../../../../../lib/editor/imagen';
 import { CampoColor } from '../../../../componentes/CampoColor';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
@@ -26,9 +27,11 @@ const imagen = (v: unknown): ValorImagen | undefined => {
 
 /**
  * Un color del borrador con su texto local: solo un `#rrggbb` llega al borrador; si el borrador
- * cambia desde afuera (por ejemplo «Ver lo suyo»), el texto lo sigue.
+ * cambia desde afuera (por ejemplo «Ver lo suyo»), el texto lo sigue. Vacío, un color obligatorio
+ * dice su «Falta …» (como el Resumen), no el error de forma.
  */
-function useColor(enBorrador: string, escribir: (v: string) => void, vacioPermitido: boolean) {
+function useColor(enBorrador: string, escribir: (v: string) => void, falta: string | undefined) {
+  const vacioPermitido = falta === undefined;
   const [valor, setValor] = useState(enBorrador);
   const ultimo = useRef(enBorrador);
   useEffect(() => {
@@ -44,7 +47,7 @@ function useColor(enBorrador: string, escribir: (v: string) => void, vacioPermit
       escribir(v);
     }
   };
-  const error = valor === '' ? (vacioPermitido ? undefined : MENSAJE_HEX) : RE_HEX.test(valor) ? undefined : MENSAJE_HEX;
+  const error = valor === '' ? falta : RE_HEX.test(valor) ? undefined : MENSAJE_HEX;
   return { valor, cambiar, error };
 }
 
@@ -60,9 +63,9 @@ export function SeccionIdentidad() {
     else actuales[clave] = v;
     cambiar('colores', actuales);
   };
-  const principal = useColor(texto(colores.principal), ponerColor('principal'), false);
-  const oscuro = useColor(texto(colores.oscuro), ponerColor('oscuro'), false);
-  const acento = useColor(texto(colores.acento), ponerColor('acento'), true);
+  const principal = useColor(texto(colores.principal), ponerColor('principal'), FALTA_CAMPO['colores.principal']);
+  const oscuro = useColor(texto(colores.oscuro), ponerColor('oscuro'), FALTA_CAMPO['colores.oscuro']);
+  const acento = useColor(texto(colores.acento), ponerColor('acento'), undefined);
 
   const ponerLogo = (clave: keyof Logos) => (v: ValorImagen | undefined) => {
     const actuales = { ...objeto<Logos>(borrador.logos) };
@@ -84,6 +87,7 @@ export function SeccionIdentidad() {
           id="identidad-nombre"
           etiqueta="Nombre completo"
           value={texto(borrador.nombre)}
+          error={faltaCampo('nombre', borrador.nombre)}
           onChange={(e) => ponerTexto('nombre', false)(e.target.value)}
         />
         <CampoTexto
@@ -94,13 +98,20 @@ export function SeccionIdentidad() {
           onChange={(e) => ponerTexto('nombreCorto', true)(e.target.value)}
         />
       </div>
-      <CampoTexto id="identidad-lugar" etiqueta="Lugar" value={texto(borrador.lugar)} onChange={(e) => ponerTexto('lugar', false)(e.target.value)} />
+      <CampoTexto
+        id="identidad-lugar"
+        etiqueta="Lugar"
+        error={faltaCampo('lugar', borrador.lugar)}
+        value={texto(borrador.lugar)}
+        onChange={(e) => ponerTexto('lugar', false)(e.target.value)}
+      />
       <CampoImagenBorrador
         id="identidad-logo-blanco"
         etiqueta="Logo blanco (PNG o SVG)"
         campo="logo-blanco"
         valor={imagen(logos.blanco)}
         textoVacio="logo blanco"
+        falta={faltaCampo('logos.blanco', logos.blanco?.src)}
         onCambiar={ponerLogo('blanco')}
       />
       <CampoImagenBorrador
@@ -130,6 +141,7 @@ export function SeccionIdentidad() {
         campo="fachada"
         valor={imagen(borrador.fachada)}
         textoVacio="fachada"
+        falta={faltaCampo('fachada', imagen(borrador.fachada)?.src)}
         onCambiar={(v) => cambiar('fachada', v)}
       />
     </section>

@@ -126,6 +126,40 @@ try {
   );
   await pf.getByLabel('Lema de la fiesta', { exact: true }).fill('Santo varón');
   revisar(await pf.getByText('«Santo varón» aparece como franja abajo, con el color de acento.').isVisible(), 'y cambia al escribir otro lema');
+
+  console.log('Obligatorios vacíos: el «Falta …» junto al campo (ronda de arreglos 2)');
+  // Una parroquia nueva, sin nada: el punto del menú está en rojo y cada campo dice qué le falta.
+  const V = await prepararParroquia({ config: {} });
+  const pv = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
+  await entrar(pv, V.correo);
+  await pv.goto(`${BASE}/editor/p/${V.slug}/identidad`);
+  const faltaEn = async (p, etiqueta, mensaje) => {
+    const campo = p.getByLabel(etiqueta, { exact: true });
+    await campo.waitFor();
+    const invalido = await campo.getAttribute('aria-invalid');
+    const ids = ((await campo.getAttribute('aria-describedby')) ?? '').split(' ').filter(Boolean);
+    const textos = await Promise.all(ids.map((id) => p.locator(`[id="${id}"]`).innerText()));
+    revisar(invalido === 'true' && textos.includes(mensaje), `«${etiqueta}» vacío: aria-invalid y «${mensaje}» (${invalido}, ${JSON.stringify(textos)})`);
+  };
+  await faltaEn(pv, 'Nombre completo', 'Falta el nombre de la parroquia.');
+  await faltaEn(pv, 'Lugar', 'Falta el lugar.');
+  await faltaEn(pv, 'Color principal', 'Falta el color principal.');
+  await faltaEn(pv, 'Color oscuro', 'Falta el color oscuro.');
+  igual(await pv.getByText('Escribe el color como #rrggbb.').count(), 0, 'un color vacío no muestra el error de forma');
+  igual(await pv.getByLabel('Color de acento', { exact: true }).getAttribute('aria-invalid'), null, 'el acento (opcional) vacío no es error');
+  igual(await pv.getByLabel('Nombre corto', { exact: true }).getAttribute('aria-invalid'), null, '«Nombre corto» (opcional) vacío no es error');
+  revisar(await grupo(pv, 'Logo blanco (PNG o SVG)').getByText('Falta el logo blanco.').isVisible(), 'el logo blanco dice «Falta el logo blanco.»');
+  revisar(await grupo(pv, 'Foto de la fachada').getByText('Falta la foto de la fachada.').isVisible(), 'la fachada dice «Falta la foto de la fachada.»');
+  igual(await grupo(pv, 'Logo a color (opcional)').locator('.pv-campo-error').count(), 0, 'el logo a color (opcional) no dice nada');
+  await pv.getByLabel('Nombre completo', { exact: true }).fill('Parroquia Nueva');
+  igual(await pv.getByLabel('Nombre completo', { exact: true }).getAttribute('aria-invalid'), null, 'al escribir el nombre, el «Falta …» se va');
+  await esperarGuardado(pv);
+  await pv.goto(`${BASE}/editor/p/${V.slug}/patrono`);
+  await faltaEn(pv, 'Nombre del patrono', 'Falta el nombre del patrono.');
+  await faltaEn(pv, 'Título corto', 'Falta el título corto del patrono.');
+  await faltaEn(pv, 'Día de la fiesta', 'Falta el día de la fiesta.');
+  await faltaEn(pv, 'Mes', 'Falta el mes de la fiesta.');
+  igual(await pv.getByLabel('Lema de la fiesta', { exact: true }).getAttribute('aria-invalid'), null, 'el lema (opcional) vacío no es error');
 } finally {
   await navegador.close();
   await limpiar();

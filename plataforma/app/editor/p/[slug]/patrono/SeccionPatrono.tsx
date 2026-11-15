@@ -1,6 +1,7 @@
 'use client';
 // F3 · Patrono y fiesta (AB/VicEdPatrono): el patrono con su imagen, el día y el mes de la fiesta
 // (el día respeta el mes), el lema y desde cuándo corre la cuenta regresiva.
+import { faltaCampo } from '../../../../../lib/editor/errores';
 import { cambiarMes, CUENTA_POR_DEFECTO, diasDelMes, opcionesCuenta } from '../../../../../lib/editor/fiesta';
 import { MESES } from '../../../../../lib/fecha';
 import { CampoSelect } from '../../../../componentes/CampoSelect';
@@ -51,8 +52,8 @@ export function SeccionPatrono() {
     <section className="pv-seccion-form" aria-labelledby="pv-titulo-patrono">
       <CabezaSeccion titulo={<span id="pv-titulo-patrono">Patrono y fiesta</span>} texto={TEXTO_PATRONO} />
       <div className="pv-fila-campos">
-        <CampoTexto id="patrono-nombre" etiqueta="Nombre del patrono" value={texto(patrono.nombre)} onChange={(e) => ponerPatrono({ nombre: e.target.value })} />
-        <CampoTexto id="patrono-corto" etiqueta="Título corto" value={texto(patrono.corto)} onChange={(e) => ponerPatrono({ corto: e.target.value })} />
+        <CampoTexto id="patrono-nombre" etiqueta="Nombre del patrono" error={faltaCampo('patrono.nombre', patrono.nombre)} value={texto(patrono.nombre)} onChange={(e) => ponerPatrono({ nombre: e.target.value })} />
+        <CampoTexto id="patrono-corto" etiqueta="Título corto" error={faltaCampo('patrono.corto', patrono.corto)} value={texto(patrono.corto)} onChange={(e) => ponerPatrono({ corto: e.target.value })} />
       </div>
       <div className="pv-patrono-imagen">
         <CampoImagenBorrador
@@ -69,6 +70,7 @@ export function SeccionPatrono() {
         <CampoSelect
           id="fiesta-dia"
           etiqueta="Día de la fiesta"
+          error={faltaCampo('fiesta.dia', dia)}
           value={dia ?? ''}
           onChange={(e) => ponerFiesta({ ...actual(), dia: Number(e.target.value) })}
         >
@@ -80,7 +82,7 @@ export function SeccionPatrono() {
           ))}
           {dia !== undefined && dia > maxDia && <option value={dia}>{dia}</option>}
         </CampoSelect>
-        <CampoSelect id="fiesta-mes" etiqueta="Mes" value={mes ?? ''} onChange={(e) => ponerFiesta(cambiarMes(actual(), Number(e.target.value)))}>
+        <CampoSelect id="fiesta-mes" etiqueta="Mes" error={faltaCampo('fiesta.mes', mes)} value={mes ?? ''} onChange={(e) => ponerFiesta(cambiarMes(actual(), Number(e.target.value)))}>
           {mes === undefined && <option value="">Elige</option>}
           {MESES.map((m, i) => (
             <option key={m} value={i + 1}>

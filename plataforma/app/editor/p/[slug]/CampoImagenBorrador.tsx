@@ -17,6 +17,7 @@ export function CampoImagenBorrador({
   campo,
   valor,
   textoVacio,
+  falta,
   onCambiar,
 }: {
   id: string;
@@ -25,6 +26,8 @@ export function CampoImagenBorrador({
   campo: string;
   valor: ValorImagen | undefined;
   textoVacio: string;
+  /** «Falta …» de una imagen obligatoria: se muestra mientras no hay archivo. */
+  falta?: string;
   onCambiar: (v: ValorImagen | undefined) => void;
 }) {
   const { datos, urls, agregarUrl } = useBorrador();
@@ -67,6 +70,7 @@ export function CampoImagenBorrador({
         onElegir={() => setElegir(true)}
         errorAlt={src && !alt.trim() ? MENSAJE_ALT_VACIO : undefined}
         error={error}
+        falta={src ? undefined : falta}
         ocupado={ocupado}
       />
       <input
