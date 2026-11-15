@@ -88,7 +88,8 @@ try {
   revisar((await tarjeta(pt, 'Tipos de transmisión').innerText()).includes('9 activos, 1 propio.'), '«Tipos de transmisión» dice «9 activos, 1 propio.»');
 
   console.log('Links para OBS');
-  revisar(await pagina.getByText(`…/${P.slug}/panel.html`).isVisible(), `está el texto …/${P.slug}/panel.html`);
+  revisar(await pagina.getByText(`${BASE}/${P.slug}/panel.html`).isVisible(), `está la dirección completa ${BASE}/${P.slug}/panel.html`);
+  revisar(await pagina.getByText(`${BASE}/${P.slug}/pantalla.html?tipo=inicio`).isVisible(), 'hay un link por escena (Inicio)');
   const fila = pagina.locator('.pv-resumen-link', { hasText: 'Panel de control' });
   await fila.getByRole('button', { name: 'Copiar' }).click();
   await fila.getByRole('button', { name: 'Copiado' }).waitFor({ timeout: 2000 });

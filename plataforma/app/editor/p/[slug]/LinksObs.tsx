@@ -1,24 +1,34 @@
 'use client';
 // Los links para pegar en OBS, con «Copiar» y un anuncio para lectores de pantalla. Los usan F1
-// (Resumen) y F12 (Revisar y publicar), cada una con sus etiquetas (Decisión 25 del plan 5).
+// (Resumen) y F12 (Revisar y publicar). Uno por escena, con la dirección completa (lib/editor/links-obs.ts).
 import { useEffect, useRef, useState } from 'react';
 import { Boton } from '../../../componentes/Boton';
+import { urlObs, type LinkObs } from '../../../../lib/editor/links-obs';
+
+export type { LinkObs };
 
 type EstadoCopia = 'listo' | 'copiado' | 'fallo';
 
-export interface LinkObs {
+function FilaLink({
+  slug,
+  etiqueta,
+  archivo,
+  origen,
+  anunciar,
+}: {
+  slug: string;
   etiqueta: string;
   archivo: string;
-}
-
-function FilaLink({ slug, etiqueta, archivo, anunciar }: { slug: string; etiqueta: string; archivo: string; anunciar(t: string): void }) {
+  origen: string;
+  anunciar(t: string): void;
+}) {
   const [copia, setCopia] = useState<EstadoCopia>('listo');
   const reloj = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(reloj.current), []);
   const copiar = async () => {
     let estado: EstadoCopia = 'copiado';
     try {
-      await navigator.clipboard.writeText(`${location.origin}/${slug}/${archivo}`);
+      await navigator.clipboard.writeText(urlObs(location.origin, slug, archivo));
       anunciar('Link copiado.');
     } catch {
       estado = 'fallo';
@@ -32,7 +42,7 @@ function FilaLink({ slug, etiqueta, archivo, anunciar }: { slug: string; etiquet
     <div className="pv-resumen-link">
       <div className="pv-resumen-link-texto">
         <span className="pv-resumen-link-etiqueta">{etiqueta}</span>
-        <code className="pv-resumen-link-ruta">{`…/${slug}/${archivo}`}</code>
+        <code className="pv-resumen-link-ruta">{origen ? urlObs(origen, slug, archivo) : `…/${slug}/${archivo}`}</code>
       </div>
       <Boton variante="secundario" compacto className="pv-resumen-copiar" onClick={copiar}>
         {copia === 'copiado' ? 'Copiado' : copia === 'fallo' ? 'No se pudo copiar' : 'Copiar'}
@@ -59,6 +69,9 @@ export function LinksObs({
   claseTitulo?: string;
 }) {
   const [anuncio, setAnuncio] = useState('');
+  // La dirección completa sale del origen donde corre el editor (local o publicado); en el servidor no se conoce.
+  const [origen, setOrigen] = useState('');
+  useEffect(() => setOrigen(location.origin), []);
   return (
     <section className={className} aria-labelledby={idTitulo}>
       <h2 id={idTitulo} className={claseTitulo}>
@@ -66,7 +79,7 @@ export function LinksObs({
       </h2>
       <div className="pv-resumen-links-lista">
         {links.map((l) => (
-          <FilaLink key={l.archivo} slug={slug} etiqueta={l.etiqueta} archivo={l.archivo} anunciar={setAnuncio} />
+          <FilaLink key={l.archivo} slug={slug} etiqueta={l.etiqueta} archivo={l.archivo} origen={origen} anunciar={setAnuncio} />
         ))}
       </div>
       {nota && <p className="pv-resumen-nota">{nota}</p>}

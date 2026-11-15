@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EstadoSeccion, Problema } from '../../lib/editor/estados';
+import { LINKS_OBS } from '../../lib/editor/links-obs';
 import {
   LINKS_OBS_PUBLICAR,
   NOTA_VERSIONES,
@@ -85,10 +86,6 @@ describe('revisión de F12', () => {
 
   it('la nota y los links del artboard', () => {
     expect(NOTA_VERSIONES).toBe('«Volver a esta» publica de nuevo esa versión como una nueva; no se borra ninguna.');
-    expect(LINKS_OBS_PUBLICAR).toEqual([
-      { etiqueta: 'Pantallas', archivo: 'pantalla.html' },
-      { etiqueta: 'Panel', archivo: 'panel.html' },
-      { etiqueta: 'Rótulos', archivo: 'rotulos.html' },
-    ]);
+    expect(LINKS_OBS_PUBLICAR).toBe(LINKS_OBS);
   });
 });

@@ -74,8 +74,5 @@ export function siguienteVersion(ultimaReservada: number | null, mayorPublicada:
 export const NOTA_VERSIONES = '«Volver a esta» publica de nuevo esa versión como una nueva; no se borra ninguna.';
 
 /** Decisión 25: las etiquetas del artboard de F12 (F1 conserva las suyas). */
-export const LINKS_OBS_PUBLICAR = [
-  { etiqueta: 'Pantallas', archivo: 'pantalla.html' },
-  { etiqueta: 'Panel', archivo: 'panel.html' },
-  { etiqueta: 'Rótulos', archivo: 'rotulos.html' },
-] as const;
+/** Los mismos links que Resumen: uno por escena (pedido del usuario, 2026-11-14). */
+export { LINKS_OBS as LINKS_OBS_PUBLICAR } from './links-obs';

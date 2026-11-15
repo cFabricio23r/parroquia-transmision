@@ -14,11 +14,8 @@ import { useBorrador } from './ProveedorBorrador';
 
 export const TEXTO_RESUMEN = 'Así va la configuración. Cada parte se puede dejar como viene y cambiarla después.';
 export const NOTA_LINKS = 'Se pegan una vez en OBS. Después, cada vez que publicas, OBS se actualiza solo en uno o dos minutos.';
-export const LINKS_OBS = [
-  { etiqueta: 'Pantallas', archivo: 'pantalla.html' },
-  { etiqueta: 'Panel de control', archivo: 'panel.html' },
-  { etiqueta: 'Rótulos', archivo: 'rotulos.html' },
-] as const;
+export { LINKS_OBS } from '../../../../lib/editor/links-obs';
+import { LINKS_OBS } from '../../../../lib/editor/links-obs';
 
 export function SeccionResumen() {
   const { borrador, datos, estados } = useBorrador();
