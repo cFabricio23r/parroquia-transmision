@@ -120,14 +120,20 @@ export async function descargarPublicado({ url, clave, destino, slugsDelRepo }) 
   const cliente = createClient(url, clave, { auth: { persistSession: false, autoRefreshToken: false } });
   const bucket = cliente.storage.from('publicado');
 
-  const { data: activosLeidos, error: errorActivos } = await cliente.rpc('slugs_activos');
-  if (errorActivos || !Array.isArray(activosLeidos)) {
-    throw falloSupabase(
-      'leer las parroquias activas (¿falta aplicar la migración 20261114000009_desactivar_parroquias?)',
-      errorActivos,
-    );
+  // Por páginas (range): PostgREST corta cada respuesta en `max_rows`, y las activas que quedaran
+  // después del corte se dejarían afuera sin fallar. La función ordena por slug, así las páginas no se pisan.
+  const activos = new Set();
+  for (let desde = 0; ; desde += TAM_PAGINA) {
+    const { data, error } = await cliente.rpc('slugs_activos').range(desde, desde + TAM_PAGINA - 1);
+    if (error || !Array.isArray(data)) {
+      throw falloSupabase(
+        'leer las parroquias activas (¿falta aplicar la migración 20261114000009_desactivar_parroquias?)',
+        error,
+      );
+    }
+    for (const slug of data) activos.add(slug);
+    if (data.length < TAM_PAGINA) break;
   }
-  const activos = new Set(activosLeidos);
 
   // Las carpetas de primer nivel son las parroquias (en la lista salen con id null).
   const listados = [];
