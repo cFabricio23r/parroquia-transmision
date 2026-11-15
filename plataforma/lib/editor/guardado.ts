@@ -75,6 +75,13 @@ export function crearGuardador(
   // mientras sigan iguales: así un campo mal escrito no frena el guardado de las demás secciones.
   let rechazados = new Map<Bloque, unknown>();
   let mensajeRechazo: string | null = null;
+  // Cada error de forma, con los bloques retenidos por él: se muestra mientras alguno siga retenido.
+  // Así un segundo 422 no esconde el error de un bloque rechazado antes que todavía no se corrigió.
+  let erroresRetenidos: { error: string; bloques: Bloque[] }[] = [];
+  const actualizarErroresForma = () => {
+    erroresRetenidos = erroresRetenidos.filter((e) => e.bloques.some((b) => rechazados.has(b)));
+    erroresForma = erroresRetenidos.map((e) => e.error);
+  };
 
   const instantanea = (): InstantaneaGuardado => ({
     estado,
@@ -113,10 +120,8 @@ export function crearGuardador(
       else if (iguales(local[b], valor)) delete cambios[b];
       else rechazados.delete(b); // cambió: se vuelve a intentar
     }
-    if (rechazados.size === 0) {
-      mensajeRechazo = null;
-      erroresForma = [];
-    }
+    if (rechazados.size === 0) mensajeRechazo = null;
+    actualizarErroresForma();
     return cambios;
   }
 
@@ -125,6 +130,15 @@ export function crearGuardador(
     const nombrados = errs.map(bloqueDeError).filter((b): b is Bloque => !!b && b in enviados);
     const bloques = nombrados.length ? [...new Set(nombrados)] : (Object.keys(enviados) as Bloque[]);
     for (const b of bloques) rechazados.set(b, foto[b]);
+    // Un error que nombra un bloque retenido va con ese bloque; el que no nombra ninguno, con todos los
+    // que retuvo esta respuesta. Los de antes se quedan mientras sus bloques sigan retenidos.
+    const nuevos = errs.map((error) => {
+      const b = bloqueDeError(error);
+      return { error, bloques: b && bloques.includes(b) ? [b] : bloques };
+    });
+    const textos = new Set(nuevos.map((e) => e.error));
+    erroresRetenidos = [...erroresRetenidos.filter((e) => !textos.has(e.error)), ...nuevos];
+    actualizarErroresForma();
   }
 
   function fallo(r: RespuestaHttp) {
@@ -132,7 +146,7 @@ export function crearGuardador(
     if (r.estado === 401) return poner('sesion-cerrada');
     if (r.estado === 503) return poner('sin-conexion');
     if (r.estado === 422) {
-      erroresForma = Array.isArray(cuerpo.errores) ? cuerpo.errores.map(String) : [];
+      // `erroresForma` ya lo armó `retener`, con los errores de los bloques que siguen retenidos.
       mensajeRechazo = typeof cuerpo.error === 'string' ? cuerpo.error : null;
       return poner('rechazado', mensajeRechazo);
     }
@@ -201,6 +215,7 @@ export function crearGuardador(
   /** Nada más por enviar: «guardado», o «rechazado» si queda algún bloque por corregir. */
   function terminar() {
     if (rechazados.size) return poner('rechazado', mensajeRechazo);
+    erroresRetenidos = [];
     erroresForma = [];
     return poner('guardado');
   }

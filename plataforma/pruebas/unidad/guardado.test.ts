@@ -319,6 +319,49 @@ describe('un bloque rechazado (422) no frena el guardado de los demás', () => {
     expect(g.instantanea().estado).toBe('rechazado');
   });
 
+  it('un segundo 422 no esconde el error de un bloque que sigue retenido (revisión)', async () => {
+    const f = falsas({
+      auto: (c) =>
+        'nombreCorto' in c.cambios && !String(c.cambios.nombreCorto).trim()
+          ? rechazo(['El nombre corto (nombreCorto) está vacío.'])
+          : 'colores' in c.cambios
+            ? rechazo(['El color principal (colores.principal) no es un color.'])
+            : ok('t2'),
+    });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('nombreCorto', ' ');
+    await vi.advanceTimersByTimeAsync(800);
+    g.cambiar('colores', { principal: 'zzz' });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios[1].cuerpo.cambios).toEqual({ colores: { principal: 'zzz' } });
+    expect(g.instantanea().estado).toBe('rechazado');
+    // Los dos bloques siguen retenidos: se ven los dos errores.
+    expect(g.instantanea().erroresForma).toEqual([
+      'El nombre corto (nombreCorto) está vacío.',
+      'El color principal (colores.principal) no es un color.',
+    ]);
+
+    // Al corregir uno, su error se va y el del otro queda.
+    g.cambiar('nombreCorto', 'San José');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios[2].cuerpo.cambios).toEqual({ nombreCorto: 'San José' });
+    expect(g.instantanea().estado).toBe('rechazado');
+    expect(g.instantanea().erroresForma).toEqual(['El color principal (colores.principal) no es un color.']);
+  });
+
+  it('un error sin bloque reconocible se va cuando se liberan los bloques que retuvo', async () => {
+    let n = 0;
+    const f = falsas({ auto: () => (n++ === 0 ? rechazo(['Algo raro.']) : ok('t2')) });
+    const g = crearGuardador(inicial, f.deps);
+    g.cambiar('lugar', 'A');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(g.instantanea().erroresForma).toEqual(['Algo raro.']);
+    g.cambiar('lugar', 'B');
+    await vi.advanceTimersByTimeAsync(800);
+    expect(g.instantanea().estado).toBe('guardado');
+    expect(g.instantanea().erroresForma).toEqual([]);
+  });
+
   it('guardarYa con solo el bloque rechazado no envía nada y sigue rechazado', async () => {
     const f = falsas({ auto: () => rechazo(['El nombre corto (nombreCorto) está vacío.']) });
     const g = crearGuardador(inicial, f.deps);
