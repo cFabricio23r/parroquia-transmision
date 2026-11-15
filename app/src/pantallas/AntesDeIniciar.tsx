@@ -30,6 +30,8 @@ interface Props {
   onPrepararOtraVez: () => void;
   /** Vuelve a Preparar, en vertical (Tarea 9c). */
   onVolverAPreparar: () => void;
+  /** Vuelve a mostrar «Elegir transmisión» (plan 3b). */
+  onVerSemana?: () => void;
 }
 
 export default function AntesDeIniciar(p: Props) {
@@ -77,6 +79,16 @@ export default function AntesDeIniciar(p: Props) {
           />
         </View>
         <View style={estilos.avisos} pointerEvents="box-none">
+          {p.onVerSemana ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Transmisiones de la semana"
+              onPress={p.onVerSemana}
+              style={estilos.volver}
+            >
+              <Text style={estilos.volverTexto}>Transmisiones de la semana</Text>
+            </Pressable>
+          ) : null}
           {p.terminada ? <Text style={[estilos.aviso, estilos.avisoBien]}>La transmisión terminó.</Text> : null}
           {p.mensaje ? (
             <Text style={[estilos.aviso, estilos.avisoAmbar]} accessibilityLiveRegion="polite">

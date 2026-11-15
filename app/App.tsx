@@ -12,7 +12,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Network from 'expo-network';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, PermissionsAndroid, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import {
@@ -69,6 +69,12 @@ import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
 import EnVivo from './src/pantallas/EnVivo';
 import Portada from './src/pantallas/Portada';
+import ElegirTransmision from './src/pantallas/semana/ElegirTransmision';
+import { almacenSemana } from './src/semana/almacen';
+import { SEMANA, TIPOS_COMUNES, type TipoCampos } from './src/semana/nucleo';
+import { combinarConPendientes, type ItemApp } from './src/semana/pendientes';
+import { fechaLocal } from './src/semana/sincronizar';
+import { crearSeguimiento, scriptEditar, scriptUsar } from './src/semana/usar';
 import PrepararVertical, { type Rect } from './src/pantallas/PrepararVertical';
 import { ESPERA_MAXIMA_MS, fasePortada } from './src/portada/portada';
 import { SCRIPT_ESCENA, SCRIPT_IR_A_EN_VIVO, SCRIPT_IR_A_PREPARAR } from './src/puente/puente';
@@ -210,7 +216,7 @@ export default function App(p: {
   cuenta: Cuenta | null;
   cantidadParroquias: number;
   origen: string;
-  onMomento(m: Momento): void;
+  onMomento(m: Momento): void | Promise<unknown>;
   onCambiarParroquia(): void;
   onCerrarSesion(): Promise<{ error?: 'en-vivo' }>;
 }) {
@@ -333,6 +339,66 @@ export default function App(p: {
   const prepararDespues = useRef(false);
   const slugRef = useRef(slug);
   slugRef.current = slug;
+
+  // Plan 3b: «Elegir transmisión» sobre Antes de iniciar, y el seguimiento de la que está en uso.
+  // Nada de esto corre en vivo: la capa solo se ve en 'antes' y el seguimiento guarda en el celular.
+  const [eleccion, setEleccion] = useState<'pendiente' | 'hecha'>('pendiente');
+  const [semana, setSemana] = useState<{ items: ItemApp[]; tipos: TipoCampos[]; bajadaEn: string | null; hoy: string }>(
+    () => ({ items: [], tipos: TIPOS_COMUNES, bajadaEn: null, hoy: fechaLocal(new Date()) }),
+  );
+  const seguimiento = useMemo(
+    () => crearSeguimiento({ guardar: (pe) => almacenSemana.guardarPendiente(slug, pe) }),
+    [slug],
+  );
+  useEffect(() => () => seguimiento.soltar(), [seguimiento]);
+  useEffect(() => {
+    setEleccion('pendiente');
+  }, [slug]);
+  const releerSemana = useCallback(async () => {
+    const hoy = fechaLocal(new Date());
+    try {
+      const cache = await almacenSemana.leerCache(slug);
+      if (slugRef.current !== slug) return;
+      if (!cache) {
+        setSemana({ items: [], tipos: TIPOS_COMUNES, bajadaEn: null, hoy });
+        return;
+      }
+      const pendientes = await almacenSemana.leerPendientes(slug);
+      const armados = SEMANA.armarSemana({
+        lunes: SEMANA.lunesDe(hoy),
+        fijas: cache.fijas,
+        series: cache.series,
+        transmisiones: cache.transmisiones,
+      });
+      if (slugRef.current !== slug) return;
+      setSemana({
+        items: combinarConPendientes(armados, pendientes).items,
+        tipos: SEMANA.tiposDisponibles(TIPOS_COMUNES, cache.tipos),
+        bajadaEn: cache.bajadaEn,
+        hoy,
+      });
+    } catch {
+      console.warn('semana: no se pudo leer');
+    }
+  }, [slug]);
+  const alEstadoPanel = useCallback(
+    (json: string) => {
+      actualizarEstado(json);
+      seguimiento.alEstado(json);
+    },
+    [seguimiento],
+  );
+  const usarTransmision = useCallback(
+    (item: ItemApp, editar: boolean) => {
+      const tipo = SEMANA.tipoDeClave(semana.tipos, item.tipo);
+      if (!tipo) return;
+      const parche = SEMANA.parcheDePanel(item, tipo);
+      panelRef.current?.inyectar(editar ? scriptEditar(slug, parche) : scriptUsar(slug, parche));
+      seguimiento.usar(item, tipo);
+      setEleccion('hecha');
+    },
+    [semana.tipos, slug, seguimiento],
+  );
 
   const alAire = enAire(estado);
 
@@ -610,6 +676,7 @@ export default function App(p: {
       if (estabaAlAire.current) {
         panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);
         onMomentoRef.current('al-terminar');
+        setEleccion('pendiente');
       }
     }
     estabaAlAire.current = alAire;
@@ -617,8 +684,10 @@ export default function App(p: {
 
   // 'antes-de-iniciar': cada vez que se muestra Antes de iniciar.
   useEffect(() => {
-    if (visible === 'antes') onMomentoRef.current('antes-de-iniciar');
-  }, [visible]);
+    if (visible !== 'antes') return;
+    void releerSemana();
+    void Promise.resolve(onMomentoRef.current('antes-de-iniciar')).then(releerSemana, () => undefined);
+  }, [visible, releerSemana]);
 
   // Páginas nuevas en la copia (fuera del vivo): se vuelve a montar el panel y se recargan las escenas.
   useEffect(
@@ -679,7 +748,7 @@ export default function App(p: {
           panelRef={panelRef}
           origen={p.origen}
           slug={slug}
-          onEstado={actualizarEstado}
+          onEstado={alEstadoPanel}
           onCargado={alCargarPanel}
           estilo={[estilos.zona, lugares.panel]}
         />
@@ -737,8 +806,28 @@ export default function App(p: {
                 onAjustes={() => setEnAjustes(true)}
                 onPrepararOtraVez={volverAPreparar}
                 onVolverAPreparar={() => setListoParaIniciar(false)}
+                onVerSemana={() => {
+                  setEleccion('pendiente');
+                  void releerSemana();
+                }}
               />
             )}
+            {visible === 'antes' && eleccion === 'pendiente' ? (
+              <ElegirTransmision
+                items={semana.items}
+                hoy={semana.hoy}
+                tipos={semana.tipos}
+                hayRed={hayRed}
+                bajadaEn={semana.bajadaEn}
+                onUsar={(item) => usarTransmision(item, false)}
+                onEditar={(item) => usarTransmision(item, true)}
+                onSinPreparar={() => {
+                  seguimiento.soltar();
+                  setEleccion('hecha');
+                }}
+                onCerrar={() => setEleccion('hecha')}
+              />
+            ) : null}
           </View>
         )}
         {visible === 'aire' ? (

@@ -18,6 +18,8 @@ import { borrarCopia, borrarCopias, descargarCopia, fijarOrientacion } from '../
 import { C, FUENTES } from './componentes/tema';
 import { obtenerConfig } from './config/compilacion';
 import { avisarCambioDePaginas, registrarCopias } from './copias/copias';
+import { almacenSemana } from './semana/almacen';
+import { registrarSemana } from './semana/sincronizar';
 import { aHayRed } from './estado/red';
 import Aviso, { confirmarCerrarSesion } from './pantallas/acceso/Aviso';
 import ElegirParroquia from './pantallas/acceso/ElegirParroquia';
@@ -47,17 +49,25 @@ if (config.ok) {
 // La tarea 'ajustes-app' va después de 'paginas' (plan 3c); la llave vieja de ajustes se borra.
 registrarAjustes(sincronizador, limpiezas, { almacen: almacenAjustes, avisar: avisarCambioDeAjustes });
 almacenAjustes.borrarViejos().catch(() => undefined);
+// La tarea 'semana' va después de las de 3a y 3c (plan 3b).
+if (config.ok) {
+  registrarSemana(sincronizador, limpiezas, {
+    origen: config.config.origenPlataforma,
+    fetch: (...a: Parameters<typeof fetch>) => fetch(...a),
+    almacen: almacenSemana,
+  });
+}
 
 /** Lo que se sabe de la red: si no se sabe, se supone que hay (como el aviso de App). */
 let hayRed = true;
 let abrirCorrio = false;
 
-function correrMomento(m: Momento): void {
+function correrMomento(m: Momento): Promise<unknown> | void {
   if (!hayRed) return;
   const parroquia = controlSesion.tienda.obtener().parroquia;
   if (!parroquia) return;
   if (m === 'abrir') abrirCorrio = true;
-  void sincronizador.sincronizar(m, {
+  return sincronizador.sincronizar(m, {
     parroquia,
     sesion: controlSesion.sesion,
     cliente: controlSesion.cliente,
