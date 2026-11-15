@@ -1,0 +1,90 @@
+/* «Transmisiones de la semana» (etapa 3b). Solo variables --pv-. */
+.sem-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 8px;
+}
+.sem-navegar,
+.sem-crear,
+.sem-item-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.sem-rango {
+  font-weight: 700;
+  min-width: 150px;
+  text-align: center;
+}
+.sem-anuncio:empty {
+  display: none;
+}
+.sem-vacia,
+.sem-sin {
+  color: var(--pv-texto-suave);
+}
+.sem-lista {
+  display: grid;
+  gap: 18px;
+  margin-top: 12px;
+}
+.sem-dia {
+  display: grid;
+  gap: 8px;
+}
+.sem-dia-titulo {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+}
+.sem-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--pv-borde);
+  border-radius: 10px;
+  background: #fff;
+}
+.sem-item--saltada {
+  opacity: 0.75;
+  border-style: dashed;
+}
+.sem-item-texto {
+  display: grid;
+  gap: 3px;
+}
+.sem-item-linea {
+  font-weight: 700;
+}
+.sem-item-origen,
+.sem-item-app,
+.sem-item-saltada {
+  font-size: 13px;
+  color: var(--pv-texto-suave);
+}
+.sem-estado {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+.sem-estado--listo {
+  color: var(--pv-verde-chip-texto);
+}
+.sem-estado--falta {
+  color: var(--pv-ambar-chip-texto);
+}
+.sem-aviso {
+  font-size: 13px;
+  color: var(--pv-rojo-texto);
+}
+.sem-campos {
+  display: grid;
+  gap: 12px;
+}
