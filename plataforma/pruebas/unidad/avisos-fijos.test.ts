@@ -1,6 +1,6 @@
 // Avisos fijos (plan 3, Tarea 16; Decisiones 15 y 16).
 import { describe, expect, it } from 'vitest';
-import { clavesDeFilas, erroresAviso, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoLugar, textoRango, vencido } from '../../lib/editor/avisos';
+import { clavesDeFilas, erroresAviso, lugarTrasMover, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoLugar, textoRango, vencido } from '../../lib/editor/avisos';
 
 const HOY = '2026-11-14';
 const lista3 = [{ texto: 'a', orden: 1 }, { texto: 'b', orden: 2 }, { texto: 'c', orden: 3 }];
@@ -68,5 +68,37 @@ describe('filas de avisos estables al reordenar (ronda final)', () => {
   it('el anuncio dice el lugar nuevo', () => {
     expect(textoLugar('Retiro de jóvenes', 0, 3)).toBe('Retiro de jóvenes, ahora 1.º de 3');
     expect(textoLugar('Colecta', 2, 3)).toBe('Colecta, ahora 3.º de 3');
+  });
+});
+
+describe('el aviso que se edita sigue siendo el mismo al reordenar (F11, revisión)', () => {
+  const lista = ['A', 'B', 'C', 'D', 'E'].map((texto, i) => ({ texto, orden: i + 1 }));
+
+  it('arrastrar otro aviso por encima del editado (editando el 2, de 0 a 3)', () => {
+    const nueva = moverA(lista, 0, 3);
+    const lugar = lugarTrasMover(2, 0, 3);
+    expect(lugar).toBe(1);
+    expect(nueva[lugar as number].texto).toBe('C');
+  });
+
+  it('para cualquier movimiento, el lugar nuevo apunta al mismo aviso', () => {
+    for (let desde = 0; desde < lista.length; desde++)
+      for (let hasta = 0; hasta < lista.length; hasta++) {
+        const nueva = moverA(lista, desde, hasta);
+        for (let e = 0; e < lista.length; e++) expect(nueva[lugarTrasMover(e, desde, hasta) as number].texto).toBe(lista[e].texto);
+      }
+  });
+
+  it('con «Subir» y «Bajar» también (son movimientos de un lugar)', () => {
+    for (let i = 0; i < lista.length; i++)
+      for (const delta of [-1, 1] as const) {
+        const hasta = Math.min(lista.length - 1, Math.max(0, i + delta));
+        const nueva = mover(lista, i, delta);
+        for (let e = 0; e < lista.length; e++) expect(nueva[lugarTrasMover(e, i, hasta) as number].texto).toBe(lista[e].texto);
+      }
+  });
+
+  it('el aviso nuevo sigue siendo nuevo', () => {
+    expect(lugarTrasMover('nuevo', 0, 3)).toBe('nuevo');
   });
 });

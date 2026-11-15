@@ -103,3 +103,17 @@ export function moverA<T extends Partial<AvisoFijo>>(lista: T[], desde: number, 
   copia.splice(hasta, 0, a);
   return numerar(copia);
 }
+
+/**
+ * El lugar nuevo del aviso que estaba en `e` después de llevar el de `desde` a `hasta` (`moverA`, o
+ * `mover` de un lugar). Lo usa el formulario «Editar aviso» para seguir al mismo aviso aunque el
+ * movido sea otro: si no, «Guardar aviso» escribiría encima del aviso equivocado.
+ */
+export function lugarTrasMover<T extends number | 'nuevo'>(e: T, desde: number, hasta: number): T {
+  if (e === 'nuevo') return e;
+  const i = e as number;
+  if (i === desde) return hasta as T;
+  if (desde < hasta && i > desde && i <= hasta) return (i - 1) as T;
+  if (hasta < desde && i >= hasta && i < desde) return (i + 1) as T;
+  return e;
+}

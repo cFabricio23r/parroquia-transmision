@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   clavesDeFilas,
   erroresAviso,
+  lugarTrasMover,
   MAX_AVISOS,
   mover,
   moverA,
@@ -223,13 +224,12 @@ export function SeccionAvisos() {
 
   const reordenar = (nueva: AvisoFijo[], desde: number, hasta: number) => {
     cambiar('avisos', nueva);
-    if (efectiva === desde) {
-      setSeleccion(hasta);
-      ultimaClave.current = `${hasta}:${nueva[hasta]?.texto ?? ''}`;
-    } else if (typeof efectiva === 'number' && efectiva === hasta) {
-      setSeleccion(desde);
-      ultimaClave.current = `${desde}:${nueva[desde]?.texto ?? ''}`;
-    }
+    if (efectiva === 'nuevo') return;
+    // El formulario sigue al aviso que se edita, sea o no el movido: cualquier aviso que cruce por
+    // encima corre su lugar. Sin esto «Guardar aviso» escribía encima de otro aviso (revisión, F11).
+    const lugar = lugarTrasMover(efectiva, desde, hasta);
+    setSeleccion(lugar);
+    ultimaClave.current = clave(lugar, nueva);
   };
 
   /** «Subir» / «Bajar» desde el menú del tirador. */

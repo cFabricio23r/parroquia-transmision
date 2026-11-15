@@ -147,6 +147,36 @@ try {
   igual(await enfocado(), 'Mover Retiro de jóvenes', 'después de «Subir» el foco sigue en su tirador');
   igual(await anuncio(), 'Retiro de jóvenes, ahora 1.º de 3', 'y se anuncia que quedó primera');
 
+  console.log('F11 · Arrastrar otro aviso por encima del que se edita');
+  // Revisión: al arrastrar otro aviso por encima del editado, el formulario apuntaba a otro aviso y
+  // «Guardar aviso» escribía encima de él. Lista: Retiro, Colecta, Inscripciones; se edita la 3.ª.
+  await pa.getByRole('button', { name: 'Editar Inscripciones de catequesis' }).click();
+  await pa.getByLabel('Texto', { exact: true }).fill('Sábados de 8:00 a 11:00 a. m., en el salón nuevo.');
+  await pa.getByRole('button', { name: 'Mover Retiro de jóvenes' }).dragTo(pa.locator('.pv-aviso-fila').nth(2));
+  igual(JSON.stringify(await titulos()), JSON.stringify(['Colecta para el techo', 'Inscripciones de catequesis', 'Retiro de jóvenes']), 'el retiro queda último');
+  igual(await pa.getByRole('button', { name: 'Editar Inscripciones de catequesis' }).getAttribute('aria-pressed'), 'true', 'la fila elegida sigue siendo la del aviso que se edita');
+  igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Inscripciones de catequesis', 'el formulario sigue con su título');
+  await pa.getByRole('button', { name: 'Guardar aviso' }).click();
+  const trasArrastre = await esperarEnBase(A.id, (c) => c.avisos.some((x) => x.detalle === 'Sábados de 8:00 a 11:00 a. m., en el salón nuevo.'), 3000);
+  igual(
+    trasArrastre.avisos.find((x) => x.detalle === 'Sábados de 8:00 a 11:00 a. m., en el salón nuevo.')?.texto,
+    'Inscripciones de catequesis',
+    '«Guardar aviso» guarda en el aviso que se editaba',
+  );
+  igual(
+    JSON.stringify(trasArrastre.avisos.map((x) => x.texto)),
+    JSON.stringify(['Colecta para el techo', 'Inscripciones de catequesis', 'Retiro de jóvenes']),
+    'y no pisa ningún otro aviso',
+  );
+  igual(trasArrastre.avisos[0].detalle, 'Gracias por tu aporte; la meta es terminar en marzo.', 'la colecta conserva su texto');
+  // Sin cambios escritos, mover otro aviso con el teclado tampoco cambia el aviso del formulario.
+  await pa.getByRole('button', { name: 'Mover Colecta para el techo' }).focus();
+  await pa.keyboard.press('Enter');
+  await pa.keyboard.press('ArrowDown');
+  await pa.keyboard.press('Enter');
+  igual((await titulos())[0], 'Inscripciones de catequesis', '«Bajar» la colecta sube las inscripciones');
+  igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Inscripciones de catequesis', 'y el formulario sigue con las inscripciones');
+
   console.log('F11 · Editar');
   await pa.getByRole('button', { name: 'Editar Inscripciones de catequesis' }).click();
   igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Inscripciones de catequesis', 'el formulario carga el aviso');
