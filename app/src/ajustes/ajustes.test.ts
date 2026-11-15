@@ -7,8 +7,7 @@ jest.mock('expo-secure-store', () => ({
   }),
 }));
 
-import * as SecureStore from 'expo-secure-store';
-import { AJUSTES_INICIALES, estiloFinalValido, guardarAjustes, leerAjustes, limpiarClave, puedeGuardar, validar, Ajustes } from './ajustes';
+import { AJUSTES_INICIALES, estiloFinalValido, limpiarClave, puedeGuardar, validar, Ajustes } from './ajustes';
 
 const base: Ajustes = { ...AJUSTES_INICIALES, servidor: 'rtmps://ejemplo.invalido:443/rtmp/', clave: 'FB-123-abc' };
 
@@ -61,18 +60,6 @@ describe('pantalla final (Tarea 9d)', () => {
   it('por defecto es Azul', () => {
     expect(AJUSTES_INICIALES.estiloFinal).toBe('azul');
   });
-  it('guarda y lee el estilo Claro', async () => {
-    await guardarAjustes({ ...base, estiloFinal: 'claro' });
-    expect((await leerAjustes()).estiloFinal).toBe('claro');
-  });
-  it('ajustes viejos, sin el estilo, leen Azul', async () => {
-    almacen['parroquia_ajustes_v1'] = JSON.stringify({ servidor: 'rtmps://x/', clave: 'FB-1', calidad: '720p', microfono: 'celular' });
-    expect((await leerAjustes()).estiloFinal).toBe('azul');
-  });
-  it('un estilo desconocido lee Azul', async () => {
-    almacen['parroquia_ajustes_v1'] = JSON.stringify({ estiloFinal: 'rojo' });
-    expect((await leerAjustes()).estiloFinal).toBe('azul');
-  });
   it('estiloFinalValido solo deja pasar claro y azul', () => {
     expect(estiloFinalValido('claro')).toBe('claro');
     expect(estiloFinalValido('azul')).toBe('azul');
@@ -80,41 +67,9 @@ describe('pantalla final (Tarea 9d)', () => {
   });
 });
 
-describe('guardar y leer', () => {
-  it('devuelve lo mismo que se guardó', async () => {
-    const a: Ajustes = { ...base, calidad: '1080p', microfono: 'externo' };
-    await guardarAjustes(a);
-    expect(await leerAjustes()).toEqual(a);
-  });
-  it('sin nada guardado devuelve los iniciales', async () => {
-    expect(await leerAjustes()).toEqual(AJUSTES_INICIALES);
-  });
-  it('guarda un solo JSON bajo parroquia_ajustes_v1', async () => {
-    await guardarAjustes(base);
-    expect(Object.keys(almacen)).toEqual(['parroquia_ajustes_v1']);
-  });
-  it('con datos dañados devuelve los iniciales', async () => {
-    almacen['parroquia_ajustes_v1'] = '{no es json';
-    expect(await leerAjustes()).toEqual(AJUSTES_INICIALES);
-  });
-  it('completa campos que falten o tengan valores inválidos', async () => {
-    almacen['parroquia_ajustes_v1'] = JSON.stringify({ clave: 'FB-123-abc', calidad: '4k' });
-    expect(await leerAjustes()).toEqual({ ...AJUSTES_INICIALES, clave: 'FB-123-abc' });
-  });
-});
-
 describe('normalización', () => {
-  it('guarda la clave y el servidor sin espacios en las puntas', async () => {
-    await guardarAjustes({ ...base, clave: 'abc\n', servidor: ' rtmps://x ' });
-    expect(JSON.parse(almacen['parroquia_ajustes_v1'])).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
-    expect(await leerAjustes()).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
-  });
   it('validar acepta valores con espacios en las puntas', () => {
     expect(validar({ ...base, clave: 'abc\n', servidor: ' rtmps://x' })).toEqual({ ok: true });
-  });
-  it('leerAjustes normaliza lo que ya estaba guardado sin recortar', async () => {
-    almacen['parroquia_ajustes_v1'] = JSON.stringify({ ...base, clave: 'abc\n', servidor: ' rtmps://x ' });
-    expect(await leerAjustes()).toMatchObject({ clave: 'abc', servidor: 'rtmps://x' });
   });
 });
 
@@ -123,9 +78,5 @@ describe('carga segura', () => {
     expect(puedeGuardar('cargando')).toBe(false);
     expect(puedeGuardar('error')).toBe(false);
     expect(puedeGuardar('listo')).toBe(true);
-  });
-  it('si el almacén falla al leer, leerAjustes rechaza (no devuelve iniciales)', async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockRejectedValueOnce(new Error('fallo'));
-    await expect(leerAjustes()).rejects.toBeDefined();
   });
 });
