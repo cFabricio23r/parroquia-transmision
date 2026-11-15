@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloque, seccionDeRuta, usaBorrador, vistaPreviaDeRuta } from '../../lib/editor/secciones';
+import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloque, seccionDeRuta, SECCIONES_FUERA_DEL_BORRADOR, usaBorrador, vistaPreviaDeRuta } from '../../lib/editor/secciones';
 import { bloqueDeError, limpiarMensaje } from '../../lib/editor/errores';
 
 describe('catálogo de secciones', () => {
-  it('tiene las 11 secciones del menú en orden', () => {
+  it('tiene las 12 secciones del menú en orden', () => {
     expect(SECCIONES.map((s) => s.texto)).toEqual([
       'Resumen', 'Identidad', 'Patrono y fiesta', 'Pantallas', 'Rótulos y estilo', 'Tipos de transmisión',
-      'Galería', 'Horarios y redes', 'Avisos fijos', 'App y transmisión', 'Publicar',
+      'Galería', 'Horarios y redes', 'Avisos fijos', 'Transmisiones de la semana', 'App y transmisión', 'Publicar',
     ]);
   });
 
@@ -15,6 +15,13 @@ describe('catálogo de secciones', () => {
     expect(usaBorrador('app')).toBe(false);
     expect(usaBorrador('publicar')).toBe(false);
     expect(usaBorrador('avisos')).toBe(true);
+  });
+
+  it('«Transmisiones de la semana» va fuera del borrador (3b)', () => {
+    expect(seccion('semana')).toEqual({ id: 'semana', texto: 'Transmisiones de la semana', ruta: 'semana', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' });
+    expect(seccionDeRuta('/editor/p/x/semana/fijas', 'x').id).toBe('semana');
+    expect(usaBorrador('semana')).toBe(false);
+    expect(SECCIONES_FUERA_DEL_BORRADOR).toContain('semana');
   });
 
   it('cada bloque pertenece a exactamente una sección', () => {

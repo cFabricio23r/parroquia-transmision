@@ -11,6 +11,7 @@ export type IdSeccion =
   | 'galeria'
   | 'horarios-y-redes'
   | 'avisos'
+  | 'semana'
   | 'app'
   | 'publicar';
 
@@ -120,13 +121,17 @@ export const SECCIONES: readonly Seccion[] = [
     vistaPrevia: { pagina: 'pantalla', vista: 'avisos', titulo: 'Vista previa · Avisos', conSelectorTipo: false },
     disposicion: 'avisos',
   },
+  // 3b: fuera del borrador (Decisión 16): lee y escribe la semana al momento, sin publicar.
+  { id: 'semana', texto: 'Transmisiones de la semana', ruta: 'semana', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
   // 3c: fuera del borrador (Decisión 8): sin bloques, sin punto y sin tarjeta en el Resumen.
   { id: 'app', texto: 'App y transmisión', ruta: 'app-y-transmision', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'publicar', texto: 'Publicar', ruta: 'publicar', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
 ];
 
-/** Secciones que no editan el borrador: no tienen estado ni punto. 3b suma aquí la suya. */
-export const SECCIONES_SIN_BORRADOR = ['publicar', 'app'] as const;
+/** Secciones que no editan el borrador: no tienen estado ni punto (3c `app`, 3b `semana`). */
+export const SECCIONES_SIN_BORRADOR = ['publicar', 'app', 'semana'] as const;
+/** El nombre que usa el plan 3b para la misma lista. */
+export const SECCIONES_FUERA_DEL_BORRADOR = SECCIONES_SIN_BORRADOR;
 export type IdSeccionBorrador = Exclude<IdSeccion, (typeof SECCIONES_SIN_BORRADOR)[number]>;
 export function usaBorrador(id: IdSeccion): id is IdSeccionBorrador {
   return !(SECCIONES_SIN_BORRADOR as readonly IdSeccion[]).includes(id);

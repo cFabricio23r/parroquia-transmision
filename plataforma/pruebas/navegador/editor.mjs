@@ -25,6 +25,7 @@ const SECCIONES = [
   'Galería',
   'Horarios y redes',
   'Avisos fijos',
+  'Transmisiones de la semana',
   'App y transmisión',
   'Publicar',
 ];
@@ -48,14 +49,15 @@ try {
   console.log('Menú');
   const menu = pagina.locator('nav[aria-label="Secciones del editor"]');
   const enlaces = menu.getByRole('link');
-  igual(await enlaces.count(), 11, 'el menú tiene 11 enlaces');
+  igual(await enlaces.count(), 12, 'el menú tiene 12 enlaces');
   const textos = await enlaces.evaluateAll((l) => l.map((a) => a.childNodes[0]?.textContent?.trim()));
   igual(JSON.stringify(textos), JSON.stringify(SECCIONES), 'los enlaces están en el orden del diseño');
   igual(await menu.getByRole('link', { name: /^Resumen/ }).getAttribute('aria-current'), 'page', '«Resumen» es la página actual');
   const estados = await enlaces.evaluateAll((l) => l.map((a) => a.querySelector('.pv-solo-lectores')?.textContent ?? null));
-  revisar(estados.slice(0, 9).every((e) => ['Listo', 'Revisar', 'Falta algo', 'Opcional'].includes(e)), 'cada ítem salvo App y Publicar tiene su estado para lectores');
-  igual(estados[9], null, '«App y transmisión» no tiene punto');
-  igual(estados[10], null, '«Publicar» no tiene punto');
+  revisar(estados.slice(0, 9).every((e) => ['Listo', 'Revisar', 'Falta algo', 'Opcional'].includes(e)), 'cada ítem salvo Semana, App y Publicar tiene su estado para lectores');
+  igual(estados[9], null, '«Transmisiones de la semana» no tiene punto');
+  igual(estados[10], null, '«App y transmisión» no tiene punto');
+  igual(estados[11], null, '«Publicar» no tiene punto');
   igual(estados[1], 'Falta algo', 'con el borrador mínimo, «Identidad» dice «Falta algo»');
   igual(estados[8], 'Opcional', '«Avisos fijos» dice «Opcional»');
   revisar(

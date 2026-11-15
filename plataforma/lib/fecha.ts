@@ -71,6 +71,14 @@ export function fechaCompleta(iso: string): string {
   return `${p.dia} ${MESES_CORTOS[p.mes - 1]} ${p.anio}, ${p.hora}`;
 }
 
+/** «5 nov, 10:12», en hora de El Salvador. Inválida: «—». */
+export function fechaHoraCorta(iso: string): string {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return '—';
+  const p = partesLocales(f);
+  return `${p.dia} ${MESES_CORTOS[p.mes - 1]}, ${p.hora}`;
+}
+
 /** Partes de `iso` y cuántos días de calendario local pasaron hasta `ahora`; null si `iso` no es una fecha. */
 function relativo(iso: string | null | undefined, ahora: Date): { p: PartesLocales; dias: number; mismoAnio: boolean } | null {
   if (!iso) return null;
