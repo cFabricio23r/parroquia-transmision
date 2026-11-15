@@ -35,6 +35,13 @@ describe('fraseRegistro (Decisión 16)', () => {
     expect(fraseRegistro({ accion: 'crear_parroquia', detalle: { slug: 's', nombre: 'Santa Ana' }, parroquia: null }, sinNadie)).toBe('Creó Santa Ana');
     expect(fraseRegistro({ accion: 'desactivar', detalle: { slug: 's', nombre: 'Viejo' }, parroquia: 'Santa Lucía' }, sinNadie)).toBe('Desactivó Santa Lucía');
     expect(fraseRegistro({ accion: 'reactivar', detalle: {}, parroquia: 'Santa Lucía' }, sinNadie)).toBe('Reactivó Santa Lucía');
+    expect(fraseRegistro({ accion: 'cambiar_visible', detalle: { nombre: 'X', visible: true }, parroquia: 'Santa Lucía' }, sinNadie)).toBe(
+      'Mostró Santa Lucía en la app',
+    );
+    expect(fraseRegistro({ accion: 'cambiar_visible', detalle: { nombre: 'X', visible: false }, parroquia: 'Santa Lucía' }, sinNadie)).toBe(
+      'Quitó Santa Lucía de la app',
+    );
+    expect(fraseRegistro({ accion: 'cambiar_visible', detalle: { nombre: 'X', visible: true }, parroquia: null }, sinNadie)).toBe('Mostró X en la app');
   });
   it('una parroquia borrada sin nombre en el detalle', () => {
     expect(fraseRegistro({ accion: 'desactivar', detalle: {}, parroquia: null }, sinNadie)).toBe('Desactivó una parroquia eliminada');
@@ -52,10 +59,12 @@ describe('chipRegistro', () => {
     expect(chipRegistro('quitar_acceso')!.tono).toBe('ambar');
     expect(chipRegistro('anular_invitacion')!.tono).toBe('ambar');
     expect(chipRegistro('crear_parroquia')).toEqual({ texto: 'Parroquia', tono: 'gris' });
+    expect(chipRegistro('cambiar_visible')).toEqual({ texto: 'Parroquia', tono: 'gris' });
     expect(chipRegistro('guardar_borrador')).toBeNull();
   });
-  it('ACCIONES_VISIBLES son las 10 y todas tienen chip', () => {
-    expect(ACCIONES_VISIBLES).toHaveLength(10);
+  it('ACCIONES_VISIBLES son las 11 y todas tienen chip', () => {
+    expect(ACCIONES_VISIBLES).toHaveLength(11);
+    expect(ACCIONES_VISIBLES).toContain('cambiar_visible');
     for (const a of ACCIONES_VISIBLES) expect(chipRegistro(a)).not.toBeNull();
     expect(ACCIONES_VISIBLES).not.toContain('guardar_borrador');
   });

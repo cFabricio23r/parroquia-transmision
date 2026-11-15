@@ -64,6 +64,41 @@ export function reactivarParroquia(deps: DepsAdmin, parroquiaId: string): Promis
   return cambiarEstado(deps, parroquiaId, false);
 }
 
+/**
+ * «Visible en la app» (etapa 3a, Decisión 14): solo un admin. UPDATE condicionado, como cambiarEstado:
+ * pedir lo que ya está devuelve `{}` sin registrar. Se puede cambiar también en una desactivada (la
+ * app no la lista igual). No avisa a Vercel: lo publicado no cambia.
+ */
+export async function cambiarVisible(deps: DepsAdmin, parroquiaId: string, visible: boolean): Promise<Resultado> {
+  const quien = await exigirAdmin(deps.sesion);
+  if (!quien) return { error: MENSAJE_SOLO_ADMIN };
+  if (!RE_UUID.test(parroquiaId)) return { error: MENSAJE_NO_EXISTE };
+  try {
+    const { data, error } = await deps.servicio
+      .from('parroquias')
+      .update({ visible })
+      .eq('id', parroquiaId)
+      .eq('visible', !visible)
+      .select('slug, nombre');
+    if (error) throw error;
+    const fila = (data ?? [])[0] as { slug: string; nombre: string } | undefined;
+    if (!fila) {
+      const { data: existe, error: errorExiste } = await deps.servicio.from('parroquias').select('id').eq('id', parroquiaId).maybeSingle();
+      if (errorExiste) throw errorExiste;
+      return existe ? {} : { error: MENSAJE_NO_EXISTE };
+    }
+    await registrar(deps.servicio, {
+      parroquia_id: parroquiaId,
+      usuario_id: quien,
+      accion: 'cambiar_visible',
+      detalle: { slug: fila.slug, nombre: fila.nombre, visible },
+    });
+    return {};
+  } catch (e) {
+    return fallo('cambiarVisible', e);
+  }
+}
+
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const textoDe = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -139,8 +174,8 @@ export async function personasPorId(servicio: SupabaseClient, ids: string[]): Pr
 
 /** Las parroquias de D1, ordenadas por nombre. Lee con el servicio: quien llama ya comprobó que es admin. */
 export async function listarParroquias(servicio: SupabaseClient, ahora: Date = new Date()): Promise<FilaParroquia[]> {
-  const lista = await todasLasFilas<{ id: string; slug: string; nombre: string; desactivada_en: string | null }>((d, h) =>
-    servicio.from('parroquias').select('id, slug, nombre, desactivada_en').order('id').range(d, h),
+  const lista = await todasLasFilas<{ id: string; slug: string; nombre: string; desactivada_en: string | null; visible: boolean }>((d, h) =>
+    servicio.from('parroquias').select('id, slug, nombre, desactivada_en, visible').order('id').range(d, h),
   );
   if (!lista.length) return [];
 
@@ -207,6 +242,7 @@ export async function listarParroquias(servicio: SupabaseClient, ahora: Date = n
         }),
         coordinadores: (coordinadoresDe.get(p.id) ?? []).sort(compararEs),
         invitacionPendiente: pendientes.has(p.id),
+        visible: p.visible === true,
       };
     })
     .sort((a, b) => compararEs(a.nombre, b.nombre));

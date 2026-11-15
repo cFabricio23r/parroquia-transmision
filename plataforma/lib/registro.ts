@@ -18,6 +18,7 @@ export const ACCIONES_VISIBLES = [
   'crear_parroquia',
   'desactivar',
   'reactivar',
+  'cambiar_visible',
 ] as const;
 
 const CHIPS: Record<string, { texto: 'Publicación' | 'Acceso' | 'Parroquia'; tono: TonoChip }> = {
@@ -31,6 +32,7 @@ const CHIPS: Record<string, { texto: 'Publicación' | 'Acceso' | 'Parroquia'; to
   crear_parroquia: { texto: 'Parroquia', tono: 'gris' },
   desactivar: { texto: 'Parroquia', tono: 'gris' },
   reactivar: { texto: 'Parroquia', tono: 'gris' },
+  cambiar_visible: { texto: 'Parroquia', tono: 'gris' },
 };
 
 export function chipRegistro(accion: string): { texto: 'Publicación' | 'Acceso' | 'Parroquia'; tono: TonoChip } | null {
@@ -72,6 +74,8 @@ export function fraseRegistro(
       return `Desactivó ${P}`;
     case 'reactivar':
       return `Reactivó ${P}`;
+    case 'cambiar_visible':
+      return d.visible === true ? `Mostró ${P} en la app` : `Quitó ${P} de la app`;
     default:
       return f.accion;
   }

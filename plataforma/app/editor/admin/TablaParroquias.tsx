@@ -8,9 +8,10 @@ import { Boton } from '../../componentes/Boton';
 import { CajaInfo } from '../../componentes/CajaInfo';
 import { Chip } from '../../componentes/Chip';
 import { Dialogo } from '../../componentes/Dialogo';
+import { Interruptor } from '../../componentes/Interruptor';
 import { Tabla } from '../../componentes/Tabla';
 import { useEnvio } from '../../componentes/useEnvio';
-import { desactivar, reactivar } from './acciones';
+import { cambiarVisibilidad, desactivar, reactivar } from './acciones';
 import { DialogoNuevaParroquia, MENSAJE_SIN_CONEXION } from './DialogoNuevaParroquia';
 
 const COLUMNAS = [
@@ -18,6 +19,7 @@ const COLUMNAS = [
   { titulo: 'Link', ancho: '1.4fr' },
   { titulo: 'Estado', ancho: '1.1fr' },
   { titulo: 'Coordinadores', ancho: '1.5fr' },
+  { titulo: 'Visible en la app', ancho: '150px' },
   { titulo: '', ancho: '230px' },
 ];
 
@@ -63,6 +65,18 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
     router.refresh();
   }
 
+  /** «Visible en la app» (etapa 3a, Decisión 14): sin diálogo; el anuncio dice cómo quedó. */
+  async function cambiarVisible(f: FilaParroquia, visible: boolean) {
+    setError(null);
+    setAnuncio(null);
+    const r = await enviar(() => cambiarVisibilidad(f.id, visible));
+    if (r.tipo === 'ocupado') return;
+    if (r.tipo === 'fallo') return setError(MENSAJE_SIN_CONEXION);
+    if (r.valor.error) return setError(r.valor.error);
+    setAnuncio(visible ? `${f.nombre} ya sale en la app.` : `${f.nombre} ya no sale en la app.`);
+    router.refresh();
+  }
+
   return (
     <>
       <div className="pv-admin-cabeza">
@@ -97,6 +111,13 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
                 {chip.texto}
               </Chip>,
               <span key="c">{textoCoordinadores(f)}</span>,
+              <Interruptor
+                key="v"
+                etiqueta={`Visible en la app: ${f.nombre}`}
+                activo={f.visible}
+                deshabilitado={ocupado}
+                onCambiar={(v) => cambiarVisible(f, v)}
+              />,
               <span key="a" className="pv-admin-acciones">
                 {apagada ? (
                   <Boton variante="secundario" compacto aria-label={`Reactivar ${f.nombre}`} ocupado={ocupado} onClick={() => cambiar(f, false)}>

@@ -51,6 +51,7 @@ describe('textoCoordinadores (Decisión 8)', () => {
     estado: { clave: 'sin-configurar' },
     coordinadores,
     invitacionPendiente,
+    visible: false,
   });
   it('los nombres separados por coma; sin miembros, la invitación o una raya', () => {
     expect(textoCoordinadores(fila(['Fabricio Ramírez', 'Hno. Danilo'], false))).toBe('Fabricio Ramírez, Hno. Danilo');

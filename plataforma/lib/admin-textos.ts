@@ -90,6 +90,8 @@ export interface FilaParroquia {
   coordinadores: string[];
   /** Hay una invitación de coordinador vigente (no usada, no anulada, no vencida). */
   invitacionPendiente: boolean;
+  /** `parroquias.visible`: sale en la lista de la app «Parroquia en vivo» (si además está activa). */
+  visible: boolean;
 }
 
 /** Columna Coordinadores (Decisión 8). */

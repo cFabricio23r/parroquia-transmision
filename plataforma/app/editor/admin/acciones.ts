@@ -14,7 +14,7 @@ import {
   type Resultado,
 } from '../../../lib/admin';
 import { anularInvitacion, asignar, reenviarInvitacion } from '../../../lib/admin-coordinadores';
-import { desactivarParroquia, reactivarParroquia } from '../../../lib/admin-parroquias';
+import { cambiarVisible, desactivarParroquia, reactivarParroquia } from '../../../lib/admin-parroquias';
 import { enviarCorreo } from '../../../lib/correo';
 import type { EstadoHook } from '../../../lib/despliegue';
 import { resolverSitioUrl } from '../../../lib/sesion';
@@ -52,6 +52,10 @@ export async function desactivar(parroquiaId: string): Promise<Resultado & { hoo
 
 export async function reactivar(parroquiaId: string): Promise<Resultado & { hook?: EstadoHook }> {
   return refrescar(await reactivarParroquia(await deps(), texto(parroquiaId)));
+}
+
+export async function cambiarVisibilidad(parroquiaId: string, visible: boolean): Promise<Resultado> {
+  return refrescar(await cambiarVisible(await deps(), texto(parroquiaId), visible === true));
 }
 
 export async function invitar(correo: string, parroquiaId: string): Promise<Resultado> {

@@ -198,6 +198,30 @@ try {
   );
   igual(await p.getByRole('link', { name: `Ver ${pub.nombre}` }).getAttribute('href'), `/editor/p/${pub.slug}`, '«Ver» lleva al editor');
 
+  // «Visible en la app» (etapa 3a, Decisión 14): empieza apagado, se prende, se anuncia y queda guardado.
+  {
+    igual((await cabecera.allInnerTexts())[4], 'VISIBLE EN LA APP', 'columna «Visible en la app»');
+    const interruptor = p.getByRole('switch', { name: `Visible en la app: ${pub.nombre}` });
+    igual(await interruptor.getAttribute('aria-checked'), 'false', '«Visible en la app» empieza apagado');
+    await interruptor.click();
+    const anuncioVisible = p.getByRole('status').filter({ hasText: 'ya sale en la app' });
+    await anuncioVisible.waitFor({ timeout: 15_000 });
+    igual(await anuncioVisible.textContent(), `${pub.nombre} ya sale en la app.`, 'anuncia que ya sale en la app');
+    await p.waitForFunction(
+      (nombre) => document.querySelector(`[role="switch"][aria-label="Visible en la app: ${nombre}"]`)?.getAttribute('aria-checked') === 'true',
+      pub.nombre,
+      { timeout: 15_000 },
+    );
+    revisar(true, 'el interruptor pasa a encendido');
+    await p.reload();
+    igual(
+      await p.getByRole('switch', { name: `Visible en la app: ${pub.nombre}` }).getAttribute('aria-checked'),
+      'true',
+      'al recargar sigue encendido',
+    );
+    igual((await camposSinEtiqueta(p)).length, 0, 'D1 con el interruptor, sin campos sin etiqueta');
+  }
+
   // Nueva parroquia
   const botonNueva = p.getByRole('button', { name: '+ Nueva parroquia' });
   await botonNueva.click();
