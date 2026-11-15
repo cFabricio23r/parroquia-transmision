@@ -1,6 +1,7 @@
 // Ayudas para las pruebas de integración contra el Supabase LOCAL.
 // Las variables las entrega `supabase status -o env` (ver herramientas/integracion.mjs).
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { afterAll } from 'vitest';
 
 const url = process.env.SUPABASE_URL ?? '';
 const clavePublica = process.env.SUPABASE_PUBLISHABLE_KEY ?? '';
@@ -58,11 +59,42 @@ export async function crearUsuario(correo: string, clave: string): Promise<Usuar
   const cliente = clienteAnonimo();
   const { error: errorSesion } = await cliente.auth.signInWithPassword({ email: correo, password: clave });
   if (errorSesion) throw new Error(`no se pudo iniciar sesión: ${errorSesion.message}`);
+  usuariosCreados.push(data.user.id);
   return { id: data.user.id, correo, cliente };
 }
 
 // Parroquias creadas por este archivo de pruebas (cada archivo de vitest tiene su propia copia del módulo).
 const creadas: { id: string; slug: string }[] = [];
+// Lo que se borra de la base al terminar el archivo (fix2): antes las filas quedaban para siempre y la
+// base local llegó a ~1000 parroquias; C1 de un admin las lista todas y las pruebas de navegador se
+// pasaban de tiempo. `creadas` lo vacía limpiarStorage, por eso es otra lista.
+const parroquiasCreadas: string[] = [];
+const usuariosCreados: string[] = [];
+
+/** Borra las parroquias (en cascada: borrador, versiones, miembros, invitaciones) y los usuarios del archivo. */
+export async function limpiarBase(): Promise<void> {
+  await limpiarStorage();
+  const servicio = clienteServicio();
+  const ids = parroquiasCreadas.splice(0);
+  const usuarios = usuariosCreados.splice(0);
+  for (let i = 0; i < ids.length; i += 100) {
+    const { error } = await servicio.from('parroquias').delete().in('id', ids.slice(i, i + 100));
+    if (error) throw new Error(`no se pudieron borrar las parroquias de prueba: ${error.message}`);
+  }
+  // Las que crea la app («Crear parroquia» de un admin de prueba) no pasan por crearParroquia:
+  // llevan creada_por, que además impide borrar al usuario.
+  for (let i = 0; i < usuarios.length; i += 100) {
+    const { data } = await servicio.from('parroquias').select('slug').in('creada_por', usuarios.slice(i, i + 100));
+    await borrarCarpetas('publicado', (data ?? []).map((p) => p.slug));
+    const { error } = await servicio.from('parroquias').delete().in('creada_por', usuarios.slice(i, i + 100));
+    if (error) throw new Error(`no se pudieron borrar las parroquias creadas por la app: ${error.message}`);
+  }
+  for (const id of usuarios) await servicio.auth.admin.deleteUser(id);
+}
+
+// Registrado al importar ayudas.ts: es el primer afterAll del archivo y, como vitest corre los afterAll
+// en orden inverso, el último en correr (después del limpiarStorage y de lo que cada archivo restaure).
+afterAll(() => limpiarBase(), 120_000);
 
 /** Todas las rutas de objetos bajo `carpeta` (recorre las subcarpetas: en la lista salen con id null). */
 async function rutasBajo(bucket: string, carpeta: string): Promise<string[]> {
@@ -114,6 +146,7 @@ export async function crearParroquia(slug: string): Promise<{ id: string; slug: 
     .single();
   if (error || !data) throw new Error(`no se pudo crear la parroquia: ${error?.message}`);
   creadas.push(data);
+  parroquiasCreadas.push(data.id);
   const { error: errorBorrador } = await servicio
     .from('borradores')
     .insert({ parroquia_id: data.id, config: { titulo: 'inicial', color: '#123456' } });
