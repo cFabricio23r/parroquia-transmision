@@ -7,7 +7,7 @@ import { MESES } from '../fecha';
 import { bloqueDeError, limpiarMensaje } from './errores';
 import { avisoImagenPatrono } from './pantallas';
 import { filasActivas } from './tipos';
-import { SECCIONES, type IdSeccion } from './secciones';
+import { SECCIONES, usaBorrador, type IdSeccion, type IdSeccionBorrador } from './secciones';
 
 export interface Problema {
   titulo: string;
@@ -240,10 +240,10 @@ export function estadosDelEditor(
   borrador: Config,
   errores: string[],
   hoy: string,
-): Record<Exclude<IdSeccion, 'publicar'>, EstadoSeccion> {
-  const salida = {} as Record<Exclude<IdSeccion, 'publicar'>, EstadoSeccion>;
+): Record<IdSeccionBorrador, EstadoSeccion> {
+  const salida = {} as Record<IdSeccionBorrador, EstadoSeccion>;
   for (const s of SECCIONES) {
-    if (s.id === 'publicar') continue;
+    if (!usaBorrador(s.id)) continue;
     salida[s.id] = estadoDeSeccion(borrador, s.id, errores, hoy);
   }
   return salida;

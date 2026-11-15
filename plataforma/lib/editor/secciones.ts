@@ -11,6 +11,7 @@ export type IdSeccion =
   | 'galeria'
   | 'horarios-y-redes'
   | 'avisos'
+  | 'app'
   | 'publicar';
 
 export type Bloque =
@@ -119,8 +120,17 @@ export const SECCIONES: readonly Seccion[] = [
     vistaPrevia: { pagina: 'pantalla', vista: 'avisos', titulo: 'Vista previa · Avisos', conSelectorTipo: false },
     disposicion: 'avisos',
   },
+  // 3c: fuera del borrador (Decisión 8): sin bloques, sin punto y sin tarjeta en el Resumen.
+  { id: 'app', texto: 'App y transmisión', ruta: 'app-y-transmision', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'publicar', texto: 'Publicar', ruta: 'publicar', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
 ];
+
+/** Secciones que no editan el borrador: no tienen estado ni punto. 3b suma aquí la suya. */
+export const SECCIONES_SIN_BORRADOR = ['publicar', 'app'] as const;
+export type IdSeccionBorrador = Exclude<IdSeccion, (typeof SECCIONES_SIN_BORRADOR)[number]>;
+export function usaBorrador(id: IdSeccion): id is IdSeccionBorrador {
+  return !(SECCIONES_SIN_BORRADOR as readonly IdSeccion[]).includes(id);
+}
 
 export const NOMBRES_VISTAS: Record<string, string> = {
   inicio: 'Inicio',

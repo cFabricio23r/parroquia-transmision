@@ -56,6 +56,7 @@ describe('estados del editor con el borrador del artboard', () => {
     expect(e.avisos).toMatchObject({ estado: 'opcional', frase: 'Sin avisos todavía.' });
     expect(e.resumen).toMatchObject({ estado: 'listo', frase: '' });
     expect('publicar' in e).toBe(false);
+    expect('app' in e).toBe(false);
   });
 
   it('el problema de la galería usa el nombre de la imagen', () => {

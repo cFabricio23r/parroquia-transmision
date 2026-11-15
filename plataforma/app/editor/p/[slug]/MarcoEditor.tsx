@@ -4,7 +4,7 @@
 import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 import { textoChipBorrador } from '../../../../lib/editor/cambios';
-import { hrefSeccion, SECCIONES, seccionDeRuta, vistaPreviaDeRuta } from '../../../../lib/editor/secciones';
+import { hrefSeccion, SECCIONES, seccionDeRuta, usaBorrador, vistaPreviaDeRuta } from '../../../../lib/editor/secciones';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
@@ -59,7 +59,7 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
             href: hrefSeccion(datos.slug, s.id),
             texto: s.texto,
             actual: s.id === actual.id,
-            estado: s.id === 'publicar' ? undefined : estados[s.id].estado,
+            estado: usaBorrador(s.id) ? estados[s.id].estado : undefined,
           }))}
           pie={NOTA_MENU}
         />

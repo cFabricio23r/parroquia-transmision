@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloque, seccionDeRuta, vistaPreviaDeRuta } from '../../lib/editor/secciones';
+import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloque, seccionDeRuta, usaBorrador, vistaPreviaDeRuta } from '../../lib/editor/secciones';
 import { bloqueDeError, limpiarMensaje } from '../../lib/editor/errores';
 
 describe('catálogo de secciones', () => {
-  it('tiene las 10 secciones del menú en orden', () => {
+  it('tiene las 11 secciones del menú en orden', () => {
     expect(SECCIONES.map((s) => s.texto)).toEqual([
       'Resumen', 'Identidad', 'Patrono y fiesta', 'Pantallas', 'Rótulos y estilo', 'Tipos de transmisión',
-      'Galería', 'Horarios y redes', 'Avisos fijos', 'Publicar',
+      'Galería', 'Horarios y redes', 'Avisos fijos', 'App y transmisión', 'Publicar',
     ]);
+  });
+
+  it('«App y transmisión» va fuera del borrador (3c)', () => {
+    expect(seccionDeRuta('/editor/p/san-jose/app-y-transmision', 'san-jose').id).toBe('app');
+    expect(usaBorrador('app')).toBe(false);
+    expect(usaBorrador('publicar')).toBe(false);
+    expect(usaBorrador('avisos')).toBe(true);
   });
 
   it('cada bloque pertenece a exactamente una sección', () => {

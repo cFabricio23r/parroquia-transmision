@@ -3,7 +3,7 @@
 import { bloqueDeError, limpiarMensaje } from './errores';
 import type { EstadoSeccion } from './estados';
 import type { EstadoGuardado } from './guardado';
-import { SECCIONES, seccion, type IdSeccion } from './secciones';
+import { SECCIONES, seccion, usaBorrador, type IdSeccion, type IdSeccionBorrador } from './secciones';
 
 /** Publicar o restaurar una parroquia desactivada (Decisión 3 del plan 5). */
 export const MENSAJE_DESACTIVADA_PUBLICAR = 'Esta parroquia está desactivada. Reactívala en Administración para publicar.';
@@ -42,13 +42,13 @@ export const DETALLE_SIN_SECCION = 'Revisa este dato antes de publicar.';
  * componente cuando las dos listas vienen vacías.
  */
 export function revisarParaPublicar(
-  estados: Record<Exclude<IdSeccion, 'publicar'>, EstadoSeccion>,
+  estados: Record<IdSeccionBorrador, EstadoSeccion>,
   errores: string[],
 ): { errores: ItemRevision[]; avisos: ItemRevision[] } {
   const rojos: ItemRevision[] = [];
   const ambar: ItemRevision[] = [];
   for (const s of SECCIONES) {
-    if (s.id === 'publicar') continue;
+    if (!usaBorrador(s.id)) continue;
     const e = estados[s.id];
     if (!e) continue;
     for (const p of e.errores) rojos.push({ ...p, enlace: `Corregir en ${seccion(p.seccion).texto}`, tono: 'rojo' });

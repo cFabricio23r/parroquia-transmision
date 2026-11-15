@@ -4,7 +4,7 @@
 // sección: el enlace del título la cubre (CSS, ::after), así sigue habiendo un solo enlace por tarjeta.
 import Link from 'next/link';
 import { useState } from 'react';
-import { hrefSeccion, SECCIONES } from '../../../../lib/editor/secciones';
+import { hrefSeccion, SECCIONES, usaBorrador } from '../../../../lib/editor/secciones';
 import { Boton } from '../../../componentes/Boton';
 import { PuntoEstado, TEXTO_ESTADO } from '../../../componentes/PuntoEstado';
 import { CabezaSeccion } from './CabezaSeccion';
@@ -21,14 +21,15 @@ export function SeccionResumen() {
   const { borrador, datos, estados } = useBorrador();
   const nombre = (typeof borrador.nombre === 'string' && borrador.nombre.trim()) || datos.nombreParroquia;
   const [verVersion, setVerVersion] = useState(false);
-  const tarjetas = SECCIONES.filter((s) => s.conPunto && s.id !== 'resumen' && s.id !== 'publicar');
+  const tarjetas = SECCIONES.filter((s) => s.conPunto && s.id !== 'resumen' && usaBorrador(s.id));
 
   return (
     <>
       <CabezaSeccion titulo={nombre} texto={TEXTO_RESUMEN} />
       <ul className="pv-resumen-grilla" aria-label="Partes de la configuración">
         {tarjetas.map((s) => {
-          const e = estados[s.id as Exclude<typeof s.id, 'publicar'>];
+          const e = usaBorrador(s.id) ? estados[s.id] : null;
+          if (!e) return null;
           return (
             <li key={s.id} className="pv-resumen-tarjeta">
               <div className="pv-resumen-fila">

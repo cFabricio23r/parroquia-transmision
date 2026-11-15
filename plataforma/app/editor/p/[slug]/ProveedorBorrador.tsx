@@ -11,7 +11,7 @@ import {
   type InstantaneaGuardado,
   type RespuestaHttp,
 } from '../../../../lib/editor/guardado';
-import type { Bloque, IdSeccion } from '../../../../lib/editor/secciones';
+import type { Bloque, IdSeccionBorrador } from '../../../../lib/editor/secciones';
 import { hoyIso } from '../../../../lib/fecha';
 import type { TipoComun } from '../../../../lib/validar-nucleo.mjs';
 
@@ -47,7 +47,7 @@ export interface ContextoBorrador {
   datos: DatosEditor;
   borrador: Record<string, unknown>;
   guardado: InstantaneaGuardado;
-  estados: Record<Exclude<IdSeccion, 'publicar'>, EstadoSeccion>;
+  estados: Record<IdSeccionBorrador, EstadoSeccion>;
   cambios: CambiosSeccion[];
   cambiar(b: Bloque, v: unknown): void;
   cambiarVarios(c: Partial<Record<Bloque, unknown>>): void;
