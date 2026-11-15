@@ -9,6 +9,8 @@ export const ESCENAS: { id: Escena; nombre: string }[] = [
   { id: 'camara', nombre: 'Cámara' },
   { id: 'portada', nombre: 'Portada' },
   { id: 'avisos', nombre: 'Avisos' },
+  // La pantalla de horarios de la parroquia (etapa 3).
+  { id: 'horarios', nombre: 'Horarios' },
   { id: 'gracias', nombre: 'Gracias' },
   // Pantalla final (Tarea 9d): solo sale cuando se toca; al terminar se sigue pasando a Gracias.
   { id: 'produccion', nombre: 'Producción' },

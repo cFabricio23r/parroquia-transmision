@@ -103,6 +103,7 @@ describe('scripts del panel', () => {
     expect(SCRIPT_ESCENA('camara')).toContain("fijarEscenaApp('camara')");
     expect(SCRIPT_ESCENA('gracias')).toContain("fijarEscenaApp('gracias')");
     expect(SCRIPT_ESCENA('produccion')).toContain("fijarEscenaApp('produccion')");
+    expect(SCRIPT_ESCENA('horarios')).toBe("window.fijarEscenaApp && window.fijarEscenaApp('horarios'); true;");
     expect(SCRIPT_ESCENA('inicio').trim().endsWith('true;')).toBe(true);
   });
 

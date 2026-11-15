@@ -4,8 +4,9 @@ import { ESCENAS_VALIDAS } from '../estado/transmision';
 
 describe('tira de escenas', () => {
   it('Producción va última, después de Gracias', () => {
-    expect(ESCENAS.map((e) => e.id)).toEqual(['inicio', 'camara', 'portada', 'avisos', 'gracias', 'produccion']);
+    expect(ESCENAS.map((e) => e.id)).toEqual(['inicio', 'camara', 'portada', 'avisos', 'horarios', 'gracias', 'produccion']);
     expect(ESCENAS[ESCENAS.length - 1].nombre).toBe('Producción');
+    expect(ESCENAS.find((e) => e.id === 'horarios')?.nombre).toBe('Horarios');
   });
 
   it('Preparar y En vivo usan el mismo orden', () => {
