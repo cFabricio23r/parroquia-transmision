@@ -32,7 +32,9 @@ const ESPERADOS = [
   { n: 2, caso: P, ruta: /^estilos\.lienzo\.backgroundImage$/,
     valor: (a, d) => typeof d === 'string' && a.replace(/rgb\([^)]*\) 100%/, '') === d.replace(/rgb\([^)]*\) 100%/, ''),
     motivo: 'A1: la parada del 100% del degradado pasa de --celeste a --vivo' },
-  { n: 3, caso: P, ruta: /^(estilos\.fachada\.display|ocultos\.fachada)$/, motivo: 'A1, decisión 3: la silueta de la fachada ya no se ve por defecto' },
+  { n: 3, caso: P, ruta: /^(estilos\.fachada\.display|ocultos\.fachada)$/,
+    valor: (a, d) => (a === false && d === true) || (a !== 'none' && d === 'none'),
+    motivo: 'A1, decisión 3: la silueta de la fachada ya no se ve por defecto' },
   { n: 4, caso: P, ruta: /^estilos\.virgen\.(borderRadius|borderTopWidth|borderTopColor)$/, motivo: 'A2: marco de arco (300px 300px 40px 40px) sin borde' },
   { n: 5, caso: P, ruta: /^textos\.(t-marca|marca)$/, motivo: 'A4: la marca va en dos líneas (el \\n se ve como espacio en la huella)' },
   // 5b (agregada en la Tarea 5): el textContent de #lienzo contiene el de la marca; solo puede perder el « · » de la marca
@@ -61,7 +63,12 @@ const ESPERADOS = [
   // 23 (agregada en la Ronda 2 de verificación): relleno del arco, el del marcador del artboard
   { n: 23, caso: P, ruta: /^estilos\.virgen\.backgroundColor$/,
     valor: (a, d) => a === 'rgba(0, 0, 0, 0)' && d === 'rgba(0, 0, 0, 0.12)',
-    motivo: 'A2, Ronda 2: el arco lleva el relleno del artboard (rgba(0,0,0,.12)) para que se lea con un recorte sin fondo' }
+    motivo: 'A2, Ronda 2: el arco lleva el relleno del artboard (rgba(0,0,0,.12)) para que se lea con un recorte sin fondo' },
+  // 24 (decisión del usuario, 2026-11-14): deshace la 3. La fachada de fondo vuelve a verse, como en obs/ y como antes
+  // del plan 1.1 (los rayos y las chispas también vuelven, pero no tienen id y la huella no los lee).
+  { n: 24, caso: P, ruta: /^(estilos\.fachada\.display|ocultos\.fachada)$/,
+    valor: (a, d) => (a === true && d === false) || (a === 'none' && d === 'block'),
+    motivo: 'Decisión del usuario 2026-11-14: la fachada de fondo vuelve a verse por defecto, como en obs/ (deshace la 3)' }
 ];
 
 /* Lista de cambios [{caso, ruta, antes, despues}] entre dos huellas del mismo caso. */

@@ -473,7 +473,10 @@ async function casoComoViene() {
       return pares.filter(([id, clave]) => document.getElementById(id).textContent !== tx(s, clave)).map(([id]) => id);
     }, textos);
     igual(distintos.join(','), '', `${vista}: los textos son los de tx`);
-    revisar(!(await visibleEl(p, '#chispas')) && await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: sin chispas (el diseño no las lleva) y marca como en la 1a`);
+    // Fachada de fondo, rayos y chispas vuelven en todas las vistas, como en obs/ (decisión del usuario, 2026-11-14)
+    revisar(await visibleEl(p, '#chispas') && await p.evaluate(() => document.querySelectorAll('#chispas .chispa').length) > 0, `${vista}: las chispas se ven`);
+    revisar(await visibleEl(p, '.rayos') && await imagenVisible(p, '#fachada'), `${vista}: los rayos y la fachada de fondo se ven`);
+    revisar(await visibleEl(p, '#marca') !== (vista === 'avisos'), `${vista}: marca como en la 1a`);
     await captura(p, `1b/${CA}_${vista}_como-viene`);
   }
   // y la vista nueva, sin horarios ni redes: el aviso del panel
@@ -573,6 +576,8 @@ async function casoPersonalizada() {
   revisar(!(await visibleEl(g, '#virgen')), 'gracias: imagen «ninguna» oculta la imagen (sin ícono roto)');
   igual((await imagenesRotas(g)).length, 0, 'gracias: ninguna imagen rota');
   revisar(!(await visibleEl(g, '#marca')) && !(await visibleEl(g, '#envivo')), 'gracias: marca y EN VIVO ocultos');
+  revisar(!(await visibleEl(g, '.rayos')) && !(await visibleEl(g, '#fachada')), 'gracias: rayos y fachada ocultos');
+  revisar(await visibleEl(g, '#chispas'), 'gracias: las chispas, que no se ocultaron, siguen a la vista');
   revisar((await texto(g, '#g-titulo')).trim() !== '', 'gracias: el título nunca se oculta');
   await captura(g, `1b/${CA}_gracias_personalizada`);
   await ctx.close();
@@ -1463,9 +1468,17 @@ async function abrirDiseno(slug, ruta, estado, opciones = {}) {
   const r = await p.evaluate((c) => validarConfig(c), cfg);
   if (!r.ok) revisar(false, slug + ' ' + ruta + ': la configuración del caso pasa validarConfig (' + r.errores.join(' / ') + ')');
   await p.evaluate(() => document.fonts.ready);
-  await p.addStyleTag({ content: CONGELAR });
+  const congelar = await p.addStyleTag({ content: CONGELAR });
+  await congelar.evaluate((e) => { e.dataset.congelar = ''; });
   await p.waitForTimeout(300);
   return { ctx, p };
+}
+/* Corre `fn` con la página tal como sale al aire: sin el estilo CONGELAR de abrirDiseno (que apaga las animaciones y
+   esconde #chispas para que las capturas sean estables). Lo vuelve a poner al terminar. */
+async function sinCongelar(p, fn) {
+  const poner = (on) => p.evaluate((o) => { for (const e of document.querySelectorAll('style[data-congelar]')) e.disabled = !o; }, on);
+  await poner(false);
+  try { return await fn(); } finally { await poner(true); }
 }
 /* Estilos calculados { prop: valor } del primer elemento que coincide con `sel` (null si no hay). */
 const estilosDe = (p, sel, props) => p.evaluate(([s, l]) => {
@@ -1545,10 +1558,17 @@ async function casoDisenoFondo() {
   };
   const decoracion = async (p, nombre) => {
     // Fachada de fondo, rayos, chispas y la imagen que flota vuelven, como en obs/ (decisión del usuario, 2026-11-14).
-    revisar((await estilosDe(p, '.rayos', ['display'])).display !== 'none', nombre + ': los rayos se ven');
-    revisar(await imagenVisible(p, '#fachada'), nombre + ': la fachada se ve de fondo');
-    revisar((await estilosDe(p, '#chispas', ['display'])).display !== 'none', nombre + ': las chispas se ven');
-    revisar(/flota/.test((await estilosDe(p, '#virgen', ['animationName'])).animationName), nombre + ': la imagen flota');
+    // Se mira sin CONGELAR: abrirDiseno apaga las animaciones y esconde #chispas para las capturas, no el producto.
+    await sinCongelar(p, async () => {
+      const rayos = await estilosDe(p, '.rayos', ['display', 'animationName']);
+      revisar(rayos.display !== 'none' && rayos.animationName === 'gira', nombre + ': los rayos se ven y giran (' + rayos.animationName + ')');
+      const fachada = await estilosDe(p, '#fachada', ['animationName']);
+      revisar(await imagenVisible(p, '#fachada') && fachada.animationName === 'kenburns', nombre + ': la fachada se ve de fondo y se mueve (' + fachada.animationName + ')');
+      const chispas = await p.evaluate(() => [...document.querySelectorAll('#chispas .chispa')].map((c) => getComputedStyle(c).animationName));
+      revisar(await visibleEl(p, '#chispas') && chispas.length > 0 && chispas.every((a) => a === 'chispa'), nombre + ': las chispas se ven y suben (' + chispas.length + ')');
+      const flota = (await estilosDe(p, '#virgen', ['animationName'])).animationName;
+      revisar(/(^|, )flota(,|$)/.test(flota), nombre + ': la imagen flota (' + flota + ')');
+    });
   };
   const arco = async (p, nombre, x, y, w, h) => {
     const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter', 'backgroundColor']);
