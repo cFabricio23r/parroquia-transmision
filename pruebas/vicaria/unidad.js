@@ -2907,6 +2907,136 @@ grupo('semana', () => {
   });
 });
 
+grupo('semana: campos y faltas', () => {
+  const j = (x) => JSON.parse(JSON.stringify(x));
+  const ctx = () => cargar(['tipos.js', 'semana.js']); // sin parroquia.js: PARROQUIA no existe (comun.js la necesita al cargar)
+  const comunes = (c) => c.SEMANA.tiposParaCampos(c.TIPOS, c.ORDEN_TIPOS);
+  const deClave = (c, clave) => comunes(c).find((t) => t.clave === clave);
+  const rutas = (c, clave) => j(c.SEMANA.camposDeTipo(deClave(c, clave))).map((x) => x.ruta);
+
+  prueba('tiposParaCampos: los 11 comunes, sin leer getters', () => {
+    const c = ctx();
+    const l = j(comunes(c));
+    assert.deepEqual(l.map((t) => t.clave), j(c.ORDEN_TIPOS));
+    const hs = l.find((t) => t.clave === 'horasanta');
+    assert.deepEqual(hs.rotulos[0], { id: 'guia', base: 'persona', nombre: 'Guía', ceja: 'GUÍA' });
+    assert.deepEqual(hs.datos, []);
+  });
+
+  prueba('camposDeTipo sigue a faltas() del panel', () => {
+    const c = ctx();
+    assert.deepEqual(rutas(c, 'dominical'), ['celebrante', 'lectura1', 'salmoResp', 'lectura2', 'evangelio']);
+    assert.deepEqual(j(c.SEMANA.camposDeTipo(deClave(c, 'dominical'))).map((x) => x.etiqueta), ['Celebrante', '1.ª lectura', 'Salmo', '2.ª lectura', 'Evangelio']);
+    assert.deepEqual(rutas(c, 'horasanta'), ['rotulosTexto.guia.t', 'rotulosTexto.santisimo.t', 'lectura1', 'rotulosTexto.oracion.t']);
+    assert.deepEqual(rutas(c, 'sector'), ['sector', 'lugar', 'celebrante', 'lectura1', 'salmoResp', 'evangelio']);
+    const nov = rutas(c, 'novena');
+    assert.ok(!nov.includes('dia') && !nov.some((r) => /rosario/.test(r)));
+    const f = j(c.SEMANA.camposDeTipo(deClave(c, 'patronalsector'))).find((x) => x.ruta === 'fecha');
+    assert.equal(f.entrada, 'fecha');
+  });
+
+  prueba('contarFaltas', () => {
+    const c = ctx();
+    const dom = deClave(c, 'dominical');
+    assert.equal(c.SEMANA.contarFaltas(dom, { celebrante: 'P. Ana' }), 4);
+    const conOpcional = Object.assign({}, dom, { rotulos: dom.rotulos.map((u) => (u.id === 'lectura2' ? Object.assign({}, u, { opcional: true }) : u)) });
+    assert.equal(c.SEMANA.contarFaltas(conOpcional, { celebrante: 'P. Ana' }), 3);
+    assert.equal(c.SEMANA.contarFaltas(null, {}), null);
+    assert.equal(c.SEMANA.contarFaltas(dom, 'x'), 5);
+    assert.equal(c.SEMANA.contarFaltas(dom, null), 5);
+  });
+
+  prueba('tiposDisponibles: apagados, ajustes y propios', () => {
+    const c = ctx();
+    const S = c.SEMANA;
+    const com = comunes(c);
+    assert.ok(!j(S.tiposDisponibles(com, { apagados: ['semana'] })).some((t) => t.clave === 'semana'));
+    const aj = j(S.tiposDisponibles(com, { ajustes: { dominical: { nombrePanel: 'Misa del domingo', ocultarRotulos: ['lectura2'] } } }));
+    const dom = aj.find((t) => t.clave === 'dominical');
+    assert.equal(dom.nombre, 'Misa del domingo');
+    assert.ok(!dom.rotulos.some((u) => u.id === 'lectura2'));
+    const pr = j(S.tiposDisponibles(com, { propios: [{ clave: 'vigilia', nombre: 'Vigilia', rotulos: ['persona', 'lectura1', 'persona'], opcionales: ['persona-2'] }] }));
+    const v = pr[pr.length - 1];
+    assert.equal(v.clave, 'vigilia');
+    assert.deepEqual(v.rotulos.map((u) => u.id), ['persona', 'lectura1', 'persona-2']);
+    assert.equal(v.rotulos[2].opcional, true);
+    assert.ok(!v.rotulos[0].opcional);
+    assert.deepEqual(v.datos, []);
+    const ev = j(S.tiposDisponibles(com, { propios: [{ clave: 'feria', nombre: 'Feria', rotulos: [], portada: 'evento' }] }));
+    assert.deepEqual(ev[ev.length - 1].datos, ['evento', 'fecha', 'lugar']);
+    const choca = j(S.tiposDisponibles(com, { propios: [{ clave: 'dominical', nombre: 'Otra', rotulos: ['persona'] }] }));
+    assert.equal(choca.filter((t) => t.clave === 'dominical').length, 1);
+    assert.equal(choca.find((t) => t.clave === 'dominical').nombre, 'Misa dominical');
+    assert.equal(j(S.tiposDisponibles(com, null)).length, 11);
+    assert.equal(j(S.tiposDisponibles(com, 'x')).length, 11);
+    assert.equal(S.tipoDeClave(com, 'nada'), null);
+  });
+
+  prueba('limpiarDatos se queda solo con las claves de campo', () => {
+    const S = ctx().SEMANA;
+    const largo = 'x'.repeat(300);
+    const l = j(S.limpiarDatos(JSON.parse('{"celebrante":"' + largo + '","clave":"k","servidor":"s","rotulo":"r","avisos":[],"__proto__":{"a":1}}')));
+    assert.deepEqual(Object.keys(l), ['celebrante']);
+    assert.equal(l.celebrante.length, 200);
+    assert.deepEqual(j(S.limpiarDatos({ dia: '3' })), {});
+    assert.deepEqual(j(S.limpiarDatos({ dia: 3 })), { dia: 3 });
+    assert.deepEqual(j(S.limpiarDatos({ dia: 61 })), {});
+    assert.deepEqual(j(S.limpiarDatos({ rotulosTexto: { guia: { t: 'Ana', k: 'X' }, 'a b': { t: 'y' } } })), { rotulosTexto: { guia: { t: 'Ana' } } });
+    assert.deepEqual(j(S.limpiarDatos({ celebrante: 'FB-PRUEBA-MARCA-1111', clave: 'FB-PRUEBA-MARCA-1111' })), { celebrante: 'FB-PRUEBA-MARCA-1111' });
+    assert.deepEqual(j(S.limpiarDatos(null)), {});
+  });
+
+  prueba('leerCampo y escribirCampo', () => {
+    const S = ctx().SEMANA;
+    const entrada = {};
+    assert.deepEqual(j(S.escribirCampo(entrada, 'rotulosTexto.guia.t', 'Ana')), { rotulosTexto: { guia: { t: 'Ana' } } });
+    assert.deepEqual(entrada, {});
+    assert.equal(S.leerCampo({ rotulosTexto: { guia: { t: 'Ana' } } }, 'rotulosTexto.guia.t'), 'Ana');
+    assert.equal(S.leerCampo(null, 'celebrante'), '');
+  });
+
+  prueba('datosDeEstado saca solo los campos del tipo', () => {
+    const c = ctx();
+    const estado = { tipo: 'novena', celebrante: 'P. Ana', lectura1: 'Is 1', rotulo: 'persona', avisos: [{ a: 'x' }], novenaDia: 4, sector: 'S8' };
+    assert.deepEqual(j(c.SEMANA.datosDeEstado(estado, deClave(c, 'novena'))), { celebrante: 'P. Ana', lectura1: 'Is 1', dia: 4 });
+  });
+
+  prueba('parcheDePanel', () => {
+    const c = ctx();
+    const S = c.SEMANA;
+    const p = j(S.parcheDePanel({ tipo: 'novena', datos: { dia: 12, celebrante: 'P. Ana' } }, deClave(c, 'novena')));
+    assert.deepEqual(p.poner, { tipo: 'novena', celebrante: 'P. Ana', novenaDia: 9 });
+    assert.deepEqual(p.limpiar, j(S.CLAVES_DE_TRANSMISION));
+    const pre = j(S.parcheDePanel({ tipo: 'prenovena', datos: { dia: 3 } }, deClave(c, 'prenovena')));
+    assert.equal(pre.poner.prenovenaDia, 3);
+    const raro = j(S.parcheDePanel({ tipo: 'dominical', datos: { celebrante: 'A', clave: 'FB-PRUEBA-MARCA-1111', avisos: [], imagen: 'x' } }, deClave(c, 'dominical')));
+    const permitidas = ['tipo', 'prenovenaDia', 'novenaDia'].concat(Object.keys(j(S.limpiarDatos({ celebrante: 'A' }))));
+    assert.ok(Object.keys(raro.poner).every((k) => permitidas.includes(k)));
+  });
+
+  prueba('textoEstado', () => {
+    const S = ctx().SEMANA;
+    assert.equal(S.textoEstado(0), '● Listo');
+    assert.equal(S.textoEstado(1), '● Falta 1 dato');
+    assert.equal(S.textoEstado(3), '● Faltan 3 datos');
+    assert.equal(S.textoEstado(null), '● Tipo no disponible');
+  });
+
+  prueba('los nombres de semana.js no chocan con los de las páginas', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const raiz = path.join(__dirname, '..', '..', 'vicaria');
+    const nombresDe = (texto) => Array.from(texto.matchAll(/^(?:const|let|var|function)\s+(\w+)/gm), (m) => m[1]);
+    const propios = nombresDe(fs.readFileSync(path.join(raiz, 'semana.js'), 'utf8'));
+    assert.ok(propios.includes('SEMANA'));
+    const panel = fs.readFileSync(path.join(raiz, 'panel.html'), 'utf8');
+    const scripts = Array.from(panel.matchAll(/<script>([\s\S]*?)<\/script>/g), (m) => m[1]).join('\n');
+    const otros = new Set(['parroquia.js', 'tipos.js', 'comun.js', 'pantallas.js', 'guardadas.js']
+      .map((a) => fs.readFileSync(path.join(raiz, a), 'utf8')).concat([scripts]).flatMap(nombresDe));
+    assert.deepEqual(propios.filter((n) => otros.has(n)), []);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
