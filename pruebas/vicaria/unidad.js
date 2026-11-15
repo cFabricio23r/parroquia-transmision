@@ -2781,6 +2781,132 @@ grupo('vista previa', () => {
   });
 });
 
+grupo('semana', () => {
+  const j = (x) => JSON.parse(JSON.stringify(x));
+  const S = () => cargar(['semana.js']).SEMANA;
+  const F = '11111111-1111-4111-8111-111111111111';
+  const SID = '22222222-2222-4222-8222-222222222222';
+  const fija = (extra = {}) => Object.assign({ id: F, dia_semana: 4, hora: '18:00', tipo: 'horasanta', datos: {}, activa: true }, extra);
+  const serie = (extra = {}) => Object.assign({ id: SID, nombre: 'Prenovena 2026', tipo: 'prenovena', inicio: '2026-11-15', dias: 9, hora: '19:00', datos: { celebrante: 'P. Ana' } }, extra);
+  const fila = (extra) => Object.assign({ id: 'fila-1', clave: 'fija:' + F + ':2026-11-19', fecha: '2026-11-19', hora: '18:00', tipo: 'horasanta', datos: {}, origen: 'fija', fija_id: F, serie_id: null, saltada: false, editada: false, actualizado_en: '2026-11-15T10:00:00Z', actualizado_desde: 'web' }, extra);
+
+  prueba('fechas', () => {
+    const s = S();
+    assert.equal(s.lunesDe('2026-11-15'), '2026-11-09');
+    assert.equal(s.lunesDe('2026-11-16'), '2026-11-16');
+    assert.equal(s.diaSemana('2026-11-19'), 4);
+    assert.equal(s.sumarDias('2026-12-28', 7), '2027-01-04');
+    assert.equal(s.esFecha('2026-02-30'), false);
+    assert.equal(s.esFecha('2026-11-19'), true);
+    assert.equal(s.claveFija(F, '2026-11-19'), 'fija:' + F + ':2026-11-19');
+    assert.equal(s.claveSerie(SID, '2026-11-19'), 'serie:' + SID + ':2026-11-19');
+    assert.equal(s.claveUnica('x'), 'unica:x');
+  });
+
+  prueba('fijas: un día por fija activa', () => {
+    const s = S();
+    const items = j(s.armarSemana({ lunes: '2026-11-16', fijas: [fija()], series: [], transmisiones: [] }));
+    assert.equal(items.length, 1);
+    assert.equal(items[0].fecha, '2026-11-19');
+    assert.equal(items[0].clave, 'fija:' + F + ':2026-11-19');
+    assert.equal(items[0].origen, 'fija');
+    assert.equal(items[0].diaSemanaFija, 4);
+    assert.deepEqual(j(s.armarSemana({ lunes: '2026-11-16', fijas: [fija({ activa: false })], series: [], transmisiones: [] })), []);
+  });
+
+  prueba('una serie que cruza de semana', () => {
+    const s = S();
+    const de = (lunes) => j(s.armarSemana({ lunes, fijas: [], series: [serie()], transmisiones: [] }));
+    const a = de('2026-11-09');
+    assert.equal(a.length, 1);
+    assert.equal(a[0].datos.dia, 1);
+    const b = de('2026-11-16');
+    assert.deepEqual(b.map((i) => i.datos.dia), [2, 3, 4, 5, 6, 7, 8]);
+    const c = de('2026-11-23');
+    assert.equal(c.length, 1);
+    assert.equal(c[0].datos.dia, 9);
+    assert.deepEqual(c[0].serie, { nombre: 'Prenovena 2026', dias: 9, dia: 9 });
+  });
+
+  prueba('un día editado gana sobre la fija, aunque la fija cambie', () => {
+    const s = S();
+    const t = [fila({ editada: true, hora: '19:30', datos: { celebrante: 'P. Luis' }, actualizado_desde: 'app' })];
+    for (const f of [fija(), fija({ hora: '17:00' })]) {
+      const [i] = j(s.armarSemana({ lunes: '2026-11-16', fijas: [f], series: [], transmisiones: t }));
+      assert.equal(i.hora, '19:30');
+      assert.deepEqual(i.datos, { celebrante: 'P. Luis' });
+      assert.equal(i.editada, true);
+      assert.equal(i.actualizadoDesde, 'app');
+      assert.equal(i.id, 'fila-1');
+    }
+  });
+
+  prueba('un día de serie editado sin dia lleva el del generado', () => {
+    const s = S();
+    const t = [fila({ clave: 'serie:' + SID + ':2026-11-17', fecha: '2026-11-17', origen: 'serie', fija_id: null, serie_id: SID, tipo: 'prenovena', editada: true, datos: { celebrante: 'P. Luis' } })];
+    const items = j(s.armarSemana({ lunes: '2026-11-16', fijas: [], series: [serie()], transmisiones: t }));
+    const i = items.find((x) => x.fecha === '2026-11-17');
+    assert.deepEqual(i.datos, { celebrante: 'P. Luis', dia: 3 });
+  });
+
+  prueba('saltada sale saltada con los datos de la fija', () => {
+    const s = S();
+    const [i] = j(s.armarSemana({ lunes: '2026-11-16', fijas: [fija({ datos: { celebrante: 'Fija' } })], series: [], transmisiones: [fila({ saltada: true, datos: { celebrante: 'otro' } })] }));
+    assert.equal(i.saltada, true);
+    assert.deepEqual(i.datos, { celebrante: 'Fija' });
+  });
+
+  prueba('filas huérfanas: editada sale, solo saltada no', () => {
+    const s = S();
+    const arm = (t) => j(s.armarSemana({ lunes: '2026-11-16', fijas: [fija({ activa: false })], series: [], transmisiones: [t] }));
+    assert.equal(arm(fila({ editada: true })).length, 1);
+    assert.equal(arm(fila({ saltada: true })).length, 0);
+  });
+
+  prueba('una única sale como única, y el orden es fecha, hora y clave', () => {
+    const s = S();
+    const u = fila({ id: 'u1', clave: 'unica:u1', fecha: '2026-11-17', hora: '20:00', origen: 'unica', fija_id: null, tipo: 'dominical' });
+    const u2 = fila({ id: 'u2', clave: 'unica:u2', fecha: '2026-11-17', hora: '08:00', origen: 'unica', fija_id: null, tipo: 'dominical' });
+    const items = j(s.armarSemana({ lunes: '2026-11-16', fijas: [fija()], series: [serie()], transmisiones: [u, u2] }));
+    const del17 = items.filter((i) => i.fecha === '2026-11-17');
+    assert.deepEqual(del17.map((i) => i.clave), ['unica:u2', 'serie:' + SID + ':2026-11-17', 'unica:u1']);
+    assert.equal(del17[0].origen, 'unica');
+    const fechas = items.map((i) => i.fecha + i.hora);
+    assert.deepEqual(fechas, fechas.slice().sort());
+  });
+
+  prueba('filas con forma mala se ignoran sin lanzar', () => {
+    const s = S();
+    const items = j(s.armarSemana({
+      lunes: '2026-11-16',
+      fijas: [fija({ dia_semana: 9 }), null, 'x'],
+      series: [serie({ dias: -1 })],
+      transmisiones: [fila({ fecha: 'x', editada: true }), fila({ datos: null, editada: true, clave: 'unica:z', origen: 'unica', fija_id: null }), 7]
+    }));
+    assert.deepEqual(items, []);
+    assert.deepEqual(j(s.armarSemana(null)), []);
+  });
+
+  prueba('textos del día y del origen', () => {
+    const s = S();
+    assert.equal(s.textoDia('2026-11-19'), 'Jue 19');
+    const [f] = s.armarSemana({ lunes: '2026-11-16', fijas: [fija()], series: [], transmisiones: [] });
+    assert.equal(s.textoOrigen(f), 'Fija (todos los jueves)');
+    const [sr] = s.armarSemana({ lunes: '2026-11-23', fijas: [], series: [serie()], transmisiones: [] });
+    assert.equal(s.textoOrigen(sr), 'Parte de "Prenovena 2026" (9 días)');
+    const [uno] = s.armarSemana({ lunes: '2026-11-09', fijas: [], series: [serie({ dias: 1 })], transmisiones: [] });
+    assert.equal(s.textoOrigen(uno), 'Parte de "Prenovena 2026" (1 día)');
+    assert.equal(s.textoOrigen({ origen: 'unica' }), 'Una sola vez');
+  });
+
+  prueba('CommonJS: require da el mismo SEMANA', () => {
+    const r = require('../../vicaria/semana.js');
+    assert.equal(r.lunesDe('2026-11-15'), '2026-11-09');
+    assert.deepEqual(Object.keys(r).sort(), Object.keys(S()).sort());
+    assert.ok(Object.isFrozen(r));
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
