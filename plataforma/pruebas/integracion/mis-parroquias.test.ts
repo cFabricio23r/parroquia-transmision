@@ -1,7 +1,7 @@
 // Parroquias que ve cada persona y su última versión publicada, contra el Supabase LOCAL (plan 2, tarea 15).
 import { beforeAll, describe, expect, it } from 'vitest';
 import { clienteServicio, crearParroquia, crearUsuario, hacerAdmin, hacerMiembro, sufijo, type UsuarioPrueba } from './ayudas';
-import { idsDeMisMembresias, misParroquias } from '../../lib/mis-parroquias';
+import { idsDeMisMembresias, misParroquias, parroquiasVisibles } from '../../lib/mis-parroquias';
 
 const servicio = clienteServicio();
 const CLAVE = 'clave-de-prueba-123';
@@ -31,16 +31,19 @@ describe('misParroquias', () => {
   });
   it('un admin ve las dos; la que no tiene versiones da null', async () => {
     const lista = await misParroquias(admin.cliente);
-    const a = lista.find((p) => p.id === A.id);
-    const b = lista.find((p) => p.id === B.id);
+    const a = lista!.find((p) => p.id === A.id);
+    const b = lista!.find((p) => p.id === B.id);
     expect(a?.version).toBe(2);
     expect(b?.version).toBeNull();
     expect(await idsDeMisMembresias(admin.cliente, admin.id)).toEqual([]);
   });
+  it('parroquiasVisibles (Mi cuenta) da lo mismo sin la versión', async () => {
+    expect(await parroquiasVisibles(coord.cliente)).toEqual([{ id: A.id, slug: A.slug, nombre: `Parroquia ${A.slug}`, desactivada: false }]);
+  });
   it('un admin ve una desactivada con desactivada: true (Decisión 27 del plan 5)', async () => {
     await servicio.from('parroquias').update({ desactivada_en: new Date().toISOString() }).eq('id', B.id);
     try {
-      const b = (await misParroquias(admin.cliente)).find((p) => p.id === B.id);
+      const b = (await misParroquias(admin.cliente))!.find((p) => p.id === B.id);
       expect(b?.desactivada).toBe(true);
     } finally {
       await servicio.from('parroquias').update({ desactivada_en: null }).eq('id', B.id);

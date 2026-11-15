@@ -21,9 +21,27 @@ export default async function ElegirParroquia() {
   if (!u) redirect('/editor/entrar');
   // RLS: un coordinador ve solo sus parroquias; un administrador, todas.
   const parroquias = await misParroquias(sesion);
+  const usuario = { etiqueta: etiquetaUsuario(u), inicial: inicial(u.nombre, u.correo) };
+  // Si la base no respondió, un estado en español con «Volver a intentar» (no la página de error de Next).
+  if (!parroquias) {
+    return (
+      <MarcoPagina usuario={usuario}>
+        <main className="pv-sin-parroquia">
+          <MensajeEstado
+            codigo="no-se-pudo-cargar"
+            rol="alert"
+            accion={
+              <Boton variante="secundario" href="/editor">
+                Volver a intentar
+              </Boton>
+            }
+          />
+        </main>
+      </MarcoPagina>
+    );
+  }
   // Con una sola parroquia se va directo a ella (un administrador se queda: necesita el enlace a la administración).
   if (parroquias.length === 1 && !u.esAdmin) redirect(`/editor/p/${parroquias[0].slug}`);
-  const usuario = { etiqueta: etiquetaUsuario(u), inicial: inicial(u.nombre, u.correo) };
 
   if (!parroquias.length && !u.esAdmin) {
     return (

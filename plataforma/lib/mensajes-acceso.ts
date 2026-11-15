@@ -9,7 +9,8 @@ export type CodigoMensajeAcceso =
   | 'invitacion-no-sirve'
   | 'enlace-vencido'
   | 'sin-conexion'
-  | 'sesion-cerrada';
+  | 'sesion-cerrada'
+  | 'no-se-pudo-cargar';
 
 export type TonoMensaje = 'rojo' | 'ambar' | 'gris' | 'azul';
 
@@ -66,6 +67,12 @@ export const MENSAJES_ACCESO: Record<CodigoMensajeAcceso, MensajeAcceso> = {
     titulo: 'Sesión cerrada',
     texto: 'Tu sesión se cerró. Vuelve a entrar para seguir; lo que guardaste no se pierde.',
     tono: 'azul',
+  },
+  // Sin artboard (revisión): C1 o C2 no pudieron leer las parroquias de la base.
+  'no-se-pudo-cargar': {
+    titulo: 'No se pudo cargar',
+    texto: 'No pudimos leer tus parroquias. Espera un momento y vuelve a intentar.',
+    tono: 'ambar',
   },
 };
 
