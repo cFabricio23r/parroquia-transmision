@@ -1,18 +1,39 @@
-// Puente entre la app y el panel (obs/panel.html?modo=app en un WebView).
-// El panel guarda su estado en localStorage['parroquia_obs_estado_v1']; la app lo lee cada
-// 300 ms con SCRIPT_PANEL y se lo pasa a la capa con actualizarEstado(json) (decisión 1 del plan).
+// Puente entre la app y el panel de la parroquia (`https://<plataforma>/<slug>/panel.html?modo=app`,
+// en la vista nativa VistaPanel). El panel guarda su estado en localStorage['pev_<slug>_estado_v1'];
+// la app lo lee cada 300 ms con scriptPanel(slug) y se lo pasa a la capa con actualizarEstado(json).
 // Ese estado nunca lleva la clave: la clave vive solo en Ajustes (expo-secure-store).
 import { ESCENAS_VALIDAS, type Escena } from '../estado/transmision';
+import { esSlugValido, esUrlPermitida, urlDePagina } from '../plataforma/direcciones';
 
-/** Se corre antes de que cargue la página: activa el modo compacto aunque se pierda ?modo=app. */
-export const SCRIPT_ANTES_DE_CARGAR = 'window.modoApp = true; true;';
+/** La clave del estado del panel de esa parroquia. Lanza si el slug no es válido. */
+export function claveEstado(slug: string): string {
+  if (!esSlugValido(slug)) throw new Error('slug inválido');
+  return 'pev_' + slug + '_estado_v1';
+}
 
-/** Cada 300 ms, si el estado guardado cambió, lo manda a la app como {tipo:'estado', json}. */
-export const SCRIPT_PANEL = `(function () {
+/** El panel de la parroquia en modo app (`?modo=app` pone el modo compacto). */
+export function urlPanel(origen: string, slug: string): string {
+  return urlDePagina(origen, slug, 'panel.html?modo=app');
+}
+
+/** true si el mensaje viene del origen exacto de la plataforma (nunca de los assets ni de otro). */
+export function esMensajeDelPanel(url: string | undefined, origen: string): boolean {
+  if (typeof url !== 'string' || url.startsWith('file:')) return false;
+  return esUrlPermitida(url, origen);
+}
+
+/**
+ * Cada 300 ms, si el estado guardado de la parroquia cambió, lo manda a la app como
+ * {tipo:'estado', json}. Lo corre lo nativo al terminar de cargar la página.
+ */
+export function scriptPanel(slug: string): string {
+  // claveEstado valida el slug: en el script nunca entra un texto armado con otra cosa.
+  const clave = claveEstado(slug);
+  return `(function () {
   var ultimo = null;
   function revisar() {
     var json = null;
-    try { json = window.localStorage.getItem('parroquia_obs_estado_v1'); } catch (e) { json = null; }
+    try { json = window.localStorage.getItem('${clave}'); } catch (e) { json = null; }
     if (typeof json !== 'string' || json === ultimo) return;
     ultimo = json;
     try { window.ReactNativeWebView.postMessage(JSON.stringify({ tipo: 'estado', json: json })); } catch (e) {}
@@ -21,6 +42,7 @@ export const SCRIPT_PANEL = `(function () {
   setInterval(revisar, 300);
 })();
 true;`;
+}
 
 /** Al salir al aire, el panel pasa solo a la pestaña En vivo. */
 export const SCRIPT_IR_A_EN_VIVO =
@@ -29,14 +51,6 @@ export const SCRIPT_IR_A_EN_VIVO =
 /** Al terminar, el panel vuelve a Preparar, listo para la próxima transmisión (spec, pantalla 1). */
 export const SCRIPT_IR_A_PREPARAR =
   "(function () { var b = document.getElementById('tab-preparar'); if (b) b.click(); })(); true;";
-
-/** Las páginas propias de la app: todo lo demás se bloquea o se ignora. */
-export const ORIGEN_PANEL = 'file:///android_asset/';
-
-/** true si el mensaje viene de una página de la app (defensa extra: no se carga ninguna otra). */
-export function esDelPanel(url: string | undefined): boolean {
-  return typeof url === 'string' && url.startsWith(ORIGEN_PANEL);
-}
 
 /** Le dice al panel en qué escena está la app: fuera de Cámara bloquea los rótulos (Tarea 2b). */
 export function SCRIPT_ESCENA(escena: Escena): string {

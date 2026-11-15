@@ -1,62 +1,75 @@
-// El panel 2.0 de obs/ en modo compacto, dentro de un WebView: columna de 360 dp a la derecha
-// en horizontal, o debajo de la tira en Preparar (vertical). El tamaño lo da App con `estilo`:
-// el WebView es siempre el mismo y no se recarga al girar (Tarea 9c).
-// Solo carga archivos de la app (ORIGEN_PANEL, file:///android_asset/); cualquier otra dirección se bloquea.
-// El panel nunca recibe la clave: solo su propio estado (parroquia_obs_estado_v1).
-import { useState, type RefObject } from 'react';
+// El panel de la parroquia en modo compacto: `https://<plataforma>/<slug>/panel.html?modo=app`,
+// bajado de la plataforma y servido desde la copia guardada o el respaldo de la app por
+// Interceptor.kt (etapa 3a). Va en la vista nativa VistaPanel, no en react-native-webview, porque
+// esa no puede interceptar los subrecursos. Columna de 360 dp a la derecha en horizontal, o debajo
+// de la tira en Preparar (vertical). El tamaño lo da App con `estilo`: la vista es siempre la misma
+// y no se recarga al girar (Tarea 9c).
+// Solo carga el origen exacto de la plataforma; cualquier otra dirección se bloquea.
+// El panel nunca recibe la clave: solo su propio estado (pev_<slug>_estado_v1).
+import { useImperativeHandle, useRef, useState, type RefObject } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { ORIGEN_PANEL, SCRIPT_ANTES_DE_CARGAR, SCRIPT_PANEL, esDelPanel, leerMensaje } from '../puente/puente';
+import { VistaPanel, type EventoMensaje, type VistaPanelNativa } from '../../modules/transmisor';
+import { esMensajeDelPanel, leerMensaje, scriptPanel, urlPanel } from '../puente/puente';
 import { C, M } from './tema';
 
-const FUENTE = { uri: `${ORIGEN_PANEL}obs/panel.html?modo=app` };
-
-/** El tipo de WebView sin props extra (con el valor por defecto, sus props quedan en `never`). */
-export type PanelWeb = WebView<{}>;
+/** Lo que App usa del panel: correr un script (la escena, ir a En vivo o a Preparar, 3b «Usar esta»). */
+export interface PanelRef {
+  inyectar(script: string): void;
+}
 
 interface Props {
-  webviewRef: RefObject<PanelWeb | null>;
-  /** El JSON de parroquia_obs_estado_v1 cada vez que el panel lo cambia. */
+  panelRef: RefObject<PanelRef | null>;
+  /** El origen normalizado de la plataforma (`https://host[:puerto]`). */
+  origen: string;
+  /** La parroquia elegida. */
+  slug: string;
+  /** El JSON de pev_<slug>_estado_v1 cada vez que el panel lo cambia. */
   onEstado: (json: string) => void;
   /** La página terminó de cargar (también después de una recarga). */
   onCargado: () => void;
-  /** Lugar y tamaño de la columna (cambia al girar; el WebView sigue montado). */
+  /** Lugar y tamaño de la columna (cambia al girar; la vista sigue montada). */
   estilo?: StyleProp<ViewStyle>;
 }
 
-export default function ColumnaPanel({ webviewRef, onEstado, onCargado, estilo }: Props) {
-  // Cada vez que se cae el proceso de la página se monta un WebView nuevo: una WebView cuyo
+export default function ColumnaPanel({ panelRef, origen, slug, onEstado, onCargado, estilo }: Props) {
+  // Cada vez que se cae el proceso de la página se monta una vista nueva: un WebView cuyo
   // proceso murió no se puede volver a usar (review M1). El estado del panel queda en localStorage.
   const [montaje, setMontaje] = useState(0);
+  const nativa = useRef<VistaPanelNativa | null>(null);
 
-  function alMensaje(e: WebViewMessageEvent) {
-    // Solo se escuchan las páginas de la app (review M2).
-    if (!esDelPanel(e.nativeEvent.url)) return;
+  useImperativeHandle(
+    panelRef,
+    () => ({
+      inyectar(script: string) {
+        // Un error de lo nativo (la vista se está desmontando) no corta nada.
+        nativa.current?.inyectar(script)?.catch?.(() => undefined);
+      },
+    }),
+    [],
+  );
+
+  function alMensaje(e: EventoMensaje) {
+    // Solo se escucha el origen exacto de la plataforma (review M2).
+    if (!esMensajeDelPanel(e.nativeEvent.url, origen)) return;
     const m = leerMensaje(e.nativeEvent.data);
     if (m) onEstado(m.json);
   }
 
   return (
     <View style={[estilos.columna, estilo]}>
-      <WebView
+      <VistaPanel
         key={montaje}
-        ref={webviewRef}
-        source={FUENTE}
-        originWhitelist={['*']}
-        onShouldStartLoadWithRequest={(r) => esDelPanel(r.url)}
-        setSupportMultipleWindows={false}
-        javaScriptEnabled
-        domStorageEnabled
-        injectedJavaScriptBeforeContentLoaded={SCRIPT_ANTES_DE_CARGAR}
-        injectedJavaScript={SCRIPT_PANEL}
-        onMessage={alMensaje}
-        onLoadEnd={onCargado}
-        onRenderProcessGone={(): void => {
+        ref={nativa}
+        url={urlPanel(origen, slug)}
+        origen={origen}
+        scriptAlCargar={scriptPanel(slug)}
+        onMensaje={alMensaje}
+        onCargado={onCargado}
+        onProcesoCaido={(): void => {
           setMontaje((n) => n + 1);
         }}
         style={estilos.web}
-        containerStyle={estilos.web}
       />
     </View>
   );

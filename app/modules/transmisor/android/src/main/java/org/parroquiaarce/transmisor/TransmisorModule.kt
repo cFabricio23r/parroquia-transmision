@@ -237,6 +237,20 @@ class TransmisorModule : Module() {
       Capa.recargar()
     }.runOnQueue(Queues.MAIN)
 
+    // La primera vista es la de requireNativeView('Transmisor'): la vista previa de la cámara.
     View(TransmisorView::class) {}
+
+    // El panel de la parroquia (etapa 3a): requireNativeView('Transmisor', 'VistaPanel').
+    View(VistaPanel::class) {
+      Name("VistaPanel")
+      Events("onMensaje", "onCargado", "onProcesoCaido")
+      Prop("url") { view: VistaPanel, url: String -> view.fijarUrl(url) }
+      Prop("origen") { view: VistaPanel, origen: String -> view.fijarOrigen(origen) }
+      Prop("scriptAlCargar") { view: VistaPanel, script: String -> view.fijarScript(script) }
+      OnViewDidUpdateProps { view: VistaPanel -> view.aplicar() }
+      OnViewDestroys { view: VistaPanel -> view.destruir() }
+      // Las funciones de vista corren en el hilo principal (ViewDefinitionBuilder.build).
+      AsyncFunction("inyectar") { view: VistaPanel, script: String -> view.inyectar(script) }
+    }
   }
 }

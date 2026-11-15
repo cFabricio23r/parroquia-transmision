@@ -23,6 +23,7 @@ function cargar() {
   };
   jest.doMock('./src/TransmisorModule', () => ({ __esModule: true, default: modulo }));
   jest.doMock('./src/TransmisorView', () => ({ __esModule: true, default: () => null }));
+  jest.doMock('./src/VistaPanel', () => ({ __esModule: true, default: () => null }));
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const api = require('./index') as typeof import('./index');
   const emitir = (n: Nativo) => alEvento?.(n);

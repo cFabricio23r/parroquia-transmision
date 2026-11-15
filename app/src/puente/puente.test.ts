@@ -1,11 +1,12 @@
 import {
-  SCRIPT_ANTES_DE_CARGAR,
   SCRIPT_IR_A_EN_VIVO,
-  SCRIPT_PANEL,
   SCRIPT_ESCENA,
   SCRIPT_IR_A_PREPARAR,
-  esDelPanel,
+  claveEstado,
+  esMensajeDelPanel,
   leerMensaje,
+  scriptPanel,
+  urlPanel,
 } from './puente';
 
 describe('leerMensaje', () => {
@@ -38,21 +39,22 @@ describe('leerMensaje', () => {
 });
 
 describe('scripts del panel', () => {
-  it('antes de cargar marca el modo app', () => {
-    expect(SCRIPT_ANTES_DE_CARGAR).toContain('window.modoApp = true');
-    expect(SCRIPT_ANTES_DE_CARGAR.trim().endsWith('true;')).toBe(true);
+  it('el sondeo lee el estado de la parroquia y lo manda a la app', () => {
+    const script = scriptPanel('ciudad-arce');
+    expect(script).toContain("localStorage.getItem('pev_ciudad-arce_estado_v1')");
+    expect(script).toContain('window.ReactNativeWebView.postMessage');
+    expect(script).not.toContain('parroquia_obs_estado_v1');
+    expect(script).toContain('300');
+    expect(script.trim().endsWith('true;')).toBe(true);
   });
 
-  it('el sondeo lee el estado del panel y lo manda a la app', () => {
-    expect(SCRIPT_PANEL).toContain('parroquia_obs_estado_v1');
-    expect(SCRIPT_PANEL).toContain('ReactNativeWebView.postMessage');
-    expect(SCRIPT_PANEL).toContain('300');
-    expect(SCRIPT_PANEL.trim().endsWith('true;')).toBe(true);
+  it('scriptPanel lanza con un slug inválido', () => {
+    expect(() => scriptPanel("x');y")).toThrow();
   });
 
   it('el sondeo manda un mensaje que leerMensaje acepta, y solo cuando cambia', () => {
     const enviados: string[] = [];
-    const almacen: Record<string, string> = { parroquia_obs_estado_v1: '{"tipo":"horasanta"}' };
+    const almacen: Record<string, string> = { 'pev_ciudad-arce_estado_v1': '{"tipo":"horasanta"}' };
     const intervalos: Array<() => void> = [];
     const ventana = {
       ReactNativeWebView: { postMessage: (m: string) => enviados.push(m) },
@@ -63,7 +65,7 @@ describe('scripts del panel', () => {
       },
     };
     // Se corre el script con una ventana falsa.
-    new Function('window', 'localStorage', 'setInterval', SCRIPT_PANEL)(
+    new Function('window', 'localStorage', 'setInterval', scriptPanel('ciudad-arce'))(
       ventana,
       ventana.localStorage,
       ventana.setInterval,
@@ -72,7 +74,7 @@ describe('scripts del panel', () => {
     expect(leerMensaje(enviados[0])).toEqual({ tipo: 'estado', json: '{"tipo":"horasanta"}' });
     intervalos[0]();
     expect(enviados).toHaveLength(1);
-    almacen.parroquia_obs_estado_v1 = '{"tipo":"dominical"}';
+    almacen['pev_ciudad-arce_estado_v1'] = '{"tipo":"dominical"}';
     intervalos[0]();
     expect(enviados).toHaveLength(2);
     expect(leerMensaje(enviados[1])).toEqual({ tipo: 'estado', json: '{"tipo":"dominical"}' });
@@ -85,7 +87,7 @@ describe('scripts del panel', () => {
       localStorage: { getItem: () => null },
       setInterval: () => 1,
     };
-    new Function('window', 'localStorage', 'setInterval', SCRIPT_PANEL)(
+    new Function('window', 'localStorage', 'setInterval', scriptPanel('ciudad-arce'))(
       ventana,
       ventana.localStorage,
       ventana.setInterval,
@@ -127,14 +129,34 @@ describe('volver a Preparar (review M9 de la Tarea 8)', () => {
   });
 });
 
-describe('esDelPanel (review M2 de la Tarea 8)', () => {
-  it('acepta mensajes de páginas de la app', () => {
-    expect(esDelPanel('file:///android_asset/obs/panel.html?modo=app')).toBe(true);
+describe('claveEstado', () => {
+  it('es la clave del estado de esa parroquia', () => {
+    expect(claveEstado('ciudad-arce')).toBe('pev_ciudad-arce_estado_v1');
   });
-  it('rechaza cualquier otro origen o la falta de url', () => {
-    expect(esDelPanel('https://example.com/')).toBe(false);
-    expect(esDelPanel('file:///sdcard/panel.html')).toBe(false);
-    expect(esDelPanel('')).toBe(false);
-    expect(esDelPanel(undefined)).toBe(false);
+  it('lanza con un slug inválido', () => {
+    expect(() => claveEstado("x');y")).toThrow();
+    expect(() => claveEstado('')).toThrow();
+  });
+});
+
+describe('urlPanel', () => {
+  it('es el panel de la parroquia en modo app', () => {
+    expect(urlPanel('https://p.app', 'ciudad-arce')).toBe('https://p.app/ciudad-arce/panel.html?modo=app');
+  });
+});
+
+describe('esMensajeDelPanel', () => {
+  it('acepta solo el origen exacto de la plataforma', () => {
+    expect(esMensajeDelPanel('https://p.app/ciudad-arce/panel.html', 'https://p.app')).toBe(true);
+    expect(esMensajeDelPanel('https://p.app/ciudad-arce/panel.html?modo=app', 'https://p.app')).toBe(true);
+  });
+  it('rechaza los assets, otros orígenes parecidos y la falta de url', () => {
+    expect(esMensajeDelPanel('file:///android_asset/x', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel('https://p.app.evil.com/ciudad-arce/panel.html', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel('https://p.app@evil.com/', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel('http://p.app/ciudad-arce/panel.html', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel('https://p.app:8443/', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel('', 'https://p.app')).toBe(false);
+    expect(esMensajeDelPanel(undefined, 'https://p.app')).toBe(false);
   });
 });

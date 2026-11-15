@@ -39,7 +39,7 @@ import {
   terminar,
 } from './modules/transmisor';
 import BarraSuperior from './src/componentes/BarraSuperior';
-import ColumnaPanel, { type PanelWeb } from './src/componentes/ColumnaPanel';
+import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES, M } from './src/componentes/tema';
 import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
@@ -188,7 +188,11 @@ const registrador = crearRegistrador({
 
 const SIN_ZONAS: ZonasSeguras = { top: 0, bottom: 0, left: 0, right: 0 };
 
-export default function App() {
+/**
+ * Puente hasta la Tarea 16 del plan 3a, que le da a App sus props completas (la parroquia, la
+ * cuenta, los momentos): por ahora el panel sale solo si llegan el origen y el slug.
+ */
+export default function App(p: { origen?: string; slug?: string; [otra: string]: unknown } = {}) {
   const [fuentesListas, errorFuentes] = useFonts(FUENTES);
   const listo = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(tienda.suscribir, tienda.obtener);
@@ -292,7 +296,7 @@ export default function App() {
   }, [formaLista, orientacion]);
   const visible = pantallaVisible(pantallaActual, lugaresNormales.vertical, giroVencidoPara === orientacion);
 
-  const panelRef = useRef<PanelWeb | null>(null);
+  const panelRef = useRef<PanelRef | null>(null);
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
   const preparadaCon = useRef<string | null>(null);
   const preparandoAhora = useRef(false);
@@ -383,7 +387,7 @@ export default function App() {
     setMbps(null);
     setErrorSuperado(null);
     setAvisoServicio(null);
-    panelRef.current?.injectJavaScript(SCRIPT_IR_A_EN_VIVO);
+    panelRef.current?.inyectar(SCRIPT_IR_A_EN_VIVO);
   };
   pantalla.abrirAjustes = () => {
     setClaveLista(false);
@@ -497,7 +501,7 @@ export default function App() {
 
   // Escena del panel: fuera de Cámara bloquea los rótulos (Tarea 2b).
   useEffect(() => {
-    panelRef.current?.injectJavaScript(SCRIPT_ESCENA(escenaPanel));
+    panelRef.current?.inyectar(SCRIPT_ESCENA(escenaPanel));
   }, [escenaPanel]);
 
   // Al dejar el aire: se cierra el diálogo de terminar y el panel vuelve a Preparar (review M9).
@@ -505,15 +509,15 @@ export default function App() {
   useEffect(() => {
     if (!alAire) {
       setConfirmar(false);
-      if (estabaAlAire.current) panelRef.current?.injectJavaScript(SCRIPT_IR_A_PREPARAR);
+      if (estabaAlAire.current) panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);
     }
     estabaAlAire.current = alAire;
   }, [alAire]);
 
   const alCargarPanel = useCallback(() => {
     setPanelCargado(true);
-    panelRef.current?.injectJavaScript(SCRIPT_ESCENA(escenaPanelRef.current));
-    if (enAire(tienda.obtener())) panelRef.current?.injectJavaScript(SCRIPT_IR_A_EN_VIVO);
+    panelRef.current?.inyectar(SCRIPT_ESCENA(escenaPanelRef.current));
+    if (enAire(tienda.obtener())) panelRef.current?.inyectar(SCRIPT_IR_A_EN_VIVO);
   }, []);
 
   if (!listo) return <View style={estilos.raiz} />;
@@ -536,12 +540,16 @@ export default function App() {
       {/* El orden de estos hijos no cambia nunca: la vista previa y el panel siguen montados al girar. */}
       <View style={[estilos.lienzo, lugares.lienzo]}>
         <VistaTransmisor style={[estilos.vista, lugares.vista]} />
-        <ColumnaPanel
-          webviewRef={panelRef}
-          onEstado={actualizarEstado}
-          onCargado={alCargarPanel}
-          estilo={[estilos.zona, lugares.panel]}
-        />
+        {p.origen && p.slug ? (
+          <ColumnaPanel
+            panelRef={panelRef}
+            origen={p.origen}
+            slug={p.slug}
+            onEstado={actualizarEstado}
+            onCargado={alCargarPanel}
+            estilo={[estilos.zona, lugares.panel]}
+          />
+        ) : null}
         <View style={[estilos.zona, lugares.barra]}>
           {enCompleta ? null : (
             <BarraSuperior

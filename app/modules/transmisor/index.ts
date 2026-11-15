@@ -9,6 +9,8 @@ import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from '
 export { MENSAJES } from './src/eventos';
 
 export { default as VistaTransmisor } from './src/TransmisorView';
+export { default as VistaPanel } from './src/VistaPanel';
+export type { EventoCargado, EventoMensaje, PropsVistaPanel, VistaPanelNativa } from './src/VistaPanel';
 export type { Conexion, EventoEstado } from './src/eventos';
 export { ErrorTransmisor, pideVolverAPreparar } from './src/eventos';
 
