@@ -60,12 +60,14 @@ try {
   await descartar.getByRole('button', { name: 'Seguir editando' }).click();
   igual(await titulo.inputValue(), 'Inscripciones de catequesis 2027', '«Seguir editando» deja lo escrito');
 
+  // Ronda final: «Editar aviso» no se guarda solo, así que ir a otra sección también pregunta antes
+  // (antes cambiaba de sección y lo recordaba en silencio).
   await pa.locator('nav a', { hasText: 'Galería' }).click();
-  await pa.waitForURL(/\/galeria$/);
-  igual(await guardadoDice(pa), 'Sin guardar', 'en otra sección el encabezado sigue diciendo «Sin guardar»');
-  await pa.locator('nav a', { hasText: 'Avisos fijos' }).click();
-  await pa.waitForURL(/\/avisos$/);
-  igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Inscripciones de catequesis 2027', 'al volver, lo escrito sigue ahí');
+  await descartar.waitFor({ timeout: 3000 });
+  revisar(pa.url().endsWith('/avisos'), 'ir a otra sección con el aviso sin guardar pregunta antes');
+  await descartar.getByRole('button', { name: 'Seguir editando' }).click();
+  igual(await pa.getByLabel('Título', { exact: true }).inputValue(), 'Inscripciones de catequesis 2027', 'y «Seguir editando» deja lo escrito');
+  igual(await guardadoDice(pa), 'Sin guardar', 'el encabezado sigue diciendo «Sin guardar»');
 
   let dialogo = false;
   pa.on('dialog', async (d) => {
