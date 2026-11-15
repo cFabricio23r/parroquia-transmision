@@ -14,7 +14,8 @@ const servicio = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SEC
 });
 const sufijo = () => Math.random().toString(36).slice(2, 10);
 const CLAVE = 'clave-de-prueba-123';
-const MENSAJE_SIN_GUARDAR = 'Tienes cambios sin guardar. Guarda antes de publicar';
+// Con el guardado automático no se pide «Guarda»: se espera (ronda de arreglos 2).
+const MENSAJE_SIN_GUARDAR = 'Guardando tus cambios. En un momento puedes publicar.';
 const MENSAJE_DESACTIVADA = 'Esta parroquia está desactivada. Reactívala en Administración para publicar.';
 const NOTA_VERSIONES = '«Volver a esta» publica de nuevo esa versión como una nueva; no se borra ninguna.';
 
@@ -143,7 +144,8 @@ try {
   await irAPublicar();
   igual(await boton().textContent(), 'Publicar versión 1', 'el botón dice «Publicar versión 1»');
   igual(await boton().getAttribute('aria-disabled'), 'true', 'aria-disabled="true" mientras se guarda');
-  revisar(await pagina.getByText(MENSAJE_SIN_GUARDAR).isVisible(), 'se ve el MENSAJE_SIN_GUARDAR');
+  revisar(await pagina.getByText(MENSAJE_SIN_GUARDAR).isVisible(), 'se ve «Guardando tus cambios. En un momento puedes publicar.»');
+  igual(await pagina.getByText(/Guarda antes de publicar/).count(), 0, 'ya no dice «Guarda antes de publicar»');
   await boton().click({ force: true }); // aria-disabled no frena el clic real: lo frena el componente
   await pagina.waitForTimeout(300);
   igual(JSON.stringify(await numeros(P.id)), '[]', 'el clic con el guardado pendiente no publica nada');

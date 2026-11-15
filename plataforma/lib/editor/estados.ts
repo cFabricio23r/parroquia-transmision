@@ -128,6 +128,8 @@ function avisosDeRotulos(borrador: Config): Problema[] {
 
 const activo = (a: unknown) => esObjeto(a) && a.activo !== false;
 const vencidoAviso = (a: unknown, hoy: string) => esObjeto(a) && typeof a.hasta === 'string' && a.hasta < hoy;
+/** Todavía no empieza: `desde` es inclusivo, como en vicaria/pantallas.js (_vigente). */
+const futuroAviso = (a: unknown, hoy: string) => esObjeto(a) && typeof a.desde === 'string' && a.desde > hoy;
 
 function avisosDeAvisos(borrador: Config, hoy: string): Problema[] {
   return lista(borrador.avisos)
@@ -197,7 +199,8 @@ function fraseLista(borrador: Config, id: IdSeccion): string {
 function fraseAvisos(borrador: Config, hoy: string): string {
   const l = lista(borrador.avisos);
   if (l.length === 0) return 'Sin avisos todavía.';
-  const k = l.filter((a) => activo(a) && !vencidoAviso(a, hoy)).length;
+  // Solo los que salen hoy en la pantalla: encendidos, ya empezados y sin terminar.
+  const k = l.filter((a) => activo(a) && !vencidoAviso(a, hoy) && !futuroAviso(a, hoy)).length;
   return `${plural(l.length, 'aviso fijo', 'avisos fijos')}; ${k} ${k === 1 ? 'se muestra' : 'se muestran'}.`;
 }
 

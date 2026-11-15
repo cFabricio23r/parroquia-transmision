@@ -2,13 +2,26 @@
 // Puro: sin Supabase ni Next.
 import { bloqueDeError, limpiarMensaje } from './errores';
 import type { EstadoSeccion } from './estados';
+import type { EstadoGuardado } from './guardado';
 import { SECCIONES, seccion, type IdSeccion } from './secciones';
 
 /** Publicar o restaurar una parroquia desactivada (Decisión 3 del plan 5). */
 export const MENSAJE_DESACTIVADA_PUBLICAR = 'Esta parroquia está desactivada. Reactívala en Administración para publicar.';
 
-/** Publicar con cambios todavía sin guardar (plan 3). */
-export const MENSAJE_SIN_GUARDAR = 'Tienes cambios sin guardar. Guarda antes de publicar';
+/**
+ * Publicar con algo todavía sin guardar (plan 3). Con el guardado automático no hay un «Guardar»
+ * general: mientras guarda se espera; un formulario con su propio botón (como «Editar aviso») sí se
+ * guarda a mano; y si el guardado falló, el aviso de la sección dice qué hacer.
+ */
+export const MENSAJE_GUARDANDO = 'Guardando tus cambios. En un momento puedes publicar.';
+export const MENSAJE_FORMULARIO_SIN_GUARDAR = 'Tienes un formulario sin guardar. Guárdalo para poder publicar.';
+export const MENSAJE_GUARDADO_FALLO = 'Tus últimos cambios no se guardaron. Revisa el aviso de arriba para poder publicar.';
+
+export function mensajeSinGuardar(estado: EstadoGuardado, formularioSucio: boolean): string {
+  if (formularioSucio) return MENSAJE_FORMULARIO_SIN_GUARDAR;
+  if (estado === 'guardando' || estado === 'pendiente') return MENSAJE_GUARDANDO;
+  return MENSAJE_GUARDADO_FALLO;
+}
 
 // ---- Tarea 12 del plan 5: «Antes de publicar», el botón y las versiones ----
 

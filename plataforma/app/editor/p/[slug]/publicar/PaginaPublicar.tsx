@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LINKS_OBS_PUBLICAR,
   MENSAJE_DESACTIVADA_PUBLICAR,
-  MENSAJE_SIN_GUARDAR,
+  mensajeSinGuardar,
   NOTA_VERSIONES,
   revisarParaPublicar,
   textoBloqueo,
@@ -95,10 +95,11 @@ export function PaginaPublicar() {
   }, [error]);
 
   const revision = revisarParaPublicar(estados, guardado.errores);
-  const sinGuardar = guardado.estado !== 'guardado' || Object.values(formularios).some((f) => f.sucio);
+  const formularioSucio = Object.values(formularios).some((f) => f.sucio);
+  const sinGuardar = guardado.estado !== 'guardado' || formularioSucio;
   const k = revision.errores.length;
   // Prioridad (Decisión 21): desactivada, después sin guardar, después errores.
-  const bloqueo = datos.desactivada ? MENSAJE_DESACTIVADA_PUBLICAR : sinGuardar ? MENSAJE_SIN_GUARDAR : k > 0 ? textoBloqueo(k) : null;
+  const bloqueo = datos.desactivada ? MENSAJE_DESACTIVADA_PUBLICAR : sinGuardar ? mensajeSinGuardar(guardado.estado, formularioSucio) : k > 0 ? textoBloqueo(k) : null;
 
   async function enviar(ruta: 'publicar' | 'restaurar', cuerpo?: object) {
     // aria-disabled no frena el clic: lo frena esto (y el botón no pierde el foco).

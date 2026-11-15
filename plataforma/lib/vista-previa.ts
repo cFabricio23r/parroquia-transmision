@@ -1,7 +1,7 @@
 // Arma el borrador que se manda a la vista previa: cambia cada `src: 'medios/x'` por su URL firmada
 // (el iframe no tiene sesión para pedir al Storage privado) y quita los vacíos del formulario.
 // Sin dependencias de React ni de Next: se prueba sola.
-import type { VistaPreviaSeccion } from './editor/secciones';
+import { NOMBRES_VISTAS, type VistaPreviaSeccion } from './editor/secciones';
 
 /** Copia el valor sin null ni undefined y con los `src` conocidos reemplazados por su URL firmada. */
 export function prepararVistaPrevia(valor: unknown, urls: Record<string, string>): unknown {
@@ -101,4 +101,18 @@ export function configParaVistaPrevia(borrador: object, tipoFijo: string | undef
   const tipos = objeto(b.tipos);
   if (!Array.isArray(tipos.apagados) || !tipos.apagados.includes(tipoFijo)) return borrador;
   return { ...b, tipos: { ...tipos, apagados: tipos.apagados.filter((k) => k !== tipoFijo) } };
+}
+
+/**
+ * El nombre accesible del iframe: «Vista previa: Inicio», con el nombre de la pantalla que ve la
+ * persona (NOMBRES_VISTAS), no la clave interna. La Portada de evento es la vista «portada» con el
+ * tipo evento; la Capa EN VIVO, los rótulos sin ningún rótulo a la vista.
+ */
+export function tituloMarcoVistaPrevia(vp: VistaPreviaSeccion): string {
+  let nombre: string;
+  if (vp.pagina === 'produccion') nombre = NOMBRES_VISTAS.produccion;
+  else if (vp.pagina === 'rotulos') nombre = vp.estado?.rotulo === 'ninguno' ? NOMBRES_VISTAS.envivo : 'Rótulos';
+  else if (vp.vista === 'portada' && vp.tipoFijo === 'evento') nombre = NOMBRES_VISTAS.evento;
+  else nombre = NOMBRES_VISTAS[vp.vista] ?? vp.vista;
+  return `Vista previa: ${nombre}`;
 }

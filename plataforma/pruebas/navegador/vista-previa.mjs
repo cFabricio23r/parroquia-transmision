@@ -32,7 +32,7 @@ try {
   await pagina.goto(`${BASE}/editor/p/${P.slug}/identidad`);
   const marco = pagina.locator('iframe.pv-previa-marco');
   await marco.waitFor();
-  igual(await marco.getAttribute('title'), 'Vista previa: inicio', 'el iframe se llama «Vista previa: inicio»');
+  igual(await marco.getAttribute('title'), 'Vista previa: Inicio', 'el iframe se llama «Vista previa: Inicio» (NOMBRES_VISTAS, no la clave)');
   revisar((await marco.getAttribute('src')).endsWith(`/${P.slug}/pantalla.html?tipo=inicio&vista-previa=1`), 'el iframe muestra la pantalla de inicio');
   const caja = await marco.boundingBox();
   revisar(cerca(caja.width, 552) && cerca(caja.height, 310.5), `el iframe mide 552 × 310 (mide ${caja.width} × ${caja.height})`);

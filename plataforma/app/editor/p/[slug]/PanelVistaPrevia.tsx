@@ -11,6 +11,7 @@ import {
   mensajeVistaPrevia,
   srcVistaPrevia,
   tiposParaVistaPrevia,
+  tituloMarcoVistaPrevia,
 } from '../../../../lib/vista-previa';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { CampoSelect } from '../../../componentes/CampoSelect';
@@ -93,7 +94,7 @@ export function PanelVistaPrevia() {
           if (el && !el.dataset.montado) el.dataset.montado = String(Date.now());
         }}
         className="pv-previa-marco"
-        title={`Vista previa: ${vp.vista || vp.pagina}`}
+        title={tituloMarcoVistaPrevia(vp)}
         src={src}
         onLoad={() => {
           cargado.current = true;
