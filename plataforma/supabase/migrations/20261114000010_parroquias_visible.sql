@@ -1,0 +1,13 @@
+-- «Visible en la app» (etapa 3a). La app «Parroquia en vivo» lista solo las parroquias con
+-- visible = true; el editor web no depende de esta columna.
+--
+-- Solo un administrador la cambia: el update de parroquias lo permite únicamente la política
+-- parroquias_actualizar (20261108000002_rls.sql), que exige es_admin(). No hace falta una política
+-- nueva. Si algún día se abre el update de parroquias a los coordinadores, habrá que agregar
+-- `revoke update (visible) on public.parroquias from authenticated` para que no puedan mostrarse
+-- ellos mismos en la app.
+--
+-- Una parroquia desactivada (desactivada_en no null) nunca sale en la app aunque esté visible:
+-- la consulta de la app filtra las dos cosas (visible = true y desactivada_en is null), porque el
+-- administrador ve también las desactivadas por RLS.
+alter table public.parroquias add column visible boolean not null default false;
