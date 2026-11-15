@@ -130,7 +130,6 @@
   .pv-editor-main--avisos,
   .pv-editor-main--dos-columnas { padding: 20px 16px; overflow: visible; }
   .pv-guardado { display: none; }
-  .pv-chip-borrador { white-space: normal; }
 }
 
 /* ---- F1 Resumen (Tarea 11, AB/VicEdResumen) ---- */

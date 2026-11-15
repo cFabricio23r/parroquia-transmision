@@ -88,9 +88,22 @@
 .pv-pie-acceso { font-size: 12px; color: var(--pv-texto-suave); text-align: center; }
 
 @media (max-width: 520px) {
-  .pv-encabezado { padding: 0 16px; }
   .pv-tarjeta-acceso { padding: 24px; }
-  .pv-usuario-etiqueta { display: none; }
+  /* Celular (revisión fix2): la franja crece y se parte en dos filas, la marca arriba y abajo el chip
+     del borrador con el nombre y el avatar, para que nada se corte ni se esconda. */
+  .pv-encabezado {
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 10px 16px;
+  }
+  .pv-marca { flex: 1 1 100%; }
+  .pv-encabezado-titulo { white-space: nowrap; }
+  .pv-usuario-zona { flex: 1 1 100%; justify-content: flex-end; gap: 10px; }
+  .pv-usuario-zona--editor { justify-content: space-between; }
+  .pv-usuario-zona .pv-chip-borrador { flex-shrink: 0; }
+  .pv-usuario { min-width: 0; }
 }
 
 /* ---- Menú lateral del editor ---- */

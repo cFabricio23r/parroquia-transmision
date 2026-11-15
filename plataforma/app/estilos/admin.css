@@ -77,5 +77,16 @@
   .pv-admin .pv-tabla-fila { min-width: 860px; }
 }
 
+/* Aviso de celular (revisión fix2, como el del editor) y cabezas que se parten en vez de correr la
+   página de lado: la tabla es lo único que se desplaza, dentro de su caja. */
+.pv-admin-celular { display: none; }
+@media (max-width: 760px) {
+  .pv-admin-celular { display: block; padding: 16px 16px 0; }
+  .pv-admin-cabeza { flex-wrap: wrap; }
+  .pv-admin-filtro-lugar { flex-wrap: wrap; min-width: 0; }
+  .pv-admin-lugar { flex-wrap: wrap; min-width: 0; }
+  .pv-admin-lugar select { max-width: 100%; }
+}
+
 /* Formularios dentro de los diálogos del admin: misma separación que el diálogo (16). */
 .pv-admin-formulario { display: flex; flex-direction: column; gap: 16px; }

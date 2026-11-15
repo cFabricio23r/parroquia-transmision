@@ -5,12 +5,17 @@ import { etiquetaUsuario, inicial } from '../../../lib/persona';
 import { clienteServidor } from '../../../lib/supabase/servidor';
 import { usuarioActual } from '../../../lib/usuario-actual';
 import { Boton } from '../../componentes/Boton';
+import { CajaInfo } from '../../componentes/CajaInfo';
 import { Encabezado } from '../../componentes/Encabezado';
 import { Tarjeta } from '../../componentes/Tarjeta';
 import { PestanasAdmin } from './PestanasAdmin';
 import '../../estilos/admin.css';
 
 export const dynamic = 'force-dynamic';
+
+/** Como el aviso de celular del editor (Decisión 23): solo por debajo de 760 px. */
+const AVISO_CELULAR_ADMIN =
+  'La administración está pensada para una computadora. Desde el celular puedes mirar, pero para trabajar usa una pantalla más grande.';
 
 /**
  * Marco de la administración (D1–D3): encabezado y pestañas. Sin sesión va a entrar; quien no es admin
@@ -28,6 +33,9 @@ export default async function LayoutAdmin({ children }: { children: ReactNode })
       {u.esAdmin ? (
         <>
           <PestanasAdmin />
+          <div className="pv-admin-celular">
+            <CajaInfo>{AVISO_CELULAR_ADMIN}</CajaInfo>
+          </div>
           {children}
         </>
       ) : (
