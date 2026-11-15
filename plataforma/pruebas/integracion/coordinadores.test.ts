@@ -131,4 +131,20 @@ describe('invitaciones', () => {
       await servicio.from('invitaciones').delete().eq('id', inv!.id);
     }
   });
+
+  it('las filas de una parroquia desactivada salen como «parroquia-desactivada» (revisión fix2)', async () => {
+    const correo = `coo-des-${sufijo()}@prueba.test`;
+    const { error } = await servicio
+      .from('invitaciones')
+      .insert({ correo, rol: 'coordinador', parroquia_id: D.id, token_hash: `prueba-${sufijo()}`, vence_en: new Date(Date.now() + 86_400_000).toISOString() });
+    expect(error).toBeNull();
+    await hacerMiembro(D.id, m.id);
+    const deD = await listarCoordinadores(servicio, D.slug);
+    expect(deD.map((f) => [f.tipo, f.estado]).sort()).toEqual([
+      ['invitacion', 'parroquia-desactivada'],
+      ['miembro', 'parroquia-desactivada'],
+    ]);
+    await servicio.from('invitaciones').delete().eq('correo', correo);
+    await servicio.from('miembros').delete().eq('parroquia_id', D.id).eq('usuario_id', m.id);
+  });
 });

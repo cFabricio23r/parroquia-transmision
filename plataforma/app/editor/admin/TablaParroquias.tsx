@@ -73,7 +73,7 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
         {anuncio}
       </p>
       {error && (
-        <p role="alert" className="pv-alerta">
+        <p role="alert" className="pv-alerta pv-admin-alerta">
           {error}
         </p>
       )}

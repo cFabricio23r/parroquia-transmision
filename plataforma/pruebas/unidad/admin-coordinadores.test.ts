@@ -125,6 +125,29 @@ describe('armarFilasCoordinadores (Decisión 11)', () => {
     );
     expect(filas).toEqual([]);
   });
+  it('las filas de una parroquia desactivada dicen «Parroquia desactivada» y van al final (revisión fix2)', () => {
+    const filas = armarFilasCoordinadores(
+      {
+        miembros: [
+          { usuarioId: 'u1', parroquiaId: 'pd' },
+          { usuarioId: 'u1', parroquiaId: 'pa' },
+        ],
+        personas,
+        invitaciones: [
+          { id: 'i1', correo: 'n@x.test', parroquiaId: 'pd', venceEn: '2026-11-20T00:00:00Z', creadaEn: '2026-11-10T00:00:00Z' },
+          { id: 'i2', correo: 'v@x.test', parroquiaId: 'pa', venceEn: '2026-11-01T00:00:00Z', creadaEn: '2026-10-10T00:00:00Z' },
+        ],
+        parroquias: { ...parroquias, pd: { nombre: 'Delta', slug: 'delta', desactivada: true } },
+      },
+      AHORA,
+    );
+    expect(filas.map((f) => `${f.tipo}:${f.estado}:${f.parroquiaNombre}`)).toEqual([
+      'miembro:activo:Alfa',
+      'invitacion:invitacion-vencida:Alfa',
+      'invitacion:parroquia-desactivada:Delta',
+      'miembro:parroquia-desactivada:Delta',
+    ]);
+  });
 });
 
 describe('chipCoordinador', () => {
@@ -132,5 +155,6 @@ describe('chipCoordinador', () => {
     expect(chipCoordinador('activo')).toEqual({ texto: 'Activo', tono: 'verde' });
     expect(chipCoordinador('invitacion-enviada')).toEqual({ texto: 'Invitación enviada', tono: 'azul' });
     expect(chipCoordinador('invitacion-vencida')).toEqual({ texto: 'Invitación vencida', tono: 'ambar' });
+    expect(chipCoordinador('parroquia-desactivada')).toEqual({ texto: 'Parroquia desactivada', tono: 'gris' });
   });
 });

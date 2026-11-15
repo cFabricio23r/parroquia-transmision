@@ -29,17 +29,18 @@ export interface EntradaFilas {
   miembros: { usuarioId: string; parroquiaId: string }[];
   personas: Record<string, Persona>;
   invitaciones: { id: string; correo: string; parroquiaId: string; venceEn: string; creadaEn: string }[];
-  parroquias: Record<string, { nombre: string; slug: string }>;
+  parroquias: Record<string, { nombre: string; slug: string; desactivada?: boolean }>;
 }
 
-const ORDEN: Record<EstadoCoordinador, number> = { activo: 0, 'invitacion-enviada': 1, 'invitacion-vencida': 2 };
+const ORDEN: Record<EstadoCoordinador, number> = { activo: 0, 'invitacion-enviada': 1, 'invitacion-vencida': 2, 'parroquia-desactivada': 3 };
 const normalizar = (correo: string) => correo.trim().toLowerCase();
 
 /**
  * Las filas de D2 (Decisión 11): una por membresía (Activo) y una por la invitación más reciente de
  * cada (correo, parroquia) que no esté usada ni anulada y cuyo correo no sea ya miembro de esa
- * parroquia. Vence justo al llegar `vence_en`, como estadoInvitacion. Orden: activos, enviadas,
- * vencidas; dentro de cada grupo, por parroquia y después por persona.
+ * parroquia. Vence justo al llegar `vence_en`, como estadoInvitacion. Las de una parroquia desactivada
+ * van como `parroquia-desactivada` (sus miembros no entran y reenviar falla). Orden: activos, enviadas,
+ * vencidas, de parroquias desactivadas; dentro de cada grupo, por parroquia y después por persona.
  */
 export function armarFilasCoordinadores(e: EntradaFilas, ahora: number): FilaCoordinador[] {
   const filas: FilaCoordinador[] = [];
@@ -59,7 +60,7 @@ export function armarFilasCoordinadores(e: EntradaFilas, ahora: number): FilaCoo
       parroquiaId: m.parroquiaId,
       parroquiaNombre: parroquia.nombre,
       parroquiaSlug: parroquia.slug,
-      estado: 'activo',
+      estado: parroquia.desactivada ? 'parroquia-desactivada' : 'activo',
       ultimaEntrada: persona.ultimaEntrada,
     });
   }
@@ -83,7 +84,11 @@ export function armarFilasCoordinadores(e: EntradaFilas, ahora: number): FilaCoo
       parroquiaId: i.parroquiaId,
       parroquiaNombre: parroquia.nombre,
       parroquiaSlug: parroquia.slug,
-      estado: !Number.isNaN(vence) && vence > ahora ? 'invitacion-enviada' : 'invitacion-vencida',
+      estado: parroquia.desactivada
+        ? 'parroquia-desactivada'
+        : !Number.isNaN(vence) && vence > ahora
+          ? 'invitacion-enviada'
+          : 'invitacion-vencida',
       ultimaEntrada: null,
     });
   }
@@ -97,8 +102,8 @@ export function armarFilasCoordinadores(e: EntradaFilas, ahora: number): FilaCoo
 
 /** Las filas de D2, opcionalmente de una sola parroquia (por slug; uno desconocido se ignora). Lee con el servicio. */
 export async function listarCoordinadores(servicio: SupabaseClient, filtroSlug?: string, ahora: number = Date.now()): Promise<FilaCoordinador[]> {
-  const parroquias = await todasLasFilas<{ id: string; slug: string; nombre: string }>((d, h) =>
-    servicio.from('parroquias').select('id, slug, nombre').order('id').range(d, h),
+  const parroquias = await todasLasFilas<{ id: string; slug: string; nombre: string; desactivada_en: string | null }>((d, h) =>
+    servicio.from('parroquias').select('id, slug, nombre, desactivada_en').order('id').range(d, h),
   );
   const filtro = filtroSlug ? parroquias.find((p) => p.slug === filtroSlug)?.id : undefined;
   const [miembros, invitaciones] = await Promise.all([
@@ -131,7 +136,7 @@ export async function listarCoordinadores(servicio: SupabaseClient, filtroSlug?:
         venceEn: i.vence_en,
         creadaEn: i.creada_en,
       })),
-      parroquias: Object.fromEntries(parroquias.map((p) => [p.id, { nombre: p.nombre, slug: p.slug }])),
+      parroquias: Object.fromEntries(parroquias.map((p) => [p.id, { nombre: p.nombre, slug: p.slug, desactivada: p.desactivada_en !== null }])),
     },
     ahora,
   );

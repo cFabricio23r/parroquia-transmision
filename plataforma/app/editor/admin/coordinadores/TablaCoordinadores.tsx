@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { unstable_rethrow, useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import { chipCoordinador, type FilaCoordinador } from '../../../../lib/admin-textos';
 import { ultimaEntrada } from '../../../../lib/fecha';
 import { Boton } from '../../../componentes/Boton';
@@ -49,6 +49,30 @@ export function TablaCoordinadores({
   const [error, setError] = useState<string | null>(null);
   const [errorAsignar, setErrorAsignar] = useState<string | null>(null);
   const { ocupado, enviar } = useEnvio();
+  // «Reenviar» va por invitación (revisión fix2): reenviar una no deja ocupados los botones de las demás.
+  const [reenviando, setReenviando] = useState<ReadonlySet<string>>(new Set());
+  const enCurso = useRef(new Set<string>());
+
+  async function reenviarFila(f: FilaCoordinador) {
+    const id = f.invitacionId;
+    if (!id || enCurso.current.has(id)) return;
+    enCurso.current.add(id);
+    setReenviando(new Set(enCurso.current));
+    setError(null);
+    setAnuncio(null);
+    try {
+      const r = await reenviar(id);
+      if (r.error) return setError(r.error);
+      setAnuncio(`Le enviamos una invitación nueva a ${r.correo ?? f.correo}.`);
+      router.refresh();
+    } catch (e) {
+      unstable_rethrow(e);
+      setError(MENSAJE_SIN_CONEXION);
+    } finally {
+      enCurso.current.delete(id);
+      setReenviando(new Set(enCurso.current));
+    }
+  }
 
   async function ejecutar(accion: () => Promise<{ error?: string; correo?: string }>, exito: (correo?: string) => string | null, cerrar: () => void) {
     setError(null);
@@ -96,7 +120,7 @@ export function TablaCoordinadores({
         {anuncio}
       </p>
       {error && (
-        <p role="alert" className="pv-alerta">
+        <p role="alert" className="pv-alerta pv-admin-alerta">
           {error}
         </p>
       )}
@@ -131,21 +155,18 @@ export function TablaCoordinadores({
                   </>
                 ) : (
                   <>
-                    <Boton
-                      variante="secundario"
-                      compacto
-                      ocupado={ocupado}
-                      aria-label={`Reenviar la invitación de ${f.correo} a ${f.parroquiaNombre}`}
-                      onClick={() =>
-                        ejecutar(
-                          () => reenviar(f.invitacionId as string),
-                          (correo) => `Le enviamos una invitación nueva a ${correo ?? f.correo}.`,
-                          () => {},
-                        )
-                      }
-                    >
-                      Reenviar
-                    </Boton>
+                    {/* Con la parroquia desactivada, reenviar fallaría: no se ofrece (revisión fix2). Quitar sí sirve. */}
+                    {f.estado !== 'parroquia-desactivada' && (
+                      <Boton
+                        variante="secundario"
+                        compacto
+                        ocupado={reenviando.has(f.invitacionId as string)}
+                        aria-label={`Reenviar la invitación de ${f.correo} a ${f.parroquiaNombre}`}
+                        onClick={() => void reenviarFila(f)}
+                      >
+                        Reenviar
+                      </Boton>
+                    )}
                     <Boton
                       variante="peligro"
                       compacto

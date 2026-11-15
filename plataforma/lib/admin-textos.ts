@@ -100,7 +100,8 @@ export function textoCoordinadores(f: FilaParroquia): string {
 
 // ── D2 ───────────────────────────────────────────────────────────────────────
 
-export type EstadoCoordinador = 'activo' | 'invitacion-enviada' | 'invitacion-vencida';
+/** `parroquia-desactivada`: miembro o invitación de una parroquia desactivada (revisión fix2): ni edita ni se puede reenviar. */
+export type EstadoCoordinador = 'activo' | 'invitacion-enviada' | 'invitacion-vencida' | 'parroquia-desactivada';
 
 export interface FilaCoordinador {
   /** Única en la lista (para `key`). */
@@ -122,5 +123,6 @@ export interface FilaCoordinador {
 export function chipCoordinador(e: EstadoCoordinador): { texto: string; tono: TonoChip } {
   if (e === 'activo') return { texto: 'Activo', tono: 'verde' };
   if (e === 'invitacion-enviada') return { texto: 'Invitación enviada', tono: 'azul' };
+  if (e === 'parroquia-desactivada') return { texto: 'Parroquia desactivada', tono: 'gris' };
   return { texto: 'Invitación vencida', tono: 'ambar' };
 }

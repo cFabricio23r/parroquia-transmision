@@ -43,6 +43,14 @@
   font-weight: 600;
 }
 .pv-admin-anuncio:empty { display: none; }
+/* El error de una acción de fila (revisión fix2): pegado arriba como el anuncio, para que se vea aunque
+   la fila que lo causó esté muy abajo. role=alert lo lee; el foco se queda en el botón de la fila. */
+.pv-admin-alerta {
+  position: sticky;
+  top: 12px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(18, 32, 51, 0.12);
+}
 .pv-admin-anuncio a { color: inherit; font-weight: 700; margin-left: 6px; }
 
 /* D3: filas con relleno 14 18 */
