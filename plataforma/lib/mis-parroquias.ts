@@ -34,30 +34,26 @@ export async function parroquiasVisibles(sesion: SupabaseClient): Promise<Parroq
 }
 
 export async function misParroquias(sesion: SupabaseClient): Promise<ParroquiaElegible[] | null> {
-  const lista = await parroquiasVisibles(sesion);
-  if (!lista) return null;
-  if (!lista.length) return [];
   try {
-    // Solo la mayor de cada parroquia (ronda 2): traer todas las filas de `versiones` las corta PostgREST
-    // en max_rows (1000 en config.toml) en un orden cualquiera, y el chip mostraría una versión vieja.
-    // Una consulta por parroquia, en paralelo, usa el índice único (parroquia_id, numero).
-    const maximos = await Promise.all(
-      lista.map(async (p) => {
-        const { data, error } = await sesion
-          .from('versiones')
-          .select('numero')
-          .eq('parroquia_id', p.id)
-          .order('numero', { ascending: false })
-          .limit(1);
-        if (error) return null;
-        const fila = (data ?? [])[0] as { numero: number } | undefined;
-        return [p.id, fila?.numero] as const;
-      }),
-    );
-    if (maximos.some((m) => m === null)) return null;
-    const ultimas = new Map<string, number>();
-    for (const m of maximos) if (m && m[1] !== undefined) ultimas.set(m[0], m[1]);
-    return lista.map((p) => ({ ...p, version: ultimas.get(p.id) ?? null }));
+    // Una sola consulta (fix2): la última versión va embebida, `versiones` ordenada desc con limit 1 por
+    // parroquia; PostgREST lo resuelve con el índice único (parroquia_id, numero). Antes era una consulta
+    // por parroquia y C1 tardaba 12–16 s para un admin con cientos. Traer todas las filas de `versiones`
+    // tampoco sirve: PostgREST las corta en max_rows (1000) y el chip mostraría una versión vieja.
+    const { data, error } = await sesion
+      .from('parroquias')
+      .select('id, slug, nombre, desactivada_en, versiones(numero)')
+      .order('nombre')
+      .order('numero', { referencedTable: 'versiones', ascending: false })
+      .limit(1, { referencedTable: 'versiones' });
+    if (error) return null;
+    type Fila = { id: string; slug: string; nombre: string; desactivada_en: string | null; versiones: { numero: number }[] | null };
+    return ((data ?? []) as Fila[]).map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      nombre: p.nombre,
+      desactivada: Boolean(p.desactivada_en),
+      version: p.versiones?.[0]?.numero ?? null,
+    }));
   } catch {
     return null;
   }

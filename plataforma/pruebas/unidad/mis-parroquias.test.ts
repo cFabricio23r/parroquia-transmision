@@ -4,8 +4,9 @@ import { MENSAJES_ACCESO } from '../../lib/mensajes-acceso';
 import { idsDeMisMembresias, misParroquias, parroquiasVisibles } from '../../lib/mis-parroquias';
 
 /**
- * Cliente falso que anota cada consulta. `versiones` sin filtro devolvería todas las filas, y
- * PostgREST corta en max_rows (1000 en config.toml): el chip mostraría una versión vieja.
+ * Cliente falso que anota cada consulta. `versiones` sin límite devolvería todas las filas, y
+ * PostgREST corta en max_rows (1000 en config.toml): el chip mostraría una versión vieja. Por eso
+ * la última versión va embebida en `parroquias` con limit 1 por parroquia.
  */
 function clienteAnotador(maximos: Record<string, number | undefined>, fallar: string[] = []) {
   const consultas: { tabla: string; pasos: [string, ...unknown[]][] }[] = [];
@@ -15,12 +16,20 @@ function clienteAnotador(maximos: Record<string, number | undefined>, fallar: st
     const resolver = () => {
       if (fallar.includes(tabla)) return { data: null, error: { message: 'falló', code: 'PGRST000' } };
       if (tabla === 'miembros') return { data: [{ parroquia_id: 'a' }], error: null };
-      if (tabla === 'parroquias')
-        return { data: Object.keys(maximos).map((id) => ({ id, slug: id, nombre: `P ${id}`, desactivada_en: id === 'b' ? '2026-11-01T00:00:00Z' : null })), error: null };
-      const eq = c.pasos.find((p) => p[0] === 'eq');
-      const id = eq?.[2] as string;
-      const n = maximos[id];
-      return { data: n === undefined ? [] : [{ numero: n }], error: null };
+      if (tabla === 'parroquias') {
+        const conVersiones = c.pasos.some((p) => p[0] === 'select' && String(p[1]).includes('versiones('));
+        return {
+          data: Object.keys(maximos).map((id) => ({
+            id,
+            slug: id,
+            nombre: `P ${id}`,
+            desactivada_en: id === 'b' ? '2026-11-01T00:00:00Z' : null,
+            ...(conVersiones ? { versiones: maximos[id] === undefined ? [] : [{ numero: maximos[id] }] } : {}),
+          })),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
     };
     const b: Record<string, unknown> = {};
     for (const paso of ['select', 'eq', 'order', 'limit']) {
@@ -36,20 +45,19 @@ function clienteAnotador(maximos: Record<string, number | undefined>, fallar: st
 }
 
 describe('misParroquias', () => {
-  it('pide solo la última versión de cada parroquia (orden descendente, limit 1)', async () => {
+  it('una sola consulta: la última versión viene embebida (orden descendente, limit 1), no una por parroquia', async () => {
+    // Con cientos de parroquias, una consulta de versiones por cada una hacía tardar C1 de 12 a 16 s para un admin.
     const { cliente, consultas } = clienteAnotador({ a: 1200, b: undefined });
     expect(await misParroquias(cliente)).toEqual([
       { id: 'a', slug: 'a', nombre: 'P a', version: 1200, desactivada: false },
       { id: 'b', slug: 'b', nombre: 'P b', version: null, desactivada: true },
     ]);
-    const deVersiones = consultas.filter((c) => c.tabla === 'versiones');
-    expect(deVersiones).toHaveLength(2);
-    for (const c of deVersiones) {
-      expect(c.pasos).toContainEqual(['select', 'numero']);
-      expect(c.pasos.some((p) => p[0] === 'eq' && p[1] === 'parroquia_id')).toBe(true);
-      expect(c.pasos).toContainEqual(['order', 'numero', { ascending: false }]);
-      expect(c.pasos).toContainEqual(['limit', 1]);
-    }
+    expect(consultas).toHaveLength(1);
+    const [c] = consultas;
+    expect(c.tabla).toBe('parroquias');
+    expect(c.pasos.some((p) => p[0] === 'select' && /versiones\(numero\)/.test(String(p[1])))).toBe(true);
+    expect(c.pasos).toContainEqual(['order', 'numero', { referencedTable: 'versiones', ascending: false }]);
+    expect(c.pasos).toContainEqual(['limit', 1, { referencedTable: 'versiones' }]);
   });
   it('sin parroquias no consulta versiones', async () => {
     const { cliente, consultas } = clienteAnotador({});
@@ -61,10 +69,6 @@ describe('misParroquias', () => {
 describe('errores de PostgREST: C1 y C2 muestran un estado en español en vez de la página de error (revisión)', () => {
   it('si falla la lista de parroquias, misParroquias da null (no lanza)', async () => {
     const { cliente } = clienteAnotador({ a: 1 }, ['parroquias']);
-    await expect(misParroquias(cliente)).resolves.toBeNull();
-  });
-  it('si falla una consulta de versiones, también null', async () => {
-    const { cliente } = clienteAnotador({ a: 1 }, ['versiones']);
     await expect(misParroquias(cliente)).resolves.toBeNull();
   });
   it('si el cliente lanza (sin red), null', async () => {
