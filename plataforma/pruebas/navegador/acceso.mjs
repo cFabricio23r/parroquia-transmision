@@ -176,6 +176,21 @@ try {
   await pagina.locator('main').getByRole('alert').waitFor();
   revisar((await pagina.locator('main').getByRole('alert').textContent()).includes('Enlace vencido o usado'), 'un token malo termina en «Enlace vencido o usado»');
 
+  // ---------------- La app pide el enlace (etapa 3a, Decisión 7) ----------------
+  console.log('POST /editor/olvide/pedir');
+  {
+    const MENSAJE = 'Si ese correo tiene cuenta, te llegó un enlace. Vence en 1 hora';
+    const pedir = (cuerpo) =>
+      fetch(`${BASE}/editor/olvide/pedir`, { method: 'POST', body: cuerpo, headers: { 'content-type': 'application/json' }, redirect: 'manual' });
+    const r1 = await pedir(JSON.stringify({ correo: `nadie-${sufijo()}@prueba.test` }));
+    igual(r1.status, 200, 'la ruta responde 200 sin cookies de sesión (no redirige a entrar)');
+    igual(r1.headers.get('location'), null, 'sin redirección');
+    igual((await r1.json()).mensaje, MENSAJE, 'responde MENSAJE_RECUPERAR');
+    const r2 = await pedir('{roto');
+    igual(r2.status, 200, 'con un cuerpo roto también responde 200');
+    igual((await r2.json()).mensaje, MENSAJE, 'y el mismo mensaje');
+  }
+
   // ---------------- A4 · Contraseña nueva ----------------
   console.log('A4 · Contraseña nueva');
   const r = await crearUsuario();

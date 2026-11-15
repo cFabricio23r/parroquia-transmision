@@ -124,6 +124,13 @@ export function pedirRecuperacionDiferida(
   return { mensaje: MENSAJE_RECUPERAR };
 }
 
+/** El `correo` del cuerpo JSON de `POST /editor/olvide/pedir` (la app): si no es texto, `''`. */
+export function correoDelCuerpo(cuerpo: unknown): string {
+  if (cuerpo === null || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) return '';
+  const correo = (cuerpo as { correo?: unknown }).correo;
+  return typeof correo === 'string' ? correo : '';
+}
+
 /** URL pública del sitio para los enlaces de los correos. Fuera de desarrollo/pruebas, sin SITIO_URL falla. */
 export function resolverSitioUrl(env: { SITIO_URL?: string; NODE_ENV?: string }): string {
   if (env.SITIO_URL) return env.SITIO_URL.replace(/\/+$/, '');

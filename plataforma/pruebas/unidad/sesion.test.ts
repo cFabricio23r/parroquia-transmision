@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { MENSAJES_ACCESO } from '../../lib/mensajes-acceso';
 import {
   cambiarClaveConActual,
+  correoDelCuerpo,
   entrar,
   esLimiteDeIntentos,
   MENSAJE_CLAVE_ACTUAL,
@@ -12,6 +13,18 @@ import {
   resolverSitioUrl,
   type DepsRecuperacion,
 } from '../../lib/sesion';
+
+describe('correoDelCuerpo (POST /editor/olvide/pedir)', () => {
+  it('el correo si es texto; si no, vacío', () => {
+    expect(correoDelCuerpo({ correo: 'a@b.c' })).toBe('a@b.c');
+    expect(correoDelCuerpo(null)).toBe('');
+    expect(correoDelCuerpo(undefined)).toBe('');
+    expect(correoDelCuerpo({})).toBe('');
+    expect(correoDelCuerpo({ correo: 3 })).toBe('');
+    expect(correoDelCuerpo('texto')).toBe('');
+    expect(correoDelCuerpo(['a@b.c'])).toBe('');
+  });
+});
 
 describe('pedirRecuperacionDiferida', () => {
   it('responde el mensaje sin esperar el envío', () => {
