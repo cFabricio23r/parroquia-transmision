@@ -283,6 +283,30 @@ describe('un bloque rechazado (422) no frena el guardado de los demás', () => {
     expect(g.instantanea().estado).toBe('rechazado');
   });
 
+  it('lo válido que salió junto al bloque rechazado se vuelve a enviar solo, sin esperar otro cambio', async () => {
+    const f = falsas({
+      auto: (c) => ('colores' in c.cambios ? rechazo(['El color principal (colores.principal) no es un color.']) : ok('t2')),
+    });
+    const g = crearGuardador({ ...inicial, config: { ...inicial.config, colores: { principal: '#000000' } } }, f.deps);
+    g.cambiar('nombre', 'B');
+    g.cambiar('colores', { principal: 'zzz' });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios).toHaveLength(1);
+    expect(g.instantanea().estado).toBe('rechazado');
+
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.envios).toHaveLength(2);
+    expect(f.envios[1].cuerpo.cambios).toEqual({ nombre: 'B' });
+    expect(g.instantanea().base.nombre).toBe('B');
+    // Sigue pidiendo arreglar el color, con su error.
+    expect(g.instantanea().estado).toBe('rechazado');
+    expect(g.instantanea().erroresForma).toEqual(['El color principal (colores.principal) no es un color.']);
+
+    // Y no se queda dando vueltas: no sale nada más.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(f.envios).toHaveLength(2);
+  });
+
   it('sin un bloque reconocible en los errores, retiene todo lo enviado', async () => {
     let n = 0;
     const f = falsas({ auto: () => (n++ === 0 ? rechazo(['Algo raro.']) : ok('t2')) });

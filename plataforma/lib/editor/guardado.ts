@@ -189,6 +189,11 @@ export function crearGuardador(
     }
     if (r.estado === 422) {
       retener(cambios, Array.isArray(r.cuerpo?.errores) ? r.cuerpo.errores.map(String) : [], foto);
+      fallo(r);
+      // Lo válido que salió en el mismo PUT no quedó guardado: sale solo, sin el bloque rechazado.
+      // No da vueltas: cada 422 retiene al menos un bloque más, y sin nada por enviar no se programa.
+      if (Object.keys(porEnviar()).length) programar();
+      return;
     }
     return fallo(r);
   }
