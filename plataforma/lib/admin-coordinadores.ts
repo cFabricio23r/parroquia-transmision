@@ -189,6 +189,7 @@ export async function anularInvitacion(deps: DepsAdmin, invitacionId: string): P
       .from('invitaciones')
       .update({ anulada_en: new Date().toISOString() })
       .eq('id', invitacionId)
+      .eq('rol', 'coordinador') // D2 no muestra las de administrador: no las anula (como invitacionPendiente)
       .is('usada_en', null)
       .is('anulada_en', null)
       .select('correo, parroquia_id');

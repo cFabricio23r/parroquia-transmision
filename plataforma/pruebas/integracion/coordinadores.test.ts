@@ -115,4 +115,20 @@ describe('invitaciones', () => {
     expect(deB.length).toBeGreaterThan(0);
     expect(deB.every((f) => f.parroquiaId === B.id)).toBe(true);
   });
+  it('anular solo sirve con invitaciones de coordinador, como reenviar (revisión fix2)', async () => {
+    const correo = `coo-adm-${sufijo()}@prueba.test`;
+    const { data: inv, error } = await servicio
+      .from('invitaciones')
+      .insert({ correo, rol: 'administrador', parroquia_id: null, token_hash: `prueba-${sufijo()}`, vence_en: new Date(Date.now() + 86_400_000).toISOString() })
+      .select('id')
+      .single();
+    expect(error).toBeNull();
+    try {
+      expect(await anularInvitacion(depsDe(admin), inv!.id)).toEqual({ error: MENSAJE_INVITACION_NO_PENDIENTE });
+      const { data: fila } = await servicio.from('invitaciones').select('anulada_en').eq('id', inv!.id).single();
+      expect(fila!.anulada_en).toBeNull();
+    } finally {
+      await servicio.from('invitaciones').delete().eq('id', inv!.id);
+    }
+  });
 });
