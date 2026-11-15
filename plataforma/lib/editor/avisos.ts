@@ -117,3 +117,25 @@ export function lugarTrasMover<T extends number | 'nuevo'>(e: T, desde: number, 
   if (hasta < desde && i >= hasta && i < desde) return (i + 1) as T;
   return e;
 }
+
+/** Los campos del formulario «Editar aviso»: lo que identifica a un aviso (sin `orden` ni `activo`). */
+export type DatosAviso = { texto: string; detalle: string; desde: string; hasta: string };
+
+const datosDe = (a: Partial<AvisoFijo>): DatosAviso => ({ texto: a.texto ?? '', detalle: a.detalle ?? '', desde: a.desde ?? '', hasta: a.hasta ?? '' });
+const mismosDatos = (x: DatosAviso, y: DatosAviso) => x.texto === y.texto && x.detalle === y.detalle && x.desde === y.desde && x.hasta === y.hasta;
+
+/**
+ * Dónde está ahora el aviso que el formulario cargó con `original` (fix2, F11). Si la lista cambia desde
+ * afuera («Ver lo suyo», una fusión con otra sesión), el índice de antes puede ser otro aviso: se
+ * busca por lo que tenía al cargarse, el más cercano a `antes` si hay dos iguales. `null` si ya no está.
+ */
+export function ubicarAviso<T extends number | 'nuevo'>(lista: Partial<AvisoFijo>[], original: DatosAviso, antes: T): T | null {
+  if (antes === 'nuevo') return antes;
+  const i = antes as number;
+  if (lista[i] && mismosDatos(datosDe(lista[i]), original)) return antes;
+  let mejor: number | null = null;
+  lista.forEach((a, j) => {
+    if (a && mismosDatos(datosDe(a), original) && (mejor === null || Math.abs(j - i) < Math.abs(mejor - i))) mejor = j;
+  });
+  return mejor as T | null;
+}

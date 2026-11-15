@@ -14,6 +14,7 @@ import {
   ordenarAvisos,
   textoLugar,
   textoRango,
+  ubicarAviso,
   vencido,
   type AvisoFijo,
 } from '../../../../../lib/editor/avisos';
@@ -147,6 +148,11 @@ export function textoSinGuardar(texto: string): string {
   return t ? `Lo que escribiste en «${t}» todavía no está guardado.` : 'Lo que escribiste en el aviso nuevo todavía no está guardado.';
 }
 
+/** El título del diálogo cuando el aviso que se editaba ya no está como se cargó (fix2). */
+export const TITULO_AVISO_CAMBIO = 'El aviso cambió';
+export const textoAvisoCambio = (texto: string) =>
+  `«${texto}» cambió o se borró en otra sesión. Lo que escribiste no se guardó encima de otro aviso.`;
+
 export function SeccionAvisos() {
   const { borrador, cambiar, guardarYa, estados, formularios, recordarFormulario, protegerSalida } = useBorrador();
   useNotaVistaPrevia(null, 'avisos');
@@ -187,22 +193,26 @@ export function SeccionAvisos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sucio, seleccion, formulario, original]);
 
-  const clave = (s: number | 'nuevo', l: AvisoFijo[]) => (s === 'nuevo' ? 'nuevo' : `${s}:${l[s]?.texto ?? ''}`);
-
-  // El formulario se carga al elegir otro aviso, o si el elegido cambia desde afuera (por ejemplo
-  // «Ver lo suyo»), pero nunca pisa lo escrito sin guardar.
-  const claveElegida = clave(efectiva, lista);
-  const ultimaClave = useRef(claveElegida);
+  // El formulario sigue al aviso por lo que tenía al cargarse (`original`), no por su índice (fix2):
+  // si la lista cambia desde afuera («Ver lo suyo», una fusión con otra sesión), en ese índice puede
+  // haber otro aviso. Si el aviso se movió, la elección lo sigue; si ya no está y no hay nada escrito,
+  // se carga el que quedó en su lugar; si hay algo escrito, se deja y «Guardar aviso» pregunta.
+  const ubicada = ubicarAviso(lista, original, efectiva);
+  const firmaLista = JSON.stringify(lista.map(aFormulario));
   useEffect(() => {
-    if (ultimaClave.current === claveElegida) return;
-    ultimaClave.current = claveElegida;
+    if (ubicada === efectiva) return;
+    if (ubicada !== null) {
+      setSeleccion(ubicada);
+      return;
+    }
     if (sucio) return;
     const f = efectiva === 'nuevo' ? VACIO : aFormulario(lista[efectiva]);
     setFormulario(f);
     setOriginal(f);
     setErrores({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveElegida]);
+  }, [firmaLista, efectiva, ubicada]);
+  const [avisoCambio, setAvisoCambio] = useState(false);
 
   const escribir = (nueva: AvisoFijo[]) => cambiar('avisos', nueva.length ? numerar(nueva) : undefined);
 
@@ -213,7 +223,6 @@ export function SeccionAvisos() {
     setFormulario(f);
     setOriginal(f);
     setErrores({});
-    ultimaClave.current = clave(s, l);
   };
 
   const elegir = (s: number | 'nuevo') => {
@@ -227,9 +236,7 @@ export function SeccionAvisos() {
     if (efectiva === 'nuevo') return;
     // El formulario sigue al aviso que se edita, sea o no el movido: cualquier aviso que cruce por
     // encima corre su lugar. Sin esto «Guardar aviso» escribía encima de otro aviso (revisión, F11).
-    const lugar = lugarTrasMover(efectiva, desde, hasta);
-    setSeleccion(lugar);
-    ultimaClave.current = clave(lugar, nueva);
+    setSeleccion(lugarTrasMover(efectiva, desde, hasta));
   };
 
   /** «Subir» / «Bajar» desde el menú del tirador. */
@@ -249,12 +256,11 @@ export function SeccionAvisos() {
     else if (typeof efectiva === 'number' && i < efectiva) {
       // El aviso que se está editando sube un lugar: el formulario lo sigue, con lo escrito.
       setSeleccion(efectiva - 1);
-      ultimaClave.current = clave(efectiva - 1, nueva);
     }
   };
 
-  /** Guarda el formulario en el borrador; `false` si tiene errores. */
-  const guardar = (): boolean => {
+  /** Guarda el formulario en el borrador; `false` si tiene errores o si el aviso ya no está. */
+  const guardar = (comoNuevo = false): boolean => {
     const aviso: AvisoFijo = { texto: formulario.texto.trim() };
     if (formulario.detalle.trim()) aviso.detalle = formulario.detalle.trim();
     if (formulario.desde) aviso.desde = formulario.desde;
@@ -262,17 +268,21 @@ export function SeccionAvisos() {
     const e = erroresAviso(aviso);
     setErrores(e);
     if (Object.keys(e).length) return false;
-    if (efectiva === 'nuevo') {
+    // El aviso que se editaba cambió o se borró desde afuera: no se escribe encima del que quedó en su
+    // índice; se pregunta (fix2, F11).
+    if (efectiva !== 'nuevo' && ubicada === null && !comoNuevo) {
+      setAvisoCambio(true);
+      return false;
+    }
+    if (efectiva === 'nuevo' || comoNuevo) {
       if (lleno) return false;
       escribir([...lista, aviso]);
       setSeleccion(lista.length);
-      ultimaClave.current = `${lista.length}:${aviso.texto}`;
     } else {
       const anterior = lista[efectiva];
       const actualizado: AvisoFijo = { ...aviso };
       if (anterior?.activo === false) actualizado.activo = false;
       escribir(lista.map((a, i) => (i === efectiva ? actualizado : a)));
-      ultimaClave.current = `${efectiva}:${aviso.texto}`;
     }
     // El formulario queda como quedó en el borrador (recortado): ya no está sin guardar.
     const f = aFormulario(aviso);
@@ -440,6 +450,31 @@ export function SeccionAvisos() {
             Descartar cambios
           </Boton>
           <Boton onClick={() => resolverPendiente('guardar')}>Guardar aviso</Boton>
+        </div>
+      </Dialogo>
+      <Dialogo abierto={avisoCambio} titulo={TITULO_AVISO_CAMBIO} onCerrar={() => setAvisoCambio(false)}>
+        <p className="pv-dialogo-texto">{textoAvisoCambio(original.texto)}</p>
+        {lleno && <p className="pv-dialogo-texto">Ya hay 10 avisos: borra uno para guardar este como nuevo.</p>}
+        <div className="pv-dialogo-acciones">
+          <Boton
+            variante="secundario"
+            onClick={() => {
+              setAvisoCambio(false);
+              cargar(lista.length ? 0 : 'nuevo');
+            }}
+          >
+            Descartar lo mío
+          </Boton>
+          <Boton
+            ocupado={lleno}
+            onClick={() => {
+              if (lleno) return;
+              setAvisoCambio(false);
+              guardar(true);
+            }}
+          >
+            Guardar como aviso nuevo
+          </Boton>
         </div>
       </Dialogo>
       <Dialogo abierto={borrando !== null} titulo="Borrar aviso" onCerrar={() => setBorrando(null)}>

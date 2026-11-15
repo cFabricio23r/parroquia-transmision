@@ -1,6 +1,6 @@
 // Avisos fijos (plan 3, Tarea 16; Decisiones 15 y 16).
 import { describe, expect, it } from 'vitest';
-import { clavesDeFilas, erroresAviso, lugarTrasMover, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoLugar, textoRango, vencido } from '../../lib/editor/avisos';
+import { clavesDeFilas, erroresAviso, lugarTrasMover, MAX_AVISOS, mover, moverA, numerar, ordenarAvisos, textoLugar, textoRango, ubicarAviso, vencido } from '../../lib/editor/avisos';
 
 const HOY = '2026-11-14';
 const lista3 = [{ texto: 'a', orden: 1 }, { texto: 'b', orden: 2 }, { texto: 'c', orden: 3 }];
@@ -100,5 +100,36 @@ describe('el aviso que se edita sigue siendo el mismo al reordenar (F11, revisi�
 
   it('el aviso nuevo sigue siendo nuevo', () => {
     expect(lugarTrasMover('nuevo', 0, 3)).toBe('nuevo');
+  });
+});
+
+describe('ubicarAviso (F11, fix2): el formulario sigue al aviso por lo que tenía al cargarse, no por el índice', () => {
+  const a = { texto: 'Catequesis', detalle: 'Sábados', orden: 1 };
+  const b = { texto: 'Colecta', hasta: '2026-12-01', orden: 2 };
+  const c = { texto: 'Retiro', orden: 3 };
+  const de = (x: { texto: string; detalle?: string; desde?: string; hasta?: string }) => ({
+    texto: x.texto,
+    detalle: x.detalle ?? '',
+    desde: x.desde ?? '',
+    hasta: x.hasta ?? '',
+  });
+  it('si el aviso sigue en su lugar, ese lugar', () => {
+    expect(ubicarAviso([a, b, c], de(a), 0)).toBe(0);
+  });
+  it('si la lista cambió desde afuera y el aviso se movió, su lugar nuevo', () => {
+    expect(ubicarAviso([c, b, a], de(a), 0)).toBe(2);
+  });
+  it('el apagado o el orden no cambian quién es', () => {
+    expect(ubicarAviso([{ ...c, orden: 1 }, { ...a, activo: false, orden: 2 }], de(a), 0)).toBe(1);
+  });
+  it('con dos iguales, el más cercano al lugar de antes', () => {
+    expect(ubicarAviso([a, b, a, c], de(a), 3)).toBe(2);
+  });
+  it('si ya no está (lo borraron o lo cambiaron en otra sesión), null', () => {
+    expect(ubicarAviso([b, c], de(a), 0)).toBeNull();
+    expect(ubicarAviso([{ ...a, detalle: 'Domingos' }, b], de(a), 0)).toBeNull();
+  });
+  it('«nuevo» sigue siendo «nuevo»', () => {
+    expect(ubicarAviso([a], de(a), 'nuevo')).toBe('nuevo');
   });
 });

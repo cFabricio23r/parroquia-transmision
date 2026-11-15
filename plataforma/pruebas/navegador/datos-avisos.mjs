@@ -13,6 +13,7 @@ import {
   limpiar,
   prepararParroquia,
   revisar,
+  servicio,
   terminar,
   VIEWPORT,
 } from './lib/editor.mjs';
@@ -283,6 +284,49 @@ try {
   revisar((await pa.getByLabel('Título', { exact: true }).inputValue()) !== 'Esto no se guarda', 'y al volver el formulario no trae lo descartado');
   await pa.waitForFunction(() => document.querySelector('.pv-guardado')?.textContent === 'Guardado', null, { timeout: 5000 }).catch(() => {});
   igual(await pa.locator('.pv-guardado').innerText(), 'Guardado', 'el encabezado ya no dice «Sin guardar»');
+
+  console.log('F11 · El aviso que se edita, cuando la lista cambia desde otra sesión (fix2)');
+  const R = await prepararParroquia({
+    config: { ...CONFIG_BASE, avisos: [{ texto: 'Uno', orden: 1 }, { texto: 'Dos', orden: 2 }, { texto: 'Tres', orden: 3 }] },
+  });
+  const pr = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
+  await entrar(pr, R.correo);
+  await pr.goto(`${BASE}/editor/p/${R.slug}/avisos`);
+  await pr.getByRole('button', { name: 'Editar Uno' }).waitFor();
+  const tituloR = pr.getByLabel('Título', { exact: true });
+  const guardarAviso = pr.locator('.pv-avisos-acciones').getByRole('button', { name: 'Guardar aviso' });
+  /** Otra sesión escribe `avisos` en la base; este editor cambia un interruptor, choca y elige «Ver lo suyo». */
+  const otraSesion = async (avisos, interruptor) => {
+    const { error } = await servicio.from('borradores').update({ config: { ...(await leerConfig(R.id)), avisos } }).eq('parroquia_id', R.id);
+    if (error) throw error;
+    await pr.getByRole('switch', { name: interruptor }).click();
+    await pr.getByText('Otra persona cambió esta sección mientras editabas.').waitFor({ timeout: 8000 });
+    await pr.getByRole('button', { name: 'Ver lo suyo' }).click();
+    await pr.getByRole('button', { name: 'Ver lo suyo' }).waitFor({ state: 'hidden', timeout: 8000 });
+  };
+  const textos = async () => (await leerConfig(R.id)).avisos.map((a) => a.texto);
+
+  await pr.getByRole('button', { name: 'Editar Uno' }).click();
+  await tituloR.fill('Uno editado');
+  await otraSesion([{ texto: 'Tres', orden: 1 }, { texto: 'Dos', orden: 2 }, { texto: 'Uno', orden: 3 }], 'Mostrar Dos');
+  igual(await tituloR.inputValue(), 'Uno editado', '«Ver lo suyo» no pisa lo escrito en el formulario');
+  await guardarAviso.click();
+  const trasMover = await esperarEnBase(R.id, (c) => c.avisos.some((a) => a.texto === 'Uno editado'));
+  igual(JSON.stringify(trasMover.avisos.map((a) => a.texto)), JSON.stringify(['Tres', 'Dos', 'Uno editado']), '«Guardar aviso» cambia el aviso que se editaba, en su lugar nuevo, y no el que quedó en su índice');
+
+  await pr.getByRole('button', { name: 'Editar Dos' }).click();
+  await tituloR.fill('Dos editado');
+  await otraSesion([{ texto: 'Tres', orden: 1 }, { texto: 'Uno editado', orden: 2 }], 'Mostrar Tres');
+  await guardarAviso.click();
+  const cambio = pr.getByRole('dialog', { name: 'El aviso cambió' });
+  await cambio.waitFor({ timeout: 5000 }).catch(() => {});
+  revisar(await cambio.isVisible(), 'si el aviso que se editaba ya no está, «Guardar aviso» pregunta antes');
+  revisar((await cambio.innerText().catch(() => '')).includes('«Dos» cambió o se borró en otra sesión.'), 'y nombra el aviso');
+  await pr.waitForTimeout(1200);
+  igual(JSON.stringify(await textos()), JSON.stringify(['Tres', 'Uno editado']), 'sin escribir encima de otro aviso');
+  await cambio.getByRole('button', { name: 'Guardar como aviso nuevo' }).click().catch(() => {});
+  const conAgregado = await esperarEnBase(R.id, (c) => c.avisos.some((a) => a.texto === 'Dos editado'));
+  igual(JSON.stringify(conAgregado.avisos.map((a) => a.texto)), JSON.stringify(['Tres', 'Uno editado', 'Dos editado']), '«Guardar como aviso nuevo» lo agrega al final');
 } finally {
   await navegador.close();
   await limpiar();
