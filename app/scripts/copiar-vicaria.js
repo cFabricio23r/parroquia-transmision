@@ -88,7 +88,37 @@ function copiarVicaria(raizRepo, destino) {
   return [...listarArchivos(salida), ...listarArchivos(transiciones)];
 }
 
-module.exports = { archivosDeRewrites, copiarVicaria };
+// El núcleo de la semana dentro de la app (plan 3b, Decisión 1): copia
+// vicaria/semana.js byte a byte a `destinoSrc/generado/semana.js` y escribe
+// `destinoSrc/generado/tipos-comunes.json`, los campos de los tipos comunes
+// (tipos.js corrido en un vm y pasado por SEMANA.tiposParaCampos).
+function generarNucleo(raizRepo, destinoSrc) {
+  const vm = require('vm');
+  const origen = path.join(raizRepo, 'vicaria');
+  const salida = path.join(destinoSrc, 'generado');
+  fs.mkdirSync(salida, { recursive: true });
+  const textoSemana = fs.readFileSync(path.join(origen, 'semana.js'));
+  fs.writeFileSync(path.join(salida, 'semana.js'), textoSemana);
+
+  const contexto = vm.createContext({});
+  vm.runInContext(
+    fs.readFileSync(path.join(origen, 'tipos.js'), 'utf8') +
+      '\nthis.TIPOS = TIPOS; this.ORDEN_TIPOS = ORDEN_TIPOS;',
+    contexto,
+    { filename: 'tipos.js' },
+  );
+  const modulo = { exports: {} };
+  vm.runInContext(textoSemana.toString('utf8'), vm.createContext({ module: modulo }), {
+    filename: 'semana.js',
+  });
+  const campos = modulo.exports.tiposParaCampos(contexto.TIPOS, contexto.ORDEN_TIPOS);
+  fs.writeFileSync(
+    path.join(salida, 'tipos-comunes.json'),
+    JSON.stringify(campos, null, 2) + '\n',
+  );
+}
+
+module.exports = { archivosDeRewrites, copiarVicaria, generarNucleo };
 
 if (require.main === module) {
   const raizRepo = path.resolve(__dirname, '..', '..');
@@ -97,4 +127,6 @@ if (require.main === module) {
   );
   const copiadas = copiarVicaria(raizRepo, destino);
   console.log(`copiar-vicaria: ${copiadas.length} archivos copiados a ${destino}`);
+  generarNucleo(raizRepo, path.join(__dirname, '..', 'src'));
+  console.log('copiar-vicaria: núcleo de la semana en src/generado');
 }

@@ -1,0 +1,369 @@
+[
+  {
+    "clave": "dominical",
+    "nombre": "Misa dominical",
+    "datos": [],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      }
+    ]
+  },
+  {
+    "clave": "semana",
+    "nombre": "Misa entre semana",
+    "datos": [],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      }
+    ]
+  },
+  {
+    "clave": "horasanta",
+    "nombre": "Hora Santa",
+    "datos": [],
+    "rotulos": [
+      {
+        "id": "guia",
+        "base": "persona",
+        "nombre": "Guía",
+        "ceja": "GUÍA"
+      },
+      {
+        "id": "santisimo",
+        "base": "santisimo",
+        "nombre": "Exposición del Santísimo"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "Lectura",
+        "ceja": "LECTURA"
+      },
+      {
+        "id": "oracion",
+        "base": "oracion",
+        "nombre": "Oración"
+      },
+      {
+        "id": "bendicion",
+        "base": "libre",
+        "nombre": "Bendición",
+        "ceja": "BENDICIÓN",
+        "texto": "Bendición con el Santísimo"
+      }
+    ]
+  },
+  {
+    "clave": "sector",
+    "nombre": "Misa en sector",
+    "datos": [
+      "sector",
+      "lugar"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lugar",
+        "base": "lugar",
+        "nombre": "Lugar"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      }
+    ]
+  },
+  {
+    "clave": "patronalsector",
+    "nombre": "Patronal de sector",
+    "datos": [
+      "sector",
+      "santo",
+      "fecha"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      }
+    ]
+  },
+  {
+    "clave": "procesion",
+    "nombre": "Procesión",
+    "datos": [
+      "santo",
+      "lugar"
+    ],
+    "rotulos": [
+      {
+        "id": "lugar",
+        "base": "lugar",
+        "nombre": "Estación"
+      },
+      {
+        "id": "oracion",
+        "base": "oracion",
+        "nombre": "Oración"
+      },
+      {
+        "id": "rosario",
+        "base": "rosario",
+        "nombre": "Rosario"
+      },
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Guía",
+        "ceja": "GUÍA"
+      }
+    ]
+  },
+  {
+    "clave": "otros",
+    "nombre": "Misa de otro santo",
+    "datos": [
+      "santo"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      }
+    ]
+  },
+  {
+    "clave": "prenovena",
+    "nombre": "Prenovena",
+    "datos": [
+      "dia"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      },
+      {
+        "id": "rosario",
+        "base": "rosario",
+        "nombre": "Santo Rosario"
+      }
+    ]
+  },
+  {
+    "clave": "novena",
+    "nombre": "Novena",
+    "datos": [
+      "dia"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      },
+      {
+        "id": "rosario",
+        "base": "rosario",
+        "nombre": "Santo Rosario"
+      }
+    ]
+  },
+  {
+    "clave": "patronal",
+    "nombre": "Fiesta patronal",
+    "datos": [],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Celebrante"
+      },
+      {
+        "id": "lectura1",
+        "base": "lectura1",
+        "nombre": "1.ª lectura"
+      },
+      {
+        "id": "salmo",
+        "base": "salmo",
+        "nombre": "Salmo"
+      },
+      {
+        "id": "lectura2",
+        "base": "lectura2",
+        "nombre": "2.ª lectura"
+      },
+      {
+        "id": "evangelio",
+        "base": "evangelio",
+        "nombre": "Evangelio"
+      },
+      {
+        "id": "rosario",
+        "base": "rosario",
+        "nombre": "Santo Rosario"
+      }
+    ]
+  },
+  {
+    "clave": "evento",
+    "nombre": "Evento especial",
+    "datos": [
+      "evento",
+      "fecha",
+      "lugar"
+    ],
+    "rotulos": [
+      {
+        "id": "persona",
+        "base": "persona",
+        "nombre": "Persona"
+      },
+      {
+        "id": "libre",
+        "base": "libre",
+        "nombre": "Texto libre"
+      }
+    ]
+  }
+]
