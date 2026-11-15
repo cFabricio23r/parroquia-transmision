@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { validarBorrador, validarConfig } from '../../lib/validar';
+import { tiposComunes, validarBorrador, validarConfig } from '../../lib/validar';
 
 const config = JSON.parse(
   readFileSync(new URL('../../../vicaria/ciudad-arce/config.json', import.meta.url), 'utf8'),
@@ -32,5 +32,17 @@ describe('validarBorrador', () => {
 
   it('tolera un borrador que no es objeto', () => {
     expect(validarBorrador(null, 'prueba').ok).toBe(false);
+  });
+});
+
+describe('tiposComunes', () => {
+  it('da los 11 tipos en orden, con los datos y los rótulos completos de cada uno', () => {
+    const t = tiposComunes();
+    expect(t).toHaveLength(11);
+    expect(t.map((x) => x.clave)).toEqual(['dominical', 'semana', 'horasanta', 'sector', 'patronalsector', 'procesion', 'otros', 'prenovena', 'novena', 'patronal', 'evento']);
+    const horasanta = t.find((x) => x.clave === 'horasanta')!;
+    expect(horasanta.datos).toEqual([]);
+    expect(horasanta.rotulos[0]).toMatchObject({ base: 'persona', ceja: 'GUÍA' });
+    expect(t.find((x) => x.clave === 'sector')!.datos).toEqual(['sector', 'lugar']);
   });
 });

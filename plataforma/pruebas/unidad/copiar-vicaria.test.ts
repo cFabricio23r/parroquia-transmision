@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -38,5 +38,20 @@ describe('copiarVicaria', () => {
     const m = await import(pathToFileURL(generado).href);
     expect(m.ARCHIVOS).toEqual(['parroquia.js', 'tipos.js', 'comun.js']);
     expect(m.FUENTES).toEqual(m.ARCHIVOS.map((a: string) => readFileSync(path.join(origen, a), 'utf8')));
+  });
+  it('escribe lib/generado/semana.mjs como ESM, sin module.exports ni la marca salida-cjs', () => {
+    copiarVicaria(origen, path.join(destino, 'public'));
+    const texto = readFileSync(path.join(destino, 'lib', 'generado', 'semana.mjs'), 'utf8');
+    expect(texto.endsWith('export default SEMANA;\n')).toBe(true);
+    expect(texto).not.toContain('module.exports');
+    expect(texto).not.toContain('salida-cjs');
+  });
+
+  it('lanza un error que nombra la línea // salida-cjs si semana.js no la tiene', () => {
+    const falso = path.join(destino, 'vicaria');
+    mkdirSync(falso, { recursive: true });
+    for (const a of ['parroquia.js', 'tipos.js', 'comun.js']) writeFileSync(path.join(falso, a), '');
+    writeFileSync(path.join(falso, 'semana.js'), 'const SEMANA = Object.freeze({});\nmodule.exports = SEMANA;\n');
+    expect(() => copiarVicaria(falso, path.join(destino, 'public'))).toThrow(/salida-cjs/);
   });
 });

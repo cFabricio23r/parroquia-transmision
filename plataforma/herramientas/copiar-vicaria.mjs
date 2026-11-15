@@ -5,7 +5,9 @@
    - slugs-del-repo.json, con las carpetas que tienen config.json;
    - fuentes-vicaria.mjs, con el texto de parroquia.js, tipos.js y comun.js como constantes. Lo importa
      lib/validar-nucleo.mjs de forma estática: así el texto entra al bundle de las funciones de Vercel
-     (un readFileSync de ../vicaria en tiempo de ejecución no se rastrea y falla en Vercel).
+     (un readFileSync de ../vicaria en tiempo de ejecución no se rastrea y falla en Vercel);
+   - semana.mjs, el núcleo compartido vicaria/semana.js como ESM (su línea `// salida-cjs` pasa a
+     `export default SEMANA;`). Lo importan lib/semana.ts y lib/validar-nucleo.mjs.
   Corre antes de `dev`, `build` y de cada juego de pruebas (predev / prebuild / pretest…).
 */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -41,7 +43,20 @@ export function copiarVicaria(origen, destino) {
       `export const FUENTES = [\n${fuentes.map((texto) => '  ' + JSON.stringify(texto)).join(',\n')},\n];\n`,
   );
 
+  writeFileSync(path.join(carpetaGenerada, 'semana.mjs'), semanaComoEsm(readFileSync(path.join(origen, 'semana.js'), 'utf8')));
+
   return { slugsDelRepo };
+}
+
+const LINEA_CJS = "if (typeof module === 'object' && module && module.exports) module.exports = SEMANA; // salida-cjs";
+
+/** El texto de vicaria/semana.js con su salida CommonJS cambiada por `export default`. */
+function semanaComoEsm(texto) {
+  const lineas = texto.replace(/\r\n/g, '\n').split('\n');
+  const i = lineas.indexOf(LINEA_CJS);
+  if (i === -1) throw new Error('vicaria/semana.js no tiene la línea exacta: ' + LINEA_CJS);
+  lineas[i] = 'export default SEMANA;';
+  return '// Generado por herramientas/copiar-vicaria.mjs. No se edita a mano.\n' + lineas.join('\n').replace(/\n*$/, '\n');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

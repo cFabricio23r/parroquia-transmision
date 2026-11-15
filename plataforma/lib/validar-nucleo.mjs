@@ -5,6 +5,8 @@ import vm from 'node:vm';
 // Texto de parroquia.js, tipos.js y comun.js (en ese orden), generado por herramientas/copiar-vicaria.mjs.
 // Import estático (no readFileSync): así el texto viaja dentro del bundle de las funciones de Vercel.
 import { ARCHIVOS, FUENTES } from './generado/fuentes-vicaria.mjs';
+// El núcleo compartido de la semana (vicaria/semana.js), también generado.
+import SEMANA from './generado/semana.mjs';
 
 const leerFuentes = () => FUENTES;
 
@@ -80,17 +82,26 @@ export function contraste(hexA, hexB) {
 
 /**
  * Los 11 tipos de transmisión comunes, en el orden del panel (de vicaria/tipos.js): su nombre, el
- * nombre del botón del panel y sus rótulos (id y nombre), en su orden.
+ * nombre del botón del panel, sus datos y sus rótulos (los usos de SEMANA.tiposParaCampos), en su orden.
+ * `nombre` sigue siendo el nombre del tipo (no el del botón), como antes.
  */
 export function tiposComunes() {
   const c = contextoDe('tipos');
-  return Array.from(c.ORDEN_TIPOS, (k) => {
-    const t = c.TIPOS[k];
+  const campos = SEMANA.tiposParaCampos(c.TIPOS, c.ORDEN_TIPOS);
+  return campos.map((tc) => {
+    const t = c.TIPOS[tc.clave];
     return {
-      clave: String(k),
+      clave: String(tc.clave),
       nombre: String(t.nombre),
       nombrePanel: String(t.nombrePanel || t.nombre),
-      rotulos: Array.from(t.rotulos || [], (r) => ({ id: String(r.id), nombre: String(r.nombre) })),
+      datos: Array.from(tc.datos, String),
+      rotulos: Array.from(tc.rotulos, (r) => {
+        const u = { id: String(r.id), base: String(r.base), nombre: String(r.nombre) };
+        if (typeof r.ceja === 'string') u.ceja = r.ceja;
+        if (typeof r.texto === 'string') u.texto = r.texto;
+        if (r.opcional === true) u.opcional = true;
+        return u;
+      }),
     };
   });
 }
