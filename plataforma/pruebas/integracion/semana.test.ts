@@ -12,6 +12,14 @@ import {
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
+import {
+  aplicarOperacion,
+  leerOperacion,
+  leerSemana,
+  MENSAJE_NO_EXISTE_TRANSMISION,
+  type DatosSemana,
+  type OperacionSemana,
+} from '../../lib/semana-editor';
 
 const servicio = clienteServicio();
 const CLAVE = 'clave-de-prueba-123';
@@ -268,5 +276,72 @@ describe('checks', () => {
       .from('series')
       .insert({ parroquia_id: A.id, nombre: 'X', tipo: 'novena', inicio: '2026-11-15', dias: 0, hora: '19:00' });
     expect(serie.error).not.toBeNull();
+  });
+});
+
+describe('la API del editor (leerSemana / aplicarOperacion)', () => {
+  const LUNES = '2026-11-16';
+  const JUEVES = '2026-11-19';
+
+  async function fijaConMarca(marca: string) {
+    const r = await leerSemana(a.cliente, A.slug, LUNES);
+    expect(r.estado).toBe(200);
+    const d = r.cuerpo as DatosSemana;
+    return { d, fija: d.fijas.find((f) => (f.datos as Record<string, unknown>).celebrante === marca)! };
+  }
+  const filaDe = async (clave: string) =>
+    (await servicio.from('transmisiones').select('*').eq('parroquia_id', A.id).eq('clave', clave).maybeSingle()).data;
+
+  it('crea, edita, salta y restaura días de una fija', async () => {
+    const marca = `Ana-${sufijo()}`;
+    const op = (o: unknown) => aplicarOperacion(a.cliente, A.slug, leerOperacion(o) as OperacionSemana);
+    expect((await op({ op: 'crear-fija', dia_semana: 4, hora: '18:00', tipo: 'horasanta', datos: { celebrante: marca } })).estado).toBe(200);
+    const { fija } = await fijaConMarca(marca);
+    expect(fija).toMatchObject({ dia_semana: 4, hora: '18:00', tipo: 'horasanta', activa: true });
+
+    const clave = `fija:${fija.id}:${JUEVES}`;
+    const editado = { celebrante: marca, lectura1: 'Juan 1' };
+    expect((await op({ op: 'editar-dia', clave, hora: '18:00', tipo: 'horasanta', datos: editado })).estado).toBe(200);
+    expect(await filaDe(clave)).toMatchObject({ editada: true, saltada: false, actualizado_desde: 'web', datos: editado });
+
+    expect((await op({ op: 'cambiar-fija', id: fija.id, dia_semana: 4, hora: '17:00', tipo: 'horasanta', datos: { celebrante: marca }, activa: true })).estado).toBe(200);
+    expect(await filaDe(clave)).toMatchObject({ hora: '18:00', datos: editado });
+
+    expect((await op({ op: 'saltar-dia', clave, hora: '17:00', tipo: 'horasanta', datos: {} })).estado).toBe(200);
+    expect(await filaDe(clave)).toMatchObject({ saltada: true, editada: true, datos: editado });
+    expect((await op({ op: 'restaurar-dia', clave })).estado).toBe(200);
+    expect(await filaDe(clave)).toMatchObject({ saltada: false, editada: true, datos: editado });
+
+    const otra = `fija:${fija.id}:2026-11-26`;
+    expect((await op({ op: 'saltar-dia', clave: otra, hora: '17:00', tipo: 'horasanta', datos: { celebrante: marca } })).estado).toBe(200);
+    expect(await filaDe(otra)).toMatchObject({ saltada: true, editada: false });
+    expect((await op({ op: 'restaurar-dia', clave: otra })).estado).toBe(200);
+    expect(await filaDe(otra)).toBeNull();
+
+    const sem = await leerSemana(a.cliente, A.slug, LUNES);
+    expect((sem.cuerpo as DatosSemana).transmisiones.some((t) => t.clave === clave)).toBe(true);
+  });
+
+  it('crea y borra una suelta', async () => {
+    const op = (o: unknown) => aplicarOperacion(a.cliente, A.slug, leerOperacion(o) as OperacionSemana);
+    const marca = `Suelta-${sufijo()}`;
+    expect((await op({ op: 'crear-unica', fecha: '2026-11-20', hora: '10:00', tipo: 'evento', datos: { evento: marca } })).estado).toBe(200);
+    const d = (await leerSemana(a.cliente, A.slug, LUNES)).cuerpo as DatosSemana;
+    const u = d.transmisiones.find((t) => (t.datos as Record<string, unknown>).evento === marca)!;
+    expect(u).toMatchObject({ origen: 'unica', clave: `unica:${u.id}`, actualizado_desde: 'web' });
+    expect((await op({ op: 'borrar-unica', id: u.id })).estado).toBe(200);
+    expect(await filaDe(u.clave)).toBeNull();
+  });
+
+  it('otra parroquia recibe 403 y nada cambia; un id que no existe da 404', async () => {
+    const antes = (await servicio.from('transmisiones_fijas').select('id').eq('parroquia_id', A.id)).data!.length;
+    const r = await aplicarOperacion(b.cliente, A.slug, leerOperacion({ op: 'crear-fija', dia_semana: 1, hora: '08:00', tipo: 'dominical', datos: {} }) as OperacionSemana);
+    expect(r.estado).toBe(403);
+    expect((await leerSemana(b.cliente, A.slug, LUNES)).estado).toBe(403);
+    expect((await servicio.from('transmisiones_fijas').select('id').eq('parroquia_id', A.id)).data!.length).toBe(antes);
+
+    const no = await aplicarOperacion(a.cliente, A.slug, { op: 'borrar-fija', id: '00000000-0000-4000-8000-000000000000' });
+    expect(no).toEqual({ estado: 404, cuerpo: { error: MENSAJE_NO_EXISTE_TRANSMISION } });
+    expect((await leerSemana(a.cliente, A.slug, '2026-11-17')).estado).toBe(400);
   });
 });
