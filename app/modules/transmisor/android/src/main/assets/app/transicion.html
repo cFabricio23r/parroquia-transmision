@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width">
 <title>Transición</title>
-<!-- Página propia de la app (no de obs/): la transición del logo sobre la capa de 1920×1080.
+<!-- Página propia de la app (no de vicaria/): la transición del logo sobre la capa de 1920×1080.
+     El video lo copia scripts/copiar-vicaria.js a app/transiciones/ (no va a git).
      Capa.kt llama a reproducir(); si la escena nueva tarda en cargar, pausar() deja el logo
      tapando la pantalla y seguir() lo deja terminar. -->
 <style>
@@ -13,7 +14,7 @@
 </style>
 </head>
 <body>
-<video id="v" src="../obs/transiciones/Transicion_2000ms_Logo.webm" muted playsinline preload="auto"></video>
+<video id="v" src="transiciones/Transicion_2000ms_Logo.webm" muted playsinline preload="auto"></video>
 <script>
   const v = document.getElementById('v');
   // Desde el principio. Devuelve true si el video está listo para reproducir.

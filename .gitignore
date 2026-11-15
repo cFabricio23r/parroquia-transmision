@@ -8,8 +8,9 @@ Thumbs.db
 .vercel
 .env*
 
-# Copia generada de obs/ para la app (npm run copiar-obs)
-app/modules/transmisor/android/src/main/assets/obs/
+# Respaldo generado de vicaria/ y la transición del logo para la app (npm run copiar-vicaria)
+app/modules/transmisor/android/src/main/assets/vicaria/
+app/modules/transmisor/android/src/main/assets/app/transiciones/
 # Salida de Gradle de los módulos locales de la app
 app/modules/*/android/build/
 app/modules/*/android/.cxx/
