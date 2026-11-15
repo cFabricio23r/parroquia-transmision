@@ -24,9 +24,9 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .lienzo{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:linear-gradient(135deg,var(--oscuro) 0%,var(--rey) 48%,var(--vivo) 100%)}
 .brillo{position:absolute;left:-160px;top:-120px;width:1100px;height:1100px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.30) 0%,rgba(255,255,255,0) 62%)}
 .fachada{position:absolute;inset:0;width:1920px;height:1080px;object-fit:cover;object-position:50% 30%;opacity:.34;mix-blend-mode:luminosity}
-/* Decoración de antes (silueta de la fachada, rayos y chispas): el diseño no la lleva, así que no se ve. Ninguna
-   opción la pide; ocultar con rayos, fachada o chispas sigue validando, pero ya no cambia nada. */
-.fachada,.rayos,#chispas{display:none}
+/* La fachada de fondo, los rayos y las chispas vuelven, como en obs/ (decisión del usuario, 2026-11-14: el artboard
+   dibuja un degradé liso, pero la parroquia quiere ver su templo y la animación de siempre). «Ocultar» fachada, rayos
+   o chispas los quita (.oculto-*, más abajo). */
 /* Marco de arco (F4:25): la imagen baja hasta la franja, sin borde ni sombra. El logo (.virgen.logo) no va en arco.
    El relleno es el del marcador del artboard: con una foto no se ve (la tapa); con un recorte sin fondo (la Virgen de
    Ciudad Arce) se ve detrás de la figura y deja leer la forma del arco, en vez de un corte suelto en el manto. */
@@ -131,7 +131,9 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .entra > *:nth-child(5){animation-delay:.57s}
 .entra > *:nth-child(6){animation-delay:.70s}
 @keyframes subeEntra{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}
-.virgen-entra{animation:virgenEntra 1.4s cubic-bezier(.2,.8,.2,1) both}
+.virgen{animation:flota 7s ease-in-out infinite}
+@keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+.virgen-entra{animation:virgenEntra 1.4s cubic-bezier(.2,.8,.2,1) both, flota 7s ease-in-out 1.4s infinite}
 @keyframes virgenEntra{from{opacity:0;transform:translateY(60px) scale(.96)}to{opacity:1;transform:none}}
 .franja-entra{animation:franjaEntra 1s cubic-bezier(.2,.8,.2,1) .2s both}
 @keyframes franjaEntra{from{transform:translateY(110%)}to{transform:none}}

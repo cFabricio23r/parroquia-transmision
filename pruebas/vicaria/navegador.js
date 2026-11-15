@@ -1544,7 +1544,11 @@ async function casoDisenoFondo() {
     for (const sel of sels) igual((await estilosDe(p, sel, ['boxShadow'])).boxShadow, 'none', nombre + ': ' + sel + ' sin sombra');
   };
   const decoracion = async (p, nombre) => {
-    for (const sel of ['.rayos', '.fachada', '#chispas']) igual((await estilosDe(p, sel, ['display'])).display, 'none', nombre + ': ' + sel + ' no se ve');
+    // Fachada de fondo, rayos, chispas y la imagen que flota vuelven, como en obs/ (decisión del usuario, 2026-11-14).
+    revisar((await estilosDe(p, '.rayos', ['display'])).display !== 'none', nombre + ': los rayos se ven');
+    revisar(await imagenVisible(p, '#fachada'), nombre + ': la fachada se ve de fondo');
+    revisar((await estilosDe(p, '#chispas', ['display'])).display !== 'none', nombre + ': las chispas se ven');
+    revisar(/flota/.test((await estilosDe(p, '#virgen', ['animationName'])).animationName), nombre + ': la imagen flota');
   };
   const arco = async (p, nombre, x, y, w, h) => {
     const e = await estilosDe(p, '#virgen', ['borderRadius', 'objectFit', 'borderTopWidth', 'filter', 'backgroundColor']);
