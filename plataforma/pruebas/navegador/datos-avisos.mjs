@@ -66,7 +66,19 @@ try {
   console.log('F10 · Borrar');
   await pagina.getByRole('button', { name: 'Editar Martes' }).click();
   await editar.getByRole('button', { name: 'Borrar horario' }).click();
+  // Borrar pide confirmación, como en la Galería y en Avisos (ronda de arreglos 2).
+  const confirmar = pagina.getByRole('dialog', { name: 'Borrar horario' });
+  await confirmar.waitFor({ timeout: 3000 }).catch(() => {});
+  revisar(await confirmar.getByText('¿Borrar el horario de Martes?').isVisible(), '«Borrar horario» pregunta «¿Borrar el horario de Martes?»');
+  await pagina.waitForTimeout(1200);
+  igual((await leerConfig(P.id)).horarios.length, 5, 'antes de confirmar no se borra nada');
+  await confirmar.getByRole('button', { name: 'Cancelar' }).click();
+  revisar(await editar.isVisible(), '«Cancelar» vuelve a «Editar horario»');
+  igual(await editar.getByLabel('Día', { exact: true }).inputValue(), 'Martes', 'con el horario que se estaba editando');
+  await editar.getByRole('button', { name: 'Borrar horario' }).click();
+  await confirmar.getByRole('button', { name: 'Sí, borrar' }).click();
   await esperarEnBase(P.id, (c) => c.horarios.length === 4, 3000);
+  revisar(!(await confirmar.isVisible()) && !(await editar.isVisible()), '«Sí, borrar» cierra los dos diálogos');
   igual(await filaDe(pagina, 'Martes').count(), 0, '«Borrar horario» quita la fila');
 
   console.log('F10 · Redes');
@@ -101,6 +113,35 @@ try {
   await pa.waitForTimeout(1500);
   igual((await leerBorrador(A.id)).actualizado_en, antesA.actualizado_en, 'abrir la página no cambia la base');
   igual((await camposSinEtiqueta(pa)).length, 0, 'todo campo tiene etiqueta');
+  // Columnas compartidas (AB/VicEdAvisos: 28px 1fr 190px 70px): la fecha empieza en el mismo x en todas las filas.
+  // Con una fecha larga en una sola fila (como «Del 30 de diciembre de 2099 al 31 de diciembre de 2100»),
+  // una columna por fila (max-content) la corría solo a ella; se prueba poniendo ese texto un momento.
+  const rangoOriginal = await pa.locator('.pv-aviso-rango').nth(1).evaluate((e) => {
+    const antes = e.textContent;
+    e.textContent = 'Del 30 de diciembre de 2099 al 31 de diciembre de 2100';
+    return antes;
+  });
+  const xRangos = await pa.locator('.pv-aviso-rango').evaluateAll((l) => l.map((e) => Math.round(e.getBoundingClientRect().left)));
+  revisar(xRangos.length === 3 && new Set(xRangos).size === 1, `las fechas quedan alineadas en una columna (${xRangos.join(', ')})`);
+  const anchosRango = await pa.locator('.pv-aviso-rango').evaluateAll((l) => l.map((e) => Math.round(e.getBoundingClientRect().width)));
+  revisar(anchosRango.every((w) => w <= 190), `la columna de la fecha mide como mucho 190 px (${anchosRango.join(', ')})`);
+  await pa.locator('.pv-aviso-rango').nth(1).evaluate((e, t) => (e.textContent = t), rangoOriginal);
+  // El tirador: blanco de 44 px y contraste de 3:1 sobre la fila blanca y sobre la elegida.
+  const caja = await pa.getByRole('button', { name: 'Mover Colecta para el techo' }).boundingBox();
+  revisar(caja.width >= 44 && caja.height >= 44, `el tirador mide al menos 44×44 (${caja.width}×${caja.height})`);
+  const contrasteTirador = await pa.evaluate(() => {
+    const lum = (c) => {
+      const [r, g, b] = c.match(/\d+/g).slice(0, 3).map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const razon = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+    const color = getComputedStyle(document.querySelector('.pv-tirador')).color;
+    return { blanco: razon(color, 'rgb(255, 255, 255)'), elegida: razon(color, 'rgb(244, 247, 251)') };
+  });
+  revisar(
+    contrasteTirador.blanco >= 3 && contrasteTirador.elegida >= 3,
+    `el tirador tiene contraste de 3:1 (${contrasteTirador.blanco.toFixed(2)} y ${contrasteTirador.elegida.toFixed(2)})`,
+  );
 
   console.log('F11 · Vista previa');
   const previa = pa.frameLocator('iframe.pv-previa-marco');

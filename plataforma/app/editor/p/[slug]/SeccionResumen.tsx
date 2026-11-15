@@ -1,6 +1,7 @@
 'use client';
 // F1 · Resumen (AB/VicEdResumen): una tarjeta por sección con su estado y su frase, los links para
-// OBS con «Copiar», «Revisar y publicar» y la última versión publicada.
+// OBS con «Copiar», «Revisar y publicar» y la última versión publicada. Toda la tarjeta lleva a su
+// sección: el enlace del título la cubre (CSS, ::after), así sigue habiendo un solo enlace por tarjeta.
 import Link from 'next/link';
 import { useState } from 'react';
 import { hrefSeccion, SECCIONES } from '../../../../lib/editor/secciones';

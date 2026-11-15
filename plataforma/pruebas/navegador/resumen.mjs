@@ -52,6 +52,32 @@ try {
     'el título «Galería» lleva a /galeria',
   );
 
+  console.log('Toda la tarjeta es el enlace (ronda de arreglos 2)');
+  const enlacesPorTarjeta = await pagina.locator('.pv-resumen-tarjeta').evaluateAll((l) => l.map((t) => t.querySelectorAll('a').length));
+  revisar(enlacesPorTarjeta.every((k) => k === 1), `cada tarjeta tiene un solo enlace (${enlacesPorTarjeta.join(', ')})`);
+  // Un punto de la frase (abajo a la derecha de la tarjeta) cae en el enlace, no en texto suelto.
+  const destino = await tarjeta(pagina, 'Horarios y redes').evaluate((t) => {
+    const r = t.getBoundingClientRect();
+    const e = document.elementFromPoint(r.right - 12, r.bottom - 8);
+    return e?.closest('a')?.getAttribute('href') ?? null;
+  });
+  igual(destino, `/editor/p/${P.slug}/horarios-y-redes`, 'la esquina de abajo de la tarjeta lleva a su sección');
+  const enlaceGaleria = tarjeta(pagina, 'Galería').getByRole('link', { name: 'Galería', exact: true });
+  await enlaceGaleria.focus();
+  await pagina.keyboard.press('Shift+Tab');
+  await pagina.keyboard.press('Tab');
+  const foco = await tarjeta(pagina, 'Galería').evaluate((t) => {
+    const c = getComputedStyle(t);
+    return { estilo: c.outlineStyle, ancho: parseFloat(c.outlineWidth), enfocado: document.activeElement?.textContent };
+  });
+  revisar(foco.enfocado === 'Galería' && foco.estilo !== 'none' && foco.ancho >= 2, `con el teclado, la tarjeta enfocada muestra el foco (${JSON.stringify(foco)})`);
+  // Un clic de verdad en el centro de la frase (el enlace la cubre: locator.click diría que algo la tapa).
+  const frase = await tarjeta(pagina, 'Horarios y redes').locator('.pv-resumen-frase').boundingBox();
+  await pagina.mouse.click(frase.x + frase.width / 2, frase.y + frase.height / 2);
+  await pagina.waitForURL(`${BASE}/editor/p/${P.slug}/horarios-y-redes`, { timeout: 5000 }).catch(() => {});
+  igual(new URL(pagina.url()).pathname, `/editor/p/${P.slug}/horarios-y-redes`, 'un clic en la frase abre la sección');
+  await pagina.goto(`${BASE}/editor/p/${P.slug}`);
+
   console.log('Pantallas y Tipos (plan 4)');
   revisar((await tarjeta(pagina, 'Pantallas').innerText()).includes('2 de 7 personalizadas; el resto, como vienen.'), '«Pantallas» dice «2 de 7 personalizadas; el resto, como vienen.»');
   const T = await prepararParroquia({ config: { ...CONFIG, tipos: { apagados: ['procesion'], propios: [{ clave: 'rosario-aurora', nombre: 'Rosario de la aurora' }] } } });
