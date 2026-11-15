@@ -748,6 +748,7 @@ export default function App(p: {
           panelRef={panelRef}
           origen={p.origen}
           slug={slug}
+          lista={parroquiaLista}
           onEstado={alEstadoPanel}
           onCargado={alCargarPanel}
           estilo={[estilos.zona, lugares.panel]}

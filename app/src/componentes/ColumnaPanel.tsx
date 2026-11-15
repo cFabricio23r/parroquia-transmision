@@ -10,7 +10,7 @@ import { useImperativeHandle, useRef, useState, type RefObject } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { VistaPanel, type EventoMensaje, type VistaPanelNativa } from '../../modules/transmisor';
-import { esMensajeDelPanel, leerMensaje, scriptPanel, urlPanel } from '../puente/puente';
+import { esMensajeDelPanel, leerMensaje, scriptPanel, urlPanelSiLista } from '../puente/puente';
 import { C, M } from './tema';
 
 /** Lo que App usa del panel: correr un script (la escena, ir a En vivo o a Preparar, 3b «Usar esta»). */
@@ -24,6 +24,8 @@ interface Props {
   origen: string;
   /** La parroquia elegida. */
   slug: string;
+  /** true cuando lo nativo ya tiene la parroquia (fijarParroquia terminó); antes no se carga nada. */
+  lista: boolean;
   /** El JSON de pev_<slug>_estado_v1 cada vez que el panel lo cambia. */
   onEstado: (json: string) => void;
   /** La página terminó de cargar (también después de una recarga). */
@@ -32,7 +34,7 @@ interface Props {
   estilo?: StyleProp<ViewStyle>;
 }
 
-export default function ColumnaPanel({ panelRef, origen, slug, onEstado, onCargado, estilo }: Props) {
+export default function ColumnaPanel({ panelRef, origen, slug, lista, onEstado, onCargado, estilo }: Props) {
   // Cada vez que se cae el proceso de la página se monta una vista nueva: un WebView cuyo
   // proceso murió no se puede volver a usar (review M1). El estado del panel queda en localStorage.
   const [montaje, setMontaje] = useState(0);
@@ -56,21 +58,25 @@ export default function ColumnaPanel({ panelRef, origen, slug, onEstado, onCarga
     if (m) onEstado(m.json);
   }
 
+  const url = urlPanelSiLista(origen, slug, lista);
+
   return (
     <View style={[estilos.columna, estilo]}>
-      <VistaPanel
-        key={montaje}
-        ref={nativa}
-        url={urlPanel(origen, slug)}
-        origen={origen}
-        scriptAlCargar={scriptPanel(slug)}
-        onMensaje={alMensaje}
-        onCargado={onCargado}
-        onProcesoCaido={(): void => {
-          setMontaje((n) => n + 1);
-        }}
-        style={estilos.web}
-      />
+      {url === null ? null : (
+        <VistaPanel
+          key={montaje}
+          ref={nativa}
+          url={url}
+          origen={origen}
+          scriptAlCargar={scriptPanel(slug)}
+          onMensaje={alMensaje}
+          onCargado={onCargado}
+          onProcesoCaido={(): void => {
+            setMontaje((n) => n + 1);
+          }}
+          style={estilos.web}
+        />
+      )}
     </View>
   );
 }

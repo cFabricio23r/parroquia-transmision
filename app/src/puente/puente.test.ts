@@ -7,6 +7,7 @@ import {
   leerMensaje,
   scriptPanel,
   urlPanel,
+  urlPanelSiLista,
 } from './puente';
 
 describe('leerMensaje', () => {
@@ -142,6 +143,17 @@ describe('claveEstado', () => {
 describe('urlPanel', () => {
   it('es el panel de la parroquia en modo app', () => {
     expect(urlPanel('https://p.app', 'ciudad-arce')).toBe('https://p.app/ciudad-arce/panel.html?modo=app');
+  });
+});
+
+describe('urlPanelSiLista', () => {
+  // El panel no se carga hasta que lo nativo sabe la parroquia (Copias.fijar): antes, Interceptor.kt
+  // responde 403 vacío y el WebView muestra «Página web no disponible» sin volver a intentar.
+  it('no da dirección mientras la parroquia no quedó fijada en lo nativo', () => {
+    expect(urlPanelSiLista('https://p.app', 'ciudad-arce', false)).toBeNull();
+  });
+  it('da la dirección del panel cuando ya quedó fijada', () => {
+    expect(urlPanelSiLista('https://p.app', 'ciudad-arce', true)).toBe('https://p.app/ciudad-arce/panel.html?modo=app');
   });
 });
 

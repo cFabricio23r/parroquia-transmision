@@ -16,6 +16,15 @@ export function urlPanel(origen: string, slug: string): string {
   return urlDePagina(origen, slug, 'panel.html?modo=app');
 }
 
+/**
+ * La dirección del panel solo cuando lo nativo ya sabe la parroquia (`fijarParroquia` terminó).
+ * Antes, Interceptor.kt no tiene origen y responde 403 vacío: el WebView muestra «Página web no
+ * disponible» y no vuelve a intentar, porque la dirección no cambia.
+ */
+export function urlPanelSiLista(origen: string, slug: string, lista: boolean): string | null {
+  return lista ? urlPanel(origen, slug) : null;
+}
+
 /** true si el mensaje viene del origen exacto de la plataforma (nunca de los assets ni de otro). */
 export function esMensajeDelPanel(url: string | undefined, origen: string): boolean {
   if (typeof url !== 'string' || url.startsWith('file:')) return false;
