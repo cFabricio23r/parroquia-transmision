@@ -52,6 +52,11 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   borrarCopias(): Promise<void>;
   /** Vuelve a cargar las escenas que estén cargadas. */
   recargarEscenas(): Promise<void>;
+  /** Archivos de datos de la app (etapa 3b), en filesDir/datos-app/. null si no existe. */
+  leerDatosApp(nombre: string): Promise<string | null>;
+  guardarDatosApp(nombre: string, texto: string): Promise<void>;
+  /** Con «-» al final, un prefijo; si no, el nombre exacto. */
+  borrarDatosApp(prefijo: string): Promise<void>;
 }
 
 export type ZonasSeguras = { top: number; bottom: number; left: number; right: number };

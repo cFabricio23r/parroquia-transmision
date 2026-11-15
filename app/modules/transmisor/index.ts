@@ -275,3 +275,28 @@ export function borrarCopias(): Promise<void> {
 export function recargarEscenas(): Promise<void> {
   return Promise.resolve().then(() => Modulo.recargarEscenas());
 }
+
+// --- Etapa 3b: archivos de datos de la app (la semana y los pendientes) ---
+
+const RE_NOMBRE_DATOS = /^[a-z0-9-]{1,80}$/;
+
+/** El texto del archivo de datos `nombre`, o null si no existe. Se puede usar en vivo (no hay red). */
+export function leerDatosApp(nombre: string): Promise<string | null> {
+  if (!RE_NOMBRE_DATOS.test(nombre)) return Promise.reject(new Error('Nombre de datos inválido.'));
+  return Promise.resolve().then(() => Modulo.leerDatosApp(nombre));
+}
+
+/** Escribe el archivo de datos `nombre` (en un .tmp que se renombra). */
+export function guardarDatosApp(nombre: string, texto: string): Promise<void> {
+  if (!RE_NOMBRE_DATOS.test(nombre)) return Promise.reject(new Error('Nombre de datos inválido.'));
+  return Promise.resolve().then(() => Modulo.guardarDatosApp(nombre, String(texto)));
+}
+
+/**
+ * Borra archivos de datos. Con «-» al final (`'semana-'`) es un prefijo: borra todos los que
+ * empiezan así. Sin «-» al final es el nombre exacto. Un prefijo vacío rechaza.
+ */
+export function borrarDatosApp(prefijo: string): Promise<void> {
+  if (!RE_NOMBRE_DATOS.test(prefijo)) return Promise.reject(new Error('Prefijo de datos inválido.'));
+  return Promise.resolve().then(() => Modulo.borrarDatosApp(prefijo));
+}

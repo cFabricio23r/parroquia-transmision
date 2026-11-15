@@ -233,6 +233,23 @@ class TransmisorModule : Module() {
       Copias.borrarTodo()
     }
 
+    // Archivos de datos de la app (etapa 3b): la semana y los pendientes. En la cola de fondo,
+    // como descargarCopia. Se pueden usar en vivo: no hay red.
+    AsyncFunction("leerDatosApp") { nombre: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      DatosApp.leer(ctx, nombre)
+    }
+
+    AsyncFunction("guardarDatosApp") { nombre: String, texto: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      DatosApp.guardar(ctx, nombre, texto)
+    }
+
+    AsyncFunction("borrarDatosApp") { prefijo: String ->
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      DatosApp.borrar(ctx, prefijo)
+    }
+
     AsyncFunction("recargarEscenas") {
       Capa.recargar()
     }.runOnQueue(Queues.MAIN)

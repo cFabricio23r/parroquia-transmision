@@ -407,3 +407,42 @@ describe('parroquia y copia guardada (etapa 3a)', () => {
     expect(n.recargarEscenas).toHaveBeenCalled();
   });
 });
+
+describe('archivos de datos de la app (etapa 3b)', () => {
+  function conNativo<T extends Record<string, jest.Mock>>(modulo: object, fns: T): T {
+    Object.assign(modulo, fns);
+    return fns;
+  }
+
+  it('guardarDatosApp llama al nativo con un nombre válido', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { guardarDatosApp: jest.fn((_n: string, _t: string) => Promise.resolve()) });
+    await api.guardarDatosApp('semana-ciudad-arce', '{}');
+    expect(n.guardarDatosApp).toHaveBeenCalledWith('semana-ciudad-arce', '{}');
+  });
+
+  it('guardarDatosApp rechaza nombres malos sin llamar al nativo', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { guardarDatosApp: jest.fn(() => Promise.resolve()) });
+    await expect(api.guardarDatosApp('../x', '')).rejects.toBeInstanceOf(Error);
+    await expect(api.guardarDatosApp('A', '')).rejects.toBeInstanceOf(Error);
+    await expect(api.guardarDatosApp('a'.repeat(81), '')).rejects.toBeInstanceOf(Error);
+    expect(n.guardarDatosApp).not.toHaveBeenCalled();
+  });
+
+  it('leerDatosApp pasa el nombre y devuelve el texto', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { leerDatosApp: jest.fn((_n: string) => Promise.resolve('{"a":1}')) });
+    await expect(api.leerDatosApp('semana-ciudad-arce')).resolves.toBe('{"a":1}');
+    expect(n.leerDatosApp).toHaveBeenCalledWith('semana-ciudad-arce');
+  });
+
+  it('borrarDatosApp acepta un prefijo y rechaza el vacío', async () => {
+    const { api, modulo } = cargar();
+    const n = conNativo(modulo, { borrarDatosApp: jest.fn((_p: string) => Promise.resolve()) });
+    await api.borrarDatosApp('semana-');
+    expect(n.borrarDatosApp).toHaveBeenCalledWith('semana-');
+    await expect(api.borrarDatosApp('')).rejects.toBeInstanceOf(Error);
+    expect(n.borrarDatosApp).toHaveBeenCalledTimes(1);
+  });
+});
