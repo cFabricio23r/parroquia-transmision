@@ -1,6 +1,6 @@
 // «App y transmisión» (etapa 3c): las tablas ajustes_app y claves_transmision, sus políticas y
 // sus check, contra el Supabase LOCAL con sesiones reales. Las claves son falsas y se notan.
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi, type MockInstance } from 'vitest';
 import {
   clienteAnonimo,
   clienteServicio,
@@ -11,6 +11,8 @@ import {
   sufijo,
   type UsuarioPrueba,
 } from './ayudas';
+import { guardarAjustesApp, guardarClave, leerAppTransmision, quitarClave, type DepsAppTransmision } from '../../lib/app-transmision';
+import { MENSAJE_CLAVE_ESPACIOS } from '../../lib/app-transmision-reglas';
 
 const servicio = clienteServicio();
 const CLAVE = 'clave-de-prueba-123';
@@ -96,5 +98,97 @@ describe('RLS', () => {
     } finally {
       await servicio.from('parroquias').update({ desactivada_en: null }).eq('id', A.id);
     }
+  });
+});
+
+describe('editor', () => {
+  const deps = (u: UsuarioPrueba): DepsAppTransmision => ({ sesion: u.cliente, servicio });
+  const respuestas: unknown[] = [];
+  const anotar = <T,>(r: T): T => (respuestas.push(r), r);
+  let espias: MockInstance[] = [];
+  const registroDe = async (accion: string) =>
+    ((await servicio.from('registro').select('detalle, usuario_id').eq('parroquia_id', A.id).eq('accion', accion).order('id')).data ?? []) as {
+      detalle: Record<string, unknown>;
+      usuario_id: string | null;
+    }[];
+  const claveDe = async (id: string) =>
+    (await servicio.from('claves_transmision').select('clave, guardada_por, guardada_en').eq('parroquia_id', id).maybeSingle()).data;
+
+  beforeAll(async () => {
+    espias = (['log', 'warn', 'error'] as const).map((m) => vi.spyOn(console, m));
+    await servicio.from('claves_transmision').delete().eq('parroquia_id', A.id);
+    await servicio.from('ajustes_app').delete().eq('parroquia_id', A.id);
+  });
+  afterAll(() => espias.forEach((e) => e.mockRestore()));
+
+  it('guarda, reemplaza y quita la clave, y lo anota', async () => {
+    const r1 = anotar(await guardarClave(deps(cA), A.slug, { clave: 'FB-CLAVE-FALSA-1111' }));
+    expect(r1.estado).toBe(200);
+    const g1 = (r1.cuerpo as { guardadaEn: string }).guardadaEn;
+    expect(typeof g1).toBe('string');
+    expect(await claveDe(A.id)).toMatchObject({ clave: 'FB-CLAVE-FALSA-1111', guardada_por: cA.id });
+    expect((await registroDe('cambiar_clave_transmision')).map((f) => f.detalle)).toEqual([
+      { slug: A.slug, nombre: `Parroquia ${A.slug}`, cambio: 'guardar' },
+    ]);
+
+    const r2 = anotar(await guardarClave(deps(cA), A.slug, { clave: 'FB-CLAVE-FALSA-2222' }));
+    expect(r2.estado).toBe(200);
+    expect(new Date((r2.cuerpo as { guardadaEn: string }).guardadaEn).getTime()).toBeGreaterThanOrEqual(new Date(g1).getTime());
+    expect((await registroDe('cambiar_clave_transmision')).map((f) => f.detalle.cambio)).toEqual(['guardar', 'reemplazar']);
+
+    const r3 = anotar(await quitarClave(deps(cA), A.slug));
+    expect(r3).toEqual({ estado: 200, cuerpo: {} });
+    expect(await claveDe(A.id)).toBeNull();
+    expect((await registroDe('cambiar_clave_transmision')).map((f) => f.detalle.cambio)).toEqual(['guardar', 'reemplazar', 'quitar']);
+    expect(anotar(await quitarClave(deps(cA), A.slug))).toEqual({ estado: 200, cuerpo: {} });
+    expect(await registroDe('cambiar_clave_transmision')).toHaveLength(3);
+  });
+
+  it('permisos y validación', async () => {
+    expect(anotar(await guardarClave(deps(cB), A.slug, { clave: 'FB-CLAVE-FALSA-2222' })).estado).toBe(403);
+    expect(anotar(await guardarClave({ sesion: clienteAnonimo(), servicio }, A.slug, { clave: 'FB-CLAVE-FALSA-2222' })).estado).toBe(401);
+    expect(await claveDe(A.id)).toBeNull();
+    const r = anotar(await guardarClave(deps(cA), A.slug, { clave: 'FB CLAVE' }));
+    expect(r).toEqual({ estado: 422, cuerpo: { error: MENSAJE_CLAVE_ESPACIOS } });
+    expect(await claveDe(A.id)).toBeNull();
+  });
+
+  it('guarda los ajustes y anota solo lo que cambió', async () => {
+    const valores = { servidor: 'rtmps://live-api-s.facebook.com:443/rtmp/', calidadDefecto: '1080p', estiloFinal: 'claro' };
+    const r1 = anotar(await guardarAjustesApp(deps(cA), A.slug, valores));
+    expect(r1.estado).toBe(200);
+    expect(r1.cuerpo).toMatchObject(valores);
+    expect((await registroDe('cambiar_ajustes_app')).map((f) => f.detalle)).toEqual([
+      { slug: A.slug, nombre: `Parroquia ${A.slug}`, campos: ['servidor', 'calidadDefecto', 'estiloFinal'] },
+    ]);
+    const antes = (await servicio.from('ajustes_app').select('actualizado_en').eq('parroquia_id', A.id).single()).data?.actualizado_en;
+    expect(anotar(await guardarAjustesApp(deps(cA), A.slug, valores)).estado).toBe(200);
+    expect(await registroDe('cambiar_ajustes_app')).toHaveLength(1);
+    expect((await servicio.from('ajustes_app').select('actualizado_en').eq('parroquia_id', A.id).single()).data?.actualizado_en).toBe(antes);
+    expect(anotar(await guardarAjustesApp(deps(cA), A.slug, { ...valores, estiloFinal: 'azul' })).estado).toBe(200);
+    expect((await registroDe('cambiar_ajustes_app')).map((f) => f.detalle.campos)).toEqual([
+      ['servidor', 'calidadDefecto', 'estiloFinal'],
+      ['estiloFinal'],
+    ]);
+    const malo = anotar(await guardarAjustesApp(deps(cA), A.slug, { ...valores, servidor: 'http://x' }));
+    expect(malo.estado).toBe(422);
+    expect((malo.cuerpo as { errores?: Record<string, string> }).errores?.servidor).toBeTruthy();
+    expect(anotar(await guardarAjustesApp(deps(cB), A.slug, valores)).estado).toBe(403);
+  });
+
+  it('el admin guarda y quita la clave', async () => {
+    expect(anotar(await guardarClave(deps(admin), A.slug, { clave: 'FB-CLAVE-FALSA-1111' })).estado).toBe(200);
+    const leido = await leerAppTransmision(cA.cliente, A.slug);
+    expect(leido.estado).toBe(200);
+    expect((leido.cuerpo as { clave: { guardadaEn: string } | null }).clave?.guardadaEn).toBeTruthy();
+    expect(JSON.stringify(leido)).not.toContain('FB-CLAVE-FALSA');
+    expect(anotar(await quitarClave(deps(admin), A.slug)).estado).toBe(200);
+  });
+
+  it('la clave nunca aparece (Review Focus 2)', async () => {
+    for (const e of espias) expect(JSON.stringify(e.mock.calls)).not.toContain('FB-CLAVE-FALSA');
+    expect(JSON.stringify(respuestas)).not.toContain('FB-CLAVE-FALSA');
+    const filas = (await servicio.from('registro').select('*').eq('parroquia_id', A.id)).data;
+    expect(JSON.stringify(filas)).not.toContain('FB-CLAVE-FALSA');
   });
 });
