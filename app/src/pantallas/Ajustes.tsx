@@ -2,26 +2,16 @@
 // Cambio respecto del lienzo (decisión 3): «Probar conexión» muestra el tipo de red,
 // no Mbps, y no se mide el nivel del micrófono (no se halló cómo leerlo).
 // La clave nunca se registra en consola ni se muestra en claro.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Network from 'expo-network';
 import * as Sharing from 'expo-sharing';
 
 import { ultimoRegistro } from '../../modules/transmisor';
-import {
-  AJUSTES_INICIALES,
-  Ajustes as TipoAjustes,
-  Calidad,
-  EstiloFinal,
-  Microfono,
-  guardarAjustes,
-  EstadoCarga,
-  leerAjustes,
-  puedeGuardar,
-  limpiarClave,
-  validar,
-} from '../ajustes/ajustes';
+import { Calidad, Microfono, EstadoCarga, puedeGuardar, limpiarClave, validar } from '../ajustes/ajustes';
+import { ajustesParroquia } from '../ajustes/ajustesParroquia';
+import { AjustesEfectivos, CampoAjuste, CampoCelular, TEXTOS_AJUSTES, textoOrigen } from '../ajustes/origen';
 import type { Cuenta, ParroquiaApp } from '../sesion/tipos';
 import { confirmarCerrarSesion } from './acceso/Aviso';
 
@@ -54,6 +44,8 @@ export interface DatosCuenta {
 }
 
 interface Props {
+  /** La parroquia elegida: sus ajustes bajados y los cambiados en este celular (plan 3c). */
+  slug: string;
   onVolver: () => void;
   cuenta?: DatosCuenta;
 }
@@ -145,17 +137,38 @@ const MICROFONOS: [Microfono, string][] = [
   ['celular', 'Del celular'],
   ['externo', 'Externo (USB-C)'],
 ];
-// Pantalla final «Producción» (Tarea 9d): A Claro o B Azul (el de por defecto).
-const ESTILOS_FINALES: [EstiloFinal, string][] = [
-  ['claro', 'Claro'],
-  ['azul', 'Azul'],
-];
+const NOMBRE_CAMPO: Record<CampoCelular, string> = { servidor: 'Servidor', clave: 'Clave', calidad: 'Calidad' };
 
-export default function Ajustes({ onVolver, cuenta }: Props) {
+/** La línea del origen de un ajuste y, si corresponde, «Volver a la de la parroquia». */
+function LineaOrigen(props: { e: AjustesEfectivos; campo: CampoAjuste; onVolver?: () => void }) {
+  const deParroquia = props.campo === 'estiloFinal' || props.campo === 'microfono' ? false : props.e.deParroquia[props.campo];
+  const o = textoOrigen(props.campo, props.e.origen[props.campo], deParroquia);
+  const campo = props.campo as CampoCelular;
+  return (
+    <View style={[estilos.fila, { alignItems: 'center', flexWrap: 'wrap' }]}>
+      <Text style={[estilos.nota, { flex: 1 }]}>{o.texto}</Text>
+      {o.volver && props.onVolver ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={TEXTOS_AJUSTES.volver + ': ' + NOMBRE_CAMPO[campo]}
+          onPress={props.onVolver}
+          style={[estilos.boton, estilos.botonFijo]}
+        >
+          <Text style={estilos.botonTexto}>{TEXTOS_AJUSTES.volver}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+export default function Ajustes({ slug, onVolver, cuenta }: Props) {
   // En vertical (Preparar, Tarea 9c) las dos columnas van una debajo de la otra.
   const { width, height } = useWindowDimensions();
   const vertical = height > width;
-  const [a, setA] = useState<TipoAjustes>(AJUSTES_INICIALES);
+  const [e, setE] = useState<AjustesEfectivos | null>(null);
+  // Lo que se ve en los campos mientras se escribe. La clave de la parroquia nunca entra acá.
+  const [textoServidor, setTextoServidor] = useState('');
+  const [textoClave, setTextoClave] = useState('');
   const [error, setError] = useState<{ campo: 'servidor' | 'clave'; mensaje: string } | null>(null);
   const [red, setRed] = useState<{ texto: string; color: string } | null>(null);
   const [probando, setProbando] = useState(false);
@@ -164,56 +177,82 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
   const [intento, setIntento] = useState(0);
   const [compartiendo, setCompartiendo] = useState(false);
   const [avisoRegistro, setAvisoRegistro] = useState<string | null>(null);
+  // Los cambios van en fila, así uno viejo nunca pisa a uno nuevo.
+  const cola = useRef<Promise<unknown>>(Promise.resolve());
+  const vivo = useRef(true);
+  useEffect(
+    () => () => {
+      vivo.current = false;
+    },
+    [],
+  );
+
+  function mostrar(x: AjustesEfectivos) {
+    setE(x);
+    setTextoServidor(x.ajustes.servidor);
+    setTextoClave(x.origen.clave === 'celular' ? x.ajustes.clave : '');
+  }
 
   useEffect(() => {
-    let vivo = true;
+    let vigente = true;
     setCarga('cargando');
-    leerAjustes().then(
+    ajustesParroquia.leerEfectivos(slug).then(
       (x) => {
-        if (!vivo) return;
-        setA(x);
+        if (!vigente) return;
+        mostrar(x);
         setCarga('listo');
       },
       () => {
-        if (vivo) setCarga('error');
+        if (vigente) setCarga('error');
       },
     );
     return () => {
-      vivo = false;
+      vigente = false;
     };
-  }, [intento]);
+  }, [intento, slug]);
 
   const editable = puedeGuardar(carga);
 
   // Nunca se guarda antes de que la lectura inicial termine bien; el error no incluye datos.
-  function persistir(nuevo: TipoAjustes) {
+  function aplicar(op: () => Promise<AjustesEfectivos>, alTerminar?: (x: AjustesEfectivos) => void) {
     if (!puedeGuardar(carga)) return;
-    guardarAjustes(nuevo).then(
-      () => setFallaGuardar(false),
-      () => setFallaGuardar(true),
+    const p = cola.current.then(op).then(
+      (x) => {
+        if (!vivo.current) return;
+        setFallaGuardar(false);
+        setE(x);
+        alTerminar?.(x);
+      },
+      () => {
+        if (vivo.current) setFallaGuardar(true);
+      },
     );
+    cola.current = p;
   }
 
-  // Cada cambio se guarda tal cual; la validación solo avisa debajo del campo.
-  function cambiar(parcial: Partial<TipoAjustes>) {
-    const nuevo = { ...a, ...parcial };
-    setA(nuevo);
+  function revisar(x: AjustesEfectivos) {
+    const r = validar(x.ajustes);
+    if (r.ok || (r.campo === 'clave' && x.origen.clave === 'parroquia')) setError(null);
+    else setError({ campo: r.campo, mensaje: r.mensaje });
+  }
+
+  function cambiarTexto(campo: 'servidor' | 'clave', t: string) {
+    if (campo === 'servidor') setTextoServidor(t);
+    else setTextoClave(t);
     setError(null);
-    persistir(nuevo);
+    aplicar(() => ajustesParroquia.cambiarEnCelular(slug, campo, t));
   }
 
-  function revisar(actual: TipoAjustes) {
-    const r = validar(actual);
-    setError(r.ok ? null : { campo: r.campo, mensaje: r.mensaje });
+  function volver(campo: CampoCelular) {
+    setError(null);
+    aplicar(() => ajustesParroquia.volver(slug, campo), mostrar);
   }
 
   async function pegar() {
     if (!editable) return;
     const texto = limpiarClave(await Clipboard.getStringAsync());
-    const nuevo = { ...a, clave: texto };
-    setA(nuevo);
-    persistir(nuevo);
-    revisar(nuevo);
+    setTextoClave(texto);
+    aplicar(() => ajustesParroquia.cambiarEnCelular(slug, 'clave', texto), revisar);
   }
 
   // Registro de rendimiento (Tarea 9): abre la hoja de compartir de Android con el más nuevo.
@@ -259,7 +298,7 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
         <Text accessibilityRole="header" style={estilos.titulo}>
           Ajustes de transmisión
         </Text>
-        <Text style={estilos.nota}>Se guardan solo en este celular</Text>
+        <Text style={estilos.nota}>{TEXTOS_AJUSTES.cabecera}</Text>
       </View>
 
       {carga === 'cargando' && <Text style={estilos.aviso}>Cargando…</Text>}
@@ -286,9 +325,19 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
                 editable={editable}
                 autoCapitalize="none"
                 autoCorrect={false}
-                value={a.clave}
-                onChangeText={(t) => cambiar({ clave: t })}
-                onBlur={() => revisar({ ...a, clave: limpiarClave(a.clave) })}
+                placeholder={e?.origen.clave === 'parroquia' ? TEXTOS_AJUSTES.placeholderClave : undefined}
+                placeholderTextColor={C.suave}
+                value={textoClave}
+                onChangeText={(t) => cambiarTexto('clave', t)}
+                onBlur={() =>
+                  aplicar(
+                    () => ajustesParroquia.leerEfectivos(slug),
+                    (x) => {
+                      if (x.origen.clave !== 'celular') setTextoClave('');
+                      revisar(x);
+                    },
+                  )
+                }
                 style={[estilos.campo, estilos.campoAchicable]}
               />
               <Pressable
@@ -302,6 +351,24 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
               </Pressable>
             </View>
             {error?.campo === 'clave' && <Text style={estilos.error}>{error.mensaje}</Text>}
+            {e ? <LineaOrigen e={e} campo="clave" onVolver={() => volver('clave')} /> : null}
+            {e?.claveNueva ? (
+              <View style={estilos.claveNueva} accessibilityLiveRegion="polite">
+                <Text style={[estilos.cajaTitulo, { fontSize: 14, color: C.ambar }]}>{TEXTOS_AJUSTES.claveNueva}</Text>
+                <View style={[estilos.fila, { flexWrap: 'wrap' }]}>
+                  <Pressable accessibilityRole="button" onPress={() => volver('clave')} style={[estilos.boton, estilos.primario]}>
+                    <Text style={estilos.botonTexto}>{TEXTOS_AJUSTES.usarParroquia}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => aplicar(() => ajustesParroquia.seguirConLaDelCelular(slug))}
+                    style={estilos.boton}
+                  >
+                    <Text style={estilos.botonTexto}>{TEXTOS_AJUSTES.seguirCelular}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
             <Text style={estilos.etiqueta}>Servidor (lo muestra Facebook)</Text>
             <TextInput
               accessibilityLabel="Servidor"
@@ -310,12 +377,21 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
               placeholderTextColor={C.suave}
               autoCapitalize="none"
               autoCorrect={false}
-              value={a.servidor}
-              onChangeText={(t) => cambiar({ servidor: t })}
-              onBlur={() => revisar(a)}
+              value={textoServidor}
+              onChangeText={(t) => cambiarTexto('servidor', t)}
+              onBlur={() =>
+                aplicar(
+                  () => ajustesParroquia.leerEfectivos(slug),
+                  (x) => {
+                    setTextoServidor(x.ajustes.servidor);
+                    revisar(x);
+                  },
+                )
+              }
               style={estilos.campo}
             />
             {error?.campo === 'servidor' && <Text style={estilos.error}>{error.mensaje}</Text>}
+            {e ? <LineaOrigen e={e} campo="servidor" onVolver={() => volver('servidor')} /> : null}
           </View>
           <View style={estilos.youtube}>
             <Text style={estilos.youtubeTitulo}>YouTube Live</Text>
@@ -329,21 +405,32 @@ export default function Ajustes({ onVolver, cuenta }: Props) {
             <Text style={estilos.etiqueta}>Calidad</Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Calidad" style={estilos.fila}>
               {CALIDADES.map(([v, t]) => (
-                <Opcion key={v} etiqueta={t} activa={a.calidad === v} alPulsar={() => editable && cambiar({ calidad: v })} />
+                <Opcion
+                  key={v}
+                  etiqueta={t}
+                  activa={e?.ajustes.calidad === v}
+                  alPulsar={() => aplicar(() => ajustesParroquia.cambiarEnCelular(slug, 'calidad', v))}
+                />
               ))}
             </View>
+            {e ? <LineaOrigen e={e} campo="calidad" onVolver={() => volver('calidad')} /> : null}
             <Text style={estilos.etiqueta}>Micrófono</Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Micrófono" style={estilos.fila}>
               {MICROFONOS.map(([v, t]) => (
-                <Opcion key={v} etiqueta={t} activa={a.microfono === v} alPulsar={() => editable && cambiar({ microfono: v })} />
+                <Opcion
+                  key={v}
+                  etiqueta={t}
+                  activa={e?.ajustes.microfono === v}
+                  alPulsar={() => aplicar(() => ajustesParroquia.cambiarMicrofono(slug, v))}
+                />
               ))}
             </View>
-            <Text style={estilos.etiqueta}>Pantalla final</Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel="Pantalla final" style={estilos.fila}>
-              {ESTILOS_FINALES.map(([v, t]) => (
-                <Opcion key={v} etiqueta={t} activa={a.estiloFinal === v} alPulsar={() => editable && cambiar({ estiloFinal: v })} />
-              ))}
-            </View>
+            {e ? <LineaOrigen e={e} campo="microfono" /> : null}
+            {/* La pantalla final la elige la parroquia: acá se muestra, no se elige (plan 3c, Decisión 12). */}
+            <Text style={[estilos.cajaTitulo, { fontSize: 14 }]}>
+              Pantalla final: {e?.ajustes.estiloFinal === 'claro' ? 'Claro' : 'Azul'}
+            </Text>
+            {e ? <LineaOrigen e={e} campo="estiloFinal" /> : null}
           </View>
           <View style={[estilos.caja, estilos.fila, { alignItems: 'center' }]}>
             <Pressable
@@ -442,5 +529,6 @@ const estilos = StyleSheet.create({
   },
   youtubeTitulo: { color: C.suave, fontSize: 14, fontWeight: '800' },
   desde: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.fondo, borderRadius: 10, paddingVertical: 8, paddingLeft: 12, paddingRight: 8 },
+  claveNueva: { borderWidth: 1, borderColor: C.ambar, borderRadius: 10, padding: 10, gap: 8 },
   cerrarSesion: { backgroundColor: 'transparent', borderWidth: 1, borderColor: ROJO_BORDE },
 });

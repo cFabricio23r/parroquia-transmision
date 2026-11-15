@@ -12,6 +12,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } 
 import { StyleSheet, View } from 'react-native';
 
 import App from '../App';
+import { almacenAjustes } from './ajustes/almacen';
+import { avisarCambioDeAjustes, registrarAjustes } from './ajustes/descarga';
 import { borrarCopia, borrarCopias, descargarCopia, fijarOrientacion } from '../modules/transmisor';
 import { C, FUENTES } from './componentes/tema';
 import { obtenerConfig } from './config/compilacion';
@@ -42,6 +44,9 @@ if (config.ok) {
     alCambiarPaginas: avisarCambioDePaginas,
   });
 }
+// La tarea 'ajustes-app' va después de 'paginas' (plan 3c); la llave vieja de ajustes se borra.
+registrarAjustes(sincronizador, limpiezas, { almacen: almacenAjustes, avisar: avisarCambioDeAjustes });
+almacenAjustes.borrarViejos().catch(() => undefined);
 
 /** Lo que se sabe de la red: si no se sabe, se supone que hay (como el aviso de App). */
 let hayRed = true;

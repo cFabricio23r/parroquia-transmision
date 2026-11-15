@@ -4,6 +4,7 @@
 // Tarea 9c: se llega con «Listo» desde Preparar (vertical); «‹ Volver a preparar» vuelve a vertical.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { TEXTOS_AJUSTES } from '../ajustes/origen';
 import type { Aviso } from '../avisos/avisos';
 import Avisos from '../componentes/Avisos';
 import { C, F, M } from '../componentes/tema';
@@ -14,6 +15,8 @@ interface Props {
   vista: EstadoVista;
   /** null mientras se leen los Ajustes. */
   claveLista: boolean | null;
+  /** La parroquia cambió su clave y este celular usa la suya (plan 3c). */
+  claveNueva?: boolean;
   /** Mensaje del último corte o error (en español, sin datos de la clave). */
   mensaje: string | null;
   terminada: boolean;
@@ -86,6 +89,14 @@ export default function AntesDeIniciar(p: Props) {
           {p.claveLista === false ? (
             <View style={[estilos.aviso, estilos.avisoAmbar, estilos.avisoConBoton]}>
               <Text style={estilos.avisoAmbarTexto}>Falta la clave de Facebook</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Abrir Ajustes" onPress={p.onAjustes} style={estilos.avisoBoton}>
+                <Text style={estilos.avisoBotonTexto}>Abrir Ajustes</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {p.claveNueva ? (
+            <View style={[estilos.aviso, estilos.avisoAmbar, estilos.avisoConBoton]}>
+              <Text style={estilos.avisoAmbarTexto}>{TEXTOS_AJUSTES.claveNuevaCorta}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel="Abrir Ajustes" onPress={p.onAjustes} style={estilos.avisoBoton}>
                 <Text style={estilos.avisoBotonTexto}>Abrir Ajustes</Text>
               </Pressable>

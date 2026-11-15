@@ -46,7 +46,10 @@ import BarraSuperior from './src/componentes/BarraSuperior';
 import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES, M } from './src/componentes/tema';
-import { leerAjustes, validar, type Calidad } from './src/ajustes/ajustes';
+import { validar, type Calidad } from './src/ajustes/ajustes';
+import { ajustesParroquia, leerAjustesDe } from './src/ajustes/ajustesParroquia';
+import { alCambiarAjustes } from './src/ajustes/descarga';
+import { controlSesion } from './src/sesion/control';
 import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
 import { alCambiarPaginas, textoCopia } from './src/copias/copias';
 import { aHayRed } from './src/estado/red';
@@ -168,7 +171,8 @@ const pantalla = {
 };
 
 const orq: Orquestador = crearOrquestador({
-  leerAjustes,
+  // Los ajustes efectivos de la parroquia elegida (plan 3c): rechaza si no hay parroquia.
+  leerAjustes: () => leerAjustesDe(controlSesion.tienda.obtener().parroquia),
   cambiarEscena,
   iniciar,
   terminar,
@@ -244,6 +248,8 @@ export default function App(p: {
   const [confirmar, setConfirmar] = useState(false);
   const [vista, setVista] = useState<EstadoVista>('preparando');
   const [claveLista, setClaveLista] = useState<boolean | null>(null);
+  // La parroquia cambió su clave y este celular tiene la suya (plan 3c, Decisión 3).
+  const [claveNueva, setClaveNueva] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [avisoEscena, setAvisoEscena] = useState<string | null>(null);
   // El error del estado que ya quedó resuelto (la cámara se volvió a preparar sola): no se muestra.
@@ -323,6 +329,10 @@ export default function App(p: {
   // Calidad y micrófono con que se preparó la vista por última vez (null: hay que preparar).
   const preparadaCon = useRef<string | null>(null);
   const preparandoAhora = useRef(false);
+  // Llegaron ajustes nuevos mientras se preparaba: se vuelve a preparar al terminar (Decisión 14).
+  const prepararDespues = useRef(false);
+  const slugRef = useRef(slug);
+  slugRef.current = slug;
 
   const alAire = enAire(estado);
 
@@ -369,7 +379,9 @@ export default function App(p: {
         setVista('sin_permiso');
         return false;
       }
-      const a = await leerAjustes();
+      const e = await ajustesParroquia.leerEfectivos(slugRef.current);
+      const a = e.ajustes;
+      setClaveNueva(e.claveNueva);
       // Estilo de la escena Producción (Tarea 9d). Si ya está cargada, el nativo la recarga.
       fijarEstiloFinal(a.estiloFinal).catch(() => undefined);
       setClaveLista(validar(a).ok);
@@ -390,8 +402,40 @@ export default function App(p: {
       return false;
     } finally {
       preparandoAhora.current = false;
+      if (prepararDespues.current) {
+        prepararDespues.current = false;
+        void prepararRef.current(false);
+      }
     }
   }, []);
+  const prepararRef = useRef(preparar);
+  prepararRef.current = preparar;
+
+  /** Vuelve a leer los ajustes después de una descarga (fuera del vivo, Decisión 14). */
+  const refrescarAjustes = useCallback(async () => {
+    try {
+      const e = await ajustesParroquia.leerEfectivos(slug);
+      const a = e.ajustes;
+      fijarEstiloFinal(a.estiloFinal).catch(() => undefined);
+      setClaveLista(validar(a).ok);
+      setCalidad(a.calidad);
+      setClaveNueva(e.claveNueva);
+      if (`${a.calidad}|${a.microfono}` !== preparadaCon.current) {
+        if (preparandoAhora.current) prepararDespues.current = true;
+        else void prepararRef.current(false);
+      }
+    } catch {
+      // Si no se pueden leer, queda lo de antes; el orquestador lo vuelve a intentar al iniciar.
+    }
+  }, [slug]);
+  useEffect(
+    () =>
+      alCambiarAjustes((s) => {
+        if (s !== slug || enAire(tienda.obtener())) return;
+        void refrescarAjustes();
+      }),
+    [slug, refrescarAjustes],
+  );
 
   /** Fija la parroquia en lo nativo. Si falla, la vista queda en 'error' con «Preparar otra vez». */
   const prepararParroquia = useCallback(async (): Promise<boolean> => {
@@ -683,6 +727,7 @@ export default function App(p: {
               <AntesDeIniciar
                 vista={vista}
                 claveLista={claveLista}
+                claveNueva={claveNueva}
                 mensaje={mensajeAntes}
                 terminada={estado.fase === 'terminado'}
                 avisos={avisos}
@@ -721,6 +766,7 @@ export default function App(p: {
           ]}
         >
           <Ajustes
+            slug={slug}
             onVolver={() => {
               setEnAjustes(false);
               void preparar(false);
