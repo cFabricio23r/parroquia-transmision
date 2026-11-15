@@ -3037,6 +3037,45 @@ grupo('semana: campos y faltas', () => {
   });
 });
 
+grupo('tipos propios: opcionales', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const VIGILIA = { clave: 'vigilia', nombre: 'Vigilia', rotulos: ['persona', 'persona'], opcionales: ['persona-2'] };
+  const conPropio = (propio) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    c.tipos = { propios: [propio] };
+    return c;
+  };
+  const errs = (propio) => Array.from(p.validarConfig(conPropio(propio)).errores);
+
+  prueba('opcionales con ids de sus rótulos es válido; sin opcionales, como hoy', () => {
+    assert.deepEqual(errs(VIGILIA), []);
+    const sin = Object.assign({}, VIGILIA);
+    delete sin.opcionales;
+    assert.deepEqual(errs(sin), []);
+  });
+
+  prueba('un opcional que no es de este tipo, una lista mala o más de 10 se rechazan', () => {
+    assert.ok(errs(Object.assign({}, VIGILIA, { opcionales: ['lectura1'] })).includes('Ese rótulo no es de este tipo (tipos.propios[0].opcionales[0]).'));
+    assert.ok(errs(Object.assign({}, VIGILIA, { opcionales: 'x' })).some((e) => /tipos\.propios\[0\]\.opcionales/.test(e) && /lista/.test(e)));
+    const once = Array.from({ length: 11 }, () => 'persona');
+    assert.ok(errs(Object.assign({}, VIGILIA, { opcionales: once })).some((e) => /como máximo 10/.test(e)));
+  });
+
+  prueba('el config.json real de Ciudad Arce sigue válido', () => {
+    const real = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vicaria', 'ciudad-arce', 'config.json'), 'utf8'));
+    assert.deepEqual(Array.from(p.validarConfig(real).errores), []);
+  });
+
+  prueba('tipoDe marca opcional el uso del propio', () => {
+    const x = cargarCon(['tipos.js', 'comun.js'], {}, conPropio(VIGILIA));
+    const t = x.tipoDe({ tipo: 'vigilia' });
+    assert.equal(t.rotulos[1].opcional, true);
+    assert.ok(!t.rotulos[0].opcional);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

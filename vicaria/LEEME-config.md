@@ -241,6 +241,7 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 | `nombrePanel`, `textoInicio`, `textoGracias` | Opcionales, con los mismos límites que en `ajustes` (`nombrePanel` hasta 40 caracteres; los otros dos hasta 200). |
 | `portada` | Opcional: `ninguna` (por defecto), `fiesta` o `evento`. Con `fiesta` el tipo tiene la portada de la fiesta patronal, la cuenta regresiva a la fiesta y, si no dice otra `esquina`, la esquina `fiesta` (como la novena). Con `evento` tiene la portada de evento y el panel pide evento, fecha y lugar (como el tipo «Evento especial»). |
 | `rotulos` | Hasta 10 rótulos del panel, elegidos entre: `persona`, `lectura1`, `lectura2`, `salmo`, `evangelio`, `rosario`, `santisimo`, `lugar`, `oracion`, `libre`. |
+| `propios[].opcionales` | Ids de rótulos de este tipo que el panel no cuenta en "Faltan N datos". Sin esta lista, todos cuentan. Hasta 10; el id es la base (`lectura2`) o, si la base se repite, la base con su número (`persona-2`). |
 
 Ejemplo de `ajustes` (Hora Santa con otro nombre y sin el rótulo de bendición):
 

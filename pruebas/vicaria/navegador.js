@@ -1982,6 +1982,36 @@ async function casoLineaBase() {
   }
 }
 
+/* 3b: «Faltan N datos» del panel cuenta lo mismo que SEMANA.contarFaltas (vicaria/semana.js), tipo por tipo. */
+async function casoFaltasIguales() {
+  console.log('3b · El panel y contarFaltas cuentan lo mismo');
+  const vigilia = JSON.parse(JSON.stringify(CONFIG[CA]));
+  vigilia.tipos = Object.assign({}, vigilia.tipos, {
+    propios: [{ clave: 'vigilia', nombre: 'Vigilia', rotulos: ['persona', 'lectura1', 'persona'], opcionales: ['persona-2'] }]
+  });
+  for (const [nombre, config] of [['la configuración real', null], ['con el propio vigilia y sus opcionales', vigilia]]) {
+    const ctx = await nuevoContexto();
+    if (config) await ctx.route(`**/${CA}/config.json`, (r) => servirConfig(config)(r));
+    const panel = await abrir(ctx, `/${CA}/panel.html`, 360, 1250);
+    await panel.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+    if (config) await panel.waitForSelector('[data-tipo="vigilia"]', { state: 'attached', timeout: 5000 }).catch(() => {});
+    await panel.addScriptTag({ path: path.join(RAIZ, 'semana.js') });
+    const claves = await panel.evaluate(() => ordenTipos());
+    if (config) revisar(claves.includes('vigilia'), 'el panel ofrece el propio vigilia');
+    for (const clave of claves) {
+      await elegirTipo(panel, clave);
+      await panel.waitForTimeout(100);
+      const titulo = (await panel.textContent('#revision .tit')) || '';
+      const m = /(\d+) datos?/.exec(titulo);
+      const delPanel = /Todo listo/.test(titulo) ? 0 : m ? Number(m[1]) : -1;
+      const delNucleo = await panel.evaluate((k) => SEMANA.contarFaltas(
+        SEMANA.tipoDeClave(SEMANA.tiposDisponibles(SEMANA.tiposParaCampos(TIPOS, ORDEN_TIPOS), PARROQUIA.tipos), k), {}), clave);
+      igual(delPanel, delNucleo, nombre + ': ' + clave + ' cuenta ' + delNucleo);
+    }
+    await ctx.close();
+  }
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -1992,7 +2022,7 @@ async function casoLineaBase() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2032,6 +2062,7 @@ async function casoLineaBase() {
     await casoDisenoRotulo();
     await casoDisenoProduccion();
     await casoLineaBase();
+    await casoFaltasIguales();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

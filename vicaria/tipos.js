@@ -370,7 +370,10 @@ function _tipoPropio(p) {
   const usadas = {};
   const rotulos = (Array.isArray(p.rotulos) ? p.rotulos : []).filter((b) => Object.prototype.hasOwnProperty.call(ROTULOS, b)).map((base) => {
     usadas[base] = (usadas[base] || 0) + 1;
-    return { id: usadas[base] === 1 ? base : base + '-' + usadas[base], base, nombre: _NOMBRE_BASE[base] || base };
+    const id = usadas[base] === 1 ? base : base + '-' + usadas[base];
+    const uso = { id, base, nombre: _NOMBRE_BASE[base] || base };
+    if (Array.isArray(p.opcionales) && p.opcionales.includes(id)) uso.opcional = true;   // no cuenta en «Faltan N datos»
+    return uso;
   });
   const titulo = texto(p.titulo, p.nombre);
   const t = {
@@ -523,6 +526,8 @@ function rotulosDe(s) {
         };
     }
     texto.chico = !!texto.chico;
-    return { id: uso.id, base: uso.base, nombre: uso.nombre, texto };
+    const r = { id: uso.id, base: uso.base, nombre: uso.nombre, texto };
+    if (uso.opcional === true) r.opcional = true;   // lo lee faltas() del panel
+    return r;
   });
 }

@@ -979,6 +979,7 @@ function faltas() {
   });
   const conLugar = tipoDe(s).datos.includes('lugar');
   rotulosDe(s).forEach(uso => {
+    if (uso.opcional) return;   // marcado opcional en el tipo: no cuenta
     // El rótulo «Lugar» sin texto propio usa el dato Lugar: si falta, ya se pide una vez arriba.
     if (uso.base === 'lugar' && conLugar && !propio(uso.id, 't')) return;
     if (!String(uso.texto.t || '').trim()) lista.push({ campo: idCampo(uso.id, 't'), texto: uso.nombre + ': falta ' + (FALTA[uso.base] || 'el texto') });

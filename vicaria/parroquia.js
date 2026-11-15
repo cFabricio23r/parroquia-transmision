@@ -467,6 +467,17 @@ function _validarTipoPropio(t, i, claves, ids, errores) {
       if (!BASES_ROTULO.includes(b)) errores.push('Ese rótulo no existe (' + campo + '.rotulos[' + j + ']): solo ' + BASES_ROTULO.join(', ') + '.');
     });
   }
+  // opcionales: ids de rótulos de este tipo que el panel no cuenta en «Faltan N datos» (la misma numeración de _tipoPropio).
+  if (t.opcionales !== undefined && _lista(t.opcionales, campo + '.opcionales', 10, errores)) {
+    const usadas = {};
+    const idsRotulos = (Array.isArray(t.rotulos) ? t.rotulos : []).filter((b) => BASES_ROTULO.includes(b)).map((b) => {
+      usadas[b] = (usadas[b] || 0) + 1;
+      return usadas[b] === 1 ? b : b + '-' + usadas[b];
+    });
+    t.opcionales.forEach((id, j) => {
+      if (!idsRotulos.includes(id)) errores.push('Ese rótulo no es de este tipo (' + campo + '.opcionales[' + j + ']).');
+    });
+  }
 }
 
 function _validarTipos(tp, ids, errores) {
