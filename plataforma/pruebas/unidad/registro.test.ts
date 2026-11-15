@@ -62,11 +62,29 @@ describe('chipRegistro', () => {
     expect(chipRegistro('cambiar_visible')).toEqual({ texto: 'Parroquia', tono: 'gris' });
     expect(chipRegistro('guardar_borrador')).toBeNull();
   });
-  it('ACCIONES_VISIBLES son las 11 y todas tienen chip', () => {
-    expect(ACCIONES_VISIBLES).toHaveLength(11);
+  it('ACCIONES_VISIBLES son las 13 y todas tienen chip', () => {
+    expect(ACCIONES_VISIBLES).toHaveLength(13);
     expect(ACCIONES_VISIBLES).toContain('cambiar_visible');
     for (const a of ACCIONES_VISIBLES) expect(chipRegistro(a)).not.toBeNull();
     expect(ACCIONES_VISIBLES).not.toContain('guardar_borrador');
+  });
+});
+
+describe('App y transmisión (3c)', () => {
+  const SJ = 'San José';
+  it('frases de la clave y de los ajustes', () => {
+    const f = (accion: string, detalle: Record<string, unknown>) => fraseRegistro({ accion, detalle, parroquia: SJ }, sinNadie);
+    expect(f('cambiar_clave_transmision', { nombre: 'X', cambio: 'guardar' })).toBe('Guardó la clave de transmisión de San José');
+    expect(f('cambiar_clave_transmision', { nombre: 'X', cambio: 'reemplazar' })).toBe('Cambió la clave de transmisión de San José');
+    expect(f('cambiar_clave_transmision', { nombre: 'X', cambio: 'quitar' })).toBe('Quitó la clave de transmisión de San José');
+    expect(f('cambiar_ajustes_app', { campos: ['servidor', 'estiloFinal'] })).toBe('Cambió los ajustes de la app de San José: servidor y pantalla final');
+    expect(f('cambiar_ajustes_app', { campos: ['servidor', 'calidadDefecto', 'estiloFinal'] })).toBe(
+      'Cambió los ajustes de la app de San José: servidor, calidad por defecto y pantalla final',
+    );
+  });
+  it('chips grises de Parroquia', () => {
+    expect(chipRegistro('cambiar_clave_transmision')).toEqual({ texto: 'Parroquia', tono: 'gris' });
+    expect(chipRegistro('cambiar_ajustes_app')).toEqual({ texto: 'Parroquia', tono: 'gris' });
   });
 });
 

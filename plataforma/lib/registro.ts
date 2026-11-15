@@ -5,6 +5,8 @@ import type { TonoChip } from '../app/componentes/Chip';
 import { personasPorId, porLotes, todasLasFilas } from './admin-parroquias';
 import { cuandoRegistro } from './fecha';
 import { nombreVisible } from './persona';
+import { NOMBRES_CAMPOS_APP, type CampoApp } from './app-transmision-reglas';
+import { unirLista } from './editor/estados';
 
 /** Las acciones que muestra D3 (Decisión 16). `guardar_borrador` queda afuera y no ocupa lugar en las 100. */
 export const ACCIONES_VISIBLES = [
@@ -19,6 +21,8 @@ export const ACCIONES_VISIBLES = [
   'desactivar',
   'reactivar',
   'cambiar_visible',
+  'cambiar_clave_transmision',
+  'cambiar_ajustes_app',
 ] as const;
 
 const CHIPS: Record<string, { texto: 'Publicación' | 'Acceso' | 'Parroquia'; tono: TonoChip }> = {
@@ -33,6 +37,8 @@ const CHIPS: Record<string, { texto: 'Publicación' | 'Acceso' | 'Parroquia'; to
   desactivar: { texto: 'Parroquia', tono: 'gris' },
   reactivar: { texto: 'Parroquia', tono: 'gris' },
   cambiar_visible: { texto: 'Parroquia', tono: 'gris' },
+  cambiar_clave_transmision: { texto: 'Parroquia', tono: 'gris' },
+  cambiar_ajustes_app: { texto: 'Parroquia', tono: 'gris' },
 };
 
 export function chipRegistro(accion: string): { texto: 'Publicación' | 'Acceso' | 'Parroquia'; tono: TonoChip } | null {
@@ -76,6 +82,16 @@ export function fraseRegistro(
       return `Reactivó ${P}`;
     case 'cambiar_visible':
       return d.visible === true ? `Mostró ${P} en la app` : `Quitó ${P} de la app`;
+    case 'cambiar_clave_transmision': {
+      const verbo = d.cambio === 'quitar' ? 'Quitó' : d.cambio === 'reemplazar' ? 'Cambió' : 'Guardó';
+      return `${verbo} la clave de transmisión de ${P}`;
+    }
+    case 'cambiar_ajustes_app': {
+      const campos = (Array.isArray(d.campos) ? d.campos : [])
+        .filter((c): c is CampoApp => typeof c === 'string' && Object.prototype.hasOwnProperty.call(NOMBRES_CAMPOS_APP, c))
+        .map((c) => NOMBRES_CAMPOS_APP[c]);
+      return campos.length ? `Cambió los ajustes de la app de ${P}: ${unirLista(campos)}` : `Cambió los ajustes de la app de ${P}`;
+    }
     default:
       return f.accion;
   }

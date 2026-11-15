@@ -49,6 +49,12 @@ export function fallo(donde: string, e: unknown): Respuesta<ConError> {
   return conError(500, MENSAJE_FALLO);
 }
 
+/** Como `fallo`, pero sin escribir el error: para lo que puede llevar la clave de transmisión (3c, Decisión 5). */
+export function falloSinDetalle(donde: string): Respuesta<ConError> {
+  console.error(`[${donde}] falló`);
+  return conError(500, MENSAJE_FALLO);
+}
+
 export type Acceso = { ok: true; parroquiaId: string; usuarioId: string } | { ok: false; respuesta: Respuesta<ConError> };
 
 /** 401 sin sesión; 403 si la parroquia no existe o no es de quien actúa (no se distingue: no se filtra su existencia). */

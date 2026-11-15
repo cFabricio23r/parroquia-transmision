@@ -62,6 +62,20 @@ export async function registrar(
   if (error) throw error;
 }
 
+/** Registra sin rechazar nunca. Si falla, escribe solo dónde: el error podría traer la fila (3c, Decisión 5). */
+export async function registrarSinFallar(
+  servicio: SupabaseClient,
+  fila: { parroquia_id: string | null; usuario_id: string | null; accion: string; detalle: Record<string, unknown> },
+  donde: string,
+): Promise<void> {
+  try {
+    const { error } = await servicio.from('registro').insert(fila);
+    if (error) console.error(`[${donde}] no se pudo registrar`);
+  } catch {
+    console.error(`[${donde}] no se pudo registrar`);
+  }
+}
+
 export { MAX_LUGAR };
 
 /** Crea la parroquia y su borrador `{ nombre, lugar }`. El lugar es obligatorio (vicaria lo exige para publicar). Solo administradores. */
