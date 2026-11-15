@@ -86,11 +86,29 @@ try {
   igual(Math.round((await pagina.locator('.pv-tarjeta-acceso').boundingBox()).width), 480, 'tarjeta de 480 px');
   revisar(await pagina.getByText('Así te ven en el registro de cambios.').isVisible(), 'ayuda de «Tu nombre»');
 
+  {
+    // Revisión fix2: sin nombre y con la contraseña mal, los dos errores se pueden encontrar. El foco va al
+    // primer campo inválido (Tu nombre, que lee su error) y la contraseña queda inválida, descrita por el mensaje.
+    await pagina.getByRole('button', { name: 'Crear cuenta y entrar' }).click();
+    await pagina.getByText('Escribe tu nombre.').waitFor();
+    await pagina.waitForTimeout(200);
+    igual(await pagina.evaluate(() => document.activeElement?.id), 'nombre', 'nombre y contraseña mal: el foco va a «Tu nombre»');
+    const clave = pagina.getByLabel('Crea una contraseña', { exact: true });
+    igual(await clave.getAttribute('aria-invalid'), 'true', 'y «Crea una contraseña» queda inválida');
+    const describe = (await clave.getAttribute('aria-describedby')) ?? '';
+    const textoDescrito = await pagina.evaluate(
+      (ids) => ids.split(' ').map((i) => document.getElementById(i)?.textContent ?? '').join(' '),
+      describe,
+    );
+    revisar(textoDescrito.includes('Contraseña que no sirve'), `descrita por «Contraseña que no sirve» (${describe})`);
+  }
   await pagina.getByLabel('Crea una contraseña', { exact: true }).fill(CLAVE);
   await pagina.getByLabel('Repite la contraseña', { exact: true }).fill(CLAVE);
   await pagina.getByRole('button', { name: 'Crear cuenta y entrar' }).click();
   const nombre = pagina.getByLabel('Tu nombre');
   await pagina.getByText('Escribe tu nombre.').waitFor();
+  igual(await pagina.evaluate(() => document.activeElement?.id), 'nombre', 'solo sin nombre: el foco va a «Tu nombre»');
+  igual(await pagina.getByLabel('Crea una contraseña', { exact: true }).getAttribute('aria-invalid'), null, 'con la contraseña bien, ya no queda inválida');
   igual(await nombre.getAttribute('aria-invalid'), 'true', 'sin nombre: el campo queda inválido');
   revisar((await nombre.getAttribute('aria-describedby')).includes('nombre-error'), 'y el error está atado al campo');
 

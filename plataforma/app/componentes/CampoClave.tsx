@@ -11,13 +11,17 @@ export interface PropsCampoClave {
   valor?: string;
   onCambio?: (v: string) => void;
   requerido?: boolean;
+  /** Inválida sin texto de error propio: el motivo está en otro lado (`describidaPor`, p. ej. el mensaje A5). */
+  invalida?: boolean;
+  /** Id extra para aria-describedby (el mensaje que explica por qué no sirve). */
+  describidaPor?: string;
 }
 
 /**
  * Contraseña con «Mostrar contraseña» (Decisión 3: el texto no cambia; el estado lo dice aria-pressed).
  * Como en el artboard, el error va debajo del botón.
  */
-export function CampoClave({ id, etiqueta, autoComplete, error, valor, onCambio, requerido = true }: PropsCampoClave) {
+export function CampoClave({ id, etiqueta, autoComplete, error, valor, onCambio, requerido = true, invalida, describidaPor }: PropsCampoClave) {
   const [visible, setVisible] = useState(false);
   const controlado = valor !== undefined;
   return (
@@ -31,8 +35,8 @@ export function CampoClave({ id, etiqueta, autoComplete, error, valor, onCambio,
           type={visible ? 'text' : 'password'}
           autoComplete={autoComplete}
           required={requerido}
-          aria-describedby={describirCon(id, undefined, error)}
-          aria-invalid={error ? true : undefined}
+          aria-describedby={[describirCon(id, undefined, error), describidaPor].filter(Boolean).join(' ') || undefined}
+          aria-invalid={error || invalida ? true : undefined}
           {...(controlado ? { value: valor, onChange: (e) => onCambio?.(e.target.value) } : { onChange: (e) => onCambio?.(e.target.value) })}
         />
       </label>

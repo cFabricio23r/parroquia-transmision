@@ -5,6 +5,7 @@ import { CajaInfo } from '../../../componentes/CajaInfo';
 import { CampoSelect } from '../../../componentes/CampoSelect';
 import { CampoTexto } from '../../../componentes/CampoTexto';
 import { Dialogo } from '../../../componentes/Dialogo';
+import { useEnfocarInvalido } from '../../../componentes/useEnfocarInvalido';
 import { useEnvio } from '../../../componentes/useEnvio';
 import { invitar } from '../acciones';
 import { MENSAJE_SIN_CONEXION } from '../DialogoNuevaParroquia';
@@ -32,6 +33,7 @@ export function DialogoInvitar({
   const [parroquia, setParroquia] = useState(elegida ?? parroquias[0]?.id ?? '');
   const [error, setError] = useState<{ texto: string; campo?: string }>();
   const { ocupado, enviar } = useEnvio();
+  const { ref: formulario, enfocarInvalido } = useEnfocarInvalido<HTMLFormElement>();
 
   useEffect(() => {
     if (abierto) setParroquia(elegida ?? parroquias[0]?.id ?? '');
@@ -48,7 +50,10 @@ export function DialogoInvitar({
     const r = await enviar(() => invitar(correo, parroquia));
     if (r.tipo === 'ocupado') return;
     if (r.tipo === 'fallo') return setError({ texto: MENSAJE_SIN_CONEXION });
-    if (r.valor.error) return setError({ texto: r.valor.error, campo: r.valor.campo });
+    if (r.valor.error) {
+      if (r.valor.campo) enfocarInvalido(); // el foco va al campo, que lee su error (revisión fix2)
+      return setError({ texto: r.valor.error, campo: r.valor.campo });
+    }
     const enviado = correo.trim().toLowerCase();
     cerrar();
     alInvitar(enviado);
@@ -56,7 +61,7 @@ export function DialogoInvitar({
 
   return (
     <Dialogo abierto={abierto} titulo="Invitar coordinador" onCerrar={cerrar}>
-      <form className="pv-admin-formulario" onSubmit={enviarInvitacion} noValidate>
+      <form ref={formulario} className="pv-admin-formulario" onSubmit={enviarInvitacion} noValidate>
         {error && error.campo !== 'correo' && (
           <p role="alert" className="pv-alerta">
             {error.texto}
@@ -69,7 +74,11 @@ export function DialogoInvitar({
           autoComplete="off"
           value={correo}
           error={error?.campo === 'correo' ? error.texto : undefined}
-          onChange={(e) => setCorreo(e.target.value)}
+          onChange={(e) => {
+            setCorreo(e.target.value);
+            // Corregir el correo quita su error (revisión fix2), como en «Nueva parroquia».
+            setError((x) => (x?.campo === 'correo' ? undefined : x));
+          }}
         />
         <CampoSelect
           id="invitar-parroquia"

@@ -5,6 +5,7 @@ import { sugerirSlug } from '../../../lib/admin-textos';
 import { Boton } from '../../componentes/Boton';
 import { CampoTexto } from '../../componentes/CampoTexto';
 import { Dialogo } from '../../componentes/Dialogo';
+import { useEnfocarInvalido } from '../../componentes/useEnfocarInvalido';
 import { useEnvio } from '../../componentes/useEnvio';
 import { crearParroquia } from './acciones';
 
@@ -32,6 +33,7 @@ export function DialogoNuevaParroquia({
   const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
   const limpiar = (c: Campo) => setErrores((e) => (e[c] ? { ...e, [c]: undefined } : e));
   const { ocupado, enviar } = useEnvio();
+  const { ref: formulario, enfocarInvalido } = useEnfocarInvalido<HTMLFormElement>();
 
   function cerrar() {
     setNombre('');
@@ -54,6 +56,7 @@ export function DialogoNuevaParroquia({
     if (r.valor.error) {
       const porCampo = r.valor.errores ?? (r.valor.campo ? { [r.valor.campo]: r.valor.error } : {});
       setErrores(porCampo);
+      if (Object.values(porCampo).some(Boolean)) enfocarInvalido(); // lee el error del primero (revisión fix2)
       return setError(r.valor.campo ? undefined : r.valor.error);
     }
     const creado = r.valor.slug ?? slug;
@@ -65,7 +68,7 @@ export function DialogoNuevaParroquia({
   const errorDe = (c: Campo) => errores[c];
   return (
     <Dialogo abierto={abierto} titulo="Nueva parroquia" onCerrar={cerrar}>
-      <form className="pv-admin-formulario" onSubmit={crear} noValidate>
+      <form ref={formulario} className="pv-admin-formulario" onSubmit={crear} noValidate>
         {error && (
           <p role="alert" className="pv-alerta">
             {error}

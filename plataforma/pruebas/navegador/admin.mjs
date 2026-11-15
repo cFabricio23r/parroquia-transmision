@@ -6,6 +6,30 @@ import { BASE, CLAVE, VIEWPORT, camposSinEtiqueta, entrar, igual, revisar, servi
 
 const creadas = { parroquias: [], usuarios: [], correos: [] };
 const estilo = (loc, prop) => loc.evaluate((e, p) => getComputedStyle(e).getPropertyValue(p), prop);
+const idActivo = (pg) => pg.evaluate(() => document.activeElement?.id ?? null);
+/** Las acciones de servidor van por POST a la página: con `abortar` se corta la conexión; si no, se retienen hasta `quitar()`. */
+async function interceptarAcciones(pg, ruta, abortar) {
+  let soltar;
+  const espera = new Promise((ok) => (soltar = ok));
+  const filtro = (u) => u.pathname === ruta;
+  await pg.route(filtro, async (r) => {
+    if (r.request().method() !== 'POST') return r.continue();
+    if (abortar) return r.abort();
+    await espera;
+    return r.continue().catch(() => {});
+  });
+  return {
+    quitar: async () => {
+      soltar();
+      await pg.unroute(filtro);
+    },
+  };
+}
+const enPantalla = (loc) =>
+  loc.evaluate((e) => {
+    const r = e.getBoundingClientRect();
+    return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
+  });
 
 async function crearUsuario(prefijo, nombre) {
   const correo = `${prefijo}-${sufijo()}@prueba.test`;
@@ -179,6 +203,7 @@ try {
   await botonNueva.click();
   const dlgNueva = p.getByRole('dialog', { name: 'Nueva parroquia' });
   revisar(await dlgNueva.isVisible(), 'abre el diálogo «Nueva parroquia»');
+  igual(await estilo(dlgNueva, 'width'), '556px', 'diálogo de 500 px de contenido + 2 × 28 de relleno, como el artboard');
   await dlgNueva.getByRole('button', { name: 'Crear parroquia' }).click();
   await dlgNueva.locator('#nueva-nombre-error').waitFor({ timeout: 15_000 }).catch(() => {});
   igual(
@@ -186,6 +211,7 @@ try {
     'Escribe el nombre de la parroquia.|Escribe el lugar.',
     'vacío: errores en Nombre y Lugar, en orden, sin culpar al Link',
   );
+  igual(await idActivo(p), 'nueva-nombre', 'con errores, el foco va al primer campo inválido (Nombre)');
   await dlgNueva.getByLabel('Nombre de la parroquia').fill('Santa Lucía Mártir');
   igual(await dlgNueva.locator('#nueva-nombre-error').count(), 0, 'escribir el nombre quita su error');
   await dlgNueva.getByLabel('Nombre de la parroquia').fill('');
@@ -199,6 +225,7 @@ try {
   await dlgNueva.getByRole('button', { name: 'Crear parroquia' }).click();
   await p.waitForTimeout(800);
   revisar((await dlgNueva.locator('#nueva-lugar-error').count()) === 1, 'sin lugar: error en el campo Lugar');
+  igual(await idActivo(p), 'nueva-lugar', 'y el foco va a Lugar, que lee su error');
   await dlgNueva.getByLabel('Lugar').fill('Chalchuapa, Santa Ana');
   igual(await dlgNueva.locator('#nueva-lugar-error').count(), 0, 'escribir el lugar quita su error');
   await dlgNueva.getByRole('button', { name: 'Crear parroquia' }).click();
@@ -245,11 +272,6 @@ try {
     );
   await chipEs(deAna.slug, 'Desactivada');
   revisar(true, 'chip «Desactivada»');
-  const enPantalla = (loc) =>
-    loc.evaluate((e) => {
-      const r = e.getBoundingClientRect();
-      return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
-    });
   const focoEn = (n) =>
     p.waitForFunction((x) => document.activeElement?.getAttribute('aria-label') === x, n, { timeout: 15_000 }).catch(() => {});
   await focoEn(`Reactivar ${deAna.nombre}`);
@@ -273,6 +295,23 @@ try {
   igual(await filaC1.locator('.pv-chip').textContent(), 'Desactivada', 'C1 del admin: chip «Desactivada»');
 
   await p.goto(`${BASE}/editor/admin`);
+  {
+    // Revisión fix2: el error de una acción de fila salía muy arriba, fuera de la pantalla.
+    await p.setViewportSize({ width: VIEWPORT.width, height: 200 });
+    const corte = await interceptarAcciones(p, '/editor/admin', true);
+    const reactivar = p.getByRole('button', { name: `Reactivar ${deAna.nombre}` });
+    // Una lista larga arriba de la fila (como con muchas parroquias): el margen la empuja hacia abajo.
+    await p.locator('main [role="table"]').evaluate((e) => (e.style.marginTop = '1500px'));
+    await reactivar.evaluate((e) => e.scrollIntoView({ block: 'end' }));
+    revisar(await p.evaluate(() => window.scrollY > 1000), 'D1: la fila quedó abajo (la página está desplazada)');
+    await reactivar.click();
+    const alerta = p.locator('main').getByRole('alert');
+    await alerta.waitFor({ timeout: 15_000 });
+    revisar(await enPantalla(alerta), 'D1: el error de «Reactivar» se ve en pantalla aunque la fila esté abajo');
+    await corte.quitar();
+    await p.setViewportSize(VIEWPORT);
+    await p.reload();
+  }
   await p.getByRole('button', { name: `Reactivar ${deAna.nombre}` }).click();
   const anuncio = p.getByRole('status').filter({ hasText: 'activa otra vez' });
   await anuncio.waitFor({ timeout: 15_000 });
@@ -315,8 +354,35 @@ try {
     if (error) throw error;
   }
 
+  const Delta = await crearParroquia('Delta');
+  const marioD = await crearUsuario('adm-mario', 'Mario Delta');
+  await hacerMiembro(Delta.id, marioD.id);
+  const invDelta = `adm-del-${sufijo()}@prueba.test`;
+  creadas.correos.push(invDelta);
+  {
+    const { error } = await servicio.from('invitaciones').insert({
+      correo: invDelta,
+      rol: 'coordinador',
+      parroquia_id: Delta.id,
+      token_hash: `prueba-${sufijo()}`,
+      vence_en: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+    });
+    if (error) throw error;
+    const { error: ed } = await servicio.from('parroquias').update({ desactivada_en: new Date().toISOString() }).eq('id', Delta.id);
+    if (ed) throw ed;
+  }
+
   await p.goto(`${BASE}/editor/admin/coordinadores`);
   igual(await p.locator('main h1').textContent(), 'Coordinadores', 'h1 de D2');
+  {
+    // Revisión fix2: las filas de una parroquia desactivada no dicen «Activo» ni ofrecen «Reenviar» (fallaría).
+    const filaMario = p.locator('[role="row"]', { hasText: marioD.correo });
+    igual(await filaMario.locator('.pv-chip').textContent(), 'Parroquia desactivada', 'miembro de una desactivada: «Parroquia desactivada»');
+    igual(await filaMario.locator('.pv-chip').getAttribute('class'), 'pv-chip pv-chip--gris', 'chip gris');
+    const filaInvDelta = p.locator('[role="row"]', { hasText: invDelta });
+    igual(await filaInvDelta.locator('.pv-chip').textContent(), 'Parroquia desactivada', 'invitación de una desactivada: «Parroquia desactivada»');
+    igual((await filaInvDelta.getByRole('button').allTextContents()).join('|'), 'Quitar', 'la invitación de una desactivada no ofrece «Reenviar»');
+  }
   revisar(await p.getByRole('button', { name: '+ Invitar coordinador' }).isVisible(), 'botón «+ Invitar coordinador»');
   igual(
     (await p.locator('[role="table"] [role="columnheader"]').allInnerTexts()).slice(0, 4).join('|'),
@@ -343,7 +409,7 @@ try {
   // Invitar
   await p.getByRole('button', { name: '+ Invitar coordinador' }).click();
   const dlgInv = p.getByRole('dialog', { name: 'Invitar coordinador' });
-  igual(await estilo(dlgInv, 'width'), '500px', 'diálogo de 500 px');
+  igual(await estilo(dlgInv, 'width'), '556px', 'diálogo de 500 px de contenido + 2 × 28 de relleno, como el artboard');
   igual(await estilo(dlgInv.locator('h2'), 'font-size'), '20px', 'h2 de 20 px');
   revisar(await dlgInv.getByLabel('Correo').isVisible(), 'campo Correo');
   revisar(await dlgInv.getByLabel('Asignar a').isVisible(), 'campo Asignar a');
@@ -354,6 +420,13 @@ try {
     'caja de la invitación',
   );
   revisar(await dlgInv.getByRole('button', { name: 'Cancelar' }).isVisible(), 'botón Cancelar');
+  await dlgInv.getByLabel('Correo').fill('no-es-un-correo');
+  await dlgInv.getByRole('button', { name: 'Enviar invitación' }).click();
+  await dlgInv.locator('#invitar-correo-error').waitFor({ timeout: 15_000 });
+  igual(await idActivo(p), 'invitar-correo', 'correo mal escrito: el foco va al campo Correo');
+  await dlgInv.getByLabel('Correo').press('End');
+  await dlgInv.getByLabel('Correo').pressSequentially('x');
+  igual(await dlgInv.locator('#invitar-correo-error').count(), 0, 'corregir el correo quita su error');
   const nuevo = `nuevo-${sufijo()}@prueba.test`;
   creadas.correos.push(nuevo);
   await dlgInv.getByLabel('Correo').fill(nuevo);
@@ -389,7 +462,17 @@ try {
   revisar(true, 'queda una fila de Ana');
 
   // Reenviar la vencida
-  await p.getByRole('button', { name: `Reenviar la invitación de ${vencida}` }).click();
+  {
+    // Revisión fix2: mientras se reenvía una invitación, los «Reenviar» de las otras no quedan ocupados.
+    const retenido = await interceptarAcciones(p, '/editor/admin/coordinadores', false);
+    const reVencida = p.getByRole('button', { name: `Reenviar la invitación de ${vencida}` });
+    const reVigente = p.getByRole('button', { name: `Reenviar la invitación de ${vigente}` });
+    await reVencida.click();
+    await p.waitForTimeout(300);
+    igual(await reVencida.getAttribute('aria-disabled'), 'true', 'el «Reenviar» que se usó queda ocupado');
+    igual(await reVigente.getAttribute('aria-disabled'), null, 'el «Reenviar» de otra invitación no queda ocupado');
+    await retenido.quitar();
+  }
   await p.getByRole('status').filter({ hasText: `Le enviamos una invitación nueva a ${vencida}.` }).waitFor({ timeout: 15_000 });
   revisar(true, 'anuncia el reenvío');
   await p.waitForFunction(
@@ -398,6 +481,22 @@ try {
     { timeout: 15_000 },
   );
   revisar(true, 'la vencida pasa a «Invitación enviada»');
+  {
+    // Revisión fix2: el error de una acción de fila se ve en pantalla.
+    await p.setViewportSize({ width: VIEWPORT.width, height: 200 });
+    const corte = await interceptarAcciones(p, '/editor/admin/coordinadores', true);
+    const reVigente = p.getByRole('button', { name: `Reenviar la invitación de ${vigente}` });
+    await p.locator('main [role="table"]').evaluate((e) => (e.style.marginTop = '1500px'));
+    await reVigente.evaluate((e) => e.scrollIntoView({ block: 'end' }));
+    revisar(await p.evaluate(() => window.scrollY > 1000), 'D2: la fila quedó abajo (la página está desplazada)');
+    await reVigente.click();
+    const alerta = p.locator('main').getByRole('alert');
+    await alerta.waitFor({ timeout: 15_000 });
+    revisar(await enPantalla(alerta), 'D2: el error de «Reenviar» se ve en pantalla aunque la fila esté abajo');
+    await corte.quitar();
+    await p.locator('main [role="table"]').evaluate((e) => (e.style.marginTop = ''));
+    await p.setViewportSize(VIEWPORT);
+  }
 
   // Anular
   await p.getByRole('button', { name: `Quitar la invitación de ${vigente}` }).click();

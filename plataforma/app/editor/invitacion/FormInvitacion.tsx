@@ -9,6 +9,7 @@ import { CampoTexto } from '../../componentes/CampoTexto';
 import { EnlaceTexto } from '../../componentes/EnlaceTexto';
 import { ListaRequisitos } from '../../componentes/ListaRequisitos';
 import { MensajeEstado } from '../../componentes/MensajeEstado';
+import { useEnfocarInvalido } from '../../componentes/useEnfocarInvalido';
 import { useEnvio } from '../../componentes/useEnvio';
 import { aceptarInvitacion } from '../admin/acciones';
 
@@ -22,6 +23,10 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
   const [repetida, setRepetida] = useState('');
   const [errorNombre, setErrorNombre] = useState<string>();
   const [noSirve, setNoSirve] = useState(0);
+  // Con el nombre también mal, el foco va a «Tu nombre» y el mensaje de la contraseña no lo roba
+  // (revisión fix2): los dos errores quedan a mano, uno en el foco y el otro atado a la contraseña.
+  const [noSirveConNombre, setNoSirveConNombre] = useState(false);
+  const { ref: formulario, enfocarInvalido } = useEnfocarInvalido<HTMLFormElement>();
   const [r, setR] = useState<(Resultado & { aviso?: string }) | undefined>();
   const [fallos, setFallos] = useState(0); // >0: la acción no llegó al servidor
   const { ocupado, enviar: enviarAccion } = useEnvio();
@@ -41,10 +46,8 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
       setErrorNombre('error' in v ? v.error : undefined);
       const claveBien = claveValida(clave, repetida);
       setNoSirve(claveBien ? 0 : (n) => n + 1);
-      if ('error' in v) {
-        if (claveBien) setTimeout(() => document.getElementById('nombre')?.focus(), 0);
-        return;
-      }
+      setNoSirveConNombre('error' in v);
+      if ('error' in v) return enfocarInvalido();
       if (!claveBien) return;
     }
     const envio = await enviarAccion(() =>
@@ -56,7 +59,10 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
       return;
     }
     const res = envio.valor;
-    if (res.campo === 'nombre') setErrorNombre(res.error);
+    if (res.campo === 'nombre') {
+      setErrorNombre(res.error);
+      enfocarInvalido();
+    }
     setR(res);
   }
 
@@ -72,9 +78,9 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
   const errorServidor = r?.error && r.campo !== 'nombre' ? r.error : undefined;
   return (
     // noValidate: la validación es la nuestra («Escribe tu nombre.», «Contraseña que no sirve»), no el globo del navegador.
-    <form onSubmit={enviar} noValidate>
+    <form ref={formulario} onSubmit={enviar} noValidate>
       {fallos > 0 && <MensajeEstado key={`f${fallos}`} codigo="sin-conexion" incrustado rol="alert" enfocar />}
-      {noSirve > 0 && <MensajeEstado key={noSirve} codigo="clave-no-sirve" incrustado rol="alert" enfocar />}
+      {noSirve > 0 && <MensajeEstado key={noSirve} id="clave-no-sirve" codigo="clave-no-sirve" incrustado rol="alert" enfocar={!noSirveConNombre} />}
       {errorServidor && (
         <div ref={alerta} role="alert" tabIndex={-1} className="pv-alerta">
           {errorServidor}.
@@ -94,7 +100,15 @@ export function FormInvitacion({ token, correo, crearCuenta, pie }: { token: str
             ayuda="Así te ven en el registro de cambios."
             error={errorNombre}
           />
-          <CampoClave id="clave" etiqueta="Crea una contraseña" autoComplete="new-password" valor={clave} onCambio={setClave} />
+          <CampoClave
+            id="clave"
+            etiqueta="Crea una contraseña"
+            autoComplete="new-password"
+            valor={clave}
+            onCambio={setClave}
+            invalida={noSirve > 0}
+            describidaPor={noSirve > 0 ? 'clave-no-sirve' : undefined}
+          />
           <CampoClave
             id="repetida"
             etiqueta="Repite la contraseña"

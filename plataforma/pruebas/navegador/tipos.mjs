@@ -155,6 +155,8 @@ try {
   igual(JSON.stringify(marcadas), JSON.stringify([true, false, false, false, false, false]), 'solo «Persona» está marcada');
   await pn.getByRole('button', { name: 'Guardar tipo' }).click();
   revisar(await pn.getByText('Escribe el nombre.').isVisible(), 'sin nombre dice «Escribe el nombre.»');
+  // Revisión fix2: con errores, el foco va al primer campo inválido (lee su error por aria-describedby).
+  igual(await pn.evaluate(() => document.activeElement?.id), 'tipo-nombre', 'F8 con errores: el foco va a «Nombre»');
   await pn.getByLabel('Nombre', { exact: true }).fill('Rosario de la aurora');
   igual(await pn.locator('h1').innerText(), 'Rosario de la aurora', 'el título sigue al nombre');
   await pn.getByLabel('Nombre en el panel', { exact: true }).fill('Rosario');

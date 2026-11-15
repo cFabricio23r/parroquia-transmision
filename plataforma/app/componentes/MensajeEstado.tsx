@@ -13,12 +13,15 @@ export function MensajeEstado({
   rol,
   incrustado,
   enfocar,
+  id,
 }: {
   codigo: CodigoMensajeAcceso;
   accion?: ReactNode;
   rol?: 'alert' | 'status';
   incrustado?: boolean;
   enfocar?: boolean;
+  /** Para atarlo a un campo con aria-describedby. */
+  id?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -26,7 +29,7 @@ export function MensajeEstado({
   }, [enfocar, codigo]);
   const m = MENSAJES_ACCESO[codigo];
   return (
-    <div ref={ref} className={incrustado ? 'pv-mensaje pv-mensaje--incrustado' : 'pv-mensaje'} role={rol} tabIndex={-1}>
+    <div ref={ref} id={id} className={incrustado ? 'pv-mensaje pv-mensaje--incrustado' : 'pv-mensaje'} role={rol} tabIndex={-1}>
       <div className="pv-mensaje-cabeza">
         <span className={`pv-mensaje-punto pv-mensaje-punto--${m.tono}`} aria-hidden="true" />
         <h2 className="pv-mensaje-titulo">{m.titulo}</h2>

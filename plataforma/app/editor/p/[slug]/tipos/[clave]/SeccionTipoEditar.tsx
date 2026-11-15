@@ -22,6 +22,7 @@ import {
 } from '../../../../../../lib/editor/tipos';
 import { Boton } from '../../../../../componentes/Boton';
 import { CampoTexto } from '../../../../../componentes/CampoTexto';
+import { useEnfocarInvalido } from '../../../../../componentes/useEnfocarInvalido';
 import { Dialogo } from '../../../../../componentes/Dialogo';
 import { Segmentado } from '../../../../../componentes/Segmentado';
 import { CabezaSeccion } from '../../CabezaSeccion';
@@ -54,6 +55,7 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
   const [formulario, setFormulario] = useState<FormularioTipo | null>(() => recuerdo?.formulario ?? inicial);
   const [original, setOriginal] = useState<FormularioTipo | null>(() => recuerdo?.original ?? inicial);
   const [errores, setErrores] = useState<ErroresTipo>({});
+  const { ref: seccion, enfocarInvalido } = useEnfocarInvalido<HTMLElement>();
   const [confirmar, setConfirmar] = useState<'volver' | 'borrar' | null>(null);
   const [guardando, setGuardando] = useState(false);
   const saliendo = useRef(false);
@@ -116,7 +118,7 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
   const guardar = async () => {
     const e = erroresTipo(f, tipos);
     setErrores(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) return enfocarInvalido(); // al primer campo con error, que lo lee (revisión fix2)
     setGuardando(true);
     cambiar('tipos', aplicarTipo(tipos, f, datos.tiposComunes, clavesPropias).tipos);
     await guardarYa();
@@ -150,7 +152,7 @@ export function SeccionTipoEditar({ clave }: { clave: string }) {
   };
 
   return (
-    <section className="pv-seccion-form pv-tipo-form" aria-labelledby="pv-titulo-tipo">
+    <section ref={seccion} className="pv-seccion-form pv-tipo-form" aria-labelledby="pv-titulo-tipo">
       <Migas items={[{ texto: 'Tipos de transmisión', href: base }, { texto: miga }]} />
       <h1 id="pv-titulo-tipo" className="pv-seccion-titulo">
         {titulo}
