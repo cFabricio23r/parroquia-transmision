@@ -17,17 +17,20 @@ export type EntradaAvisos = {
   bateria: number | null;
   /** Temperatura de la batería en °C (el nativo no tiene otra). */
   temperatura: number | null;
-  /** PowerManager.getCurrentThermalStatus(): solo cuenta 3 (severo) o más. null antes de Android 10. */
+  /** PowerManager.getCurrentThermalStatus(): solo cuenta 4 (crítico) o más. null antes de Android 10. */
   termico: number | null;
   hayRed: boolean;
   /** Si es 1080p, el aviso rojo de calor sugiere bajar a 720p. */
   calidad?: Calidad;
 };
 
-const TERMICO_SEVERO = 3;
-// El ámbar sale solo por los grados de la batería. El «moderado» de Android (2) mira el procesador
-// y en la prueba del 2026-11-07 avisaba con la batería a 32–35 °C, sin problema real.
+// Los avisos salen por los grados de la batería. El estado térmico de Android mira el procesador:
+// el «moderado» (2) avisaba con la batería a 32–35 °C (prueba del 2026-11-07) y el «severo» (3)
+// duró 80 min con la batería a 35–37 °C y el video a 30 fps (misa del 2026-11-15). Solo el
+// «crítico» (THERMAL_STATUS_CRITICAL = 4, javap sobre android-36) da rojo sin mirar los grados.
+const TERMICO_CRITICO = 4;
 const TEMPERATURA_ALTA = 42;
+const TEMPERATURA_MUY_ALTA = 45;
 const BATERIA_BAJA = 0.15;
 
 const numero = (x: number | null): x is number => x !== null && Number.isFinite(x);
@@ -54,7 +57,9 @@ export function avisosActivos(e: EntradaAvisos): Aviso[] {
       detalle: 'Conecte el cargador.',
     });
   }
-  if (numero(e.termico) && e.termico >= TERMICO_SEVERO) {
+  const muyCaliente =
+    (numero(e.termico) && e.termico >= TERMICO_CRITICO) || (numero(e.temperatura) && e.temperatura >= TEMPERATURA_MUY_ALTA);
+  if (muyCaliente) {
     const detalle = 'Póngalo a la sombra, sin funda y en un cargador de pared.';
     r.push({
       id: 'calor',

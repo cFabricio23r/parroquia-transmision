@@ -40,8 +40,8 @@ describe('avisosActivos', () => {
     expect(ids({ bateria: 0.16 })).toEqual([]);
   });
 
-  it('termico 3 da calor rojo', () => {
-    expect(avisosActivos({ ...BIEN, termico: 3 })).toEqual([
+  it('termico 4 (crítico) da calor rojo', () => {
+    expect(avisosActivos({ ...BIEN, termico: 4 })).toEqual([
       {
         id: 'calor',
         nivel: 'rojo',
@@ -51,15 +51,33 @@ describe('avisosActivos', () => {
     ]);
   });
 
-  it('termico mayor que 3 también da calor rojo', () => {
+  it('termico mayor que 4 también da calor rojo', () => {
     expect(avisosActivos({ ...BIEN, termico: 5 })[0].nivel).toBe('rojo');
   });
 
-  it('termico 3 en 1080p agrega «Pase a 720p en Ajustes.»', () => {
-    expect(avisosActivos({ ...BIEN, termico: 3, calidad: '1080p' })[0].detalle).toBe(
+  // Misa del 2026-11-15: el estado 3 («severo») duró 80 min con la batería a 35–37 °C y el video a 30 fps.
+  it('termico 3 sin temperatura alta no da aviso', () => {
+    expect(ids({ termico: 3, temperatura: 35.7 })).toEqual([]);
+    expect(ids({ termico: 3, temperatura: null })).toEqual([]);
+  });
+
+  it('temperatura >= 45 da calor rojo aunque termico sea bajo o null', () => {
+    expect(avisosActivos({ ...BIEN, temperatura: 45, termico: 0 })[0]).toMatchObject({ id: 'calor', nivel: 'rojo' });
+    expect(avisosActivos({ ...BIEN, temperatura: 47, termico: null })[0]).toMatchObject({ id: 'calor', nivel: 'rojo' });
+  });
+
+  it('temperatura de 44,9 da calor ámbar, no rojo', () => {
+    expect(avisosActivos({ ...BIEN, temperatura: 44.9, termico: 3 })[0]).toMatchObject({ id: 'calor', nivel: 'ambar' });
+  });
+
+  it('calor rojo en 1080p agrega «Pase a 720p en Ajustes.»', () => {
+    expect(avisosActivos({ ...BIEN, termico: 4, calidad: '1080p' })[0].detalle).toBe(
       'Póngalo a la sombra, sin funda y en un cargador de pared. Pase a 720p en Ajustes.',
     );
-    expect(avisosActivos({ ...BIEN, termico: 3, calidad: '720p' })[0].detalle).toBe(
+    expect(avisosActivos({ ...BIEN, temperatura: 45, calidad: '1080p' })[0].detalle).toBe(
+      'Póngalo a la sombra, sin funda y en un cargador de pared. Pase a 720p en Ajustes.',
+    );
+    expect(avisosActivos({ ...BIEN, termico: 4, calidad: '720p' })[0].detalle).toBe(
       'Póngalo a la sombra, sin funda y en un cargador de pared.',
     );
   });
@@ -85,8 +103,8 @@ describe('avisosActivos', () => {
     expect(ids({ temperatura: 41.9, termico: 1 })).toEqual([]);
   });
 
-  it('termico 3 con temperatura alta da un solo calor, rojo', () => {
-    const r = avisosActivos({ ...BIEN, termico: 3, temperatura: 46 });
+  it('termico 4 con temperatura alta da un solo calor, rojo', () => {
+    const r = avisosActivos({ ...BIEN, termico: 4, temperatura: 46 });
     expect(r).toHaveLength(1);
     expect(r[0].nivel).toBe('rojo');
   });
@@ -104,7 +122,7 @@ describe('avisosActivos', () => {
       'bateria',
       'calor',
     ]);
-    expect(ids({ termico: 3, bateria: 0.05, hayRed: false })).toEqual(['sin_red', 'bateria', 'calor']);
+    expect(ids({ termico: 4, bateria: 0.05, hayRed: false })).toEqual(['sin_red', 'bateria', 'calor']);
   });
 
   it('valores no numéricos (NaN) no dan aviso', () => {
