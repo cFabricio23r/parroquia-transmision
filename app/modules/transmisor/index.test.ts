@@ -7,7 +7,7 @@ function cargar() {
   let alEvento: ((n: Nativo) => void) | null = null;
   let alServicio: ((n: { ok: boolean }) => void) | null = null;
   const modulo = {
-    medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40, fpsVideo: 30 })),
+    medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40, fpsVideo: 30, bateria: { nivel: 70, escala: 100, estado: 3, enchufe: 0 } })),
     rangoZoom: jest.fn(() => Promise.resolve({ min: 1, max: 8 })),
     ponerZoom: jest.fn((_nivel: number) => Promise.resolve()),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
@@ -281,7 +281,7 @@ describe('servicio en primer plano (review M4)', () => {
 describe('medirAvisos (review M5)', () => {
   it('usa la medición liviana del nativo, sin la memoria', async () => {
     const { api, modulo } = cargar();
-    await expect(api.medirAvisos()).resolves.toEqual({ termico: 2, temperatura: 40, fpsVideo: 30 });
+    await expect(api.medirAvisos()).resolves.toEqual({ termico: 2, temperatura: 40, fpsVideo: 30, bateria: { nivel: 70, escala: 100, estado: 3, enchufe: 0 } });
     expect(modulo.medirAvisos).toHaveBeenCalledTimes(1);
   });
 });

@@ -116,7 +116,8 @@ export function actualizarEstado(json: string): void {
 
 // --- Tarea 9: avisos, registro de rendimiento y No molestar ---
 
-export type { MedidaNativa } from './src/TransmisorModule';
+export type { MedidaAvisos, MedidaNativa } from './src/TransmisorModule';
+import type { MedidaAvisos } from './src/TransmisorModule';
 
 /** Estado térmico, temperatura de la batería, memoria y fps (para los avisos y el registro). */
 export function medir() {
@@ -124,7 +125,7 @@ export function medir() {
 }
 
 /** Lo que usan los avisos (cada 10 s): sin la memoria, que es lenta de leer (review M5). */
-export function medirAvisos(): Promise<{ termico: number | null; temperatura: number | null; fpsVideo: number | null }> {
+export function medirAvisos(): Promise<MedidaAvisos> {
   return Modulo.medirAvisos();
 }
 

@@ -4,6 +4,15 @@ import type { Calidad, EstiloFinal, Microfono } from '../../../src/ajustes/ajust
 import type { Orientacion } from '../../../src/estado/orientacion';
 import type { Escena } from '../../../src/estado/transmision';
 import { TransmisorModuleEvents } from './Transmisor.types';
+import type { BateriaCruda } from '../../../src/estado/bateria';
+
+/** Lo que usan los avisos cada 10 s. `bateria` es null si el sistema no la da (Tarea 9h). */
+export type MedidaAvisos = {
+  termico: number | null;
+  temperatura: number | null;
+  fpsVideo: number | null;
+  bateria: BateriaCruda | null;
+};
 
 declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   version(): Promise<string>;
@@ -18,7 +27,7 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   /** Datos del sistema para los avisos y el registro (Tarea 9). */
   medir(): Promise<MedidaNativa>;
   /** El estado térmico, la temperatura y los fps, sin leer la memoria (para los avisos, cada 10 s). */
-  medirAvisos(): Promise<{ termico: number | null; temperatura: number | null; fpsVideo: number | null }>;
+  medirAvisos(): Promise<MedidaAvisos>;
   /** Rango del zoom de la cámara; null si la cámara está apagada o no tiene zoom (Tarea 9g). */
   rangoZoom(): Promise<{ min: number; max: number } | null>;
   /** Pone el zoom; el nativo lo deja dentro del rango. */

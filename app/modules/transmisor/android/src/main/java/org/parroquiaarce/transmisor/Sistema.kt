@@ -40,6 +40,21 @@ object Sistema {
     return if (decimas == Int.MIN_VALUE) null else decimas / 10.0
   }
 
+  /**
+   * Batería cruda del ACTION_BATTERY_CHANGED fijo (Tarea 9h): { nivel, escala, estado, enchufe }.
+   * La interpreta `leerBateria` en TypeScript. Se lee acá porque el aviso de nivel de expo-battery solo
+   * llega cerca del 15 % (misa del 2026-11-15: 70 % fijo durante 1 h 40 min).
+   */
+  fun bateria(ctx: Context): Map<String, Int>? {
+    val i = ctx.applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return null
+    return mapOf(
+      "nivel" to i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
+      "escala" to i.getIntExtra(BatteryManager.EXTRA_SCALE, -1),
+      "estado" to i.getIntExtra(BatteryManager.EXTRA_STATUS, -1),
+      "enchufe" to i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0),
+    )
+  }
+
   /** Memoria del proceso de la app (PSS), en MB. */
   fun memoriaMb(): Double = Debug.getPss() / 1024.0
 

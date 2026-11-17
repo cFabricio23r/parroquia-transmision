@@ -6,7 +6,6 @@
 // lo que va encima y alrededor de la vista previa.
 // Iniciar, cancelar y terminar los maneja el orquestador (src/estado/orquestador.ts, con tests).
 // La clave nunca se muestra ni se registra: solo pasa de Ajustes a iniciar().
-import * as Battery from 'expo-battery';
 import { useFonts } from 'expo-font';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Network from 'expo-network';
@@ -52,6 +51,7 @@ import { alCambiarAjustes } from './src/ajustes/descarga';
 import { controlSesion } from './src/sesion/control';
 import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
 import { alCambiarPaginas, textoCopia } from './src/copias/copias';
+import { leerBateria } from './src/estado/bateria';
 import { aHayRed } from './src/estado/red';
 import {
   accionRegistro,
@@ -570,24 +570,6 @@ export default function App(p: {
     return () => s.remove();
   }, []);
 
-  // Batería (expo-battery): nivel de 0 a 1 y si está cargando.
-  useEffect(() => {
-    const aCargando = (s: Battery.BatteryState): boolean | null =>
-      s === Battery.BatteryState.CHARGING || s === Battery.BatteryState.FULL
-        ? true
-        : s === Battery.BatteryState.UNPLUGGED
-          ? false
-          : null;
-    Battery.getBatteryLevelAsync().then(setBateria, () => undefined);
-    Battery.getBatteryStateAsync().then((s) => setCargando(aCargando(s)), () => undefined);
-    const n = Battery.addBatteryLevelListener((e) => setBateria(e.batteryLevel));
-    const c = Battery.addBatteryStateListener((e) => setCargando(aCargando(e.batteryState)));
-    return () => {
-      n.remove();
-      c.remove();
-    };
-  }, []);
-
   // Red (expo-network). Si no se sabe, se supone que hay: el aviso es solo para «sin internet» seguro.
   useEffect(() => {
     Network.getNetworkStateAsync().then((s) => setHayRed(aHayRed(s)), () => undefined);
@@ -595,7 +577,8 @@ export default function App(p: {
     return () => r.remove();
   }, []);
 
-  // Estado térmico, temperatura de la batería y fps del video, cada 10 s.
+  // Estado térmico, temperatura y nivel de la batería, y fps del video, cada 10 s. La batería se lee
+  // del nativo y no del aviso de expo-battery, que en Android solo llega cerca del 15 % (Tarea 9h).
   useEffect(() => {
     const leer = () =>
       medirAvisos().then(
@@ -603,6 +586,9 @@ export default function App(p: {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
           setFpsVideo(m.fpsVideo ?? null);
+          const b = leerBateria(m.bateria);
+          setBateria(b.nivel);
+          setCargando(b.cargando);
         },
         () => undefined,
       );
