@@ -5,7 +5,7 @@ Pantallas, rótulos y panel de control para las transmisiones en vivo con **OBS 
 misa de otro santo, prenovena, novena, fiesta patronal del **8 de diciembre** y eventos especiales.
 
 Son páginas HTML estáticas, sin websockets ni plugins, publicadas en **Vercel**
-(`https://parroquia-transmision.vercel.app`) y cargadas en OBS como *fuentes de navegador* y un
+(`https://obs.parroquiaciudadarce.org`; también responde en `parroquia-transmision.vercel.app`) y cargadas en OBS como *fuentes de navegador* y un
 *dock de navegador personalizado* que hace de panel de control. Si falla el internet, la carpeta `obs/`
 funciona igual desde el disco con direcciones `file:///` (ver «Respaldo sin internet»).
 
@@ -51,21 +51,21 @@ y los avisos se quedan. Las direcciones de OBS no cambian.
 ## Instalación rápida en OBS
 
 1. **Docks → Docks de navegador personalizados**: nombre `Panel Parroquia`, URL
-   `https://parroquia-transmision.vercel.app/panel.html`
+   `https://obs.parroquiaciudadarce.org/panel.html`
 2. En cada escena, **Fuente → Navegador**, *sin* marcar «Archivo local», **1920 × 1080**:
 
    | Escena | URL |
    |---|---|
-   | Inicio | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=inicio` |
-   | Portada 8 de diciembre | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=portada` |
-   | Avisos | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=avisos` |
-   | Gracias | `https://parroquia-transmision.vercel.app/pantalla.html?tipo=gracias` |
-   | Misa (sobre la cámara) | `https://parroquia-transmision.vercel.app/rotulos.html` |
+   | Inicio | `https://obs.parroquiaciudadarce.org/pantalla.html?tipo=inicio` |
+   | Portada 8 de diciembre | `https://obs.parroquiaciudadarce.org/pantalla.html?tipo=portada` |
+   | Avisos | `https://obs.parroquiaciudadarce.org/pantalla.html?tipo=avisos` |
+   | Gracias | `https://obs.parroquiaciudadarce.org/pantalla.html?tipo=gracias` |
+   | Misa (sobre la cámara) | `https://obs.parroquiaciudadarce.org/rotulos.html` |
 
 3. Transición: **Stinger** con `transiciones/Transicion_2000ms_Logo.webm` (o `_Virgen`), punto de transición **1000 ms**.
    Las transiciones son archivos locales: clone o copie el repositorio, por ejemplo en `C:\parroquia-obs`.
 
-> Importante: panel y fuentes deben usar **exactamente el mismo dominio** (`parroquia-transmision.vercel.app`)
+> Importante: panel y fuentes deben usar **exactamente el mismo dominio** (`obs.parroquiaciudadarce.org`)
 > para compartir el mismo almacenamiento. Otro dominio de Vercel, una dirección `file:///` o «Archivo local»
 > en una sola fuente hacen que esa fuente no reciba los cambios del panel.
 

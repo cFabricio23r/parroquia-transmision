@@ -3,7 +3,7 @@ Instalación en OBS (Windows)
 ==========================================================================
 
 Las pantallas están publicadas en internet, en
-  https://parroquia-transmision.vercel.app
+  https://obs.parroquiaciudadarce.org
 No necesita websocket ni plugins. Si se va el internet, vea
 "SIN INTERNET" al final.
 
@@ -11,7 +11,7 @@ No necesita websocket ni plugins. Si se va el internet, vea
 1. LA DIRECCIÓN
 ---------------------------------------------------------------
 Todas las direcciones de abajo empiezan igual:
-  https://parroquia-transmision.vercel.app/
+  https://obs.parroquiaciudadarce.org/
 Escríbalas exactamente así en el panel y en TODAS las fuentes.
 Si una sola usa otra dirección, esa no recibe los cambios del panel.
 
@@ -22,7 +22,7 @@ En OBS: menú  Docks (en español puede decir "Paneles")  →
         "Docks/Paneles de navegador personalizados…"
         (en inglés: Docks → Custom Browser Docks…)
   Nombre:  Panel Parroquia
-  URL:     https://parroquia-transmision.vercel.app/panel.html
+  URL:     https://obs.parroquiaciudadarce.org/panel.html
 Pulse Aplicar. El panel aparece como una ventana que puede acomodar
 junto a sus escenas.
 
@@ -35,7 +35,7 @@ IMPORTANTE en cada una:
   • Ancho 1920 · Alto 1080
   • Deje DESMARCADO "Apagar la fuente cuando no esté visible".
 
-  Escena                     URL (después de https://parroquia-transmision.vercel.app/)
+  Escena                     URL (después de https://obs.parroquiaciudadarce.org/)
   ---------------------------------------------------------------------
   Inicio (en breve…)         pantalla.html?tipo=inicio
   Portada 8 de diciembre     pantalla.html?tipo=portada
@@ -45,7 +45,7 @@ IMPORTANTE en cada una:
   Producción (azul)          produccion.html?estilo=azul
   Misa (encima de la cámara) rotulos.html
 
-  Ejemplo completo: https://parroquia-transmision.vercel.app/pantalla.html?tipo=inicio
+  Ejemplo completo: https://obs.parroquiaciudadarce.org/pantalla.html?tipo=inicio
 
 La fuente "rotulos.html" tiene fondo transparente: póngala ENCIMA de la
 cámara en la escena de la misa. Ahí aparecen el logo, la etiqueta
@@ -126,7 +126,7 @@ En la carpeta "transiciones" (en la raíz del repositorio) están las transicion
 SI ALGO NO CAMBIA
 ---------------------------------------------------------------
 • Revise que el panel y todas las fuentes empiecen con
-  https://parroquia-transmision.vercel.app/ (sin marcar "Archivo local").
+  https://obs.parroquiaciudadarce.org/ (sin marcar "Archivo local").
 • Clic derecho en la fuente → Propiedades → "Actualizar caché de la
   página actual".
 
@@ -137,7 +137,7 @@ Si una pantalla queda en blanco porque se fue el internet, use la
 copia de la carpeta "obs" en la computadora (por ejemplo
 C:\parroquia-obs\obs). Cambie el inicio de TODAS las direcciones,
 panel incluido, de
-  https://parroquia-transmision.vercel.app/
+  https://obs.parroquiaciudadarce.org/
 a
   file:///C:/parroquia-obs/obs/
 (con barras /). Los textos escritos en el panel no pasan de una

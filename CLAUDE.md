@@ -9,14 +9,14 @@ y los mensajes van en español.
 ## Reglas que no se rompen
 
 1. **Sitio estático, sin dependencias externas.** OBS carga las páginas desde Vercel
-   (`https://parroquia-transmision.vercel.app`, publica solo `obs/`, se despliega solo con cada push a `main`).
+   (`https://obs.parroquiaciudadarce.org`, proyecto `parroquia-transmision`, también en `parroquia-transmision.vercel.app`; publica solo `obs/`, se despliega solo con cada push a `main`).
    Nada de websockets, obs-websocket, servidores, funciones, CDNs ni Google Fonts: fuentes e imágenes son
    archivos propios en `obs/fuentes` y `obs/img`, con rutas relativas. Así la carpeta `obs/` sigue funcionando
    también sin internet, con `file:///`, como respaldo.
 2. **Comunicación panel ↔ pantallas** solo por `localStorage` (clave `parroquia_obs_estado_v1`) + `BroadcastChannel('parroquia_obs')`.
    Las páginas también revisan `localStorage` cada 300 ms como respaldo. El panel es el único que escribe el estado;
    las pantallas solo leen y escriben su «latido» en `parroquia_obs_latido_v1`.
-3. **Un solo origen en OBS.** Panel y fuentes usan todos `https://parroquia-transmision.vercel.app/…`
+3. **Un solo origen en OBS.** Panel y fuentes usan todos `https://obs.parroquiaciudadarce.org/…`
    (o todos `file:///` en el respaldo sin internet). Mezclar orígenes —otro dominio de Vercel, `file:///` o
    «Archivo local»— separa el almacenamiento y esa fuente deja de recibir los cambios del panel.
 4. **Escenario fijo de 1920×1080** dentro de `.escenario`, escalado con `escalarEscenario()` (en `comun.js`) para

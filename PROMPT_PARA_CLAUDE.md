@@ -9,7 +9,7 @@ Hola. Este repositorio tiene los gráficos en vivo para OBS de la Parroquia Inma
 Ciudad Arce: pantallas completas (inicio, portada del 8 de diciembre, avisos y gracias), una capa transparente
 con rótulos animados (celebrante, primera lectura, salmo, segunda lectura, evangelio y Santo Rosario) y un panel
 de control que se usa como dock dentro de OBS. Todo es HTML/CSS/JS estático, sin websockets,
-publicado en Vercel (`https://parroquia-transmision.vercel.app`) con cada push a `main`.
+publicado en Vercel (`https://obs.parroquiaciudadarce.org`) con cada push a `main`.
 
 Antes de cambiar nada:
 1. Lee `CLAUDE.md` y `README.md` completos.

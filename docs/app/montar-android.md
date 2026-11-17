@@ -45,7 +45,7 @@ carpeta muy adentro puede fallar.
 La app no arranca sin este archivo («La app está mal armada…»). No va a git. Créelo con:
 
 ```
-EXPO_PUBLIC_PLATAFORMA_ORIGEN=https://plataforma-vicaria.vercel.app
+EXPO_PUBLIC_PLATAFORMA_ORIGEN=https://envivo.parroquiaciudadarce.org
 EXPO_PUBLIC_SUPABASE_URL=https://<proyecto>.supabase.co
 EXPO_PUBLIC_SUPABASE_CLAVE_PUBLICA=sb_publishable_…
 ```
