@@ -289,8 +289,22 @@ object Capa {
     else mal?.invoke(CodedException("ERR_LIBERADA", "La capa se liberó durante la transición.", null))
   }
 
+  /**
+   * Muestra una escena y oculta las demás. Las ocultas se pausan con WebView.onPause() (Tarea 9h):
+   * Inicio queda cargada debajo de Cámara y su fondo vivo (Ken Burns, rayos, chispas) seguía animando.
+   * onPause no frena el JavaScript, así que siguen recibiendo el estado. No se usa pauseTimers(),
+   * que frena todas las WebViews de la app, también la del panel.
+   */
   private fun mostrarSolo(escena: String) {
-    for ((nombre, w) in vistas) w.visibility = if (nombre == escena) View.VISIBLE else View.INVISIBLE
+    for ((nombre, w) in vistas) {
+      if (nombre == escena) {
+        w.onResume()
+        w.visibility = View.VISIBLE
+      } else {
+        w.visibility = View.INVISIBLE
+        w.onPause()
+      }
+    }
   }
 
   private fun agregarEscena(nombre: String) {

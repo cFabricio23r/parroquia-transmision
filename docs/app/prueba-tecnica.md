@@ -247,3 +247,49 @@ Fue la misma corrida del punto 3: 30 min, 720p, 30 fps, 3 Mbps, 6 WebViews y la 
 - Reinstalar el APK disparó un diálogo de Play Protect. No se tocó; lo resolvió el usuario.
 - El servidor adb de esta PC se reinicia solo por un desajuste de versiones, y al reiniciarse borra los
   `adb reverse`. Hay que rehacerlos después de cada reinicio.
+
+## Misa del 2026-11-15 (Tarea 9h)
+
+Registro `registro-20261115-143039.csv`: 1 h 41 min a 720p, unos 2,6 Mbps, sin cortes, memoria entre 230 y
+267 MB. Tres hallazgos:
+
+- **La batería quedó en 70 % toda la misa.** El aviso de nivel de `expo-battery` 58.0.3 en Android solo
+  escucha `ACTION_BATTERY_LOW` y `ACTION_BATTERY_OKAY` (leído en `BatteryModule.kt`). Ahora se lee del
+  `ACTION_BATTERY_CHANGED` fijo cada 10 s.
+- **El estado térmico 3 («severo») no fue un problema.** Llegó a las 14:51 con la batería a 35,7 °C y duró
+  80 min; la batería no pasó de 37,5 °C y el video siguió a 30 fps en Cámara. El aviso rojo pasa a 45 °C o
+  estado 4.
+- **La capa se copiaba sin parar.** `fps_capa` en unos 30 en Cámara y unos 17 en Inicio, donde el video
+  bajó a 25–29 fps y el estado térmico subió de 0 a 2 en 5 min.
+
+### Medición con `adb logcat -s Transmisor` (2026-11-16, Samsung SM-S948B, build del 2026-11-15)
+
+En Preparar, sin salir al aire, en Cámara:
+
+```
+capa: dibujos=300 avisos=600 deLaCapa=600 latidos=0 errores=0 en 10 s continuo=false
+```
+
+Igual en cada informe de 10 s durante 2 min y medio. `deLaCapa≈600` es la capa marcada como cambiada en cada
+refresco de la pantalla (60 Hz): nunca está quieta. Causas en las páginas de `vicaria/`: el punto de «EN VIVO»
+late para siempre (`.envivo i`, `animation: latido 1.6s infinite`) y la escena Inicio, cargada debajo, tiene
+el fondo vivo (Ken Burns, rayos, brillo y chispas). `dibujos=300` es el tope de 30 fps: la capa de
+1920×1080 se copiaba en el hilo principal 30 veces por segundo.
+
+Arreglo: tope de 10 fps fuera de la transición y `WebView.onPause()` en las escenas ocultas.
+
+### Después del arreglo (2026-11-16, mismo celular, en Preparar)
+
+```
+Cámara: capa: dibujos=100 avisos=600 deLaCapa=600 latidos=0 errores=0 en 10 s continuo=false
+Inicio: capa: dibujos=100 avisos=600 deLaCapa=600 latidos=0 errores=0 en 10 s continuo=false
+```
+
+- **Copias de la capa: de 300 a 100 cada 10 s (de 30 a 10 fps) en las dos escenas.** Durante la transición
+  suben a 30, como se pidió (los informes que la incluyen dan 135–216).
+- **`deLaCapa` sigue en unos 600 en Cámara.** El punto de «EN VIVO» de `rotulos.html` está a la vista y
+  late siempre, así que la capa se sigue marcando como cambiada; el tope es lo que evita copiarla.
+- **`WebView.onPause()` en las escenas ocultas: efecto no medible acá.** Puede que baje el trabajo del
+  renderer de Inicio cuando está oculta, pero el log no lo ve. Cambiar de escena 6 veces seguidas funcionó:
+  cada escena volvió a verse al mostrarla.
+- Falta medir el calor y la batería en una transmisión real (paso 5 de la Tarea 9h).

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  1. view.draw(canvas) se hace en el hilo principal. ViewFilterRender lo hace en Dispatchers.IO
  *     y, con la vista adjunta a la ventana, revienta («Recording currently in progress»).
  *  2. Calor: no copia la vista 30 veces por segundo. La copia solo cuando la ventana se redibuja
- *     (ViewTreeObserver.OnDrawListener) y la capa cambió (View.isDirty), como máximo a 30 fps. La textura conserva el último
+ *     (ViewTreeObserver.OnDrawListener) y la capa cambió (View.isDirty), como máximo a 10 fps (Tarea 9h). La textura conserva el último
  *     cuadro, así que mientras nada cambia el video sigue mostrando la capa sin trabajo extra.
  *     Con `continuo = true` (durante la transición) copia cada cuadro a 30 fps.
  *     Un latido cada LATIDO_MS copia igual, por si se perdió un aviso.
@@ -36,7 +36,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 class FiltroCapa(private val vista: View) : BaseFilterRender() {
   companion object {
     private const val TAG = "Transmisor"
-    private const val CUADRO_MS = 33L
+    // Durante la transición se copia a 30 fps. Fuera de ella, como máximo a 10 (Tarea 9h): el latido de
+    // «EN VIVO» y el fondo vivo marcan la capa como cambiada en cada refresco de la pantalla (medido el
+    // 2026-11-16: deLaCapa≈600 y dibujos≈300 cada 10 s en Cámara), y sus animaciones son lentas.
+    private const val CUADRO_TRANSICION_MS = 33L
+    private const val CUADRO_MS = 100L
     private const val LATIDO_MS = 2000L
     private const val INFORME_MS = 10_000L
   }
@@ -137,11 +141,12 @@ class FiltroCapa(private val vista: View) : BaseFilterRender() {
     h.postDelayed(informe, INFORME_MS)
   }
 
-  /** Pide una copia de la vista; varias seguidas se juntan en una, como máximo cada 33 ms. */
+  /** Pide una copia de la vista; varias seguidas se juntan en una, como máximo cada 100 ms (33 en la transición). */
   fun pedir() {
     if (liberado || programado) return
     programado = true
-    val espera = (ultimo + CUADRO_MS - SystemClock.uptimeMillis()).coerceIn(0L, CUADRO_MS)
+    val cuadro = if (continuo) CUADRO_TRANSICION_MS else CUADRO_MS
+    val espera = (ultimo + cuadro - SystemClock.uptimeMillis()).coerceIn(0L, cuadro)
     h.postDelayed(dibujarProgramado, espera)
   }
 
