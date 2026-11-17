@@ -75,6 +75,26 @@ Si falla el internet y OBS no puede cargar una página, cambie **todas** las dir
 copia local, por ejemplo `file:///C:/parroquia-obs/obs/panel.html`, `file:///C:/parroquia-obs/obs/pantalla.html?tipo=inicio`, etc.
 Los textos escritos en el panel no pasan de una dirección a la otra: hay que volver a escribirlos.
 
+## App para el celular
+
+**Parroquia en vivo** (`app/`) transmite la misa desde un celular Android directo a la página de Facebook de la
+parroquia, sin computadora y sin OBS. Muestra las mismas pantallas y rótulos encima de la cámara, con el panel
+dentro de la app. Es Expo (React Native) con un módulo nativo propio (`app/modules/transmisor`).
+
+- **Para el voluntario:** [docs/app/usar-la-app.md](docs/app/usar-la-app.md), la guía de una página para la misa.
+- **Para compilarla:** [docs/app/montar-android.md](docs/app/montar-android.md). En corto, con el celular conectado
+  por USB y el archivo `app/.env.local` creado (ver la guía):
+
+  ```bash
+  cd app && npm install && npm run android
+  ```
+
+- **Las claves:** la clave de transmisión de Facebook la carga la Pastoral en la plataforma web y la app la baja,
+  o se pega en **Ajustes** del celular. Se guarda en el almacén seguro del celular y nunca va en el código, en
+  git ni en los registros. En `app/.env.local` va solo la
+  clave **publicable** de Supabase.
+- **Pruebas en el celular:** [docs/app/prueba-tecnica.md](docs/app/prueba-tecnica.md).
+
 ## Desarrollo
 
 Requisitos: [Node.js LTS](https://nodejs.org) y, para las transiciones, [ffmpeg](https://www.gyan.dev/ffmpeg/builds/) en el PATH.
