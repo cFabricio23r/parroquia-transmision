@@ -15,9 +15,9 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { envolverCorreo, REMITENTE } from '../lib/plantilla-correo.mjs';
 
 const DIAS_INVITACION = 7;
-const REMITENTE = 'Transmisiones parroquiales <no-responder@avisos.parroquiaciudadarce.org>';
 const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const hashDe = (token) => createHash('sha256').update(token).digest('hex');
@@ -69,13 +69,14 @@ const enlace = `${sitio}/editor/invitacion?token=${token}`;
 const asunto = 'Te invitaron a administrar la plataforma de parroquias';
 const aviso = `El enlace sirve una sola vez y vence en ${DIAS_INVITACION} días. Si no esperabas este mensaje, ignóralo.`;
 const texto = `Te invitaron a administrar la plataforma de parroquias como administrador.\n\nPara aceptar la invitación entra aquí:\n${enlace}\n\n${aviso}`;
-const html = `<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;color:#222;line-height:1.5">
-<h1 style="font-size:20px">${asunto}</h1>
-<p>Te invitaron a administrar la plataforma de parroquias como administrador.</p>
-<p>${aviso}</p>
-<p><a href="${enlace}" style="display:inline-block;background:#1f3a5f;color:#ffffff;padding:12px 20px;border-radius:6px;text-decoration:none">Aceptar la invitación</a></p>
-<p>Si el botón no funciona, copia esta dirección en tu navegador:<br>${enlace}</p>
-</body></html>`;
+const html = envolverCorreo({
+  titulo: asunto,
+  previa: 'Acepta la invitación para administrar la plataforma de parroquias.',
+  parrafos: ['Te invitaron a administrar la plataforma de parroquias como <strong>administrador</strong>.'],
+  enlace,
+  boton: 'Aceptar la invitación',
+  aviso,
+});
 
 try {
   if (process.env.RESEND_API_KEY) {
