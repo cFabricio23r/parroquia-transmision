@@ -20,7 +20,8 @@ class TransmisorModule : Module() {
     Name("Transmisor")
 
     // Cambios de conexión: { conexion, motivo, kbps, termico }.
-    Events("onEstado", "onServicio")
+    // Cambios de las barras del sistema o del recorte: { top, bottom, left, right } en dp (Tarea 9i).
+    Events("onEstado", "onServicio", "onZonas")
 
     OnCreate {
       // Antes de cualquier conexión: RootEncoder escribe la clave con Log.i.
@@ -36,12 +37,14 @@ class TransmisorModule : Module() {
       // posterior no debe llegarle (review M3 de la Tarea 9).
       Motor.alEvento = null
       Motor.alServicio = null
+      Zonas.olvidarAviso()
       val enPrincipal = Looper.myLooper() == Looper.getMainLooper()
       Log.w("Transmisor", "destroy en principal=$enPrincipal")
       val soltar = Runnable {
         Motor.terminar()
         Capa.liberar()
         Registro.cerrar()
+        Zonas.soltar()
       }
       if (enPrincipal) soltar.run() else Handler(Looper.getMainLooper()).post(soltar)
     }
@@ -173,25 +176,11 @@ class TransmisorModule : Module() {
     // C++ generado no compila en esta PC: la ruta pasa de 300 caracteres y el ninja del NDK falla.
     // WindowInsets.getInsets y Type desde la API 30; antes, systemWindowInset* (deprecado).
     // Son los valores del momento: al girar, JS los vuelve a pedir.
+    // Tarea 9i: además, desde la primera lectura se avisa cada cambio con el evento onZonas (Zonas.kt).
     AsyncFunction("zonasSeguras") {
       val actividad = appContext.currentActivity ?: throw IllegalStateException("Sin actividad.")
-      val vista = actividad.window.decorView
-      val d = vista.resources.displayMetrics.density
-      val ins = vista.rootWindowInsets
-      if (ins == null) {
-        mapOf("top" to 0.0, "bottom" to 0.0, "left" to 0.0, "right" to 0.0)
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        val i = ins.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-        mapOf("top" to i.top / d.toDouble(), "bottom" to i.bottom / d.toDouble(), "left" to i.left / d.toDouble(), "right" to i.right / d.toDouble())
-      } else {
-        @Suppress("DEPRECATION")
-        mapOf(
-          "top" to ins.systemWindowInsetTop / d.toDouble(),
-          "bottom" to ins.systemWindowInsetBottom / d.toDouble(),
-          "left" to ins.systemWindowInsetLeft / d.toDouble(),
-          "right" to ins.systemWindowInsetRight / d.toDouble(),
-        )
-      }
+      Zonas.escuchar(actividad) { z -> sendEvent("onZonas", z) }
+      Zonas.leer(actividad)
     }.runOnQueue(Queues.MAIN)
 
     // --- Etapa 3a: la parroquia elegida y su copia guardada ---

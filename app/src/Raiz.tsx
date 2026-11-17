@@ -16,6 +16,7 @@ import { almacenAjustes } from './ajustes/almacen';
 import { avisarCambioDeAjustes, registrarAjustes } from './ajustes/descarga';
 import { borrarCopia, borrarCopias, descargarCopia, fijarOrientacion } from '../modules/transmisor';
 import { C, FUENTES } from './componentes/tema';
+import { useZonas } from './componentes/useZonas';
 import { obtenerConfig } from './config/compilacion';
 import { avisarCambioDePaginas, registrarCopias } from './copias/copias';
 import { almacenSemana } from './semana/almacen';
@@ -81,6 +82,9 @@ export default function Raiz() {
   const fuentes = fuentesListas || errorFuentes !== null;
   const estado = useSyncExternalStore(controlSesion.tienda.suscribir, controlSesion.tienda.obtener);
   const enLista = estado.fase === 'lista' && estado.parroquia !== null;
+  // Las pantallas de acceso también dejan el espacio de las barras del sistema (Tarea 9i): la app
+  // dibuja de borde a borde y antes la barra de botones tapaba lo de abajo.
+  const zonas = useZonas();
 
   useEffect(() => {
     void controlSesion.cargar();
@@ -183,7 +187,12 @@ export default function Raiz() {
   }
 
   return (
-    <View style={estilos.raiz}>
+    <View
+      style={[
+        estilos.raiz,
+        { paddingTop: zonas.top, paddingBottom: zonas.bottom, paddingLeft: zonas.left, paddingRight: zonas.right },
+      ]}
+    >
       {contenido}
       <StatusBar style="light" />
     </View>

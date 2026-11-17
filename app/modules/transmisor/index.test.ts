@@ -1,11 +1,13 @@
 // Tests de la API JS del transmisor con el módulo nativo simulado.
 type Nativo = { conexion: string; motivo: string | null; kbps: number | null };
+type Zonas = { top: number; bottom: number; left: number; right: number };
 
 const CLAVE = 'FB-PRUEBA-MARCA-1111';
 
 function cargar() {
   let alEvento: ((n: Nativo) => void) | null = null;
   let alServicio: ((n: { ok: boolean }) => void) | null = null;
+  let alZonas: ((n: Zonas) => void) | null = null;
   const modulo = {
     medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40, fpsVideo: 30, bateria: { nivel: 70, escala: 100, estado: 3, enchufe: 0 } })),
     rangoZoom: jest.fn(() => Promise.resolve({ min: 1, max: 8 })),
@@ -17,6 +19,7 @@ function cargar() {
     actualizarEstado: jest.fn((_json: string) => Promise.resolve()),
     addListener: jest.fn((nombre: string, cb: (n: never) => void) => {
       if (nombre === 'onServicio') alServicio = cb as (n: { ok: boolean }) => void;
+      else if (nombre === 'onZonas') alZonas = cb as (n: Zonas) => void;
       else alEvento = cb as (n: Nativo) => void;
       return { remove: jest.fn() };
     }),
@@ -28,7 +31,8 @@ function cargar() {
   const api = require('./index') as typeof import('./index');
   const emitir = (n: Nativo) => alEvento?.(n);
   const emitirServicio = (n: { ok: boolean }) => alServicio?.(n);
-  return { api, modulo, emitir, emitirServicio };
+  const emitirZonas = (n: Zonas) => alZonas?.(n);
+  return { api, modulo, emitir, emitirServicio, emitirZonas };
 }
 
 // Deja correr las promesas ya resueltas (con temporizadores falsos).
@@ -444,5 +448,32 @@ describe('archivos de datos de la app (etapa 3b)', () => {
     expect(n.borrarDatosApp).toHaveBeenCalledWith('semana-');
     await expect(api.borrarDatosApp('')).rejects.toBeInstanceOf(Error);
     expect(n.borrarDatosApp).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('addZonasListener (Tarea 9i)', () => {
+  it('pasa cada aviso nativo de zonas a los oyentes', () => {
+    const { api, emitirZonas } = cargar();
+    const cb = jest.fn();
+    api.addZonasListener(cb);
+    emitirZonas({ top: 0, bottom: 0, left: 0, right: 48 });
+    expect(cb).toHaveBeenCalledWith({ top: 0, bottom: 0, left: 0, right: 48 });
+  });
+
+  it('después de remove() no avisa más', () => {
+    const { api, emitirZonas } = cargar();
+    const cb = jest.fn();
+    api.addZonasListener(cb).remove();
+    emitirZonas({ top: 24, bottom: 48, left: 0, right: 0 });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('un aviso con valores que no son números se ignora', () => {
+    const { api, emitirZonas } = cargar();
+    const cb = jest.fn();
+    api.addZonasListener(cb);
+    emitirZonas({ top: Number.NaN, bottom: 0, left: 0, right: 0 });
+    emitirZonas({ bottom: 0, left: 0, right: 0 } as unknown as Zonas);
+    expect(cb).not.toHaveBeenCalled();
   });
 });

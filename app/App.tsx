@@ -33,8 +33,6 @@ import {
   fijarOrientacion,
   fijarParroquia,
   recargarEscenas,
-  zonasSeguras,
-  type ZonasSeguras,
   iniciar,
   ponerZoom,
   prepararVista,
@@ -44,13 +42,15 @@ import {
 import BarraSuperior from './src/componentes/BarraSuperior';
 import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
-import { C, FUENTES, M } from './src/componentes/tema';
+import { C, FUENTES } from './src/componentes/tema';
 import { validar, type Calidad } from './src/ajustes/ajustes';
 import { ajustesParroquia, leerAjustesDe } from './src/ajustes/ajustesParroquia';
 import { alCambiarAjustes } from './src/ajustes/descarga';
 import { controlSesion } from './src/sesion/control';
 import { avisosActivos, conexionParaAvisos } from './src/avisos/avisos';
 import { alCambiarPaginas, textoCopia } from './src/copias/copias';
+import { useZonas } from './src/componentes/useZonas';
+import { armarLugares, lugaresCompletos } from './src/estado/lugares';
 import { leerBateria } from './src/estado/bateria';
 import { aHayRed } from './src/estado/red';
 import {
@@ -63,7 +63,7 @@ import {
 import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
 import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './src/estado/orientacion';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
-import { limitarZoom, rangoValido, rectCompleta, type RangoZoom } from './src/estado/zoom';
+import { limitarZoom, rangoValido, type RangoZoom } from './src/estado/zoom';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
@@ -75,7 +75,7 @@ import { SEMANA, TIPOS_COMUNES, type TipoCampos } from './src/semana/nucleo';
 import { combinarConPendientes, type ItemApp } from './src/semana/pendientes';
 import { fechaLocal } from './src/semana/sincronizar';
 import { crearSeguimiento, scriptEditar, scriptUsar } from './src/semana/usar';
-import PrepararVertical, { type Rect } from './src/pantallas/PrepararVertical';
+import PrepararVertical from './src/pantallas/PrepararVertical';
 import { ESPERA_MAXIMA_MS, fasePortada } from './src/portada/portada';
 import { SCRIPT_ESCENA, SCRIPT_IR_A_EN_VIVO, SCRIPT_IR_A_PREPARAR } from './src/puente/puente';
 import { guardiaEnVivo } from './src/sesion/guardia';
@@ -95,62 +95,6 @@ const enAire = (e: EstadoTransmision): boolean =>
 const ETIQUETA_DESPIERTA = 'transmision';
 // Cada cuánto se leen el estado térmico y la temperatura para los avisos.
 const MEDIR_AVISOS_MS = 10_000;
-
-// Medidas de Preparar en vertical (lienzo, artboard 9: 390×844 dp).
-const V = { borde: 12, tiraAlto: 48, listoAlto: 60, abajo: 16, hueco: 8, huecoPanel: 12 } as const;
-
-/**
- * Dónde va cada cosa, en dp, dentro del lienzo de App. Sale del tamaño real de la ventana y de
- * las zonas seguras (barra de estado, recorte de la cámara, barra de navegación): nada queda
- * debajo de ellas.
- */
-function armarLugares(anchoVentana: number, altoVentana: number, z: ZonasSeguras) {
-  const ancho = anchoVentana - z.left - z.right;
-  const alto = altoVentana - z.top - z.bottom;
-  if (altoVentana > anchoVentana) {
-    const w = ancho - 2 * V.borde;
-    const vistaAlto = Math.round((w * 9) / 16);
-    const barra: Rect = { left: V.borde, top: V.borde, width: w, height: M.barraAlto };
-    const vista: Rect = { left: V.borde, top: barra.top + M.barraAlto + 10, width: w, height: vistaAlto };
-    const tira: Rect = { left: V.borde, top: vista.top + vistaAlto + V.hueco, width: w, height: V.tiraAlto };
-    const listo: Rect = { left: V.borde, top: alto - V.abajo - V.listoAlto, width: w, height: V.listoAlto };
-    const panelArriba = tira.top + V.tiraAlto + V.huecoPanel;
-    const panel: Rect = { left: V.borde, top: panelArriba, width: w, height: Math.max(0, listo.top - V.huecoPanel - panelArriba) };
-    const lienzo: Rect = { left: z.left, top: z.top, width: ancho, height: alto };
-    return { vertical: true, lienzo, barra, vista, capa: vista, tira, listo, panel };
-  }
-  // Acostado, como hasta la Tarea 9: vista previa de 448×252 y panel de 360 a la derecha, centrados.
-  const w = M.vistaAncho + 12 + M.panelAncho;
-  const abajo = M.vistaAlto + M.separacion + M.abajoAlto;
-  const h = M.barraAlto + M.separacion + abajo;
-  const lienzo: Rect = {
-    left: z.left + Math.max(0, (ancho - w) / 2),
-    top: z.top + Math.max(0, (alto - h) / 2),
-    width: w,
-    height: h,
-  };
-  const barra: Rect = { left: 0, top: 0, width: w, height: M.barraAlto };
-  const arriba = M.barraAlto + M.separacion;
-  const vista: Rect = { left: 0, top: arriba, width: M.vistaAncho, height: M.vistaAlto };
-  const capa: Rect = { left: 0, top: arriba, width: M.vistaAncho, height: abajo };
-  const panel: Rect = { left: M.vistaAncho + 12, top: arriba, width: M.panelAncho, height: abajo };
-  return { vertical: false, lienzo, barra, vista, capa, tira: capa, listo: capa, panel };
-}
-
-/** Los lugares en pantalla completa: la vista en 16:9 y el panel corrido fuera de la pantalla. */
-function lugaresCompletos(
-  anchoVentana: number,
-  altoVentana: number,
-  z: ZonasSeguras,
-  normales: ReturnType<typeof armarLugares>,
-): ReturnType<typeof armarLugares> {
-  const ancho = anchoVentana - z.left - z.right;
-  const alto = altoVentana - z.top - z.bottom;
-  const lienzo: Rect = { left: z.left, top: z.top, width: ancho, height: alto };
-  const vista = rectCompleta(ancho, alto);
-  const fuera: Rect = { left: anchoVentana + 100, top: 0, width: normales.panel.width, height: normales.panel.height };
-  return { ...normales, lienzo, vista, capa: vista, tira: vista, listo: vista, panel: fuera, barra: { ...fuera, height: 0 } };
-}
 
 async function pedirPermisos(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
@@ -204,7 +148,6 @@ const registrador = crearRegistrador({
   ahora: () => new Date(),
 });
 
-const SIN_ZONAS: ZonasSeguras = { top: 0, bottom: 0, left: 0, right: 0 };
 
 /**
  * La app de transmisión de una parroquia (plan 3a, Tarea 16). La monta src/Raiz.tsx en la fase
@@ -298,25 +241,8 @@ export default function App(p: {
   // La escena que se mira en Preparar. Empieza en Inicio, como el lienzo.
   const [escenaPrevia, setEscenaPrevia] = useState<Escena>('inicio');
   const ventana = useWindowDimensions();
-  // Barra de estado, recorte y navegación (Tarea 9c). Se vuelven a leer cada vez que cambia la
-  // ventana (al girar), y otra vez un poco después, porque los insets llegan después del giro.
-  const [zonas, setZonas] = useState<ZonasSeguras>(SIN_ZONAS);
-  useEffect(() => {
-    let vigente = true;
-    const leer = () =>
-      zonasSeguras().then(
-        (z) => {
-          if (vigente) setZonas((v) => (v.top === z.top && v.bottom === z.bottom && v.left === z.left && v.right === z.right ? v : z));
-        },
-        () => undefined,
-      );
-    void leer();
-    const t = setTimeout(leer, 400);
-    return () => {
-      vigente = false;
-      clearTimeout(t);
-    };
-  }, [ventana.width, ventana.height]);
+  // Barra de estado, recorte y navegación (Tareas 9c y 9i): el nativo avisa cada cambio.
+  const zonas = useZonas();
   const lugaresNormales = armarLugares(ventana.width, ventana.height, zonas);
   // Mientras gira, la ventana todavía tiene la forma vieja: las pantallas se ponen al terminar.
   const formaLista = lugaresNormales.vertical === (orientacion === 'vertical');

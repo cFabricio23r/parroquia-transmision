@@ -4,6 +4,7 @@ import Modulo from './src/TransmisorModule';
 import type { Orientacion } from '../../src/estado/orientacion';
 import type { Escena } from '../../src/estado/transmision';
 import { esRutaDeMedio, esSlugValido, normalizarOrigen } from '../../src/plataforma/direcciones';
+import { zonasValidas } from '../../src/estado/zonas';
 import { crearColaEscenas } from './src/escenas';
 import { EventoEstado, MENSAJES, aEventoEstado, armarUrl, traducirError } from './src/eventos';
 export { MENSAJES } from './src/eventos';
@@ -192,6 +193,7 @@ export function fijarOrientacion(orientacion: Orientacion): Promise<void> {
 }
 
 export type { ZonasSeguras } from './src/TransmisorModule';
+import type { ZonasSeguras } from './src/TransmisorModule';
 
 /** Barra de estado, recorte de la cámara y barra de navegación, en dp. Cambian al girar. */
 export function zonasSeguras() {
@@ -300,4 +302,23 @@ export function guardarDatosApp(nombre: string, texto: string): Promise<void> {
 export function borrarDatosApp(prefijo: string): Promise<void> {
   if (!RE_NOMBRE_DATOS.test(prefijo)) return Promise.reject(new Error('Prefijo de datos inválido.'));
   return Promise.resolve().then(() => Modulo.borrarDatosApp(prefijo));
+}
+
+/**
+ * Avisa cada vez que cambian las barras del sistema o el recorte (Tarea 9i): al girar, al cambiar de
+ * gestos a botones con la app abierta, o cuando la barra se acomoda tarde después del giro.
+ */
+const oyentesZonas = new Set<(z: ZonasSeguras) => void>();
+let suscripcionZonas: { remove(): void } | null = null;
+
+export function addZonasListener(cb: (z: ZonasSeguras) => void): { remove(): void } {
+  if (!suscripcionZonas) {
+    suscripcionZonas = Modulo.addListener('onZonas', (n) => {
+      if (!zonasValidas(n)) return;
+      const z = { top: n.top, bottom: n.bottom, left: n.left, right: n.right };
+      for (const f of [...oyentesZonas]) f(z);
+    });
+  }
+  oyentesZonas.add(cb);
+  return { remove: () => oyentesZonas.delete(cb) };
 }
