@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { correoInvitacion, correoRecuperar, enviarCorreo, REMITENTE, usarBuzonDePrueba, type Mensaje } from '../../lib/correo';
+import { envolverCorreo, LOGO_CORREO } from '../../lib/plantilla-correo.mjs';
 
 afterEach(() => {
   usarBuzonDePrueba(null);
@@ -16,6 +17,42 @@ describe('correos', () => {
     expect(c.html).not.toContain('<b>');
     expect(c.texto).toContain(enlace);
     expect(c.html).toContain(enlace);
+  });
+
+  it('los dos correos llevan la marca: logo con texto alternativo, nombre, pie y dirección de ayuda', () => {
+    for (const c of [
+      correoInvitacion({ enlace: 'https://e.org/i?token=a', parroquia: 'San José', rol: 'coordinador' }),
+      correoRecuperar({ enlace: 'https://e.org/r?token_hash=b' }),
+    ]) {
+      expect(c.html).toContain(`src="${LOGO_CORREO}"`);
+      expect(c.html).toContain('alt="Logo de la Pastoral de Comunicaciones"');
+      expect(c.html).toContain('Parroquia en vivo');
+      expect(c.html).toContain('Pastoral de Comunicaciones · Ciudad Arce');
+      expect(c.html).toContain('mailto:admin@parroquiaciudadarce.org');
+      expect(c.html).toContain('<html lang="es">');
+    }
+  });
+
+  it('la invitación cuenta para qué es la plataforma y avisa cuándo vence', () => {
+    const c = correoInvitacion({ enlace: 'https://e.org/i?token=a', parroquia: 'San José', rol: 'coordinador' });
+    expect(c.html).toContain('preparar las transmisiones de cada semana');
+    expect(c.texto).toContain('preparar las transmisiones de cada semana');
+    expect(c.html).toContain('vence en 7 días');
+  });
+
+  it('envolverCorreo escapa el título, la previa, el aviso y el botón', () => {
+    const html = envolverCorreo({
+      titulo: '<i>t</i>',
+      previa: '<i>p</i>',
+      parrafos: ['<strong>seguro</strong>'],
+      enlace: 'https://e.org/?a=1&b=2',
+      boton: '<i>b</i>',
+      aviso: '<i>a</i>',
+    });
+    expect(html).not.toContain('<i>');
+    expect(html).toContain('&lt;i&gt;p&lt;/i&gt;');
+    expect(html).toContain('<strong>seguro</strong>');
+    expect(html).toContain('href="https://e.org/?a=1&amp;b=2"');
   });
 
   it('correoRecuperar lleva el enlace en texto y en html', () => {
@@ -45,6 +82,6 @@ describe('enviarCorreo', () => {
   });
 
   it('el remitente por defecto es el de la parroquia', () => {
-    expect(REMITENTE).toBe('Transmisiones parroquiales <no-responder@avisos.parroquiaciudadarce.org>');
+    expect(REMITENTE).toBe('Parroquia en vivo <no-responder@avisos.parroquiaciudadarce.org>');
   });
 });

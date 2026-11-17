@@ -1,9 +1,10 @@
 import { Resend } from 'resend';
 import { DIAS_INVITACION } from './tokens';
+import { envolverCorreo, esc, REMITENTE } from './plantilla-correo.mjs';
+
+export { REMITENTE };
 
 export interface Mensaje { para: string; asunto: string; texto: string; html: string }
-
-export const REMITENTE = 'Transmisiones parroquiales <no-responder@avisos.parroquiaciudadarce.org>';
 
 let buzonDePrueba: Mensaje[] | null = null;
 
@@ -33,46 +34,45 @@ export async function enviarCorreo(m: Mensaje): Promise<void> {
   if (error) throw new Error(`No se pudo enviar el correo: ${error.message}`);
 }
 
-function esc(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function envolver(titulo: string, parrafos: string[], enlace: string, boton: string): string {
-  const e = esc(enlace);
-  return `<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;color:#222;line-height:1.5">
-<h1 style="font-size:20px">${esc(titulo)}</h1>
-${parrafos.map((p) => `<p>${p}</p>`).join('\n')}
-<p><a href="${e}" style="display:inline-block;background:#1f3a5f;color:#ffffff;padding:12px 20px;border-radius:6px;text-decoration:none">${esc(boton)}</a></p>
-<p>Si el botón no funciona, copia esta dirección en tu navegador:<br>${e}</p>
-</body></html>`;
-}
+const PARA_QUE = 'Desde la plataforma vas a preparar las transmisiones de cada semana: los rótulos, los avisos y los horarios que se ven en la misa.';
 
 export function correoInvitacion(d: { enlace: string; parroquia: string; rol: string }): { asunto: string; texto: string; html: string } {
   const asunto = `Te invitaron a administrar ${d.parroquia}`;
   const vence = `El enlace sirve una sola vez y vence en ${DIAS_INVITACION} días. Si no esperabas este mensaje, ignóralo.`;
-  const texto = `Te invitaron a administrar ${d.parroquia} como ${d.rol}.\n\nPara aceptar la invitación entra aquí:\n${d.enlace}\n\n${vence}`;
-  const html = envolver(
-    asunto,
-    [`Te invitaron a administrar <strong>${esc(d.parroquia)}</strong> como ${esc(d.rol)}.`, esc(vence)],
-    d.enlace,
-    'Aceptar la invitación',
-  );
+  const texto = `Te invitaron a administrar ${d.parroquia} como ${d.rol}.
+
+${PARA_QUE}
+
+Para aceptar la invitación entra aquí:
+${d.enlace}
+
+${vence}`;
+  const html = envolverCorreo({
+    titulo: 'Te invitaron a administrar una parroquia',
+    previa: 'Acepta la invitación para empezar a preparar las transmisiones de tu parroquia.',
+    parrafos: [`Te invitaron a administrar <strong>${esc(d.parroquia)}</strong> como <strong>${esc(d.rol)}</strong>.`, esc(PARA_QUE)],
+    enlace: d.enlace,
+    boton: 'Aceptar la invitación',
+    aviso: vence,
+  });
   return { asunto, texto, html };
 }
 
 export function correoRecuperar(d: { enlace: string }): { asunto: string; texto: string; html: string } {
   const asunto = 'Recupera tu contraseña';
-  const texto = `Pediste cambiar tu contraseña.\n\nEntra aquí para elegir una nueva:\n${d.enlace}\n\nSi no fuiste tú, ignora este mensaje: tu contraseña sigue igual.`;
-  const html = envolver(
-    asunto,
-    ['Pediste cambiar tu contraseña.', 'Si no fuiste tú, ignora este mensaje: tu contraseña sigue igual.'],
-    d.enlace,
-    'Elegir una contraseña nueva',
-  );
+  const texto = `Pediste cambiar tu contraseña.
+
+Entra aquí para elegir una nueva:
+${d.enlace}
+
+Si no fuiste tú, ignora este mensaje: tu contraseña sigue igual.`;
+  const html = envolverCorreo({
+    titulo: asunto,
+    previa: 'Elige una contraseña nueva para entrar a Parroquia en vivo.',
+    parrafos: ['Pediste cambiar tu contraseña. Toca el botón para elegir una nueva; después vuelve a la app y entra con ella.'],
+    enlace: d.enlace,
+    boton: 'Elegir una contraseña nueva',
+    aviso: 'Si no fuiste tú, ignora este mensaje: tu contraseña sigue igual.',
+  });
   return { asunto, texto, html };
 }
