@@ -34,8 +34,8 @@ function _guaAFila(g, desde, parroquiaId) {
     nombre: g.nombre,
     tipo: g.tipo,
     datos,
-    guardada_en: _guaIso(g.guardadaEn),
-    usada_en: _guaIso(g.usadaEn || g.guardadaEn),   // la columna no admite null
+    guardada_en: _guaIso(g.guardadaEn != null ? g.guardadaEn : actualizadoEn),
+    usada_en: _guaIso(g.usadaEn || (g.guardadaEn != null ? g.guardadaEn : actualizadoEn)),   // la columna no admite null
     actualizado_en: _guaIso(actualizadoEn),
     actualizado_desde: desde,
     borrada_en: g.borradaEn != null ? _guaIso(g.borradaEn) : null

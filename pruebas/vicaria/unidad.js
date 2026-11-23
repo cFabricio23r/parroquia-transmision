@@ -3117,6 +3117,22 @@ grupo('guardadas: núcleo', () => {
     assert.equal(G.fusionar([local('aaaa', { nombre: 'Local', actualizadoEn: 9000 })], n, [])[0].nombre, 'Nube');
   });
 
+  prueba('fusionar: un guardar rechazado sigue visible (no se filtra)', () => {
+    const p = [{ op: 'guardar', id: 'aaaa', cuando: 1, rechazado: true }];
+    assert.deepEqual(ids(G.fusionar([local('aaaa')], [], p)), ['aaaa']);
+    // con una baja en la nube y una copia local más nueva, también vuelve
+    const n = [fila('aaaa', { borrada_en: '1970-01-01T00:00:05.000Z', actualizado_en: '1970-01-01T00:00:05.000Z' })];
+    assert.deepEqual(ids(G.fusionar([local('aaaa', { actualizadoEn: 9000 })], n, p)), ['aaaa']);
+  });
+
+  prueba('aFila no falla si falta guardadaEn: usa actualizadoEn', () => {
+    const g = local('aaaa', { actualizadoEn: 5000, usadaEn: 0 });
+    delete g.guardadaEn;
+    const f = G.aFila(g, 'app', PAR);
+    assert.equal(f.guardada_en, '1970-01-01T00:00:05.000Z');
+    assert.equal(f.usada_en, '1970-01-01T00:00:05.000Z');
+  });
+
   prueba('fusionar quita las que tienen un borrar pendiente', () => {
     const r = G.fusionar([], [fila('aaaa'), fila('bbbb')], [{ op: 'borrar', id: 'aaaa', cuando: 1 }]);
     assert.deepEqual(ids(r), ['bbbb']);
