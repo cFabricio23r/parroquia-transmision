@@ -19,6 +19,8 @@ import { C, FUENTES } from './componentes/tema';
 import { useZonas } from './componentes/useZonas';
 import { obtenerConfig } from './config/compilacion';
 import { avisarCambioDePaginas, registrarCopias } from './copias/copias';
+import { canalGuardadas } from './guardadas/puente';
+import { registrarGuardadas } from './guardadas/sincronizar';
 import { almacenSemana } from './semana/almacen';
 import { registrarSemana } from './semana/sincronizar';
 import { aHayRed } from './estado/red';
@@ -28,7 +30,7 @@ import Entrar from './pantallas/acceso/Entrar';
 import { crearClientePlataforma, type ClientePlataforma } from './plataforma/cliente';
 import { controlSesion } from './sesion/control';
 import { guardiaEnVivo } from './sesion/guardia';
-import { limpiezas, sincronizador, type Momento } from './sincronizar/sincronizar';
+import { limpiezas, sincronizador, type ContextoSincronizar, type Momento } from './sincronizar/sincronizar';
 
 // El splash del sistema queda hasta que carguen las fuentes (antes estaba en App.tsx).
 // Se llama acá, fuera del componente, como pide expo-splash-screen.
@@ -63,18 +65,31 @@ if (config.ok) {
 let hayRed = true;
 let abrirCorrio = false;
 
-function correrMomento(m: Momento): Promise<unknown> | void {
-  if (!hayRed) return;
+/** El contexto para sincronizar ahora, o null sin red o sin parroquia. */
+function contextoAhora(): Omit<ContextoSincronizar, 'momento'> | null {
+  if (!hayRed) return null;
   const parroquia = controlSesion.tienda.obtener().parroquia;
-  if (!parroquia) return;
-  if (m === 'abrir') abrirCorrio = true;
-  return sincronizador.sincronizar(m, {
+  if (!parroquia) return null;
+  return {
     parroquia,
     sesion: controlSesion.sesion,
     cliente: controlSesion.cliente,
     enVivo: guardiaEnVivo.enVivo,
     sigueElegida: () => controlSesion.tienda.obtener().parroquia?.id === parroquia.id,
-  });
+  };
+}
+
+// La tarea 'guardadas' va después de 'semana' (Tarea 6 de misas listas). Además corre sola 2 s después
+// de un cambio en el panel, con el mismo contexto.
+if (config.ok) {
+  registrarGuardadas(sincronizador, limpiezas, { canal: canalGuardadas, contexto: contextoAhora });
+}
+
+function correrMomento(m: Momento): Promise<unknown> | void {
+  const base = contextoAhora();
+  if (!base) return;
+  if (m === 'abrir') abrirCorrio = true;
+  return sincronizador.sincronizar(m, base);
 }
 
 export default function Raiz() {

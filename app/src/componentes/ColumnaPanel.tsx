@@ -5,11 +5,13 @@
 // de la tira en Preparar (vertical). El tamaño lo da App con `estilo`: la vista es siempre la misma
 // y no se recarga al girar (Tarea 9c).
 // Solo carga el origen exacto de la plataforma; cualquier otra dirección se bloquea.
-// El panel nunca recibe la clave: solo su propio estado (pev_<slug>_estado_v1).
-import { useImperativeHandle, useRef, useState, type RefObject } from 'react';
+// El panel nunca recibe la clave: solo su propio estado (pev_<slug>_estado_v1) y, de las misas listas
+// (Tarea 6), su lista y su cola (pev_<slug>_guardadas_v1 y _guardadas_pendientes_v1), por canalGuardadas.
+import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { VistaPanel, type EventoMensaje, type VistaPanelNativa } from '../../modules/transmisor';
+import { canalGuardadas, scriptGuardadas } from '../guardadas/puente';
 import { esMensajeDelPanel, leerMensaje, scriptPanel, urlPanelSiLista } from '../puente/puente';
 import { C, M } from './tema';
 
@@ -51,11 +53,22 @@ export default function ColumnaPanel({ panelRef, origen, slug, lista, onEstado, 
     [],
   );
 
+  // La tarea 'guardadas' le devuelve al panel su lista y su cola por acá.
+  useEffect(
+    () =>
+      canalGuardadas.conectar(slug, (script) => {
+        nativa.current?.inyectar(script)?.catch?.(() => undefined);
+      }),
+    [slug],
+  );
+
   function alMensaje(e: EventoMensaje) {
     // Solo se escucha el origen exacto de la plataforma (review M2).
     if (!esMensajeDelPanel(e.nativeEvent.url, origen)) return;
     const m = leerMensaje(e.nativeEvent.data);
-    if (m) onEstado(m.json);
+    if (!m) return;
+    if (m.tipo === 'estado') onEstado(m.json);
+    else canalGuardadas.recibir(slug, m);
   }
 
   const url = urlPanelSiLista(origen, slug, lista);
@@ -68,7 +81,7 @@ export default function ColumnaPanel({ panelRef, origen, slug, lista, onEstado, 
           ref={nativa}
           url={url}
           origen={origen}
-          scriptAlCargar={scriptPanel(slug)}
+          scriptAlCargar={scriptPanel(slug) + '\n' + scriptGuardadas(slug)}
           onMensaje={alMensaje}
           onCargado={onCargado}
           onProcesoCaido={(): void => {

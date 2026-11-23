@@ -3,6 +3,8 @@
 // la app lo lee cada 300 ms con scriptPanel(slug) y se lo pasa a la capa con actualizarEstado(json).
 // Ese estado nunca lleva la clave: la clave vive solo en Ajustes (expo-secure-store).
 import { ESCENAS_VALIDAS, type Escena } from '../estado/transmision';
+import { guardadasValidas, pendientesValidos } from '../guardadas/nucleo';
+import type { MensajeGuardadas } from '../guardadas/puente';
 import { esSlugValido, esUrlPermitida, urlDePagina } from '../plataforma/direcciones';
 
 /** La clave del estado del panel de esa parroquia. Lanza si el slug no es válido. */
@@ -68,8 +70,12 @@ export function SCRIPT_ESCENA(escena: Escena): string {
   return `window.fijarEscenaApp && window.fijarEscenaApp('${escena}'); true;`;
 }
 
-/** Lee un mensaje del panel. Da null ante cualquier cosa que no sea {tipo:'estado', json: texto}. */
-export function leerMensaje(data: string): { tipo: 'estado'; json: string } | null {
+/**
+ * Lee un mensaje del panel: {tipo:'estado', json: texto} o {tipo:'guardadas', lista, pendientes}
+ * (Tarea 6), con `lista` y `pendientes` arreglos; de esos se quedan solo las entradas bien formadas.
+ * Da null ante cualquier otra cosa.
+ */
+export function leerMensaje(data: string): { tipo: 'estado'; json: string } | MensajeGuardadas | null {
   let m: unknown;
   try {
     m = JSON.parse(data);
@@ -77,7 +83,11 @@ export function leerMensaje(data: string): { tipo: 'estado'; json: string } | nu
     return null;
   }
   if (typeof m !== 'object' || m === null || Array.isArray(m)) return null;
-  const { tipo, json } = m as { tipo?: unknown; json?: unknown };
+  const { tipo, json, lista, pendientes } = m as { tipo?: unknown; json?: unknown; lista?: unknown; pendientes?: unknown };
+  if (tipo === 'guardadas') {
+    if (!Array.isArray(lista) || !Array.isArray(pendientes)) return null;
+    return { tipo: 'guardadas', lista: guardadasValidas(lista), pendientes: pendientesValidos(pendientes) };
+  }
   if (tipo !== 'estado' || typeof json !== 'string') return null;
   return { tipo: 'estado', json };
 }

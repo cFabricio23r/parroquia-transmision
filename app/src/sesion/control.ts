@@ -211,6 +211,7 @@ function armarControlDeLaApp(): ControlSesion {
     renovar: sinConexion,
     seleccionar: sinConexion,
     upsert: sinConexion,
+    rpc: sinConexion,
   };
   return crearControlSesion({ ...comun, cliente: clienteSinConfig, configOk: false });
 }
