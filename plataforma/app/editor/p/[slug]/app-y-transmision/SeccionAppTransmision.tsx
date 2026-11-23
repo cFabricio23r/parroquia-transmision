@@ -3,6 +3,9 @@
 // editor. Fuera del borrador: guarda al tocar Guardar, por las rutas de app/editor/api/[slug]/app/.
 // La clave: el navegador la manda una vez y nunca la vuelve a recibir (solo `guardadaEn`); el campo se
 // vacía al guardar y `recordarFormulario` recibe `valor: null`, nunca el texto.
+// Sin type="password" (2026-11-23): con uno en la pantalla, Chrome la trataba como login y llenaba el servidor
+// con el correo y la clave con la contraseña guardados; autocomplete="off" no vale en campos de login (MDN).
+// La clave es texto tapado con `pv-campo-oculto` (-webkit-text-security).
 import { useEffect, useRef, useState } from 'react';
 import {
   type CalidadApp,
@@ -181,8 +184,11 @@ export function SeccionAppTransmision({ inicial }: { inicial: EstadoAppTransmisi
                 <CampoTexto
                   id="app-clave"
                   etiqueta="Clave de transmisión de la página"
-                  type="password"
+                  type="text"
+                  className="pv-campo-oculto"
                   autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
                   spellCheck={false}
                   ayuda="Se escribe o se pega una vez. Después no se vuelve a mostrar."
                   error={errorClave}

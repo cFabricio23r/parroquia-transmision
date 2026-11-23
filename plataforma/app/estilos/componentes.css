@@ -142,6 +142,9 @@ button.pv-enlace {
 }
 .pv-campo-select { padding: 0 12px; }
 .pv-campo-control[readonly] { background: var(--pv-campo-lectura); }
+/* Texto tapado sin type="password", para que Chrome no lo tome como login y no lo autocomplete
+   (clave de transmisión, 2026-11-23). No es estándar; según MDN lo tienen Chrome, Edge, Safari y Firefox 114+. */
+.pv-campo-oculto { -webkit-text-security: disc; }
 .pv-campo-control[aria-invalid='true'],
 .pv-campo-select[aria-invalid='true'] { border-color: var(--pv-rojo); }
 .pv-campo-ayuda { font-size: 12px; color: var(--pv-texto-suave); line-height: 1.45; }
