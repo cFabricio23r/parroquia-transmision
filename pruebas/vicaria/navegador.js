@@ -2012,44 +2012,251 @@ async function casoFaltasIguales() {
   }
 }
 
-/* 3b: en la app (modo-app) el panel no tiene Guardadas; en la PC sí. */
-async function casoModoAppSinGuardadas() {
-  console.log('3b · Sin Guardadas en modo-app');
-  const sembrar = (p) => p.addInitScript(([ca]) => {
-    localStorage.setItem('pev_' + ca + '_panel_hoja', 'guardadas');
-    localStorage.setItem('pev_' + ca + '_guardadas_v1', JSON.stringify([{ id: 'g1', nombre: 'Hora Santa jueves', tipo: 'horasanta', guardadaEn: 1, usadaEn: 1, datos: { tipo: 'horasanta' } }]));
-  }, [CA]);
-  const visible = (p, sel) => p.evaluate((s) => {
-    const el = document.querySelector(s);
-    if (!el) return false;
-    for (let n = el; n; n = n.parentElement) {
-      const cs = getComputedStyle(n);
-      if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+/* ---------- Misas listas: siempre a la vista en Preparar, y sincronizadas con la nube ----------
+   La nube se simula con context.route() sobre *.supabase.co: ninguna prueba habla con Supabase de verdad. */
+const PAR_PRUEBA = '11111111-1111-4111-8111-111111111111';
+const CLAVE_CA = (n) => 'pev_' + CA + '_' + n;
+
+const visibleEn = (p, sel) => p.evaluate((s) => {
+  const el = document.querySelector(s);
+  if (!el) return false;
+  for (let n = el; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+  }
+  return el.getBoundingClientRect().width > 0;
+}, sel);
+
+const guardadaPrueba = (id, nombre, usadaEn, extra) => Object.assign({ id, nombre, tipo: 'horasanta', guardadaEn: usadaEn, usadaEn, actualizadoEn: usadaEn, datos: { tipo: 'horasanta', celebrante: 'Pbro. ' + nombre } }, extra);
+const filaPrueba = (id, nombre, ms) => ({ id, parroquia_id: PAR_PRUEBA, nombre, tipo: 'dominical', datos: { tipo: 'dominical' }, guardada_en: new Date(ms).toISOString(), usada_en: new Date(ms).toISOString(), actualizado_en: new Date(ms).toISOString(), actualizado_desde: 'app', borrada_en: null });
+
+/* Siembra localStorage una sola vez por pestaña (addInitScript corre también al recargar). */
+function sembrarPanel(p, valores) {
+  return p.addInitScript((v) => {
+    if (sessionStorage.getItem('__sembrado')) return;
+    sessionStorage.setItem('__sembrado', '1');
+    for (const [k, x] of Object.entries(v)) localStorage.setItem(k, typeof x === 'string' ? x : JSON.stringify(x));
+  }, valores);
+}
+const sesionPrueba = () => ({ [CLAVE_CA('sesion_nube_v1')]: { access: 'acc-prueba', refresh: 'ref-prueba', vence: Date.now() + 3600000 } });
+const yaMigrado = () => ({ [CLAVE_CA('guardadas_migradas_v1')]: { cuando: 1, cantidad: 0 } });
+
+/* Nube falsa para un contexto: contesta Auth y PostgREST como Supabase (con CORS) y anota lo que recibe. */
+async function nubeDePrueba(ctx, filas = [], opciones = {}) {
+  const n = { filas: filas.map((f) => Object.assign({}, f)), subidas: [], usos: [], pedidos: [] };
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'apikey, authorization, content-type, prefer', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+  await ctx.route((u) => /\.supabase\.co$/.test(u.hostname), async (route) => {
+    const q = route.request();
+    const u = new URL(q.url());
+    if (q.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    n.pedidos.push(q.method() + ' ' + u.pathname);
+    const json = (status, cuerpo) => route.fulfill({ status, headers: Object.assign({ 'Content-Type': 'application/json' }, cors), body: cuerpo === undefined ? '' : JSON.stringify(cuerpo) });
+    if (u.pathname === '/auth/v1/token') {
+      const b = q.postDataJSON();
+      if (b.password !== 'clave-buena') return json(400, { error_code: 'invalid_credentials' });
+      return json(200, { access_token: 'acc-prueba', refresh_token: 'ref-prueba', expires_in: 3600, user: { email: b.email } });
     }
-    return el.getBoundingClientRect().width > 0;
-  }, sel);
-
-  const ctx = await nuevoContexto();
-  const app = await abrir(ctx, `/${CA}/panel.html?modo=app`, 360, 640, sembrar);
-  await app.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
-  await app.waitForTimeout(300);
-  for (const sel of ['#tab-guardadas', '#hoja-guardadas', '#sec-rapidas', '#guardar-esta']) igual(await visible(app, sel), false, 'modo-app: ' + sel + ' no se ve');
-  igual(await app.evaluate(() => document.getElementById('hoja-preparar').classList.contains('activa')), true, 'modo-app: con la hoja Guardadas recordada abre Preparar');
-  const medidas = await app.evaluate(() => {
-    const a = document.getElementById('tab-preparar').getBoundingClientRect();
-    const b = document.getElementById('tab-vivo').getBoundingClientRect();
-    const fila = document.querySelector('.pestanas').getBoundingClientRect();
-    return { a: a.width, b: b.width, total: b.right - a.left, fila: fila.width };
+    if (u.pathname === '/rest/v1/parroquias') return json(200, [{ id: PAR_PRUEBA }]);
+    if (u.pathname === '/rest/v1/guardadas' && q.method() === 'GET') return json(200, n.filas);
+    if (u.pathname === '/rest/v1/guardadas' && q.method() === 'POST') {
+      const fila = q.postDataJSON()[0];
+      n.subidas.push(fila);
+      if (opciones.demoraSubida) await new Promise((r) => setTimeout(r, opciones.demoraSubida));
+      const i = n.filas.findIndex((x) => x.id === fila.id);
+      if (i >= 0) n.filas[i] = fila; else n.filas.push(fila);
+      return json(201);
+    }
+    if (u.pathname === '/rest/v1/rpc/usar_guardada') { n.usos.push(q.postDataJSON()); return json(204); }
+    return json(404, {});
   });
-  revisar(Math.abs(medidas.a - medidas.b) <= 1, 'modo-app: las dos pestañas miden lo mismo (' + medidas.a + ' y ' + medidas.b + ')');
-  revisar(Math.abs(medidas.total - medidas.fila) <= 2, 'modo-app: las dos pestañas llenan la fila (' + medidas.total + ' de ' + medidas.fila + ')');
-  await ctx.close();
+  return n;
+}
 
-  const ctx2 = await nuevoContexto();
-  const pc = await abrir(ctx2, `/${CA}/panel.html`, 360, 640, sembrar);
-  await pc.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
-  igual(await visible(pc, '#tab-guardadas'), true, 'en la PC la pestaña Guardadas se ve');
-  await ctx2.close();
+async function abrirPanelListas(ctx, valores, { ancho = 420, alto = 900, app = false } = {}) {
+  const p = await abrir(ctx, `/${CA}/panel.html${app ? '?modo=app' : ''}`, ancho, alto, (pg) => sembrarPanel(pg, valores));
+  await p.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+  return p;
+}
+const nombresListas = (p) => p.$$eval('#listas .rapida .nom', (els) => els.map((e) => e.textContent));
+async function esperarTexto(p, sel, texto, ms = 6000) {
+  try { await p.waitForFunction(([s, t]) => ((document.querySelector(s) || {}).textContent || '').trim() === t, [sel, texto], { timeout: ms }); } catch (e) {}
+  return ((await p.textContent(sel)) || '').trim();
+}
+
+async function casoMisasListas() {
+  console.log('Misas listas en Preparar');
+
+  console.log(' · Preparar muestra Misas listas sin apretar Cambiar');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000), guardadaPrueba('bbbb2', 'Domingo 30', 3000)] });
+    igual(await visibleEn(p, '#preparar-datos #sec-listas'), true, 'la sección está en la vista de datos de Preparar');
+    igual(await visibleEn(p, '#elegir'), false, 'sin apretar Cambiar');
+    igual(((await p.textContent('#sec-listas h3')) || '').trim(), 'Misas listas', 'el título dice «Misas listas»');
+    igual((await nombresListas(p)).join('|'), 'Domingo 30|Hora Santa jueves', 'muestra las guardadas, la más usada primero');
+    igual(await p.evaluate(() => !!document.getElementById('sec-rapidas')), false, 'Elegir ya no repite la lista rápida');
+    igual(await p.evaluate(() => { const r = document.getElementById('revision'); const l = document.getElementById('sec-listas'); return !!l && !!(r.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING); }), true, 'va debajo de la revisión');
+    for (const b of await p.locator('#listas button').all()) {
+      const caja = await b.boundingBox();
+      revisar(caja.height >= 44, 'botón de la lista de 44 px o más: ' + (await b.getAttribute('aria-label')) + ' (' + caja.height + ')');
+    }
+    igual(await p.getAttribute('#estado-sync', 'role').catch(() => null), 'status', 'la línea de estado tiene role="status"');
+    igual(nube.pedidos.length, 0, 'sin sesión no se pide nada a la nube');
+    await ctx.close();
+  }
+
+  console.log(' · muestra 5 y Ver todas abre Guardadas');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const siete = [1, 2, 3, 4, 5, 6, 7].map((i) => guardadaPrueba('misa' + i, 'Misa ' + i, i * 1000));
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: siete });
+    igual((await nombresListas(p)).join('|'), 'Misa 7|Misa 6|Misa 5|Misa 4|Misa 3', 'hasta 5, de la más usada a la menos usada');
+    await p.click('#ver-todas', { timeout: 3000 }).catch(() => {});
+    igual(await p.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, '«Ver todas» abre la pestaña Guardadas');
+    igual(await p.locator('#lista-guardadas .guardada').count(), 7, 'y ahí están las 7');
+    await ctx.close();
+
+    const ctx2 = await nuevoContexto();
+    await nubeDePrueba(ctx2);
+    const vacio = await abrirPanelListas(ctx2, {});
+    igual(((await vacio.textContent('#listas').catch(() => '')) || '').trim(), 'Todavía no hay misas listas. Prepará una y apretá Guardar.', 'sin guardadas lo dice');
+    await ctx2.close();
+  }
+
+  console.log(' · sin sesión muestra Entrá para ver también las del celular');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, {});
+    igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular', 3000).catch(() => ''), 'Entrá para ver también las del celular', 'la línea de estado invita a entrar');
+    igual(await visibleEn(p, '#entrar'), true, 'con el botón «Entrar» a la vista');
+    igual(((await p.textContent('#entrar').catch(() => '')) || '').trim(), 'Entrar', 'el botón dice «Entrar»');
+    igual(nube.pedidos.length, 0, 'y no se pidió nada a la nube');
+    await ctx.close();
+  }
+
+  console.log(' · entrar sube las locales y muestra Se subieron 2 misas de esta computadora');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    // guardadas de antes de la nube: sin pendientes ni actualizadoEn
+    const viejas = [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000, { actualizadoEn: undefined }), guardadaPrueba('bbbb2', 'Domingo 30', 3000, { actualizadoEn: undefined })];
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: viejas });
+    await p.click('#entrar', { timeout: 3000 });
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), true, '«Entrar» abre el diálogo');
+    igual(await p.getAttribute('#entrar-correo', 'autocomplete'), 'username', 'el correo lleva autocomplete="username"');
+    igual(await p.getAttribute('#entrar-clave', 'type'), 'password', 'la contraseña va tapada');
+    igual(await p.getAttribute('#entrar-clave', 'autocomplete'), 'current-password', 'la contraseña lleva autocomplete="current-password"');
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'mala');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-error', 'Correo o contraseña incorrectos'), 'Correo o contraseña incorrectos', 'con la contraseña mala lo dice');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#estado-sync', 'Se subieron 2 misas de esta computadora'), 'Se subieron 2 misas de esta computadora', 'al entrar sube las de esta computadora y lo dice');
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), false, 'el diálogo se cierra');
+    igual(nube.subidas.map((f) => f.id).sort().join('|'), 'aaaa1|bbbb2', 'subieron las dos');
+    igual(nube.subidas.every((f) => f.actualizado_desde === 'panel' && f.parroquia_id === PAR_PRUEBA), true, 'como «panel», a la parroquia');
+    igual(await p.inputValue('#entrar-clave'), '', 'la contraseña no queda escrita');
+    igual(await visibleEn(p, '#entrar'), false, 'con sesión ya no se ofrece «Entrar»');
+    await p.click('[data-hoja="guardadas"]');
+    igual(await visibleEn(p, '#salir'), true, '«Salir» está en la pestaña Guardadas');
+    await p.click('#salir');
+    igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular'), 'Entrá para ver también las del celular', 'al salir vuelve a invitar a entrar');
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('sesion_nube_v1')), null, 'y la sesión se borró');
+    igual((await nombresListas(p)).length, 2, 'las guardadas locales se quedan');
+    await ctx.close();
+  }
+
+  console.log(' · una guardada que llega de la nube aparece en la lista');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [filaPrueba('cel01', 'Del celular', Date.now() - 60000)]);
+    const p = await abrirPanelListas(ctx, Object.assign(sesionPrueba(), yaMigrado()));
+    try { await p.waitForSelector('#listas .rapida', { timeout: 6000 }); } catch (e) {}
+    igual((await nombresListas(p)).join('|'), 'Del celular', 'la del celular se ve en Preparar');
+    igual(await esperarTexto(p, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'la línea dice «Sincronizado»');
+    revisar(nube.pedidos.includes('GET /rest/v1/guardadas'), 'se bajó la lista de la nube');
+    await ctx.close();
+  }
+
+  console.log(' · Cargar con cambios pide confirmación');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000), guardadaPrueba('bbbb2', 'Domingo 30', 3000)] });
+    const preguntas = [];
+    let aceptar = true;
+    p.on('dialog', (d) => { preguntas.push(d.message()); if (aceptar) d.accept(); else d.dismiss(); });
+    const estado = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), CLAVE_CA('estado_v1'));
+    const cargar = async (nombre) => { await p.click(`#listas button[aria-label="Cargar «${nombre}»"]`, { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(300); };
+    await cargar('Domingo 30');
+    igual((await estado()).celebrante, 'Pbro. Domingo 30', 'Cargar carga la guardada');
+    const antes = preguntas.length;
+    await cargar('Hora Santa jueves');
+    igual(preguntas.length, antes, 'recién cargada (sin cambios) carga directo, sin preguntar');
+    igual((await estado()).celebrante, 'Pbro. Hora Santa jueves', 'y carga la otra');
+    await p.fill('#rot-guia-t', 'Juan cambiado');
+    await p.waitForTimeout(500);
+    aceptar = false;
+    await cargar('Domingo 30');
+    igual(preguntas[preguntas.length - 1], 'Hay cambios que no están en ninguna misa lista. ¿Cargar igual?', 'con cambios pregunta antes de cargar');
+    igual(((await estado()).rotulosTexto || {}).guia && (await estado()).rotulosTexto.guia.t, 'Juan cambiado', 'y si dice que no, no carga nada');
+    aceptar = true;
+    await cargar('Domingo 30');
+    igual((await estado()).celebrante, 'Pbro. Domingo 30', 'si dice que sí, carga');
+    await ctx.close();
+  }
+
+  console.log(' · en modo app se ve la pestaña Guardadas y no el aviso de Entrar');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const valores = Object.assign({ [CLAVE_CA('panel_hoja')]: 'guardadas', [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)] }, sesionPrueba());
+    const app = await abrirPanelListas(ctx, valores, { ancho: 844, alto: 390, app: true });
+    await app.waitForTimeout(800);
+    for (const sel of ['#tab-guardadas', '#hoja-guardadas']) igual(await visibleEn(app, sel), true, 'modo-app: ' + sel + ' se ve');
+    igual(await app.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, 'modo-app: abre la hoja Guardadas recordada');
+    for (const sel of ['#entrar', '#salir', '#dialogo-entrar']) igual(await visibleEn(app, sel), false, 'modo-app: ' + sel + ' no se ve');
+    revisar(!(await app.textContent('body')).includes('Entrá para ver'), 'modo-app: no invita a entrar');
+    igual(nube.pedidos.length, 0, 'modo-app: el panel no habla con la nube (aunque haya una sesión guardada)');
+    await app.click('[data-hoja="preparar"]');
+    igual(await visibleEn(app, '#sec-listas'), true, 'modo-app: Misas listas se ve en Preparar');
+    igual(await visibleEn(app, '#guardar-esta'), true, 'modo-app: #guardar-esta se ve');
+    igual((await nombresListas(app)).join('|'), 'Hora Santa jueves', 'modo-app: con la guardada');
+    for (const b of await app.locator('#listas button, #guardar-esta, [data-hoja]').all()) {
+      const caja = await b.boundingBox();
+      if (caja) revisar(caja.height >= 44, 'modo-app: botón de 44 px o más (' + ((await b.getAttribute('aria-label')) || (await b.textContent()).trim()) + ': ' + caja.height + ')');
+    }
+    const medidas = await app.evaluate(() => [...document.querySelectorAll('.pestanas [data-hoja]')].map((b) => b.getBoundingClientRect().width));
+    revisar(medidas.length === 3 && Math.max(...medidas) - Math.min(...medidas) <= 1, 'modo-app: las tres pestañas miden lo mismo (' + medidas.join(', ') + ')');
+    await ctx.close();
+
+    const ctx2 = await nuevoContexto();
+    await nubeDePrueba(ctx2);
+    const pc = await abrirPanelListas(ctx2, {});
+    igual(await visibleEn(pc, '#tab-guardadas'), true, 'en la PC la pestaña Guardadas se ve');
+    await ctx2.close();
+  }
+
+  console.log(' · dos paneles abiertos suben el pendiente una sola vez');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [], { demoraSubida: 400 });
+    const valores = Object.assign({
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }]
+    }, sesionPrueba(), yaMigrado());
+    const [a, b] = await Promise.all([abrirPanelListas(ctx, valores), abrirPanelListas(ctx, valores)]);
+    await a.waitForTimeout(8000);   // el que encuentra el candado vuelve a probar a los 5 s
+    igual(nube.subidas.length, 1, 'el pendiente subió una sola vez');
+    igual(await a.evaluate((k) => localStorage.getItem(k), CLAVE_CA('guardadas_pendientes_v1')), '[]', 'y la cola quedó vacía');
+    igual(await esperarTexto(b, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'el otro panel también queda «Sincronizado»');
+    igual(await esperarTexto(a, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'y el primero también');
+    await ctx.close();
+  }
 }
 
 /* ---------- Programa ---------- */
@@ -2062,7 +2269,7 @@ async function casoModoAppSinGuardadas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2103,7 +2310,7 @@ async function casoModoAppSinGuardadas() {
     await casoDisenoProduccion();
     await casoLineaBase();
     await casoFaltasIguales();
-    await casoModoAppSinGuardadas();
+    await casoMisasListas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

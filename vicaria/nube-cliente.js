@@ -136,16 +136,25 @@ function renovarNube() {
 }
 
 /* Corre fn(access) con una sesión vigente: renueva antes si faltan menos de 60 s. fn devuelve un resultado
-   { ok, ... }. Sin sesión (o con la renovación rechazada) da { tipo:'sesion' }. */
+   { ok, ... }. Sin sesión (o con la renovación rechazada) da { tipo:'sesion' }.
+   - Si renovar falla por la red pero el access todavía no venció, se usa ese access.
+   - Si fn recibe un 401 de PostgREST (el reloj del aparato puede estar corrido), renueva una vez y
+     reintenta fn una vez. */
 async function conSesion(fn) {
   let s = leerSesionNube();
   if (!s) return _nubeFalla('sesion');
   if (s.vence - Date.now() < MARGEN_RENOVAR_MS) {
     const r = await renovarNube();
-    if (!r.ok) return r;
+    if (!r.ok && !(r.error.tipo === 'sin-conexion' && s.vence > Date.now())) return r;
     s = leerSesionNube();
     if (!s) return _nubeFalla('sesion');
   }
+  const primero = await fn(s.access);
+  if (primero.ok || !primero.error || primero.error.tipo !== 'sesion' || primero.error.estado !== 401) return primero;
+  const r = await renovarNube();
+  if (!r.ok) return r;
+  s = leerSesionNube();
+  if (!s) return _nubeFalla('sesion');
   return fn(s.access);
 }
 
@@ -155,7 +164,7 @@ async function conSesion(fn) {
    ese `codigo`, para que la capa de sincronización decida (nombre repetido, tope de guardadas). */
 function _nubeErrorRest(r) {
   if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
-  if (r.estado === 401) return _nubeFalla('sesion');
+  if (r.estado === 401) return _nubeFalla('sesion', { estado: 401 });   // estado 401: conSesion renueva y reintenta
   if (r.estado === 403) return _nubeFalla('permiso');
   if (r.estado >= 200 && r.estado < 300) return null;
   const cuerpo = _nubeJson(r.texto);
@@ -188,9 +197,13 @@ function parroquiaIdNube(slug) {
   });
 }
 
-/* Todas las guardadas de la parroquia, también las borradas (borrada_en) de los últimos 30 días. */
+/* Las guardadas activas de la parroquia y las borradas (borrada_en) de los últimos 30 días: las bajas más
+   viejas ya no hacen falta para que un aparato sin conexión no resucite una guardada. */
+const DIAS_BAJAS_NUBE = 30;
 function listarGuardadasNube(parroquiaId) {
-  return conSesion((access) => _nubeLeerLista(access, 'guardadas?select=*&parroquia_id=eq.' + encodeURIComponent(parroquiaId)));
+  const desde = new Date(Date.now() - DIAS_BAJAS_NUBE * 86400000).toISOString();
+  const filtro = '&or=' + encodeURIComponent('(borrada_en.is.null,borrada_en.gte.' + desde + ')');
+  return conSesion((access) => _nubeLeerLista(access, 'guardadas?select=*&parroquia_id=eq.' + encodeURIComponent(parroquiaId) + filtro));
 }
 
 /* Sube una fila (upsert por parroquia_id,id). Un nombre repetido vuelve como { tipo:'servidor', codigo:'23505' }. */

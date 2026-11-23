@@ -28,10 +28,13 @@ function leerTodo() {
 }
 
 /* Lista guardada, de la más usada a la menos usada. Si lo guardado no se puede leer o no es una lista,
-   devuelve []. Las entradas rotas no se muestran (pero se conservan en el almacén al escribir). */
+   devuelve []. Las entradas rotas no se muestran (pero se conservan en el almacén al escribir).
+   Las guardadas de antes de la nube no traen actualizadoEn: se completa con el mayor entre guardadaEn y
+   usadaEn, para que la fusión y la primera subida comparen números. */
 function leerGuardadas() {
   return leerTodo().items
     .filter(esGuardadaValida)
+    .map((g) => (typeof g.actualizadoEn === 'number' ? g : Object.assign({}, g, { actualizadoEn: Math.max(g.guardadaEn || 0, g.usadaEn || 0) })))
     .sort((a, b) => (b.usadaEn || 0) - (a.usadaEn || 0) || (b.guardadaEn || 0) - (a.guardadaEn || 0));
 }
 

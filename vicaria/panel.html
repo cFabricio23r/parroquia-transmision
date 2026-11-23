@@ -23,7 +23,7 @@ button{font:inherit;font-weight:800;font-size:14px;border:2px solid transparent;
 button:hover{background:#1d4377}
 button:disabled{background:var(--apagado);color:var(--suave);cursor:default}
 :focus-visible{outline:3px solid var(--foco);outline-offset:2px}
-input[type=text],input[type=number],input[type=date],textarea,select{width:100%;background:var(--campo);color:var(--texto);border:1px solid var(--borde);border-radius:9px;padding:10px;font:inherit;font-weight:500;font-size:14px;min-height:44px}
+input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],textarea,select{width:100%;background:var(--campo);color:var(--texto);border:1px solid var(--borde);border-radius:9px;padding:10px;font:inherit;font-weight:500;font-size:14px;min-height:44px}
 input[type=date]{color-scheme:dark}
 input.falta{border:2px solid var(--ambar)}
 textarea{resize:vertical}
@@ -148,9 +148,10 @@ label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;
 .modo-app .rot .nom{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modo-app .rot .prev{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modo-app .rot .est{display:none}
-/* En la app, las transmisiones las prepara la web (etapa 3b): sin Guardadas. abrir() no deja abrir esa hoja. */
-.modo-app #tab-guardadas,.modo-app #hoja-guardadas,.modo-app #sec-rapidas,.modo-app #guardar-esta{display:none!important}
-.modo-app .pestanas{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* En la app se ven Guardadas y «Misas listas», pero no Entrar ni Salir: la app sincroniza de forma nativa
+   (el panel nunca recibe la sesión). */
+.modo-app #entrar,.modo-app #sec-cuenta,.modo-app #dialogo-entrar{display:none!important}
+.modo-app #sec-listas h3{display:block}
 
 /* interruptores (botones role=switch: sin campos en la hoja En vivo) */
 .interruptor{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;padding:4px 0;font-weight:700;font-size:14px;text-align:left;width:100%}
@@ -190,6 +191,16 @@ details label{margin-bottom:9px}
 .enlace:hover{background:transparent;text-decoration:underline}
 .estado-guardadas{font-size:12px;font-weight:700;color:var(--verde-texto);min-height:16px}
 .estado-guardadas.error{color:var(--ambar)}
+/* misas listas en Preparar */
+#listas{display:flex;flex-direction:column;gap:8px}
+.linea-sync{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.estado-sync{font-size:12px;font-weight:700;color:var(--suave);flex:1;min-width:0}
+.estado-sync.aviso-sync{color:var(--ambar)}
+dialog{background:var(--caja);color:var(--texto);border:1px solid var(--borde);border-radius:12px;padding:16px;width:min(360px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog form{display:flex;flex-direction:column;gap:10px}
+dialog h2{margin:0;font-size:16px;font-weight:800}
+.botones-dialogo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 
@@ -208,7 +219,7 @@ details label{margin-bottom:9px}
 :root:not(.modo-app) .pestanas button:hover{color:var(--suave-boton)}
 :root:not(.modo-app) button:disabled{background:var(--apagado);border-color:var(--borde);color:var(--suave)}
 :root:not(.modo-app) :focus-visible{outline:2px solid var(--foco);outline-offset:1px}
-:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
+:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
 :root:not(.modo-app) :is(input,textarea,select):focus{background:var(--fondo);border-color:var(--elegido)}
 :root:not(.modo-app) :is(input,textarea)::placeholder{color:var(--suave);opacity:1}
 :root:not(.modo-app) input.falta{border:2px solid var(--ambar)}
@@ -318,6 +329,12 @@ details label{margin-bottom:9px}
 :root:not(.modo-app) .enlace{color:var(--texto);text-decoration:underline;font-size:12px;font-weight:400}
 :root:not(.modo-app) .enlace:hover{background:transparent;text-decoration-thickness:2px}
 :root:not(.modo-app) .estado-guardadas{font-size:11px;font-weight:600}
+:root:not(.modo-app) .estado-sync{font-size:11px;font-weight:600}
+/* como en la lista de Guardadas, los botones de «Misas listas» miden 44 px (restricción de accesibilidad del plan) */
+:root:not(.modo-app) #listas button{min-height:44px}
+:root:not(.modo-app) dialog{border-radius:4px;padding:12px}
+:root:not(.modo-app) dialog h2{font-size:13px;font-weight:600}
+:root:not(.modo-app) .botones-dialogo button{min-height:32px}
 :root:not(.modo-app) .guardado{background:#1E8528;font-weight:600;padding:4px 8px;border-radius:4px;font-size:11px}
 </style>
 </head>
@@ -357,11 +374,6 @@ details label{margin-bottom:9px}
       <div class="tipos" id="tipos"></div>
       <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después puede cambiar cualquier dato.</span>
     </div>
-    <div class="seccion" id="sec-rapidas" hidden>
-      <h3>O cargar una guardada</h3>
-      <div id="rapidas" style="display:flex;flex-direction:column;gap:10px"></div>
-      <button type="button" class="enlace" id="ver-guardadas">Ver todas las guardadas</button>
-    </div>
     <button type="button" class="primario" id="continuar">Continuar</button>
   </div>
 
@@ -377,6 +389,17 @@ details label{margin-bottom:9px}
     </div>
 
     <div class="revision" id="revision" role="status"></div>
+
+    <!-- Misas listas: siempre a la vista, sin apretar Cambiar -->
+    <div class="seccion" id="sec-listas">
+      <h3 id="listas-titulo">Misas listas</h3>
+      <div class="linea-sync">
+        <span class="estado-sync" id="estado-sync" role="status"></span>
+        <button type="button" class="secundario" id="entrar" hidden>Entrar</button>
+      </div>
+      <div id="listas" role="list" aria-labelledby="listas-titulo"></div>
+      <button type="button" class="enlace" id="ver-todas">Ver todas</button>
+    </div>
 
     <div class="seccion" id="sec-datos">
       <h3>Datos de la transmisión</h3>
@@ -476,7 +499,26 @@ details label{margin-bottom:9px}
     <h3 id="titulo-guardadas" tabindex="-1">Transmisiones guardadas</h3>
     <div id="lista-guardadas" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
+  <div class="seccion" id="sec-cuenta" hidden>
+    <span class="ayuda">Las misas listas se comparten con el celular.</span>
+    <button type="button" class="secundario" id="salir">Salir</button>
+  </div>
 </section>
+
+<!-- Entrar con la cuenta del editor web (solo en la PC) -->
+<dialog id="dialogo-entrar" aria-labelledby="entrar-titulo">
+  <form id="form-entrar">
+    <h2 id="entrar-titulo">Entrar</h2>
+    <span class="ayuda">Con la misma cuenta del editor web.</span>
+    <label>Correo<input type="email" id="entrar-correo" autocomplete="username" required></label>
+    <label>Contraseña<input type="password" id="entrar-clave" autocomplete="current-password" required></label>
+    <span class="estado-guardadas error" id="entrar-error" role="alert"></span>
+    <div class="botones-dialogo">
+      <button type="button" class="secundario" id="entrar-cancelar">Cancelar</button>
+      <button type="submit" class="primario" id="entrar-boton">Entrar</button>
+    </div>
+  </form>
+</dialog>
 
 <div class="guardado" id="guardado" role="status">Guardado ✓</div>
 
@@ -488,6 +530,7 @@ details label{margin-bottom:9px}
 <script src="guardadas.js"></script>
 <script src="nube.js"></script>
 <script src="nube-cliente.js"></script>
+<script src="guardadas-sync.js"></script>
 <script>
 /* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
 if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
@@ -557,7 +600,6 @@ function guardarPronto() { clearTimeout(esperaT); esperaT = setTimeout(guardar, 
 const HOJAS = ['preparar', 'vivo', 'guardadas'];
 function abrir(h) {
   if (!HOJAS.includes(h)) h = 'preparar';   // un nombre viejo guardado (avisos, textos…) abre Preparar
-  if (h === 'guardadas' && document.documentElement.classList.contains('modo-app')) h = 'preparar';   // en la app no hay Guardadas
   document.querySelectorAll('[data-hoja]').forEach(b => b.setAttribute('aria-selected', b.dataset.hoja === h ? 'true' : 'false'));
   document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
   try { localStorage.setItem(claveDe('panel_hoja'), h); } catch (e) {}
@@ -845,6 +887,7 @@ function esControl(el) {
 document.addEventListener('keydown', (e) => {
   if (PARROQUIA_NO_EXISTE) return;
   const t = e.target;
+  if (t.closest && t.closest('dialog')) return;   // en el diálogo de Entrar, Esc solo lo cierra
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
@@ -881,6 +924,7 @@ const nombreTipo = (clave) => tipoDe({ tipo: clave }).nombre;
 const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
 
 function cargarGuardada(id) {
+  if (hayCambiosSinGuardar(s) && !confirm('Hay cambios que no están en ninguna misa lista. ¿Cargar igual?')) return;
   const estado = cargarTransmision(id, s);
   if (!estado) { pintarGuardadas(); return; }
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -890,9 +934,11 @@ function cargarGuardada(id) {
   guardar();                        // las pantallas se enteran
   llenar();
   nombreEscrito = false;
+  anotarFirmaGuardada(s);
   pintarGuardadas();
   verEleccion(false);
   abrir('preparar');
+  programarSincronizacionGuardadas();
 }
 function guardarActual() {
   const campo = $('guardar-nombre');
@@ -904,11 +950,32 @@ function guardarActual() {
   if (guardada && guardada.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
   if (!guardada) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
   nombreEscrito = false;
+  anotarFirmaGuardada(s);
   avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
   pintarGuardadas();
+  programarSincronizacionGuardadas();
 }
+/* Una fila de «Misas listas»: nombre, cuándo se usó y «Cargar». */
+function pintarRapidas(caja, lista) {
+  caja.textContent = '';
+  lista.forEach(g => {
+    const fila = nuevo('div', 'rapida'); fila.setAttribute('role', 'listitem');
+    const txt = nuevo('div', 'txt');
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
+    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
+    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
+    b.addEventListener('click', () => cargarGuardada(g.id));
+    fila.append(txt, b);
+    caja.append(fila);
+  });
+}
+/* Se repinta solo si cambió algo que se ve (la sincronización llama esto seguido). */
+let firmaPintadas = null;
 function pintarGuardadas() {
   const lista = leerGuardadas();
+  const firma = JSON.stringify([lista, new Date().toDateString(), firmaTipos]);
+  if (firma === firmaPintadas) return;
+  firmaPintadas = firma;
   const caja = $('lista-guardadas'); caja.textContent = '';
   if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay transmisiones guardadas. Escriba un nombre arriba y apriete Guardar.'));
   lista.forEach(g => {
@@ -930,6 +997,7 @@ function pintarGuardadas() {
         pintarGuardadas();
         if (copia && copia.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
         if (!copia) { avisoGuardadas('No se pudo duplicar en este navegador.', true); return; }
+        programarSincronizacionGuardadas();
         avisoGuardadas('Duplicada: «' + copia.nombre + '»');
         const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
         if (nuevoCargar) nuevoCargar.focus();
@@ -937,6 +1005,7 @@ function pintarGuardadas() {
       boton('borrar', 'Borrar', () => {
         if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
         const borrada = borrarTransmision(g.id);
+        if (borrada) programarSincronizacionGuardadas();
         avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
         pintarGuardadas();
         $('titulo-guardadas').focus();
@@ -946,30 +1015,55 @@ function pintarGuardadas() {
     caja.append(fila);
   });
 
-  /* «O cargar una guardada» en Elegir: las 2 más usadas */
-  const rapidas = $('rapidas'); rapidas.textContent = '';
-  $('sec-rapidas').hidden = !lista.length;
-  lista.slice(0, 2).forEach(g => {
-    const fila = nuevo('div', 'rapida');
-    const txt = nuevo('div', 'txt');
-    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
-    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
-    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
-    b.addEventListener('click', () => cargarGuardada(g.id));
-    fila.append(txt, b);
-    rapidas.append(fila);
-  });
+  /* «Misas listas» en Preparar: las 5 más usadas */
+  pintarRapidas($('listas'), lista.slice(0, 5));
+  if (!lista.length) $('listas').append(nuevo('span', 'ayuda', 'Todavía no hay misas listas. Prepará una y apretá Guardar.'));
+  $('ver-todas').hidden = !lista.length;
 }
 $('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
 $('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual(); e.preventDefault(); } });
 $('guardar-boton').addEventListener('click', guardarActual);
-$('ver-guardadas').addEventListener('click', () => abrir('guardadas'));
+$('ver-todas').addEventListener('click', () => abrir('guardadas'));
 $('guardar-esta').addEventListener('click', () => {
   abrir('guardadas');
   if (!nombreEscrito) $('guardar-nombre').value = nombreSugerido();
   $('guardar-nombre').focus(); $('guardar-nombre').select();
 });
 window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS) pintarGuardadas(); });
+
+/* ---------- misas listas en la nube (solo en la PC; la app sincroniza de forma nativa) ---------- */
+function pintarSesion() {
+  const con = haySesionGuardadas();
+  $('entrar').hidden = con || document.documentElement.classList.contains('modo-app');
+  $('sec-cuenta').hidden = !con;
+}
+function estadoSync(estado, texto) {
+  $('estado-sync').textContent = texto;
+  $('estado-sync').classList.toggle('aviso-sync', estado === 'sin-conexion');
+  pintarSesion();
+}
+const dialogoEntrar = $('dialogo-entrar');
+$('entrar').addEventListener('click', () => {
+  $('entrar-error').textContent = '';
+  dialogoEntrar.showModal();
+  $('entrar-correo').focus();
+});
+$('entrar-cancelar').addEventListener('click', () => dialogoEntrar.close());
+dialogoEntrar.addEventListener('close', () => { $('entrar-clave').value = ''; });   // la contraseña no queda escrita
+$('form-entrar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const boton = $('entrar-boton');
+  if (boton.disabled) return;
+  boton.disabled = true;
+  $('entrar-error').textContent = '';
+  const r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value);
+  boton.disabled = false;
+  if (!r.ok) { $('entrar-error').textContent = r.texto; $('entrar-clave').focus(); return; }
+  dialogoEntrar.close();
+  pintarSesion();
+  ($('ver-todas').hidden ? $('cambiar-tipo') : $('ver-todas')).focus();   // «Entrar» ya no está: el foco no se pierde
+});
+$('salir').addEventListener('click', () => { salirGuardadas(); pintarSesion(); });
 
 /* ---------- pintar el panel ---------- */
 function llenar() {
@@ -1156,6 +1250,12 @@ aplicarParroquia(PARROQUIA);
 alCambiarParroquia(aplicarParroquia);
 vigilarParroquia();
 pintarGuardadas();
+iniciarSincronizacionGuardadas({
+  alEstado: estadoSync,
+  alCambiarLista: pintarGuardadas,
+  enVivo: () => $('hoja-vivo').classList.contains('activa')   // sin sincronización periódica con En vivo abierta
+});
+pintarSesion();
 </script>
 </body>
 </html>
