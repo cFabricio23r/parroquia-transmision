@@ -845,6 +845,20 @@ grupo('guardadas', () => {
     const por = Object.fromEntries(Array.from(c.leerGuardadas(), (g) => [g.id, g.actualizadoEn]));
     assert.deepEqual(por, { vieja: 700, otra: 900, nueva: 5 });
   });
+  prueba('usoDeGuardada: «Guardada» si nunca se cargó, «Usada» si se cargó', () => {
+    const c = nuevo();
+    const plano = (x) => JSON.parse(JSON.stringify(x));
+    assert.deepEqual(plano(c.usoDeGuardada({ guardadaEn: 500, usadaEn: 500 })), { palabra: 'Guardada', cuando: 500 });   // al guardar, usadaEn = guardadaEn
+    assert.deepEqual(plano(c.usoDeGuardada({ guardadaEn: 500 })), { palabra: 'Guardada', cuando: 500 });
+    assert.deepEqual(plano(c.usoDeGuardada({ guardadaEn: 500, usadaEn: 900 })), { palabra: 'Usada', cuando: 900 });
+    const g = c.guardarTransmision('Nueva', { ...c.PREDETERMINADO, tipo: 'novena' });
+    assert.equal(c.usoDeGuardada(c.leerGuardadas()[0]).palabra, 'Guardada');
+    const lista = JSON.parse(c.__almacen[KEY]);
+    lista[0].guardadaEn -= 5000; lista[0].usadaEn -= 5000;   // guardada hace 5 s
+    c.__almacen[KEY] = JSON.stringify(lista);
+    c.cargarTransmision(g.id, {});
+    assert.equal(c.usoDeGuardada(c.leerGuardadas()[0]).palabra, 'Usada');
+  });
 });
 
 grupo('comun por parroquia', () => {
@@ -3357,6 +3371,14 @@ grupo('nube-cliente', () => {
     const d = nuevo(falso(() => ({ status: 503, cuerpo: '' })));
     assert.equal((await d.entrarNube('a@b.c', 'x')).error.tipo, 'sin-conexion');
   });
+  prueba('un 5xx es sin-conexion pero con su estado (hubo respuesta: la red anda); sin red no trae estado', async () => {
+    const d = nuevo(falso(() => ({ status: 503, cuerpo: '' })));
+    assert.deepEqual(plano(await d.entrarNube('a@b.c', 'x')), { ok: false, error: { tipo: 'sin-conexion', estado: 503 } });
+    const e = nuevo(falso(() => ({ status: 502, cuerpo: '' })), { [KEY_SESION]: sesion(AHORA + 1000) });
+    assert.deepEqual(plano(await e.renovarNube()), { ok: false, error: { tipo: 'sin-conexion', estado: 502 } });
+    const g = nuevo(falso(() => ({ status: 500, cuerpo: {} })), { [KEY_SESION]: sesion(AHORA + 120000) });
+    assert.deepEqual(plano(await g.listarGuardadasNube(PAR)), { ok: false, error: { tipo: 'sin-conexion', estado: 500 } });
+  });
   prueba('dos renovaciones a la vez hacen un solo pedido y rotan el refresh', async () => {
     const f = falso(async () => { await new Promise((r) => setImmediate(r)); return tokenOk(2); });
     const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 1000) });
@@ -3592,7 +3614,7 @@ grupo('guardadas: sincronizar', () => {
       f.token = () => ({ status: estado, cuerpo: { error: 'x' } });
       const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
       const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
-      assert.equal(await c.sincronizarGuardadas(), 'sin-conexion', 'renovación ' + estado);
+      assert.equal(await c.sincronizarGuardadas(), 'error-servidor', 'renovación ' + estado);
       assert.deepEqual(pendientes(c), pend, 'renovación ' + estado);
     }
   });
@@ -3600,7 +3622,7 @@ grupo('guardadas: sincronizar', () => {
     const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
     const f = nubeFalsa([], () => ({ status: 429, cuerpo: { message: 'demasiados pedidos' } }));
     const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
-    assert.equal(await c.sincronizarGuardadas(), 'sin-conexion');
+    assert.equal(await c.sincronizarGuardadas(), 'error-servidor');
     assert.deepEqual(pendientes(c), pend);
     const g = nubeFalsa([], () => ({ status: 422, cuerpo: { code: '22023' } }));
     const d = nuevo(g, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
@@ -3677,7 +3699,8 @@ grupo('guardadas: sincronizar', () => {
     assert.deepEqual(f.subidas.map((x) => x.id).sort(), ['aaaa1', 'bbbb2']);
     assert.equal(f.subidas.find((x) => x.id === 'aaaa1').actualizado_en, iso(4000));   // R7: sin actualizadoEn, el mayor de guardadaEn y usadaEn
     assert.equal(JSON.parse(c.__almacen[KEY_MIGRADAS]).cantidad, 2);
-    assert.equal(c.textoMigracion(2), 'Se subieron 2 misas de esta computadora');
+    assert.equal(c.textoMigracion(2), 'Se guardaron 2 misas de esta computadora en la nube');
+    assert.equal(c.textoMigracion(1), 'Se guardó 1 misa de esta computadora en la nube');
     assert.deepEqual(nombres(c), ['A', 'B']);
     // la segunda vez no vuelve a subir nada
     assert.equal(await c.sincronizarGuardadas(), 'ok');
@@ -3706,6 +3729,72 @@ grupo('guardadas: sincronizar', () => {
     const c = nuevo(f, conSesionYMarca({}), { document: documento });
     assert.equal(await c.sincronizarGuardadas(), 'sin-sesion');
     assert.equal(f.pedidos.length, 0);
+  });
+  /* Arranca la sincronización sin sesión (no corre nada) y anota lo que le pasa al panel. */
+  const conEstados = (c) => {
+    const guardada = c.__almacen[KEY_SESION];
+    delete c.__almacen[KEY_SESION];
+    const v = [];
+    c.iniciarSincronizacionGuardadas({ alEstado: (e, t) => v.push([e, t]) });
+    if (guardada !== undefined) c.__almacen[KEY_SESION] = guardada;
+    return v;
+  };
+  const TXT_CERRADA = 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.';
+  const TXT_ENTRA = 'Entrá para ver también las del celular';
+  prueba('sin red: «Sin conexión. Ves las misas guardadas en esta computadora.»', async () => {
+    const f = nubeFalsa([]);
+    f.sinRed = () => true;
+    const c = nuevo(f, conSesionYMarca({}));
+    const v = conEstados(c);
+    assert.equal(await c.sincronizarGuardadas(), 'sin-conexion');
+    assert.deepEqual(v[v.length - 1], ['sin-conexion', 'Sin conexión. Ves las misas guardadas en esta computadora.']);
+  });
+  prueba('un 5xx de PostgREST o de Auth da error-servidor, con su texto, y conserva la cola sin rechazar nada', async () => {
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
+    for (const caso of ['rest', 'auth']) {
+      const f = nubeFalsa([], () => (caso === 'rest' ? { status: 503, cuerpo: {} } : { status: 401, cuerpo: {} }));
+      f.token = () => ({ status: 500, cuerpo: {} });
+      const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+      const v = conEstados(c);
+      assert.equal(await c.sincronizarGuardadas(), 'error-servidor', caso);
+      assert.deepEqual(pendientes(c), pend, caso);
+      assert.deepEqual(v[v.length - 1], ['error-servidor', 'No se pudo sincronizar. Se vuelve a intentar solo.'], caso);
+    }
+  });
+  prueba('la sesión rechazada al renovar da sesion-cerrada; nunca haber entrado sigue invitando a entrar', async () => {
+    const f = nubeFalsa([], () => ({ status: 401, cuerpo: {} }));
+    f.token = () => ({ status: 400, cuerpo: { error: 'invalid_grant' } });
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
+    const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+    const v = conEstados(c);
+    assert.deepEqual(v[0], ['sin-sesion', TXT_ENTRA]);   // nunca entró en este panel
+    assert.equal(await c.sincronizarGuardadas(), 'sesion-cerrada');
+    assert.deepEqual(v[v.length - 1], ['sesion-cerrada', TXT_CERRADA]);
+    assert.ok(!(KEY_SESION in c.__almacen));
+    assert.deepEqual(pendientes(c), pend);
+    // al volver a abrir el panel lo sigue diciendo
+    const d = nuevo(nubeFalsa([]), Object.assign({}, c.__almacen));
+    const w = conEstados(d);
+    assert.deepEqual(w[0], ['sesion-cerrada', TXT_CERRADA]);
+    assert.equal(await d.sincronizarGuardadas(), 'sesion-cerrada');
+    // Salir lo olvida: vuelve a «Entrá para ver también las del celular»
+    d.salirGuardadas();
+    assert.deepEqual(w[w.length - 1], ['sin-sesion', TXT_ENTRA]);
+  });
+  prueba('una sesión que ya no sirve para PostgREST (401 aun renovada) también es sesion-cerrada', async () => {
+    const f = nubeFalsa([], () => ({ status: 401, cuerpo: {} }));
+    f.token = () => ({ status: 200, cuerpo: { access_token: 'acc9', refresh_token: 'ref9', expires_in: 3600 } });
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
+    const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+    assert.equal(await c.sincronizarGuardadas(), 'sesion-cerrada');
+    assert.ok(!(KEY_SESION in c.__almacen));
+    assert.deepEqual(pendientes(c), pend);
+  });
+  prueba('entrar sin red dice «No hay internet. Probá de nuevo.»', async () => {
+    const f = nubeFalsa([]);
+    f.sinRed = () => true;
+    const c = nuevo(f, {});
+    assert.deepEqual(JSON.parse(JSON.stringify(await c.entrarGuardadas('a@b.c', 'x'))), { ok: false, texto: 'No hay internet. Probá de nuevo.' });
   });
   prueba('firmaEstado no mira el rótulo al aire ni el orden de las claves', () => {
     const c = nuevo(nubeFalsa([]), {});

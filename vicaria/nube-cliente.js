@@ -9,6 +9,7 @@
 
    Toda función devuelve una promesa de { ok:true, valor } o
    { ok:false, error:{ tipo:'sin-conexion'|'credenciales'|'permiso'|'sesion'|'servidor', estado?, codigo? } }.
+   Un 5xx también es 'sin-conexion' (pasajero), pero lleva su `estado`: hubo respuesta, así que la red anda.
    `fetch` es inyectable para las pruebas (usarFetchNube); por defecto es el del navegador. */
 
 const CLAVE_SESION_NUBE = claveDe('sesion_nube_v1');
@@ -22,6 +23,11 @@ function usarFetchNube(f) { _nubeFetch = typeof f === 'function' ? f : null; }
 
 function _nubeFalla(tipo, extra) {
   return { ok: false, error: Object.assign({ tipo }, extra || {}) };
+}
+
+/* Sin respuesta: { tipo:'sin-conexion' }. Con un 5xx: también, con su estado. */
+function _nubeSinConexion(r) {
+  return _nubeFalla('sin-conexion', r ? { estado: r.estado } : undefined);
 }
 
 function _nubeBase() { return String(NUBE.url).replace(/\/+$/, ''); }
@@ -111,7 +117,7 @@ function _nubeGuardarDeRespuesta(r) {
 
 async function entrarNube(correo, clave) {
   const r = await _nubeToken('password', { email: String(correo).trim().toLowerCase(), password: clave });
-  if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
+  if (r === null || r.estado >= 500) return _nubeSinConexion(r);
   if (r.estado === 400 || r.estado === 401 || r.estado === 422) return _nubeFalla('credenciales');
   if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado, origen: 'auth' });
   return _nubeGuardarDeRespuesta(r);
@@ -126,7 +132,7 @@ function renovarNube() {
   _nubeRenovando = (async () => {
     try {
       const r = await _nubeToken('refresh_token', { refresh_token: actual.refresh });
-      if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
+      if (r === null || r.estado >= 500) return _nubeSinConexion(r);
       if (r.estado === 400 || r.estado === 401) { salirNube(); return _nubeFalla('sesion'); }
       if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado, origen: 'auth' });
       return _nubeGuardarDeRespuesta(r);
@@ -165,7 +171,7 @@ async function conSesion(fn) {
 /* Error de un pedido a PostgREST, o null si salió bien. Un 4xx con cuerpo { code } (23505, P0001…) lleva
    ese `codigo`, para que la capa de sincronización decida (nombre repetido, tope de guardadas). */
 function _nubeErrorRest(r) {
-  if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
+  if (r === null || r.estado >= 500) return _nubeSinConexion(r);
   if (r.estado === 401) return _nubeFalla('sesion', { estado: 401 });   // estado 401: conSesion renueva y reintenta
   if (r.estado === 403) return _nubeFalla('permiso');
   if (r.estado >= 200 && r.estado < 300) return null;

@@ -2053,6 +2053,7 @@ async function nubeDePrueba(ctx, filas = [], opciones = {}) {
     const json = (status, cuerpo) => route.fulfill({ status, headers: Object.assign({ 'Content-Type': 'application/json' }, cors), body: cuerpo === undefined ? '' : JSON.stringify(cuerpo) });
     if (u.pathname === '/auth/v1/token') {
       const b = q.postDataJSON();
+      if (opciones.demoraToken) await new Promise((r) => setTimeout(r, opciones.demoraToken));
       if (b.password !== 'clave-buena') return json(400, { error_code: 'invalid_credentials' });
       return json(200, { access_token: 'acc-prueba', refresh_token: 'ref-prueba', expires_in: 3600, user: { email: b.email } });
     }
@@ -2083,6 +2084,15 @@ async function esperarTexto(p, sel, texto, ms = 6000) {
   return ((await p.textContent(sel)) || '').trim();
 }
 
+/* Alto de cada control visible de `sel`: todos deben medir 44 px o más. */
+async function revisar44(p, sel, prefijo) {
+  for (const b of await p.locator(sel).all()) {
+    const caja = await b.boundingBox();
+    if (caja) revisar(caja.height >= 44, (prefijo || '') + 'control de 44 px o más: ' + ((await b.getAttribute('aria-label')) || (await b.textContent()).trim()) + ' (' + caja.height + ')');
+  }
+}
+const TXT_VACIA = 'Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión» y va a quedar acá.';
+
 async function casoMisasListas() {
   console.log('Misas listas en Preparar');
 
@@ -2101,27 +2111,42 @@ async function casoMisasListas() {
       const caja = await b.boundingBox();
       revisar(caja.height >= 44, 'botón de la lista de 44 px o más: ' + (await b.getAttribute('aria-label')) + ' (' + caja.height + ')');
     }
+    await revisar44(p, '#entrar, #ver-todas', 'PC: ');
+    igual(((await p.textContent('#tab-guardadas')) || '').trim(), 'Misas listas', 'la pestaña se llama «Misas listas»');
+    igual(((await p.textContent('#titulo-guardadas')) || '').trim(), 'Misas listas', 'y su título también');
+    revisar(((await p.textContent('#listas .rapida .meta')) || '').startsWith('Guardada '), 'una misa que nunca se cargó dice «Guardada …» (' + (await p.textContent('#listas .rapida .meta')) + ')');
     igual(await p.getAttribute('#estado-sync', 'role').catch(() => null), 'status', 'la línea de estado tiene role="status"');
     igual(nube.pedidos.length, 0, 'sin sesión no se pide nada a la nube');
     await ctx.close();
   }
 
-  console.log(' · muestra 5 y Ver todas abre Guardadas');
+  console.log(' · muestra 5 y Ver todas las misas listas abre la pestaña');
   {
     const ctx = await nuevoContexto();
     await nubeDePrueba(ctx);
     const siete = [1, 2, 3, 4, 5, 6, 7].map((i) => guardadaPrueba('misa' + i, 'Misa ' + i, i * 1000));
     const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: siete });
     igual((await nombresListas(p)).join('|'), 'Misa 7|Misa 6|Misa 5|Misa 4|Misa 3', 'hasta 5, de la más usada a la menos usada');
+    igual(((await p.textContent('#ver-todas')) || '').trim(), 'Ver todas las misas listas', 'el enlace dice «Ver todas las misas listas»');
     await p.click('#ver-todas', { timeout: 3000 }).catch(() => {});
-    igual(await p.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, '«Ver todas» abre la pestaña Guardadas');
+    igual(await p.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, '«Ver todas las misas listas» abre la pestaña');
     igual(await p.locator('#lista-guardadas .guardada').count(), 7, 'y ahí están las 7');
     await ctx.close();
 
     const ctx2 = await nuevoContexto();
     await nubeDePrueba(ctx2);
     const vacio = await abrirPanelListas(ctx2, {});
-    igual(((await vacio.textContent('#listas').catch(() => '')) || '').trim(), 'Todavía no hay misas listas. Prepará una y apretá Guardar.', 'sin guardadas lo dice');
+    igual(((await vacio.textContent('#listas-vacia').catch(() => '')) || '').trim(), TXT_VACIA, 'sin guardadas lo dice');
+    igual(await visibleEn(vacio, '#listas-vacia'), true, 'y el mensaje se ve');
+    igual(await vacio.evaluate(() => { const m = document.getElementById('listas-vacia'); return !!m && !m.closest('[role=list]'); }), true, 'el mensaje no va dentro de role="list"');
+    igual(await vacio.evaluate(() => [...document.querySelectorAll('[role=list]')].filter((l) => l.getClientRects().length && !l.children.length).length), 0, 'no queda a la vista una lista vacía');
+    await vacio.click('[data-hoja="guardadas"]');
+    igual(((await vacio.textContent('#lista-guardadas')) || '').trim(), 'Todavía no hay misas listas. Escribí un nombre arriba y apretá Guardar.', 'la pestaña vacía lo dice de vos');
+    await vacio.fill('#guardar-nombre', '');
+    await vacio.click('#guardar-boton');
+    igual(((await vacio.textContent('#estado-guardadas')) || '').trim(), 'Escribí un nombre para guardarla.', 'sin nombre lo pide de vos');
+    await vacio.click('[data-hoja="preparar"]');
+    igual(await visibleEn(vacio, '#preparar-datos #guardar-esta'), true, '«Guardar esta transmisión…» está a la vista en Preparar');
     await ctx2.close();
   }
 
@@ -2131,16 +2156,16 @@ async function casoMisasListas() {
     const nube = await nubeDePrueba(ctx);
     const p = await abrirPanelListas(ctx, {});
     igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular', 3000).catch(() => ''), 'Entrá para ver también las del celular', 'la línea de estado invita a entrar');
-    igual(await visibleEn(p, '#entrar'), true, 'con el botón «Entrar» a la vista');
-    igual(((await p.textContent('#entrar').catch(() => '')) || '').trim(), 'Entrar', 'el botón dice «Entrar»');
+    igual(await visibleEn(p, '#entrar'), true, 'con el botón a la vista');
+    igual(((await p.textContent('#entrar').catch(() => '')) || '').trim(), 'Entrar con mi cuenta', 'el botón dice «Entrar con mi cuenta»');
     igual(nube.pedidos.length, 0, 'y no se pidió nada a la nube');
     await ctx.close();
   }
 
-  console.log(' · entrar sube las locales y muestra Se subieron 2 misas de esta computadora');
+  console.log(' · entrar sube las locales y muestra Se guardaron 2 misas de esta computadora en la nube');
   {
     const ctx = await nuevoContexto();
-    const nube = await nubeDePrueba(ctx);
+    const nube = await nubeDePrueba(ctx, [], { demoraToken: 600 });
     // guardadas de antes de la nube: sin pendientes ni actualizadoEn
     const viejas = [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000, { actualizadoEn: undefined }), guardadaPrueba('bbbb2', 'Domingo 30', 3000, { actualizadoEn: undefined })];
     const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: viejas });
@@ -2149,20 +2174,26 @@ async function casoMisasListas() {
     igual(await p.getAttribute('#entrar-correo', 'autocomplete'), 'username', 'el correo lleva autocomplete="username"');
     igual(await p.getAttribute('#entrar-clave', 'type'), 'password', 'la contraseña va tapada');
     igual(await p.getAttribute('#entrar-clave', 'autocomplete'), 'current-password', 'la contraseña lleva autocomplete="current-password"');
+    igual(((await p.textContent('#entrar-titulo')) || '').trim(), 'Entrar con la cuenta del editor web', 'el título del diálogo');
+    igual(await p.evaluate(() => { const d = document.getElementById('dialogo-entrar'); const t = document.getElementById(d.getAttribute('aria-labelledby') || ''); const a = document.getElementById(d.getAttribute('aria-describedby') || ''); return [t && t.textContent.trim(), a && a.textContent.trim()].join(' | '); }),
+      'Entrar con la cuenta del editor web | ¿Olvidaste la clave? Pedísela a quien administra el editor web.', 'el diálogo se nombra con el título y se describe con la ayuda (aria-describedby)');
+    await revisar44(p, '#dialogo-entrar button', 'PC, diálogo de entrar: ');
     await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
     await p.fill('#entrar-clave', 'mala');
     await p.click('#entrar-boton');
     igual(await esperarTexto(p, '#entrar-error', 'Correo o contraseña incorrectos'), 'Correo o contraseña incorrectos', 'con la contraseña mala lo dice');
     await p.fill('#entrar-clave', 'clave-buena');
     await p.click('#entrar-boton');
-    igual(await esperarTexto(p, '#estado-sync', 'Se subieron 2 misas de esta computadora'), 'Se subieron 2 misas de esta computadora', 'al entrar sube las de esta computadora y lo dice');
+    igual(await esperarTexto(p, '#entrar-boton', 'Entrando…', 500), 'Entrando…', 'mientras entra, el botón dice «Entrando…»');
+    igual(await esperarTexto(p, '#estado-sync', 'Se guardaron 2 misas de esta computadora en la nube'), 'Se guardaron 2 misas de esta computadora en la nube', 'al entrar sube las de esta computadora y lo dice');
+    igual(((await p.textContent('#entrar-boton')) || '').trim(), 'Entrar', 'y el botón vuelve a decir «Entrar»');
     igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), false, 'el diálogo se cierra');
     igual(nube.subidas.map((f) => f.id).sort().join('|'), 'aaaa1|bbbb2', 'subieron las dos');
     igual(nube.subidas.every((f) => f.actualizado_desde === 'panel' && f.parroquia_id === PAR_PRUEBA), true, 'como «panel», a la parroquia');
     igual(await p.inputValue('#entrar-clave'), '', 'la contraseña no queda escrita');
     igual(await visibleEn(p, '#entrar'), false, 'con sesión ya no se ofrece «Entrar»');
     await p.click('[data-hoja="guardadas"]');
-    igual(await visibleEn(p, '#salir'), true, '«Salir» está en la pestaña Guardadas');
+    igual(await visibleEn(p, '#salir'), true, '«Salir» está en la pestaña Misas listas');
     await p.click('#salir');
     igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular'), 'Entrá para ver también las del celular', 'al salir vuelve a invitar a entrar');
     igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('sesion_nube_v1')), null, 'y la sesión se borró');
@@ -2179,38 +2210,75 @@ async function casoMisasListas() {
     igual((await nombresListas(p)).join('|'), 'Del celular', 'la del celular se ve en Preparar');
     igual(await esperarTexto(p, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'la línea dice «Sincronizado»');
     revisar(nube.pedidos.includes('GET /rest/v1/guardadas'), 'se bajó la lista de la nube');
+    await p.evaluate(() => { window.__cambiosSync = 0; new MutationObserver((m) => { window.__cambiosSync += m.length; }).observe(document.getElementById('estado-sync'), { childList: true, characterData: true, subtree: true }); });
+    await p.evaluate(async () => { await sincronizarGuardadas(); await sincronizarGuardadas(); });
+    await p.waitForTimeout(300);
+    igual(await p.evaluate(() => window.__cambiosSync), 0, 'dos sincronizaciones más sin cambios no reescriben «Sincronizado» (no se vuelve a anunciar)');
     await ctx.close();
   }
 
-  console.log(' · Cargar con cambios pide confirmación');
+  console.log(' · la sesión vencida que el servidor rechaza dice Se cerró tu sesión');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const vencida = { [CLAVE_CA('sesion_nube_v1')]: { access: 'acc-viejo', refresh: 'ref-viejo', vence: Date.now() - 1000 } };
+    const p = await abrirPanelListas(ctx, Object.assign(vencida, yaMigrado()));
+    igual(await esperarTexto(p, '#estado-sync', 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.'), 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.', 'lo dice en la línea de estado');
+    igual(await visibleEn(p, '#entrar'), true, 'y ofrece «Entrar con mi cuenta»');
+    await ctx.close();
+  }
+
+  console.log(' · Cargar con cambios pide confirmación en el diálogo del panel');
   {
     const ctx = await nuevoContexto();
     await nubeDePrueba(ctx);
     const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000), guardadaPrueba('bbbb2', 'Domingo 30', 3000)] });
-    const preguntas = [];
-    let aceptar = true;
-    p.on('dialog', (d) => { preguntas.push(d.message()); if (aceptar) d.accept(); else d.dismiss(); });
+    const nativas = [];
+    p.on('dialog', (d) => { nativas.push(d.message()); d.dismiss(); });
     const estado = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), CLAVE_CA('estado_v1'));
-    const cargar = async (nombre) => { await p.click(`#listas button[aria-label="Cargar «${nombre}»"]`, { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(300); };
+    const sel = (nombre) => `#listas button[aria-label="Cargar «${nombre}»"]`;
+    const cargar = async (nombre) => { await p.click(sel(nombre), { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(300); };
+    const abierto = () => p.evaluate(() => document.getElementById('dialogo-cargar') ? document.getElementById('dialogo-cargar').open : false);
+    const foco = () => p.evaluate(() => (document.activeElement && (document.activeElement.getAttribute('aria-label') || document.activeElement.id)) || '');
+    const celebranteGuia = async () => { const e = await estado(); return (e.rotulosTexto || {}).guia && e.rotulosTexto.guia.t; };
     await cargar('Domingo 30');
+    // la primera vez no hay con qué comparar (concern 1 de la Tarea 5): puede preguntar
+    if (await abierto()) { await p.click('#cargar-igual'); await p.waitForTimeout(300); }
     igual((await estado()).celebrante, 'Pbro. Domingo 30', 'Cargar carga la guardada');
-    const antes = preguntas.length;
+    igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y la línea de estado dice «Cargada: Domingo 30»');
+    revisar(((await p.textContent(sel('Domingo 30') + ' >> xpath=..')) || '').includes('Usada hoy'), 'la cargada dice «Usada hoy»');
     await cargar('Hora Santa jueves');
-    igual(preguntas.length, antes, 'recién cargada (sin cambios) carga directo, sin preguntar');
+    igual(await abierto(), false, 'recién cargada (sin cambios) carga directo, sin preguntar');
     igual((await estado()).celebrante, 'Pbro. Hora Santa jueves', 'y carga la otra');
     await p.fill('#rot-guia-t', 'Juan cambiado');
     await p.waitForTimeout(500);
-    aceptar = false;
     await cargar('Domingo 30');
-    igual(preguntas[preguntas.length - 1], 'Hay cambios que no están en ninguna misa lista. ¿Cargar igual?', 'con cambios pregunta antes de cargar');
-    igual(((await estado()).rotulosTexto || {}).guia && (await estado()).rotulosTexto.guia.t, 'Juan cambiado', 'y si dice que no, no carga nada');
-    aceptar = true;
+    igual(await abierto(), true, 'con cambios abre el diálogo del panel');
+    igual(((await p.textContent('#cargar-pregunta').catch(() => '')) || '').trim(), 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar Domingo 30 de todas formas?', 'con el texto aprobado');
+    igual(((await p.textContent('#cargar-igual').catch(() => '')) || '').trim() + ' / ' + ((await p.textContent('#cargar-volver').catch(() => '')) || '').trim(), 'Cargar igual / Volver', 'y los botones «Cargar igual» y «Volver»');
+    igual(await foco(), 'cargar-volver', 'el foco entra al diálogo, en «Volver»');
+    await revisar44(p, '#dialogo-cargar button', 'PC, diálogo de cargar: ');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    igual(await abierto(), false, 'Esc cierra el diálogo');
+    igual(await celebranteGuia(), 'Juan cambiado', 'Esc cuenta como «Volver»: no carga nada');
+    igual(await foco(), 'Cargar «Domingo 30»', 'y el foco vuelve al botón que lo abrió');
     await cargar('Domingo 30');
-    igual((await estado()).celebrante, 'Pbro. Domingo 30', 'si dice que sí, carga');
+    await p.click('#cargar-volver', { timeout: 3000 }).catch(() => {});
+    await p.waitForTimeout(200);
+    igual(await celebranteGuia(), 'Juan cambiado', '«Volver» no carga nada');
+    igual(await foco(), 'Cargar «Domingo 30»', 'y devuelve el foco al botón');
+    await cargar('Domingo 30');
+    await p.click('#cargar-igual', { timeout: 3000 }).catch(() => {});
+    await p.waitForTimeout(300);
+    igual((await estado()).celebrante, 'Pbro. Domingo 30', '«Cargar igual» carga');
+    igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y dice «Cargada: Domingo 30»');
+    igual(await foco(), 'Cargar «Domingo 30»', 'el foco vuelve al «Cargar» de esa misa');
+    igual(nativas.length, 0, 'nunca aparece un confirm() del navegador');
     await ctx.close();
   }
 
-  console.log(' · en modo app se ve la pestaña Guardadas y no el aviso de Entrar');
+  console.log(' · en modo app se ve la pestaña Misas listas y no el aviso de Entrar');
   {
     const ctx = await nuevoContexto();
     const nube = await nubeDePrueba(ctx);
@@ -2218,7 +2286,8 @@ async function casoMisasListas() {
     const app = await abrirPanelListas(ctx, valores, { ancho: 844, alto: 390, app: true });
     await app.waitForTimeout(800);
     for (const sel of ['#tab-guardadas', '#hoja-guardadas']) igual(await visibleEn(app, sel), true, 'modo-app: ' + sel + ' se ve');
-    igual(await app.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, 'modo-app: abre la hoja Guardadas recordada');
+    igual(await app.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, 'modo-app: abre la hoja Misas listas recordada');
+    igual(((await app.textContent('#tab-guardadas')) || '').trim(), 'Misas listas', 'modo-app: la pestaña se llama «Misas listas» (con el mismo id)');
     for (const sel of ['#entrar', '#salir', '#dialogo-entrar']) igual(await visibleEn(app, sel), false, 'modo-app: ' + sel + ' no se ve');
     revisar(!(await app.textContent('body')).includes('Entrá para ver'), 'modo-app: no invita a entrar');
     igual(nube.pedidos.length, 0, 'modo-app: el panel no habla con la nube (aunque haya una sesión guardada)');
@@ -2237,7 +2306,7 @@ async function casoMisasListas() {
     const ctx2 = await nuevoContexto();
     await nubeDePrueba(ctx2);
     const pc = await abrirPanelListas(ctx2, {});
-    igual(await visibleEn(pc, '#tab-guardadas'), true, 'en la PC la pestaña Guardadas se ve');
+    igual(await visibleEn(pc, '#tab-guardadas'), true, 'en la PC la pestaña Misas listas se ve');
     await ctx2.close();
   }
 

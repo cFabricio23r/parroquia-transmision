@@ -49,6 +49,14 @@ function escribirGuardadas(validas) {
   } catch (e) { return false; }
 }
 
+/* Qué dice la fila: «Usada …» si se cargó alguna vez, «Guardada …» si nunca. Al guardar (y en la nube)
+   usadaEn arranca igual a guardadaEn, así que «se cargó» es que usadaEn sea posterior. → { palabra, cuando } */
+function usoDeGuardada(g) {
+  const guardadaEn = g.guardadaEn || 0;
+  if (typeof g.usadaEn === 'number' && g.usadaEn > guardadaEn) return { palabra: 'Usada', cuando: g.usadaEn };
+  return { palabra: 'Guardada', cuando: guardadaEn || g.usadaEn || 0 };
+}
+
 /* ¿Ya hay una guardada con ese nombre? (sin importar mayúsculas ni espacios de los lados) */
 function existeGuardada(nombre) {
   return leerGuardadas().some((g) => mismoNombre(g.nombre, nombre));

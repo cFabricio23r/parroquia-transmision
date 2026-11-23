@@ -8,11 +8,19 @@
    - Dos paneles abiertos en la misma PC no suben dos veces lo mismo: hay un candado en localStorage que
      vence a los 30 s.
 
-   sincronizarGuardadas() devuelve 'ok' | 'sin-sesion' | 'sin-conexion' | 'ocupado'. */
+   sincronizarGuardadas() devuelve:
+   - 'ok';
+   - 'sin-sesion': nunca se entró en este panel (o se apretó Salir);
+   - 'sesion-cerrada': había sesión y el servidor la rechazó o venció (se recuerda hasta entrar o salir);
+   - 'sin-conexion': no hubo respuesta (sin red);
+   - 'error-servidor': hubo respuesta pero falló (5xx, 429, error de Auth al renovar…). Igual que sin
+     conexión, corta y conserva la cola: nada pasa a rechazado por esto;
+   - 'ocupado': otro panel de esta PC está sincronizando. */
 
 const CLAVE_CANDADO_SYNC = claveDe('guardadas_candado');
 const CLAVE_MIGRADAS = claveDe('guardadas_migradas_v1');
 const CLAVE_ULTIMA_FIRMA = claveDe('guardadas_ultima_firma');
+const CLAVE_SESION_CERRADA = claveDe('guardadas_sesion_cerrada');   // el servidor cerró la sesión: se dice hasta entrar o salir
 const VENCE_CANDADO_MS = 30000;
 const ESPERA_CANDADO_MS = 150;       // escribe, espera y relee: si otro panel escribió después, gana ese
 const DEMORA_TRAS_CAMBIO_MS = 1500;
@@ -21,9 +29,11 @@ const REINTENTO_OCUPADO_MS = 5000;
 
 const TEXTO_SYNC = {
   ok: 'Sincronizado',
-  'sin-conexion': 'Sin conexión: se muestran las de este aparato',
+  'sin-conexion': 'Sin conexión. Ves las misas guardadas en esta computadora.',
+  'error-servidor': 'No se pudo sincronizar. Se vuelve a intentar solo.',
   guardando: 'Guardando…',
-  'sin-sesion': 'Entrá para ver también las del celular'
+  'sin-sesion': 'Entrá para ver también las del celular',
+  'sesion-cerrada': 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.'
 };
 
 const _syncYo = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -44,9 +54,17 @@ function _syncEscribir(clave, valor) {
   try { localStorage.setItem(clave, JSON.stringify(valor)); return true; } catch (e) { return false; }
 }
 
-/* «Se subieron N misas de esta computadora» (con una sola, en singular). */
+/* «Se guardaron N misas de esta computadora en la nube» (con una sola, en singular). */
 function textoMigracion(n) {
-  return n === 1 ? 'Se subió 1 misa de esta computadora' : 'Se subieron ' + n + ' misas de esta computadora';
+  return n === 1 ? 'Se guardó 1 misa de esta computadora en la nube' : 'Se guardaron ' + n + ' misas de esta computadora en la nube';
+}
+
+/* Sin sesión: ¿la cerró el servidor (y hay que decirlo) o nunca se entró? */
+function _syncSinSesion() {
+  return _syncLeer(CLAVE_SESION_CERRADA) ? 'sesion-cerrada' : 'sin-sesion';
+}
+function _syncOlvidarCierre() {
+  try { localStorage.removeItem(CLAVE_SESION_CERRADA); } catch (e) {}
 }
 
 /* ---------- ¿Hay cambios que no están en ninguna misa lista? ---------- */
@@ -115,13 +133,14 @@ function _syncRechazar(p) {
 }
 
 /* Ante un error de la nube: cortar o, si es la respuesta de PostgREST a esta guardada (un 4xx), null = rechazar.
-   Se corta (y la cola se conserva) sin red, sin sesión, si falló Auth al renovar (origen 'auth': no habla de
-   esta guardada) o con un 429 (límite de pedidos, de Auth o de PostgREST: es pasajero). */
+   Se corta (y la cola se conserva) sin red, sin sesión, con un 5xx, si falló Auth al renovar (origen 'auth':
+   no habla de esta guardada) o con un 429 (límite de pedidos, de Auth o de PostgREST: es pasajero).
+   Sin respuesta es 'sin-conexion'; con respuesta (5xx, 429, Auth) es 'error-servidor'. */
 function _syncCorte(r) {
   const e = r.error;
-  if (e.tipo === 'sin-conexion') return 'sin-conexion';
+  if (e.tipo === 'sin-conexion') return e.estado === undefined ? 'sin-conexion' : 'error-servidor';
   if (e.tipo === 'sesion') return 'sin-sesion';
-  if (e.origen === 'auth' || e.estado === 429) return 'sin-conexion';
+  if (e.origen === 'auth' || e.estado === 429) return 'error-servidor';
   return null;
 }
 
@@ -142,7 +161,7 @@ async function _syncSubirGuardar(pid, p, ctx) {
   if (!r.ok && r.error.codigo === '23505') {
     // Otro aparato ya tiene una guardada con ese nombre: esta pasa a «(copia)» y se reintenta una vez.
     const nube = await ctx.nube();
-    if (!nube.ok) return _syncCorte(nube) || 'sin-conexion';
+    if (!nube.ok) return _syncCorte(nube) || 'error-servidor';
     const ocupados = nube.valor.filter((f) => !f.borrada_en && f.id !== g.id).map((f) => f.nombre)
       .concat(leerGuardadas().filter((x) => x.id !== g.id).map((x) => x.nombre));
     const nombre = GUARDADAS.nombreLibre(g.nombre, ocupados);
@@ -156,7 +175,7 @@ async function _syncSubirGuardar(pid, p, ctx) {
 /* La baja necesita la fila completa (nombre, tipo, datos): sale de la nube, porque la copia local ya no la tiene. */
 async function _syncSubirBorrar(pid, p, ctx) {
   const nube = await ctx.nube();
-  if (!nube.ok) return _syncCorte(nube) || 'sin-conexion';
+  if (!nube.ok) return _syncCorte(nube) || 'error-servidor';
   const f = nube.valor.find((x) => x.id === p.id);
   if (!f || f.borrada_en) { _syncQuitar(p); return null; }   // nunca subió, o ya está borrada
   const cuando = new Date(p.cuando).toISOString();
@@ -189,14 +208,23 @@ const _syncFirmaLista = (lista) => JSON.stringify(_syncOrdenado(lista.slice().so
 
 async function _syncCorrer() {
   if (!SLUG || (typeof PARROQUIA_NO_EXISTE !== 'undefined' && PARROQUIA_NO_EXISTE)) return 'sin-sesion';
-  if (!leerSesionNube()) return 'sin-sesion';
+  if (!leerSesionNube()) return _syncSinSesion();
+  const r = await _syncCorrerConSesion();
+  if (r !== 'sin-sesion') return r;
+  // Empezó con sesión y el servidor la rechazó (o venció): se borra y se recuerda para decirlo.
+  salirNube();
+  _syncEscribir(CLAVE_SESION_CERRADA, { cuando: Date.now() });
+  return 'sesion-cerrada';
+}
+
+async function _syncCorrerConSesion() {
   if (!(await _syncTomarCandado())) return 'ocupado';
   try {
     if (!_syncParroquiaId) {
       const r = await parroquiaIdNube(SLUG);
       if (!r.ok) {
         if (r.error.tipo === 'permiso') { salirNube(); return 'sin-sesion'; }   // la cuenta ya no es de esta parroquia
-        return _syncCorte(r) || 'sin-conexion';
+        return _syncCorte(r) || 'error-servidor';
       }
       _syncParroquiaId = r.valor;
     }
@@ -226,7 +254,7 @@ async function _syncCorrer() {
     }
 
     const r = await listarGuardadasNube(pid);
-    if (!r.ok) return _syncCorte(r) || 'sin-conexion';
+    if (!r.ok) return _syncCorte(r) || 'error-servidor';
     // Sin esperas entre leer y escribir: lo que se guardó en este panel durante la subida entra en la fusión.
     const local = leerGuardadas();
     const lista = GUARDADAS.fusionar(local, r.valor, leerPendientes());
@@ -253,8 +281,8 @@ function sincronizarGuardadas() {
   const enCurso = (async () => {
     let r;
     try { r = await _syncCorrer(); } catch (e) { r = 'sin-conexion'; }
-    if (r === 'sin-sesion') { _syncParroquiaId = null; _syncAvisar('sin-sesion'); }
-    else if (r === 'sin-conexion') _syncAvisar('sin-conexion');
+    if (r === 'sin-sesion' || r === 'sesion-cerrada') { _syncParroquiaId = null; _syncAvisar(r); }
+    else if (r === 'sin-conexion' || r === 'error-servidor') _syncAvisar(r);
     else if (r === 'ocupado') programarSincronizacionGuardadas(REINTENTO_OCUPADO_MS);   // otro panel está subiendo
     return r;
   })();
@@ -275,16 +303,19 @@ function programarSincronizacionGuardadas(ms) {
 
 /* ---------- Entrar y salir ---------- */
 
+const SIN_INTERNET_ENTRAR = 'No hay internet. Probá de nuevo.';
+
 /* Entra con la cuenta del editor web. Devuelve { ok:true } o { ok:false, texto } con el error para el voluntario. */
 async function entrarGuardadas(correo, clave) {
   if (_syncModoApp()) return { ok: false, texto: '' };
   const r = await entrarNube(correo, clave);
-  if (!r.ok) return { ok: false, texto: r.error.tipo === 'credenciales' ? 'Correo o contraseña incorrectos' : 'Sin conexión' };
+  if (!r.ok) return { ok: false, texto: r.error.tipo === 'credenciales' ? 'Correo o contraseña incorrectos' : SIN_INTERNET_ENTRAR };
   const p = await parroquiaIdNube(SLUG);
   if (!p.ok) {
     salirNube();
-    return { ok: false, texto: p.error.tipo === 'permiso' ? 'Esta cuenta no es de esta parroquia' : 'Sin conexión' };
+    return { ok: false, texto: p.error.tipo === 'permiso' ? 'Esta cuenta no es de esta parroquia' : SIN_INTERNET_ENTRAR };
   }
+  _syncOlvidarCierre();
   _syncParroquiaId = p.valor;
   sincronizarGuardadas();
   return { ok: true };
@@ -293,6 +324,7 @@ async function entrarGuardadas(correo, clave) {
 /* Borra la sesión. Las guardadas locales y los pendientes se quedan. */
 function salirGuardadas() {
   salirNube();
+  _syncOlvidarCierre();
   _syncParroquiaId = null;
   _syncAvisar('sin-sesion');
 }
@@ -304,12 +336,12 @@ function haySesionGuardadas() { return !_syncModoApp() && !!leerSesionNube(); }
 function iniciarSincronizacionGuardadas(opciones) {
   _syncOpciones = Object.assign({}, _syncOpciones, opciones || {});
   if (_syncModoApp()) return;
-  if (haySesionGuardadas()) sincronizarGuardadas(); else _syncAvisar('sin-sesion');
+  if (haySesionGuardadas()) sincronizarGuardadas(); else _syncAvisar(_syncSinSesion());
   setInterval(() => { if (!_syncOpciones.enVivo() && haySesionGuardadas()) sincronizarGuardadas(); }, CADA_SYNC_MS);
   window.addEventListener('online', () => { if (haySesionGuardadas()) sincronizarGuardadas(); });
   window.addEventListener('storage', (e) => {
     if (e.key !== CLAVE_SESION_NUBE) return;   // se entró o se salió en otro panel de esta PC
     _syncParroquiaId = null;
-    if (haySesionGuardadas()) sincronizarGuardadas(); else _syncAvisar('sin-sesion');
+    if (haySesionGuardadas()) sincronizarGuardadas(); else _syncAvisar(_syncSinSesion());
   });
 }

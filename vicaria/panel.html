@@ -201,6 +201,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 dialog form{display:flex;flex-direction:column;gap:10px}
 dialog h2{margin:0;font-size:16px;font-weight:800}
 .botones-dialogo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+dialog p{margin:0;font-size:14px;line-height:1.45}
+#listas-vacia{margin:0}
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 
@@ -334,7 +336,10 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
 :root:not(.modo-app) #listas button{min-height:44px}
 :root:not(.modo-app) dialog{border-radius:4px;padding:12px}
 :root:not(.modo-app) dialog h2{font-size:13px;font-weight:600}
-:root:not(.modo-app) .botones-dialogo button{min-height:32px}
+/* «Entrar con mi cuenta», «Ver todas las misas listas» y los botones de los diálogos miden 44 px también en la PC
+   (restricción de accesibilidad del plan) */
+:root:not(.modo-app) :is(#entrar,#ver-todas,.botones-dialogo button){min-height:44px}
+:root:not(.modo-app) dialog p{font-size:12.5px}
 :root:not(.modo-app) .guardado{background:#1E8528;font-weight:600;padding:4px 8px;border-radius:4px;font-size:11px}
 </style>
 </head>
@@ -360,7 +365,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
   <div class="pestanas" role="tablist">
     <button type="button" role="tab" id="tab-preparar" data-hoja="preparar" aria-controls="hoja-preparar" aria-selected="true">Preparar</button>
     <button type="button" role="tab" id="tab-vivo" data-hoja="vivo" aria-controls="hoja-vivo" aria-selected="false">En vivo</button>
-    <button type="button" role="tab" id="tab-guardadas" data-hoja="guardadas" aria-controls="hoja-guardadas" aria-selected="false">Guardadas</button>
+    <button type="button" role="tab" id="tab-guardadas" data-hoja="guardadas" aria-controls="hoja-guardadas" aria-selected="false">Misas listas</button>
   </div>
 </div>
 
@@ -372,7 +377,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
     <div class="seccion">
       <h3>¿Qué vamos a transmitir?</h3>
       <div class="tipos" id="tipos"></div>
-      <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después puede cambiar cualquier dato.</span>
+      <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después podés cambiar cualquier dato.</span>
     </div>
     <button type="button" class="primario" id="continuar">Continuar</button>
   </div>
@@ -395,10 +400,11 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
       <h3 id="listas-titulo">Misas listas</h3>
       <div class="linea-sync">
         <span class="estado-sync" id="estado-sync" role="status"></span>
-        <button type="button" class="secundario" id="entrar" hidden>Entrar</button>
+        <button type="button" class="secundario" id="entrar" hidden>Entrar con mi cuenta</button>
       </div>
       <div id="listas" role="list" aria-labelledby="listas-titulo"></div>
-      <button type="button" class="enlace" id="ver-todas">Ver todas</button>
+      <p class="ayuda" id="listas-vacia" hidden>Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión» y va a quedar acá.</p>
+      <button type="button" class="enlace" id="ver-todas">Ver todas las misas listas</button>
     </div>
 
     <div class="seccion" id="sec-datos">
@@ -417,7 +423,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
 
     <div class="seccion">
       <h3 id="campos-titulo">Rótulos</h3>
-      <span class="ayuda">Lo gris es el texto automático: sale así si deja la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
+      <span class="ayuda">Lo gris es el texto automático: sale así si dejás la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
       <div id="campos-rotulos" style="display:flex;flex-direction:column;gap:10px"></div>
       <datalist id="cargos"></datalist>
       <button type="button" class="secundario" id="limpiar-lecturas">Borrar lecturas (para la próxima misa)</button>
@@ -455,7 +461,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
 
     <details id="det-textos">
       <summary>Textos de las pantallas</summary>
-      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si deja la casilla vacía. Enter = nueva línea.</div>
+      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si dejás la casilla vacía. Enter = nueva línea.</div>
       <label>Frase de la franja inferior<input type="text" id="frase"></label>
       <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto"></label>
       <label>Línea bajo los rótulos<input type="text" id="parroquia"></label>
@@ -496,7 +502,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
     <span class="estado-guardadas" id="estado-guardadas" role="status"></span>
   </div>
   <div class="seccion" id="sec-guardadas">
-    <h3 id="titulo-guardadas" tabindex="-1">Transmisiones guardadas</h3>
+    <h3 id="titulo-guardadas" tabindex="-1">Misas listas</h3>
     <div id="lista-guardadas" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
   <div class="seccion" id="sec-cuenta" hidden>
@@ -506,16 +512,27 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
 </section>
 
 <!-- Entrar con la cuenta del editor web (solo en la PC) -->
-<dialog id="dialogo-entrar" aria-labelledby="entrar-titulo">
+<dialog id="dialogo-entrar" aria-labelledby="entrar-titulo" aria-describedby="entrar-ayuda">
   <form id="form-entrar">
-    <h2 id="entrar-titulo">Entrar</h2>
-    <span class="ayuda">Con la misma cuenta del editor web.</span>
+    <h2 id="entrar-titulo">Entrar con la cuenta del editor web</h2>
     <label>Correo<input type="email" id="entrar-correo" autocomplete="username" required></label>
     <label>Contraseña<input type="password" id="entrar-clave" autocomplete="current-password" required></label>
     <span class="estado-guardadas error" id="entrar-error" role="alert"></span>
     <div class="botones-dialogo">
       <button type="button" class="secundario" id="entrar-cancelar">Cancelar</button>
       <button type="submit" class="primario" id="entrar-boton">Entrar</button>
+    </div>
+    <p class="ayuda" id="entrar-ayuda">¿Olvidaste la clave? Pedísela a quien administra el editor web.</p>
+  </form>
+</dialog>
+
+<!-- Antes de cargar una misa lista con cambios sin guardar (diálogo propio: confirm() no está verificado en el dock de OBS) -->
+<dialog id="dialogo-cargar" role="alertdialog" aria-labelledby="cargar-pregunta">
+  <form method="dialog">
+    <p id="cargar-pregunta"></p>
+    <div class="botones-dialogo">
+      <button type="submit" class="secundario" id="cargar-volver" value="volver">Volver</button>
+      <button type="submit" class="primario" id="cargar-igual" value="cargar">Cargar igual</button>
     </div>
   </form>
 </dialog>
@@ -887,7 +904,7 @@ function esControl(el) {
 document.addEventListener('keydown', (e) => {
   if (PARROQUIA_NO_EXISTE) return;
   const t = e.target;
-  if (t.closest && t.closest('dialog')) return;   // en el diálogo de Entrar, Esc solo lo cierra
+  if (t.closest && t.closest('dialog')) return;   // en un diálogo (Entrar, Cargar igual), Esc solo lo cierra
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
@@ -923,8 +940,38 @@ function haceCuanto(ms) {
 const nombreTipo = (clave) => tipoDe({ tipo: clave }).nombre;
 const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
 
-function cargarGuardada(id) {
-  if (hayCambiosSinGuardar(s) && !confirm('Hay cambios que no están en ninguna misa lista. ¿Cargar igual?')) return;
+/* «Cargar» de una fila. Con cambios que no están en ninguna misa lista, antes pregunta en el diálogo propio;
+   al cerrarlo, el foco vuelve al botón que lo abrió (o al «Cargar» de esa misa en la lista que se ve). */
+function cargarGuardada(id, boton) {
+  const g = leerGuardadas().find((x) => x.id === id);
+  if (!g) { pintarGuardadas(); return; }
+  if (!hayCambiosSinGuardar(s)) { hacerCarga(id); return; }
+  pedirConfirmarCarga(g, boton);
+}
+const dialogoCargar = $('dialogo-cargar');
+let cargaPedida = null;   // { id, boton } mientras el diálogo está abierto
+function pedirConfirmarCarga(g, boton) {
+  cargaPedida = { id: g.id, boton: boton || null };
+  $('cargar-pregunta').textContent = 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar ' + g.nombre + ' de todas formas?';
+  dialogoCargar.returnValue = '';   // Esc cierra sin valor: cuenta como «Volver»
+  dialogoCargar.showModal();
+  $('cargar-volver').focus();       // lo que no pierde nada, primero
+}
+function botonCargarDe(id, previo) {
+  const seVe = (b) => b && b.isConnected && b.getClientRects().length > 0;
+  if (seVe(previo)) return previo;
+  return [...document.querySelectorAll('#listas button, #lista-guardadas .cargar')].find((b) => b.dataset.id === id && seVe(b)) || null;
+}
+dialogoCargar.addEventListener('close', () => {
+  const pedida = cargaPedida;
+  cargaPedida = null;
+  if (!pedida) return;
+  if (dialogoCargar.returnValue === 'cargar') hacerCarga(pedida.id);
+  const b = botonCargarDe(pedida.id, pedida.boton);
+  if (b) b.focus();
+});
+function hacerCarga(id) {
+  const g = leerGuardadas().find((x) => x.id === id);
   const estado = cargarTransmision(id, s);
   if (!estado) { pintarGuardadas(); return; }
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -938,12 +985,13 @@ function cargarGuardada(id) {
   pintarGuardadas();
   verEleccion(false);
   abrir('preparar');
+  avisarCargada(g.nombre);
   programarSincronizacionGuardadas();
 }
 function guardarActual() {
   const campo = $('guardar-nombre');
   const nombre = campo.value.trim();
-  if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
+  if (!nombre) { avisoGuardadas('Escribí un nombre para guardarla.'); campo.focus(); return; }
   const existia = existeGuardada(nombre);
   if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
   const guardada = guardarTransmision(nombre, s);
@@ -955,16 +1003,17 @@ function guardarActual() {
   pintarGuardadas();
   programarSincronizacionGuardadas();
 }
-/* Una fila de «Misas listas»: nombre, cuándo se usó y «Cargar». */
+/* Una fila de «Misas listas»: nombre, cuándo se usó (o se guardó, si nunca se cargó) y «Cargar». */
 function pintarRapidas(caja, lista) {
   caja.textContent = '';
   lista.forEach(g => {
     const fila = nuevo('div', 'rapida'); fila.setAttribute('role', 'listitem');
     const txt = nuevo('div', 'txt');
-    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
-    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
+    const uso = usoDeGuardada(g);
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', uso.palabra + ' ' + haceCuanto(uso.cuando)));
+    const b = nuevo('button', '', 'Cargar'); b.type = 'button'; b.dataset.id = g.id;
     b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
-    b.addEventListener('click', () => cargarGuardada(g.id));
+    b.addEventListener('click', () => cargarGuardada(g.id, b));
     fila.append(txt, b);
     caja.append(fila);
   });
@@ -977,11 +1026,12 @@ function pintarGuardadas() {
   if (firma === firmaPintadas) return;
   firmaPintadas = firma;
   const caja = $('lista-guardadas'); caja.textContent = '';
-  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay transmisiones guardadas. Escriba un nombre arriba y apriete Guardar.'));
+  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay misas listas. Escribí un nombre arriba y apretá Guardar.'));
   lista.forEach(g => {
     const fila = nuevo('div', 'guardada');
     const info = nuevo('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
-    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · usada ' + haceCuanto(ultimoUso(g))));
+    const uso = usoDeGuardada(g);
+    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · ' + uso.palabra.toLowerCase() + ' ' + haceCuanto(uso.cuando)));
     info.title = 'Última vez: ' + new Date(ultimoUso(g)).toLocaleDateString('es');
     const acciones = nuevo('div', 'acciones');
     const boton = (clase, texto, accion) => {
@@ -991,7 +1041,7 @@ function pintarGuardadas() {
       return b;
     };
     acciones.append(
-      boton('cargar', 'Cargar', () => cargarGuardada(g.id)),
+      boton('cargar', 'Cargar', (e) => cargarGuardada(g.id, e.currentTarget)),
       boton('duplicar', 'Duplicar', () => {
         const copia = duplicarTransmision(g.id);
         pintarGuardadas();
@@ -1017,7 +1067,8 @@ function pintarGuardadas() {
 
   /* «Misas listas» en Preparar: las 5 más usadas */
   pintarRapidas($('listas'), lista.slice(0, 5));
-  if (!lista.length) $('listas').append(nuevo('span', 'ayuda', 'Todavía no hay misas listas. Prepará una y apretá Guardar.'));
+  $('listas').hidden = !lista.length;          // vacía, la lista no se anuncia: el mensaje va fuera de role=list
+  $('listas-vacia').hidden = !!lista.length;
   $('ver-todas').hidden = !lista.length;
 }
 $('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
@@ -1037,10 +1088,27 @@ function pintarSesion() {
   $('entrar').hidden = con || document.documentElement.classList.contains('modo-app');
   $('sec-cuenta').hidden = !con;
 }
+const ESTADOS_AVISO = ['sin-conexion', 'error-servidor', 'sesion-cerrada'];
+const MUESTRA_CARGADA_MS = 5000;
+let ultimoSync = { texto: '', aviso: false };
+let cargadaHasta = 0, cargadaT = null;
+/* La línea tiene role="status": reescribirla con el mismo texto la vuelve a anunciar, así que solo se toca si cambia. */
+function ponerLineaSync(texto, aviso) {
+  const el = $('estado-sync');
+  if (el.textContent !== texto) el.textContent = texto;
+  el.classList.toggle('aviso-sync', !!aviso);
+}
 function estadoSync(estado, texto) {
-  $('estado-sync').textContent = texto;
-  $('estado-sync').classList.toggle('aviso-sync', estado === 'sin-conexion');
+  ultimoSync = { texto, aviso: ESTADOS_AVISO.includes(estado) };
   pintarSesion();
+  if (Date.now() < cargadaHasta) return;   // «Cargada: …» se queda unos segundos; después vuelve el estado
+  ponerLineaSync(ultimoSync.texto, ultimoSync.aviso);
+}
+function avisarCargada(nombre) {
+  ponerLineaSync('Cargada: ' + nombre, false);
+  cargadaHasta = Date.now() + MUESTRA_CARGADA_MS;
+  clearTimeout(cargadaT);
+  cargadaT = setTimeout(() => { cargadaHasta = 0; ponerLineaSync(ultimoSync.texto, ultimoSync.aviso); }, MUESTRA_CARGADA_MS);
 }
 const dialogoEntrar = $('dialogo-entrar');
 $('entrar').addEventListener('click', () => {
@@ -1055,9 +1123,11 @@ $('form-entrar').addEventListener('submit', async (e) => {
   const boton = $('entrar-boton');
   if (boton.disabled) return;
   boton.disabled = true;
+  boton.textContent = 'Entrando…';
   $('entrar-error').textContent = '';
   const r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value);
   boton.disabled = false;
+  boton.textContent = 'Entrar';
   if (!r.ok) { $('entrar-error').textContent = r.texto; $('entrar-clave').focus(); return; }
   dialogoEntrar.close();
   pintarSesion();
