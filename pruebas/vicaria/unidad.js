@@ -3076,6 +3076,107 @@ grupo('tipos propios: opcionales', () => {
   });
 });
 
+grupo('guardadas: núcleo', () => {
+  const G = cargar(['guardadas-nucleo.js']).GUARDADAS;
+  const PAR = '00000000-0000-0000-0000-000000000001';
+  const local = (id, extra) => Object.assign({ id, nombre: 'N ' + id, tipo: 'sector', guardadaEn: 1000, usadaEn: 1000, actualizadoEn: 1000, borradaEn: null, datos: { a: 1 } }, extra);
+  const fila = (id, extra) => Object.assign({ id, parroquia_id: PAR, nombre: 'N ' + id, tipo: 'sector', datos: { a: 1 },
+    guardada_en: '1970-01-01T00:00:01.000Z', usada_en: '1970-01-01T00:00:01.000Z', actualizado_en: '1970-01-01T00:00:01.000Z',
+    actualizado_desde: 'panel', actualizado_por: null, borrada_en: null }, extra);
+  const ids = (l) => Array.from(l, (g) => g.id);
+  const plano = (x) => JSON.parse(JSON.stringify(x));   // el contexto de vm tiene sus propios Object/Array
+
+  prueba('LIMITE es 50', () => assert.equal(G.LIMITE, 50));
+
+  prueba('fusionar no muestra una borrada en la nube', () => {
+    const r = G.fusionar([], [fila('aaaa'), fila('bbbb', { borrada_en: '1970-01-01T00:00:05.000Z' })], []);
+    assert.deepEqual(ids(r), ['aaaa']);
+  });
+
+  prueba('fusionar devuelve una borrada si hay un guardar local posterior', () => {
+    const n = [fila('aaaa', { borrada_en: '1970-01-01T00:00:05.000Z', actualizado_en: '1970-01-01T00:00:05.000Z' })];
+    const l = [local('aaaa', { actualizadoEn: 9000, nombre: 'Revivida' })];
+    const r = G.fusionar(l, n, [{ op: 'guardar', id: 'aaaa', cuando: 9000 }]);
+    assert.deepEqual(ids(r), ['aaaa']);
+    assert.equal(r[0].nombre, 'Revivida');
+    // si la local es anterior a la baja, sigue borrada
+    const r2 = G.fusionar([local('aaaa', { actualizadoEn: 2000 })], n, [{ op: 'guardar', id: 'aaaa', cuando: 2000 }]);
+    assert.deepEqual(ids(r2), []);
+  });
+
+  prueba('fusionar ignora una copia local sin pendiente que la nube ya no tiene', () => {
+    const r = G.fusionar([local('viej'), local('nuev')], [fila('aaaa')], [{ op: 'guardar', id: 'nuev', cuando: 1 }]);
+    assert.deepEqual(ids(r).sort(), ['aaaa', 'nuev']);
+  });
+
+  prueba('fusionar: la local con guardar pendiente gana solo si es más nueva', () => {
+    const n = [fila('aaaa', { nombre: 'Nube', actualizado_en: '1970-01-01T00:00:05.000Z' })];
+    const p = [{ op: 'guardar', id: 'aaaa', cuando: 1 }];
+    assert.equal(G.fusionar([local('aaaa', { nombre: 'Local', actualizadoEn: 9000 })], n, p)[0].nombre, 'Local');
+    assert.equal(G.fusionar([local('aaaa', { nombre: 'Local', actualizadoEn: 1000 })], n, p)[0].nombre, 'Nube');
+    assert.equal(G.fusionar([local('aaaa', { nombre: 'Local', actualizadoEn: 9000 })], n, [])[0].nombre, 'Nube');
+  });
+
+  prueba('fusionar quita las que tienen un borrar pendiente', () => {
+    const r = G.fusionar([], [fila('aaaa'), fila('bbbb')], [{ op: 'borrar', id: 'aaaa', cuando: 1 }]);
+    assert.deepEqual(ids(r), ['bbbb']);
+  });
+
+  prueba('anotar: borrar después de guardar deja solo borrar', () => {
+    let p = G.anotar([], { op: 'guardar', id: 'aaaa', cuando: 1 });
+    p = G.anotar(p, { op: 'borrar', id: 'aaaa', cuando: 2 });
+    assert.deepEqual(plano(p), [{ op: 'borrar', id: 'aaaa', cuando: 2 }]);
+  });
+
+  prueba('anotar: guardar reemplaza un borrar y deja intactos otros ids', () => {
+    let p = [{ op: 'borrar', id: 'aaaa', cuando: 1 }, { op: 'guardar', id: 'bbbb', cuando: 1 }];
+    p = G.anotar(p, { op: 'guardar', id: 'aaaa', cuando: 2 });
+    assert.deepEqual(plano(p), [{ op: 'guardar', id: 'bbbb', cuando: 1 }, { op: 'guardar', id: 'aaaa', cuando: 2 }]);
+  });
+
+  prueba('anotar no agrega usar si hay un guardar posterior', () => {
+    const p = [{ op: 'guardar', id: 'aaaa', cuando: 5 }];
+    assert.deepEqual(plano(G.anotar(p, { op: 'usar', id: 'aaaa', cuando: 3 })), p);
+    assert.equal(G.anotar(p, { op: 'usar', id: 'aaaa', cuando: 7 }).length, 2);
+    assert.equal(G.anotar(p, { op: 'usar', id: 'bbbb', cuando: 3 }).length, 2);
+  });
+
+  prueba('anotar no modifica el arreglo recibido', () => {
+    const p = [{ op: 'guardar', id: 'aaaa', cuando: 1 }];
+    G.anotar(p, { op: 'borrar', id: 'aaaa', cuando: 2 });
+    assert.equal(p.length, 1);
+    assert.equal(p[0].op, 'guardar');
+  });
+
+  prueba('aFila quita rotulo, rotuloHasta y rotuloDesde', () => {
+    const f = G.aFila(local('aaaa', { datos: { rotulo: 'x', rotuloHasta: 1, rotuloDesde: 2, titulo: 'T' } }), 'panel', PAR);
+    assert.deepEqual(plano(f.datos), { titulo: 'T' });
+    assert.equal(f.parroquia_id, PAR);
+    assert.equal(f.actualizado_desde, 'panel');
+  });
+
+  prueba('aFila convierte ms a ISO y deFila lo revierte, conservando borradaEn y actualizadoEn', () => {
+    const g = local('aaaa', { guardadaEn: 1700000000000, usadaEn: 1700000001000, actualizadoEn: 1700000002000, borradaEn: 1700000003000 });
+    const f = G.aFila(g, 'app', PAR);
+    assert.equal(f.guardada_en, '2023-11-14T22:13:20.000Z');
+    assert.equal(f.borrada_en, '2023-11-14T22:13:23.000Z');
+    assert.deepEqual(plano(G.deFila(f)), g);
+    assert.equal(G.aFila(local('aaaa'), 'app', PAR).borrada_en, null);
+    assert.equal(G.deFila(fila('aaaa')).borradaEn, null);
+  });
+
+  prueba('idNuevo cumple /^[a-z0-9]{4,24}-[a-z0-9]{6}$/', () => {
+    const re = /^[a-z0-9]{4,24}-[a-z0-9]{6}$/;
+    for (const azar of [() => 0, () => 0.999999, Math.random]) assert.match(G.idNuevo(1700000000000, azar), re);
+    assert.equal(G.idNuevo(1700000000000, () => 0), (1700000000000).toString(36) + '-000000');
+  });
+
+  prueba('nombreLibre("Hora Santa", ["hora santa ", "Hora Santa (copia)"]) === "Hora Santa (copia 2)"', () => {
+    assert.equal(G.nombreLibre('Hora Santa', ['hora santa ', 'Hora Santa (copia)']), 'Hora Santa (copia 2)');
+    assert.equal(G.nombreLibre('Hora Santa', ['hora santa ']), 'Hora Santa (copia)');
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
