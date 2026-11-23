@@ -3296,6 +3296,174 @@ grupo('guardadas: núcleo', () => {
   });
 });
 
+/* ---------- Cliente de la nube (Tarea 4) ---------- */
+grupo('nube-cliente', () => {
+  const KEY_SESION = 'pev_ciudad-arce_sesion_nube_v1';
+  const FAKE = { url: 'https://falso.supabase.co', clavePublica: 'sb_publishable_FALSA' };
+  const PAR = '11111111-1111-4111-8111-111111111111';
+  const AHORA = 1700000000000;
+  const plano = (x) => JSON.parse(JSON.stringify(x));
+
+  /* fetch falso: `respuestas` es una función (url, init) -> {status, cuerpo} o lanza. Anota cada pedido. */
+  function falso(respuestas) {
+    const pedidos = [];
+    const f = async (url, init) => {
+      pedidos.push({ url, init });
+      const r = await respuestas(url, init, pedidos.length);
+      return { status: r.status, text: async () => (typeof r.cuerpo === 'string' ? r.cuerpo : JSON.stringify(r.cuerpo === undefined ? null : r.cuerpo)) };
+    };
+    f.pedidos = pedidos;
+    return f;
+  }
+  const FechaFija = class extends Date { static now() { return AHORA; } };
+  const nuevo = (f, almacen = {}, extras = {}) => cargarCon(['comun.js', 'nube-cliente.js'], almacen, CONFIG_CIUDAD_ARCE,
+    Object.assign({ fetch: f, NUBE: FAKE, AbortController, Date: FechaFija }, extras));
+  const tokenOk = (n = 1) => ({ status: 200, cuerpo: { access_token: 'acc' + n, refresh_token: 'ref' + n, expires_in: 3600, user: { id: 'u1', email: 'a@b.c' } } });
+  const sesion = (vence, n = 0) => JSON.stringify({ access: 'acc' + n, refresh: 'ref' + n, vence });
+  const cuerpoDe = (p) => JSON.parse(p.init.body);
+
+  prueba('entrar guarda la sesión {access, refresh, vence} y pide con solo apikey', async () => {
+    const f = falso(() => tokenOk(1));
+    const c = nuevo(f);
+    const r = await c.entrarNube('  A@B.c ', 'secreta');
+    assert.equal(r.ok, true);
+    assert.deepEqual(plano(JSON.parse(c.__almacen[KEY_SESION])), { access: 'acc1', refresh: 'ref1', vence: AHORA + 3600 * 1000 });
+    const p = f.pedidos[0];
+    assert.equal(p.url, FAKE.url + '/auth/v1/token?grant_type=password');
+    assert.equal(p.init.method, 'POST');
+    assert.equal(p.init.headers.apikey, FAKE.clavePublica);
+    assert.ok(!('Authorization' in p.init.headers));
+    assert.deepEqual(cuerpoDe(p), { email: 'a@b.c', password: 'secreta' });
+    assert.ok(!JSON.stringify(r).includes('acc1') && !JSON.stringify(r).includes('secreta'));
+  });
+  prueba('credenciales malas dan tipo credenciales y no guardan nada', async () => {
+    const c = nuevo(falso(() => ({ status: 400, cuerpo: { error_code: 'invalid_credentials' } })));
+    const r = await c.entrarNube('a@b.c', 'mala');
+    assert.deepEqual(plano(r), { ok: false, error: { tipo: 'credenciales' } });
+    assert.ok(!(KEY_SESION in c.__almacen));
+  });
+  prueba('sin red da sin-conexion (y un 5xx también)', async () => {
+    const c = nuevo(falso(() => { throw new Error('red caída'); }));
+    assert.deepEqual(plano(await c.entrarNube('a@b.c', 'x')), { ok: false, error: { tipo: 'sin-conexion' } });
+    const d = nuevo(falso(() => ({ status: 503, cuerpo: '' })));
+    assert.equal((await d.entrarNube('a@b.c', 'x')).error.tipo, 'sin-conexion');
+  });
+  prueba('dos renovaciones a la vez hacen un solo pedido y rotan el refresh', async () => {
+    const f = falso(async () => { await new Promise((r) => setImmediate(r)); return tokenOk(2); });
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 1000) });
+    const [a, b] = await Promise.all([c.renovarNube(), c.renovarNube()]);
+    assert.equal(f.pedidos.length, 1);
+    assert.equal(a.ok, true);
+    assert.equal(b.ok, true);
+    assert.equal(f.pedidos[0].url, FAKE.url + '/auth/v1/token?grant_type=refresh_token');
+    assert.deepEqual(cuerpoDe(f.pedidos[0]), { refresh_token: 'ref0' });
+    assert.equal(JSON.parse(c.__almacen[KEY_SESION]).refresh, 'ref2');
+    await c.renovarNube();
+    assert.equal(f.pedidos.length, 2); // terminada la primera, una nueva sí hace pedido
+  });
+  prueba('renovación rechazada (400 o 401) borra la sesión y da tipo sesion', async () => {
+    for (const estado of [400, 401]) {
+      const c = nuevo(falso(() => ({ status: estado, cuerpo: { error: 'invalid_grant' } })), { [KEY_SESION]: sesion(AHORA + 1000) });
+      const r = await c.conSesion(async () => ({ ok: true, valor: 1 }));
+      assert.deepEqual(plano(r), { ok: false, error: { tipo: 'sesion' } });
+      assert.ok(!(KEY_SESION in c.__almacen));
+    }
+  });
+  prueba('un fallo de red al renovar NO borra la sesión', async () => {
+    const c = nuevo(falso(() => { throw new Error('x'); }), { [KEY_SESION]: sesion(AHORA + 1000) });
+    const r = await c.conSesion(async () => ({ ok: true, valor: 1 }));
+    assert.equal(r.error.tipo, 'sin-conexion');
+    assert.ok(KEY_SESION in c.__almacen);
+  });
+  prueba('conSesion sin sesión da tipo sesion; con sesión vigente no renueva y pasa el access', async () => {
+    const f = falso(() => tokenOk(9));
+    const c = nuevo(f);
+    assert.equal((await c.conSesion(async () => ({ ok: true, valor: 1 }))).error.tipo, 'sesion');
+    const d = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
+    let visto = null;
+    const r = await d.conSesion(async (access) => { visto = access; return { ok: true, valor: 7 }; });
+    assert.equal(visto, 'acc0');
+    assert.equal(r.valor, 7);
+    assert.equal(f.pedidos.length, 0);
+  });
+  prueba('conSesion renueva si faltan menos de 60 s y usa el access nuevo', async () => {
+    const f = falso(() => tokenOk(5));
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 59000) });
+    let visto = null;
+    await c.conSesion(async (access) => { visto = access; return { ok: true, valor: 1 }; });
+    assert.equal(visto, 'acc5');
+    assert.equal(f.pedidos.length, 1);
+  });
+  prueba('parroquiaIdNube pide por slug con Bearer = access y apikey aparte; lista vacía es permiso', async () => {
+    const f = falso(() => ({ status: 200, cuerpo: [{ id: PAR }] }));
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
+    const r = await c.parroquiaIdNube('ciudad-arce');
+    assert.deepEqual(plano(r), { ok: true, valor: PAR });
+    const p = f.pedidos[0];
+    assert.equal(p.url, FAKE.url + '/rest/v1/parroquias?select=id&slug=eq.ciudad-arce');
+    assert.equal(p.init.headers.apikey, FAKE.clavePublica);
+    assert.equal(p.init.headers.Authorization, 'Bearer acc0');
+    assert.ok(!JSON.stringify(p.init.headers).includes('Bearer ' + FAKE.clavePublica));
+    const d = nuevo(falso(() => ({ status: 200, cuerpo: [] })), { [KEY_SESION]: sesion(AHORA + 120000) });
+    assert.deepEqual(plano(await d.parroquiaIdNube('otra')), { ok: false, error: { tipo: 'permiso' } });
+  });
+  prueba('listarGuardadasNube pide las filas de la parroquia y devuelve la lista', async () => {
+    const filas = [{ id: 'a' }, { id: 'b', borrada_en: '2026-11-01T00:00:00Z' }];
+    const f = falso(() => ({ status: 200, cuerpo: filas }));
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
+    const r = await c.listarGuardadasNube(PAR);
+    assert.deepEqual(plano(r.valor), filas);
+    assert.equal(f.pedidos[0].url, FAKE.url + '/rest/v1/guardadas?select=*&parroquia_id=eq.' + PAR);
+    assert.equal(f.pedidos[0].init.method, 'GET');
+  });
+  prueba('subirGuardadaNube hace upsert con merge-duplicates en parroquia_id,id', async () => {
+    const f = falso(() => ({ status: 201, cuerpo: '' }));
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
+    const fila = { id: 'a', parroquia_id: PAR, nombre: 'X' };
+    const r = await c.subirGuardadaNube(fila);
+    assert.equal(r.ok, true);
+    const p = f.pedidos[0];
+    assert.equal(p.url, FAKE.url + '/rest/v1/guardadas?on_conflict=parroquia_id,id');
+    assert.equal(p.init.method, 'POST');
+    assert.equal(p.init.headers.Prefer, 'resolution=merge-duplicates');
+    assert.deepEqual(cuerpoDe(p), [fila]);
+  });
+  prueba('23505 llega como codigo (409) y el tope P0001 como servidor con su estado', async () => {
+    const c = nuevo(falso(() => ({ status: 409, cuerpo: { code: '23505', message: 'duplicate key' } })), { [KEY_SESION]: sesion(AHORA + 120000) });
+    assert.deepEqual(plano(await c.subirGuardadaNube({ id: 'a' })), { ok: false, error: { tipo: 'servidor', estado: 409, codigo: '23505' } });
+    const d = nuevo(falso(() => ({ status: 400, cuerpo: { code: 'P0001', message: 'tope de guardadas' } })), { [KEY_SESION]: sesion(AHORA + 120000) });
+    assert.deepEqual(plano(await d.subirGuardadaNube({ id: 'a' })), { ok: false, error: { tipo: 'servidor', estado: 400, codigo: 'P0001' } });
+  });
+  prueba('un 403 es permiso, un 401 es sesion y un 500 es sin-conexion', async () => {
+    const tipo = async (estado) => (await nuevo(falso(() => ({ status: estado, cuerpo: {} })), { [KEY_SESION]: sesion(AHORA + 120000) }).listarGuardadasNube(PAR)).error.tipo;
+    assert.equal(await tipo(403), 'permiso');
+    assert.equal(await tipo(401), 'sesion');
+    assert.equal(await tipo(500), 'sin-conexion');
+  });
+  prueba('usarGuardadaNube llama al rpc usar_guardada con la fecha en ISO', async () => {
+    const f = falso(() => ({ status: 204, cuerpo: '' }));
+    const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
+    const r = await c.usarGuardadaNube(PAR, 'a', 1700000000000);
+    assert.equal(r.ok, true);
+    assert.equal(f.pedidos[0].url, FAKE.url + '/rest/v1/rpc/usar_guardada');
+    assert.deepEqual(cuerpoDe(f.pedidos[0]), { p_parroquia: PAR, p_id: 'a', p_cuando: '2023-11-14T22:13:20.000Z' });
+  });
+  prueba('salirNube borra solo la sesión', () => {
+    const c = nuevo(falso(() => tokenOk()), { [KEY_SESION]: sesion(AHORA), otra: 'x' });
+    c.salirNube();
+    assert.ok(!(KEY_SESION in c.__almacen));
+    assert.equal(c.__almacen.otra, 'x');
+  });
+  prueba('el cliente no escribe en la consola ni deja tokens en los resultados de error', async () => {
+    const registro = [];
+    const consola = { log: (...a) => registro.push(a), error: (...a) => registro.push(a), warn: (...a) => registro.push(a) };
+    const c = nuevo(falso(() => ({ status: 400, cuerpo: { code: 'X', message: 'acc0 ref0' } })), { [KEY_SESION]: sesion(AHORA + 120000) }, { console: consola });
+    const r = await c.listarGuardadasNube(PAR);
+    assert.equal(registro.length, 0);
+    assert.ok(!JSON.stringify(r).includes('acc0'));
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
