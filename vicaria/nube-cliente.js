@@ -99,10 +99,12 @@ function _nubeToken(tipo, cuerpo) {
   });
 }
 
+/* Los errores 'servidor' de Auth (entrar o renovar) llevan origen:'auth': no son la respuesta a una guardada
+   (un 429 por límite de pedidos, un 403…) y la sincronización no debe rechazar un pendiente por ellos. */
 /* Guarda la sesión y devuelve { ok:true, valor:{ correo, vence } } (los tokens no salen de aquí). */
 function _nubeGuardarDeRespuesta(r) {
   const s = _nubeSesionDeToken(_nubeJson(r.texto));
-  if (!s) return _nubeFalla('servidor', { estado: r.estado });
+  if (!s) return _nubeFalla('servidor', { estado: r.estado, origen: 'auth' });
   _guardarSesionNube(s);
   return { ok: true, valor: { correo: s.correo, vence: s.vence } };
 }
@@ -111,7 +113,7 @@ async function entrarNube(correo, clave) {
   const r = await _nubeToken('password', { email: String(correo).trim().toLowerCase(), password: clave });
   if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
   if (r.estado === 400 || r.estado === 401 || r.estado === 422) return _nubeFalla('credenciales');
-  if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado });
+  if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado, origen: 'auth' });
   return _nubeGuardarDeRespuesta(r);
 }
 
@@ -126,7 +128,7 @@ function renovarNube() {
       const r = await _nubeToken('refresh_token', { refresh_token: actual.refresh });
       if (r === null || r.estado >= 500) return _nubeFalla('sin-conexion');
       if (r.estado === 400 || r.estado === 401) { salirNube(); return _nubeFalla('sesion'); }
-      if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado });
+      if (r.estado < 200 || r.estado >= 300) return _nubeFalla('servidor', { estado: r.estado, origen: 'auth' });
       return _nubeGuardarDeRespuesta(r);
     } finally {
       _nubeRenovando = null;

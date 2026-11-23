@@ -3409,6 +3409,13 @@ grupo('nube-cliente', () => {
     assert.equal(r2.error.tipo, 'sesion');
     assert.equal(veces, 2);
   });
+  prueba('una renovación con 429 o 403 da servidor con origen auth y no borra la sesión', async () => {
+    for (const estado of [429, 403, 422]) {
+      const c = nuevo(falso(() => ({ status: estado, cuerpo: {} })), { [KEY_SESION]: sesion(AHORA - 1000) });
+      assert.deepEqual(plano(await c.renovarNube()), { ok: false, error: { tipo: 'servidor', estado, origen: 'auth' } });
+      assert.ok(KEY_SESION in c.__almacen);
+    }
+  });
   prueba('un 401 de REST con la renovación rechazada borra la sesión', async () => {
     const f = falso((url) => (url.includes('/auth/v1/token') ? { status: 400, cuerpo: { error: 'invalid_grant' } } : { status: 401, cuerpo: {} }));
     const c = nuevo(f, { [KEY_SESION]: sesion(AHORA + 120000) });
@@ -3535,7 +3542,8 @@ grupo('guardadas: sincronizar', () => {
       const metodo = (init && init.method) || 'GET';
       let r;
       if (f.sinRed && f.sinRed(url, metodo)) throw new Error('red caída');
-      if (url.includes('/rest/v1/parroquias')) r = { status: 200, cuerpo: [{ id: PAR }] };
+      if (url.includes('/auth/v1/token')) r = f.token ? f.token() : { status: 500, cuerpo: {} };
+      else if (url.includes('/rest/v1/parroquias')) r = { status: 200, cuerpo: [{ id: PAR }] };
       else if (url.includes('/rest/v1/guardadas?select')) r = { status: 200, cuerpo: filas };
       else if (url.includes('/rest/v1/guardadas?on_conflict')) {
         const fila = JSON.parse(init.body)[0];
@@ -3577,6 +3585,27 @@ grupo('guardadas: sincronizar', () => {
     // la rechazada no se vuelve a mandar
     assert.equal(await c.sincronizarGuardadas(), 'ok');
     assert.equal(f.subidas.length, 2);
+  });
+  prueba('una renovación que falla con 429 o 403 durante la subida deja el pendiente sin rechazar', async () => {
+    for (const estado of [429, 403]) {
+      const f = nubeFalsa([], () => ({ status: 401, cuerpo: {} }));   // el access ya no sirve: hay que renovar
+      f.token = () => ({ status: estado, cuerpo: { error: 'x' } });
+      const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
+      const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+      assert.equal(await c.sincronizarGuardadas(), 'sin-conexion', 'renovación ' + estado);
+      assert.deepEqual(pendientes(c), pend, 'renovación ' + estado);
+    }
+  });
+  prueba('un 429 de PostgREST corta y conserva el pendiente; un 422 sí lo rechaza', async () => {
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 10 }];
+    const f = nubeFalsa([], () => ({ status: 429, cuerpo: { message: 'demasiados pedidos' } }));
+    const c = nuevo(f, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+    assert.equal(await c.sincronizarGuardadas(), 'sin-conexion');
+    assert.deepEqual(pendientes(c), pend);
+    const g = nubeFalsa([], () => ({ status: 422, cuerpo: { code: '22023' } }));
+    const d = nuevo(g, conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify(pend) }));
+    assert.equal(await d.sincronizarGuardadas(), 'ok');
+    assert.deepEqual(pendientes(d), [{ op: 'guardar', id: 'aaaa1', cuando: 10, rechazado: true }]);
   });
   prueba('23505 le pone «(copia)» frente a la nube, reintenta una vez y renombra la local', async () => {
     const f = nubeFalsa([filaDe('zzzz9', 'Hora Santa')], (fila, n) => (n === 1 ? { status: 409, cuerpo: { code: '23505' } } : null));

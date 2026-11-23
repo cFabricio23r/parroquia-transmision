@@ -114,10 +114,14 @@ function _syncRechazar(p) {
     .map((x) => (_syncIgual(x, p) && x.cuando === p.cuando ? Object.assign({}, x, { rechazado: true }) : x)));
 }
 
-/* Ante un error de la nube: cortar (sin red o sin sesión) o, si es otra cosa (un 4xx), null = rechazar. */
+/* Ante un error de la nube: cortar o, si es la respuesta de PostgREST a esta guardada (un 4xx), null = rechazar.
+   Se corta (y la cola se conserva) sin red, sin sesión, si falló Auth al renovar (origen 'auth': no habla de
+   esta guardada) o con un 429 (límite de pedidos, de Auth o de PostgREST: es pasajero). */
 function _syncCorte(r) {
-  if (r.error.tipo === 'sin-conexion') return 'sin-conexion';
-  if (r.error.tipo === 'sesion') return 'sin-sesion';
+  const e = r.error;
+  if (e.tipo === 'sin-conexion') return 'sin-conexion';
+  if (e.tipo === 'sesion') return 'sin-sesion';
+  if (e.origen === 'auth' || e.estado === 429) return 'sin-conexion';
   return null;
 }
 
