@@ -484,6 +484,7 @@ details label{margin-bottom:9px}
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script src="pantallas.js"></script>
+<script src="guardadas-nucleo.js"></script>
 <script src="guardadas.js"></script>
 <script>
 /* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
@@ -859,6 +860,7 @@ document.addEventListener('keydown', (e) => {
 /* ---------- transmisiones guardadas ---------- */
 let nombreEscrito = false;   // el voluntario ya tocó el nombre: no se le pisa con la sugerencia
 const nombreSugerido = () => tipoDe(s).nombre + ' ' + fechaCorta(fechaTransmision());
+const AVISO_LIMITE = 'Llegaste a 50 misas listas. Borrá alguna para guardar otra.';
 function avisoGuardadas(texto, error) { const e = $('estado-guardadas'); e.textContent = texto; e.classList.toggle('error', !!error); }
 
 /* «hoy», «ayer», «hace 7 días»… (por días de calendario) */
@@ -896,7 +898,9 @@ function guardarActual() {
   if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
   const existia = existeGuardada(nombre);
   if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
-  if (!guardarTransmision(nombre, s)) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
+  const guardada = guardarTransmision(nombre, s);
+  if (guardada && guardada.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
+  if (!guardada) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
   nombreEscrito = false;
   avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
   pintarGuardadas();
@@ -922,6 +926,7 @@ function pintarGuardadas() {
       boton('duplicar', 'Duplicar', () => {
         const copia = duplicarTransmision(g.id);
         pintarGuardadas();
+        if (copia && copia.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
         if (!copia) { avisoGuardadas('No se pudo duplicar en este navegador.', true); return; }
         avisoGuardadas('Duplicada: «' + copia.nombre + '»');
         const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);

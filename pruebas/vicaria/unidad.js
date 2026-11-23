@@ -584,7 +584,8 @@ grupo('rotulos', () => {
 
 grupo('guardadas', () => {
   const KEY = 'pev_ciudad-arce_guardadas_v1';
-  const nuevo = (almacen) => cargarCon(['tipos.js', 'comun.js', 'guardadas.js'], almacen);
+  const ARCHIVOS = ['tipos.js', 'comun.js', 'guardadas-nucleo.js', 'guardadas.js'];   // el núcleo va antes
+  const nuevo = (almacen) => cargarCon(ARCHIVOS, almacen);
 
   prueba('si lo guardado no es JSON, leerGuardadas() es []', () => {
     assert.deepEqual(Array.from(nuevo({ [KEY]: 'no-es-json' }).leerGuardadas()), []);
@@ -615,7 +616,7 @@ grupo('guardadas', () => {
   prueba('una transmisión con un tipo propio se guarda y se carga con ese tipo', () => {
     const cfg = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
     cfg.tipos = { propios: [{ clave: 'hora-misionera', nombre: 'Hora misionera' }] };
-    const c = cargarCon(['tipos.js', 'comun.js', 'guardadas.js'], {}, cfg);
+    const c = cargarCon(ARCHIVOS, {}, cfg);
     const g = c.guardarTransmision('Misionera', { ...c.PREDETERMINADO, tipo: 'hora-misionera' });
     assert.equal(g.tipo, 'hora-misionera');
     assert.equal(c.cargarTransmision(g.id).tipo, 'hora-misionera');
@@ -732,6 +733,108 @@ grupo('guardadas', () => {
   prueba('las entradas rotas de la lista se ignoran', () => {
     const c = nuevo({ [KEY]: JSON.stringify([null, 5, { id: 'ok', nombre: 'Ok', datos: {} }, { nombre: 'sin id', datos: {} }]) });
     assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['ok']);
+  });
+
+  const KEY_PEND = 'pev_ciudad-arce_guardadas_pendientes_v1';
+  const pendientes = (c) => JSON.parse(c.__almacen[KEY_PEND] || '[]');
+  const plano = (x) => JSON.parse(JSON.stringify(x));
+  prueba('guardar anota un pendiente guardar y la guardada gana actualizadoEn', () => {
+    const c = nuevo();
+    const antes = Date.now();
+    const g = c.guardarTransmision('Hora Santa', c.PREDETERMINADO);
+    assert.ok(g.actualizadoEn >= antes);
+    const p = pendientes(c);
+    assert.equal(p.length, 1);
+    assert.equal(p[0].op, 'guardar');
+    assert.equal(p[0].id, g.id);
+    assert.equal(typeof p[0].cuando, 'number');
+    assert.deepEqual(plano(c.leerPendientes()), p);
+    assert.match(g.id, /^[a-z0-9]{4,24}(-[a-z0-9]{4,12})?$/);
+  });
+  prueba('guardar dos veces el mismo nombre deja un solo pendiente guardar', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('A', c.PREDETERMINADO);
+    c.guardarTransmision('a', c.PREDETERMINADO);
+    assert.deepEqual(pendientes(c).map((x) => [x.op, x.id]), [['guardar', g.id]]);
+  });
+  prueba('cargar anota usar y no cambia actualizadoEn', () => {
+    const c = nuevo({ [KEY]: JSON.stringify([{ id: 'a', nombre: 'A', tipo: 'novena', guardadaEn: 1, usadaEn: 10, actualizadoEn: 5, datos: {} }]) });
+    c.cargarTransmision('a');
+    const g = c.leerGuardadas()[0];
+    assert.equal(g.actualizadoEn, 5);
+    assert.ok(g.usadaEn > 10);
+    const p = pendientes(c);
+    assert.deepEqual(p.map((x) => [x.op, x.id]), [['usar', 'a']]);
+    assert.equal(typeof p[0].cuando, 'number');
+  });
+  prueba('cargar un id que no existe no anota nada', () => {
+    const c = nuevo();
+    c.cargarTransmision('nada');
+    assert.ok(!(KEY_PEND in c.__almacen));
+  });
+  prueba('borrar anota borrar con cuando, y la entrada sale de la lista sin lápida', () => {
+    const c = nuevo();
+    const a = c.guardarTransmision('A', c.PREDETERMINADO);
+    assert.equal(c.borrarTransmision(a.id), true);
+    assert.deepEqual(Array.from(c.leerGuardadas()), []);
+    assert.deepEqual(JSON.parse(c.__almacen[KEY]), []);
+    const p = pendientes(c);
+    assert.deepEqual(p.map((x) => [x.op, x.id]), [['borrar', a.id]]);
+    assert.equal(typeof p[0].cuando, 'number');
+  });
+  prueba('duplicar anota guardar de la copia, con id nuevo y actualizadoEn', () => {
+    const c = nuevo();
+    const g = c.guardarTransmision('A', c.PREDETERMINADO);
+    const d = c.duplicarTransmision(g.id);
+    assert.equal(typeof d.actualizadoEn, 'number');
+    assert.ok(pendientes(c).some((x) => x.op === 'guardar' && x.id === d.id));
+  });
+  prueba('con 50 guardadas, guardar un nombre nuevo da {error:limite} y reemplazar uno existente funciona', () => {
+    const c = nuevo();
+    for (let i = 0; i < 50; i++) assert.ok(c.guardarTransmision('G' + i, c.PREDETERMINADO).id);
+    const antesLista = c.__almacen[KEY];
+    const antesPend = c.__almacen[KEY_PEND];
+    assert.deepEqual(plano(c.guardarTransmision('Otra', c.PREDETERMINADO)), { error: 'limite' });
+    assert.equal(c.__almacen[KEY], antesLista);
+    assert.equal(c.__almacen[KEY_PEND], antesPend);
+    const r = c.guardarTransmision(' g7 ', { ...c.PREDETERMINADO, celebrante: 'Ana' });
+    assert.equal(r.datos.celebrante, 'Ana');
+    assert.equal(c.leerGuardadas().length, 50);
+  });
+  prueba('con 50 guardadas, duplicar da {error:limite}', () => {
+    const c = nuevo();
+    let primero;
+    for (let i = 0; i < 50; i++) { const g = c.guardarTransmision('G' + i, c.PREDETERMINADO); primero = primero || g; }
+    assert.deepEqual(plano(c.duplicarTransmision(primero.id)), { error: 'limite' });
+    assert.equal(c.leerGuardadas().length, 50);
+  });
+  prueba('si no se puede escribir la cola de pendientes, guardar falla y la lista queda como estaba', () => {
+    const c = nuevo();
+    c.guardarTransmision('A', c.PREDETERMINADO);
+    const antes = c.__almacen[KEY];
+    const set = c.localStorage.setItem;
+    c.localStorage.setItem = (k, v) => { if (k === KEY_PEND) throw new Error('cuota'); set(k, v); };
+    assert.equal(c.guardarTransmision('B', c.PREDETERMINADO), null);
+    assert.equal(c.__almacen[KEY], antes);
+  });
+  prueba('leerPendientes ignora lo ilegible y las entradas rotas; escribirPendientes devuelve boolean', () => {
+    const c = nuevo({ [KEY_PEND]: 'no-es-json' });
+    assert.deepEqual(plano(c.leerPendientes()), []);
+    const d = nuevo({ [KEY_PEND]: JSON.stringify([null, { op: 'x', id: 'a', cuando: 1 }, { op: 'usar', id: 'a', cuando: 2 }]) });
+    assert.deepEqual(plano(d.leerPendientes()), [{ op: 'usar', id: 'a', cuando: 2 }]);
+    assert.equal(d.escribirPendientes([{ op: 'borrar', id: 'b', cuando: 3 }]), true);
+    assert.deepEqual(JSON.parse(d.__almacen[KEY_PEND]), [{ op: 'borrar', id: 'b', cuando: 3 }]);
+    d.localStorage.setItem = () => { throw new Error('cuota'); };
+    assert.equal(d.escribirPendientes([]), false);
+  });
+  prueba('reemplazarGuardadas escribe la lista de la fusión y conserva las entradas rotas', () => {
+    const c = nuevo({ [KEY]: JSON.stringify([5, { id: 'v', nombre: 'V', datos: {} }]) });
+    const lista = [{ id: 'n', nombre: 'N', tipo: 'novena', guardadaEn: 1, usadaEn: 1, actualizadoEn: 1, datos: {} }];
+    assert.equal(c.reemplazarGuardadas(lista), true);
+    assert.deepEqual(Array.from(c.leerGuardadas(), (g) => g.id), ['n']);
+    assert.deepEqual(JSON.parse(c.__almacen[KEY]).filter((g) => typeof g !== 'object' || typeof g.id !== 'string'), [5]);
+    c.localStorage.setItem = () => { throw new Error('cuota'); };
+    assert.equal(c.reemplazarGuardadas([]), false);
   });
 });
 
