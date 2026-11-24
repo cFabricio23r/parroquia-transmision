@@ -1,14 +1,18 @@
 'use client';
-// F6 · Rótulos y estilo (AB/VicEdRotulos): tipografía, esquinas, los colores del rótulo (de la
+// F6 · Rótulos y estilo (AB/VicEdRotulos): diseño, tipografía, esquinas, los colores del rótulo (de la
 // paleta de la parroquia), la nota del acento, la posición, el logo en la esquina y los cargos
 // sugeridos. Se escribe al apretar (plan 4, Decisiones 8–12); abrir la página no escribe nada.
 import { useState } from 'react';
 import {
   conValor,
+  disenoDe,
   errorColorRotulo,
   esquinasDe,
+  FAMILIA_TIPOGRAFIA,
   leerCargos,
+  NOTA_MINIMAL,
   notaAcento,
+  OPCIONES_DISENO,
   OPCIONES_ESQUINAS,
   OPCIONES_POSICION,
   OPCIONES_TIPOGRAFIA,
@@ -16,10 +20,12 @@ import {
   posicionDe,
   textoCargos,
   tipografiaDe,
+  usaCampo,
 } from '../../../../../lib/editor/rotulos';
 import { CajaRevisar } from '../../../../componentes/CajaRevisar';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
 import { Interruptor } from '../../../../componentes/Interruptor';
+import { ListaTipografias } from '../../../../componentes/ListaTipografias';
 import { Segmentado } from '../../../../componentes/Segmentado';
 import { CabezaSeccion } from '../CabezaSeccion';
 import { useBorrador, useNotaVistaPrevia } from '../ProveedorBorrador';
@@ -40,7 +46,11 @@ export function SeccionRotulos() {
   const r = objeto(borrador.rotulos);
   const colores = borrador.colores;
   const acento = texto(objeto(colores).acento);
-  const nota = notaAcento(colores);
+  const diseno = disenoDe(r);
+  const nota = notaAcento(colores, diseno);
+  // Minimal no usa esquinas ni fondo: se deshabilitan, pero lo guardado no se borra (si se vuelve a otro diseño, sigue ahí).
+  const conEsquinas = usaCampo(diseno, 'esquinas');
+  const conFondo = usaCampo(diseno, 'colorLado');
   const [cargos, setCargos] = useState<string | null>(null);
   const [errorCargos, setErrorCargos] = useState<string | undefined>();
 
@@ -56,15 +66,31 @@ export function SeccionRotulos() {
   return (
     <section className="pv-seccion-form" aria-labelledby="pv-titulo-rotulos">
       <CabezaSeccion titulo={<span id="pv-titulo-rotulos">Rótulos y estilo</span>} texto={TEXTO_ROTULOS} />
-      <Segmentado etiqueta="Tipografía" opciones={OPCIONES_TIPOGRAFIA} valor={tipografiaDe(r)} onCambiar={(v) => poner('tipografia', v)} />
-      <Segmentado etiqueta="Esquinas" opciones={OPCIONES_ESQUINAS} valor={esquinasDe(r)} onCambiar={(v) => poner('esquinas', v)} />
+      <Segmentado etiqueta="Diseño" opciones={OPCIONES_DISENO} valor={diseno} onCambiar={(v) => poner('diseno', v)} />
+      <ListaTipografias
+        etiqueta="Tipografía"
+        opciones={OPCIONES_TIPOGRAFIA}
+        familias={FAMILIA_TIPOGRAFIA}
+        valor={tipografiaDe(r)}
+        onCambiar={(v) => poner('tipografia', v)}
+      />
+      <Segmentado
+        etiqueta="Esquinas"
+        opciones={OPCIONES_ESQUINAS}
+        valor={esquinasDe(r)}
+        onCambiar={(v) => poner('esquinas', v)}
+        deshabilitado={!conEsquinas}
+        nota={conEsquinas ? undefined : NOTA_MINIMAL}
+      />
       <div className="pv-fila-campos">
         <CampoColorParroquia
           id="rotulos-lado"
           etiqueta="Fondo del rótulo"
           opciones={opcionesColorRotulo(colores, 'colorLado', r.colorLado)}
           valor={texto(r.colorLado)}
-          error={errorColorRotulo(colores, r.colorLado)}
+          error={conFondo ? errorColorRotulo(colores, r.colorLado) : null}
+          deshabilitado={!conFondo}
+          nota={conFondo ? undefined : NOTA_MINIMAL}
           onCambiar={(v) => poner('colorLado', v || undefined)}
         />
         <CampoColorParroquia
@@ -79,7 +105,7 @@ export function SeccionRotulos() {
       </div>
       {nota && (
         <p className="pv-nota-acento">
-          El texto claro sobre <b>{nota.hex}</b> tiene {nota.razon}:1. Si usas el acento como fondo, el texto va oscuro; como línea, está bien.
+          El texto claro sobre <b>{nota.hex}</b> tiene {nota.razon}:1. {nota.frase}
         </p>
       )}
       <CajaRevisar problemas={estados.rotulos.avisos} />

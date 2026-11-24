@@ -241,6 +241,31 @@ button.pv-enlace {
   cursor: pointer;
 }
 .pv-segmento[aria-pressed='true'] { background: var(--pv-primario); border-color: var(--pv-primario); color: #fff; }
+.pv-segmento:disabled { opacity: .5; cursor: not-allowed; }
+.pv-color-select:disabled { cursor: not-allowed; }
+.pv-color:has(.pv-color-select:disabled) { opacity: .5; }
+
+/* ---- Lista de tipografías (Rótulos y estilo) ---- */
+.pv-tipografias { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pv-tipografias > legend { padding: 0; margin-bottom: 6px; }
+.pv-tipografias-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.pv-tipografia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--pv-borde);
+  background: #fff;
+  color: var(--pv-texto);
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+.pv-tipografia input { margin: 0; width: 18px; height: 18px; accent-color: var(--pv-primario); flex: none; }
+.pv-tipografia:has(input:checked) { border-color: var(--pv-primario); box-shadow: inset 0 0 0 1px var(--pv-primario); }
+.pv-tipografia:has(input:focus-visible) { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
 
 /* ---- Campo de color ---- */
 .pv-color {

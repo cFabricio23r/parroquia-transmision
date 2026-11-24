@@ -99,6 +99,12 @@ try {
     .waitFor({ timeout: 8000 })
     .then(() => true, () => false);
   revisar(conCelebrante, 'el rótulo de persona muestra «P. Juan Pérez»');
+  await pagina.getByRole('button', { name: 'Etiqueta', exact: true }).click();
+  const conEtiqueta = await dentro
+    .locator('#escenario.diseno-etiqueta')
+    .waitFor({ state: 'attached', timeout: 8000 })
+    .then(() => true, () => false);
+  revisar(conEtiqueta, 'con «Etiqueta», la vista previa tiene #escenario.diseno-etiqueta');
 
   console.log('Ancho menor');
   await pagina.setViewportSize({ width: 1000, height: 900 });
