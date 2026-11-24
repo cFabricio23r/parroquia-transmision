@@ -13,6 +13,8 @@ export function CampoColorParroquia({
   onCambiar,
   error,
   muestraSinValor,
+  deshabilitado,
+  nota,
 }: {
   id: string;
   etiqueta: string;
@@ -22,7 +24,12 @@ export function CampoColorParroquia({
   error?: string | null;
   /** La muestra de «Como viene»: un hex, o el degradado si no se da. */
   muestraSinValor?: string | null;
+  /** El select queda deshabilitado (por ejemplo, «Fondo del rótulo» con el diseño Minimal). */
+  deshabilitado?: boolean;
+  /** Una línea debajo del campo que explica por qué. */
+  nota?: string;
 }) {
+  const describe = [error ? `${id}-error` : null, nota ? `${id}-nota` : null].filter(Boolean).join(' ') || undefined;
   const elegida = opciones.find((o) => o.valor === valor);
   const fondo = elegida?.hex ?? (valor === '' && muestraSinValor ? muestraSinValor : DEGRADADO);
   return (
@@ -40,7 +47,8 @@ export function CampoColorParroquia({
           onChange={(e) => onCambiar(e.target.value)}
           aria-labelledby={`${id}-etiqueta`}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={describe}
+          disabled={deshabilitado || undefined}
         >
           {opciones.map((o) => (
             <option key={o.valor} value={o.valor}>
@@ -49,6 +57,11 @@ export function CampoColorParroquia({
           ))}
         </select>
       </span>
+      {nota && (
+        <span id={`${id}-nota`} className="pv-campo-ayuda">
+          {nota}
+        </span>
+      )}
       {error && (
         <span id={`${id}-error`} className="pv-campo-error">
           {error}

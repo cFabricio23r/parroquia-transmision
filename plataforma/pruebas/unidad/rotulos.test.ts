@@ -2,7 +2,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   conValor,
+  disenoDe,
   errorColorRotulo,
+  FAMILIA_TIPOGRAFIA,
+  NOTA_MINIMAL,
+  OPCIONES_DISENO,
+  usaCampo,
   esquinasDe,
   leerCargos,
   notaAcento,
@@ -20,11 +25,29 @@ const sinAcento = { principal: '#8a1c2b', oscuro: '#4b0f18' };
 
 describe('opciones de los segmentados (Decisión 12)', () => {
   it('textos del artboard', () => {
-    expect(OPCIONES_TIPOGRAFIA.map((o) => o.texto)).toEqual(['Montserrat (la de hoy)', 'Lora (clásica)', 'Source Sans (sencilla)']);
+    expect(OPCIONES_TIPOGRAFIA.map((o) => [o.valor, o.texto])).toEqual([
+      ['montserrat', 'Montserrat (la de hoy)'],
+      ['lora', 'Lora (clásica)'],
+      ['source-sans', 'Source Sans (sencilla)'],
+      ['cinzel', 'Cinzel (solemne)'],
+      ['playfair', 'Playfair Display (elegante)'],
+      ['eb-garamond', 'EB Garamond (de libro)'],
+      ['merriweather', 'Merriweather (firme)'],
+      ['nunito', 'Nunito (cercana)'],
+      ['oswald', 'Oswald (angosta)'],
+    ]);
     expect(OPCIONES_ESQUINAS.map((o) => o.texto)).toEqual(['Rectas', 'Suaves', 'Redondas']);
     expect(OPCIONES_POSICION.map((o) => [o.valor, o.texto])).toEqual([
       ['izquierda', 'Abajo a la izquierda'],
       ['centro', 'Abajo al centro'],
+      ['derecha', 'Abajo a la derecha'],
+      ['arriba-derecha', 'Arriba a la derecha'],
+    ]);
+    expect(OPCIONES_DISENO.map((o) => [o.valor, o.texto])).toEqual([
+      ['clasico', 'Clásico'],
+      ['tarjeta', 'Tarjeta'],
+      ['minimal', 'Minimal'],
+      ['etiqueta', 'Etiqueta'],
     ]);
   });
 
@@ -35,6 +58,26 @@ describe('opciones de los segmentados (Decisión 12)', () => {
     expect(esquinasDe(undefined)).toBe('suaves');
     expect(posicionDe({})).toBe('izquierda');
     expect(posicionDe({ posicion: 'centro' })).toBe('centro');
+    expect(posicionDe({ posicion: 'arriba-derecha' })).toBe('arriba-derecha');
+    expect(tipografiaDe({ tipografia: 'oswald' })).toBe('oswald');
+    expect(disenoDe({})).toBe('clasico');
+    expect(disenoDe({ diseno: 'etiqueta' })).toBe('etiqueta');
+    expect(disenoDe({ diseno: 'banda' })).toBe('clasico');
+  });
+
+  it('cada tipografía tiene su familia para la lista del editor', () => {
+    expect(OPCIONES_TIPOGRAFIA.every((o) => typeof FAMILIA_TIPOGRAFIA[o.valor] === 'string')).toBe(true);
+    expect(FAMILIA_TIPOGRAFIA).toMatchObject({ montserrat: 'Montserrat', lora: 'Lora', 'source-sans': 'SourceSans', cinzel: 'Cinzel', oswald: 'Oswald' });
+  });
+
+  it('Minimal no usa esquinas ni fondo; los demás diseños, sí', () => {
+    expect(usaCampo('minimal', 'esquinas')).toBe(false);
+    expect(usaCampo('minimal', 'colorLado')).toBe(false);
+    for (const d of ['clasico', 'tarjeta', 'etiqueta']) {
+      expect(usaCampo(d, 'esquinas')).toBe(true);
+      expect(usaCampo(d, 'colorLado')).toBe(true);
+    }
+    expect(NOTA_MINIMAL).toBe('El diseño Minimal no tiene caja');
   });
 });
 
@@ -71,9 +114,18 @@ describe('colores del rótulo (Decisión 8)', () => {
 
 describe('nota del acento (Decisión 9a)', () => {
   it('con el acento claro da su razón; con uno oscuro, nada', () => {
-    expect(notaAcento(colores)).toEqual({ hex: '#d9a441', razon: '2,2' });
-    expect(notaAcento({ ...colores, acento: '#0c3562' })).toBeNull();
-    expect(notaAcento(sinAcento)).toBeNull();
+    const deHoy = 'Si usas el acento como fondo, el texto va oscuro; como línea, está bien.';
+    expect(notaAcento(colores, 'clasico')).toEqual({ hex: '#d9a441', razon: '2,2', frase: deHoy });
+    expect(notaAcento({ ...colores, acento: '#0c3562' }, 'clasico')).toBeNull();
+    expect(notaAcento(sinAcento, 'clasico')).toBeNull();
+  });
+  it('en Tarjeta y Etiqueta la línea es el fondo de la ceja: la nota no dice que como línea está bien', () => {
+    for (const d of ['tarjeta', 'etiqueta']) {
+      const n = notaAcento(colores, d);
+      expect(n).toMatchObject({ hex: '#d9a441', razon: '2,2' });
+      expect(n?.frase).not.toContain('como línea, está bien');
+      expect(n?.frase).toContain('oscuro');
+    }
   });
 });
 

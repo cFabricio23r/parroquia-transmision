@@ -89,6 +89,16 @@ Migraciones en `normalizarEstado`: `virgen` a|b|c → `imagen` `virgen-a|b|c`; r
   `tipos.js` y `camposDe()` en `panel.html` (hoy tienen caso en ambos `persona`, `lectura1/2`, `evangelio`, `salmo`, `rosario` y `lugar`; `santisimo` y
   `oracion` solo en `camposDe()`), y de forma opcional una entrada en `FALTA` (`panel.html`). Un uso `persona` con `ceja` propia (Guía) guarda su nombre en `rotulosTexto[id].t`, no en `s.celebrante`.
   Los atajos 1–9 cubren los nueve primeros usos.
+- **Nuevo diseño de rótulo** (`vicaria/` y el editor, no `obs/`): la clave en `DISENOS_ROTULO` (`vicaria/parroquia.js`),
+  sus reglas bajo `.escenario.diseno-<clave>` en la sección «Diseños de rótulo» al final de `vicaria/estilos.css`
+  (mismo `#rotulo`: no se toca `rotulos.html` salvo que necesite algo propio) y la opción en `OPCIONES_DISENO`
+  (`plataforma/lib/editor/rotulos.ts`). Si no usa esquinas o fondo, decirlo en `usaCampo()`. El Clásico no se toca:
+  `casoClasicoIgual` (`pruebas/vicaria/navegador.js`) lo compara píxel a píxel.
+- **Nueva tipografía de rótulo**: el woff2 en `vicaria/fuentes/` (con su fila y licencia en `LICENCIAS.md`), la clave
+  en `TIPOGRAFIAS` (`vicaria/parroquia.js`), su `@font-face` y `.tipo-<clave> .rotulo .t` en `vicaria/estilos.css`,
+  el tamaño en `TAMANO_NOMBRE` de `rotulos.html` si no es 52, y en el editor `OPCIONES_TIPOGRAFIA`,
+  `FAMILIA_TIPOGRAFIA` y su `@font-face` en `plataforma/app/estilos/fuentes.css`. Sumarla a `FUENTES` en
+  `app/scripts/copiar-vicaria.test.js`. Sin Google Fonts ni CDN.
 - **Nueva pantalla completa**: nueva vista `<div class="texto" id="v-NOMBRE" hidden>` en `pantalla.html`, su rama en
   `pintar()` y la fila en README/LEEME con `?tipo=NOMBRE`.
 - **Nueva imagen**: un PNG recortado en `obs/img/` con el nombre de la clave (`obs/img/NOMBRE.png`, ver `imagenDe()`)

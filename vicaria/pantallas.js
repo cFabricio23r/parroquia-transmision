@@ -167,20 +167,28 @@ function redesVisibles(vista) {
    colorLado y colorLinea: #rrggbb o un nombre (principal, oscuro, acento, blanco), resueltos con colorDe; null si
    no hay o no se resuelve. Sin colorLinea, la línea es el acento si existe (si no, null: la de hoy).
    ladoClaro: el lateral es claro (contraste con blanco menor que 3), y lleva el logo a color.
+   lineaClara: lo mismo con la línea; en Tarjeta y Etiqueta la línea es el fondo de la ceja y su texto va oscuro.
+   diseno: clasico (el de siempre), tarjeta, minimal o etiqueta; posicion: izquierda, centro, derecha o arriba-derecha.
    logoEsquina: mientras hay rótulo, el logo blanco queda solo en la esquina (F6:24); vale true cuando falta. */
 function estiloRotulos() {
   const r = PARROQUIA.rotulos && typeof PARROQUIA.rotulos === 'object' ? PARROQUIA.rotulos : {};
   const colores = PARROQUIA.colores;
   const colorLado = colorDe(r.colorLado, colores);
   const linea = colorDe(r.colorLinea, colores);
+  const lineaFinal = linea || colorDe('acento', colores);
+  // Sin línea elegida ni acento, la línea es var(--celeste) de la paleta: lineaClara se mide contra ese color.
+  const lineaVista = lineaFinal
+    || (colores && typeof colores.principal === 'string' ? paleta(colores.principal, colores.oscuro).celeste : null);
   return {
     tipografia: TIPOGRAFIAS.includes(r.tipografia) ? r.tipografia : 'montserrat',
     // el nombre del diseño (R3): 'redondeadas' de una configuración vieja se ve como 'suaves'; sin valor, 'suaves'
     esquinas: ESQUINAS_ROTULO.includes(r.esquinas) ? ESQUINAS_DISENO[r.esquinas] : 'suaves',
-    posicion: r.posicion === 'centro' ? 'centro' : 'izquierda',
+    posicion: POSICIONES_ROTULO.includes(r.posicion) ? r.posicion : 'izquierda',
+    diseno: DISENOS_ROTULO.includes(r.diseno) ? r.diseno : 'clasico',
     colorLado,
-    colorLinea: linea || colorDe('acento', colores),
+    colorLinea: lineaFinal,
     ladoClaro: colorLado !== null && contraste('#ffffff', colorLado) < 3,
+    lineaClara: lineaVista !== null && contraste('#ffffff', lineaVista) < 3,
     logoEsquina: r.logoEsquina !== false
   };
 }

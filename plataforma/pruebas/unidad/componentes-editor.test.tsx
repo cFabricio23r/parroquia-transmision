@@ -7,6 +7,9 @@ import { CampoImagen } from '../../app/componentes/CampoImagen';
 import { Dialogo } from '../../app/componentes/Dialogo';
 import { PastillaContraste } from '../../app/componentes/PastillaContraste';
 import { Tabla } from '../../app/componentes/Tabla';
+import { ListaTipografias } from '../../app/componentes/ListaTipografias';
+import { Segmentado } from '../../app/componentes/Segmentado';
+import { CampoColorParroquia } from '../../app/editor/p/[slug]/rotulos/CampoColorParroquia';
 import { formatearRazon } from '../../lib/contraste';
 
 const html = (e: ReactElement) => renderToStaticMarkup(e);
@@ -147,5 +150,43 @@ describe('CampoImagen (plan 3)', () => {
     expect(h).toContain('role="alert"');
     expect(h).toContain('id="logo-error"');
     expect(h).toContain('>X<');
+  });
+});
+
+describe('ListaTipografias (diseños de rótulo)', () => {
+  const opciones = [
+    { valor: 'montserrat', texto: 'Montserrat (la de hoy)' },
+    { valor: 'cinzel', texto: 'Cinzel (solemne)' },
+  ];
+  const familias = { montserrat: 'Montserrat', cinzel: 'Cinzel' };
+  it('un radio nativo por tipografía, con su texto escrito en su letra, dentro de un fieldset con leyenda', () => {
+    const h = html(<ListaTipografias etiqueta="Tipografía" opciones={opciones} familias={familias} valor="cinzel" onCambiar={nada} />);
+    expect(h).toContain('<legend');
+    expect(h).toContain('Tipografía</legend>');
+    expect((h.match(/type="radio"/g) ?? []).length).toBe(2);
+    expect((h.match(/name="rotulos-tipografia"/g) ?? []).length).toBe(2);
+    expect(h).toContain('font-family:Cinzel');
+    expect(h).toContain('font-family:Montserrat');
+    expect(h).toMatch(/value="cinzel"[^>]*checked=""|checked=""[^>]*value="cinzel"/);
+    expect(h).not.toMatch(/value="montserrat"[^>]*checked=""|checked=""[^>]*value="montserrat"/);
+    expect(h).toContain('Cinzel (solemne)');
+  });
+});
+
+describe('Segmentado y CampoColorParroquia deshabilitados (Minimal)', () => {
+  it('Segmentado con deshabilitado: botones disabled y la nota visible', () => {
+    const h = html(
+      <Segmentado etiqueta="Esquinas" opciones={[{ valor: 'rectas', texto: 'Rectas' }]} valor="rectas" onCambiar={nada} deshabilitado nota="El diseño Minimal no tiene caja" />,
+    );
+    expect(h).toContain('disabled=""');
+    expect(h).toContain('El diseño Minimal no tiene caja');
+    const sin = html(<Segmentado etiqueta="Esquinas" opciones={[{ valor: 'rectas', texto: 'Rectas' }]} valor="rectas" onCambiar={nada} />);
+    expect(sin).not.toContain('disabled');
+  });
+  it('CampoColorParroquia con deshabilitado: el select queda disabled', () => {
+    const h = html(
+      <CampoColorParroquia id="rotulos-lado" etiqueta="Fondo del rótulo" opciones={[{ valor: '', texto: 'Como viene', hex: null }]} valor="" onCambiar={nada} deshabilitado />,
+    );
+    expect(h).toMatch(/<select[^>]*disabled=""/);
   });
 });

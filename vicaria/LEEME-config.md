@@ -184,6 +184,7 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 
 ```json
 "rotulos": {
+  "diseno": "clasico",
   "tipografia": "montserrat",
   "esquinas": "rectas",
   "posicion": "izquierda",
@@ -196,11 +197,12 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 
 | Campo | Valores y límites |
 |---|---|
-| `tipografia` | `montserrat` (por defecto), `lora` o `source-sans`. |
+| `diseno` | `clasico` (por defecto: el de siempre, con la franja y el logo), `tarjeta` (tarjeta blanca, la ceja en una píldora de color), `minimal` (sin caja: texto blanco sobre un oscurecido y una línea de color) o `etiqueta` (la ceja como pestaña de color sobre una caja oscura). Todos los rótulos de la parroquia usan el mismo. |
+| `tipografia` | La letra del nombre grande: `montserrat` (por defecto), `lora`, `source-sans`, `cinzel`, `playfair`, `eb-garamond`, `merriweather`, `nunito` u `oswald`. |
 | `esquinas` | `rectas`, `suaves` (por defecto: 24 px en el rótulo, 18 en la capa del logo y 16 en la barra) o `redondas` (valor provisional: 48, 36 y 32 px, hasta que el diseño lo confirme). **Valores de antes:** `redondeadas` sigue aceptado y se ve como `suaves` (mide lo mismo); un `suaves` escrito antes de este cambio también se ve a 24 px. |
-| `posicion` | `izquierda` (por defecto) o `centro`. |
-| `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
-| `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
+| `posicion` | `izquierda` (por defecto, abajo), `centro` (abajo), `derecha` (abajo) o `arriba-derecha`. Con `arriba-derecha`, la cajita «EN VIVO» se esconde mientras se ve el rótulo y vuelve cuando sale. |
+| `colorLado` | El «Fondo del rótulo»: la franja en `clasico`, la caja en `etiqueta`, el punto del subtítulo en `tarjeta`; `minimal` no lo usa. `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
+| `colorLinea` | La «Línea de acento»: la línea de arriba en `clasico`, la píldora en `tarjeta`, la pestaña en `etiqueta` y la línea vertical en `minimal` (si es clara, el texto encima va oscuro). `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
 | `logoEsquina` | Opcional; `true` (por defecto) o `false`. Mientras hay un rótulo, la capa del logo (con su caja y el nombre) se aparta; con `true` queda en la esquina el logo blanco solo, sin caja y un poco transparente. Con `false` no queda nada. |
 | `cargos` | Hasta 12 textos (no vacíos, hasta 200 caracteres) que reemplazan la lista sugerida de cargos del panel. |
 

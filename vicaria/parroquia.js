@@ -247,7 +247,9 @@ const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 
 const ELEMENTOS_MOSTRABLES = ['redes', 'horarios'];
 const PORTADAS_PROPIO = ['ninguna', 'fiesta', 'evento'];
 const MAX_NOMBRE_PANEL = 40;
-const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
+const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald'];
+/* Diseños de rótulo: clasico es el de siempre (y el que se usa si falta). */
+const DISENOS_ROTULO = ['clasico', 'tarjeta', 'minimal', 'etiqueta'];
 /* Esquinas de los rótulos: los nombres del artboard F6 (Rectas, Suaves, Redondas) y, para que una configuración
    vieja siga validando, 'redondeadas'. ESQUINAS_DISENO traduce cada valor al del diseño: 'redondeadas' (24px) es
    'suaves', que mide lo mismo. */
@@ -256,7 +258,7 @@ const ESQUINAS_DISENO = { rectas: 'rectas', suaves: 'suaves', redondas: 'redonda
 /* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
 const COLORES_CON_NOMBRE = ['principal', 'oscuro', 'acento', 'blanco'];
 const MAX_HORAS = 6;
-const POSICIONES_ROTULO = ['izquierda', 'centro'];
+const POSICIONES_ROTULO = ['izquierda', 'centro', 'derecha', 'arriba-derecha'];
 const ESQUINAS_TIPO = ['hoy', 'fecha', 'fiesta', 'texto'];
 const REDES = ['facebook', 'youtube', 'instagram', 'whatsapp', 'web'];
 const MAX_TEXTO = 200;
@@ -405,6 +407,7 @@ function _validarRotulos(r, errores, colores) {
   _unoDe(r.tipografia, TIPOGRAFIAS, 'rotulos.tipografia', errores);
   _unoDe(r.esquinas, ESQUINAS_ROTULO, 'rotulos.esquinas', errores);
   _unoDe(r.posicion, POSICIONES_ROTULO, 'rotulos.posicion', errores);
+  _unoDe(r.diseno, DISENOS_ROTULO, 'rotulos.diseno', errores);
   if (r.colorLado !== undefined) _validarColorNombrado(r.colorLado, COLORES_CON_NOMBRE, 'rotulos.colorLado', colores, errores);
   if (r.colorLinea !== undefined) _validarColorNombrado(r.colorLinea, COLORES_CON_NOMBRE.filter((n) => n !== 'blanco'), 'rotulos.colorLinea', colores, errores);
   if (r.logoEsquina !== undefined && typeof r.logoEsquina !== 'boolean') errores.push('El valor (rotulos.logoEsquina) debe ser verdadero o falso.');

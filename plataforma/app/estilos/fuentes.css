@@ -35,3 +35,14 @@
   font-display: swap;
   src: url('/fuentes/montserrat-latin-900-normal.woff2') format('woff2');
 }
+
+/* Las tipografías del rótulo, para que la lista de «Rótulos y estilo» muestre cada opción en su letra.
+   Mismos archivos y nombres de familia que vicaria/estilos.css. */
+@font-face { font-family: 'Lora'; font-weight: 700; font-display: swap; src: url('/fuentes/lora-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'SourceSans'; font-weight: 700; font-display: swap; src: url('/fuentes/source-sans-3-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Cinzel'; font-weight: 700; font-display: swap; src: url('/fuentes/cinzel-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Playfair'; font-weight: 700; font-display: swap; src: url('/fuentes/playfair-display-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'EBGaramond'; font-weight: 700; font-display: swap; src: url('/fuentes/eb-garamond-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Merriweather'; font-weight: 700; font-display: swap; src: url('/fuentes/merriweather-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; font-display: swap; src: url('/fuentes/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-weight: 600; font-display: swap; src: url('/fuentes/oswald-latin-600-normal.woff2') format('woff2'); }

@@ -16,13 +16,19 @@ const PAGINAS = [
   'pantallas.js', 'parroquia.js', 'produccion.html', 'rotulos.html', 'tipos.js',
 ];
 const FUENTES = [
+  'fuentes/cinzel-latin-700-normal.woff2',
+  'fuentes/eb-garamond-latin-700-normal.woff2',
   'fuentes/great-vibes-latin-400-normal.woff2',
   'fuentes/lora-latin-700-normal.woff2',
+  'fuentes/merriweather-latin-700-normal.woff2',
   'fuentes/montserrat-latin-500-normal.woff2',
   'fuentes/montserrat-latin-600-normal.woff2',
   'fuentes/montserrat-latin-700-normal.woff2',
   'fuentes/montserrat-latin-800-normal.woff2',
   'fuentes/montserrat-latin-900-normal.woff2',
+  'fuentes/nunito-latin-800-normal.woff2',
+  'fuentes/oswald-latin-600-normal.woff2',
+  'fuentes/playfair-display-latin-700-normal.woff2',
   'fuentes/source-sans-3-latin-700-normal.woff2',
 ];
 

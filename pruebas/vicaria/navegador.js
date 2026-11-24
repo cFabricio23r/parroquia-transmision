@@ -1936,7 +1936,7 @@ async function casoDisenoProduccion() {
 }
 
 const rutaLineaBase = path.join(__dirname, 'linea-base.json');
-const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado);
+const nombreCaso = (c) => c.slug + '/' + c.pagina + c.query + ' ' + JSON.stringify(c.estado) + (c.rotulos ? ' rotulos ' + JSON.stringify(c.rotulos) : '');
 
 /* Con --grabar-linea-base escribe linea-base.json; con --grabar-linea-base=<ruta>, escribe en esa ruta y no toca
    linea-base.json (para comparar con diferencias-linea-base.js antes de grabar). Sin la marca compara caso por caso. */
@@ -1950,6 +1950,11 @@ async function casoLineaBase() {
   for (const c of CASOS_BASE) {
     const nombre = nombreCaso(c);
     const ctx = await nuevoContexto();
+    if (c.rotulos) {
+      const cfg = JSON.parse(JSON.stringify(CONFIG[c.slug]));
+      cfg.rotulos = Object.assign({}, cfg.rotulos, c.rotulos);
+      await ctx.route(rutaConfig, servirConfig(cfg));
+    }
     const p = await abrir(ctx, '/' + c.slug + '/' + c.pagina + c.query, 1920, 1080, async (pg) => {
       await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
       await pg.addInitScript(([k, v]) => localStorage.setItem(k, v), ['pev_' + c.slug + '_estado_v1', JSON.stringify(c.estado)]);
@@ -2052,6 +2057,282 @@ async function casoModoAppSinGuardadas() {
   await ctx2.close();
 }
 
+/* Los tres diseños nuevos (Tarjeta, Minimal, Etiqueta): colores, contraste, entrada y salida, cambio en vivo y nombre largo. */
+async function casoRotulosDisenos() {
+  console.log('Rótulos · diseños Tarjeta, Minimal y Etiqueta');
+  fs.mkdirSync(path.join(CAPTURAS, 'disenos'), { recursive: true });
+  const ACENTO = 'rgb(217, 164, 65)', BLANCO = 'rgb(255, 255, 255)';
+  const abrirCon = async (rotulos, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.colores.acento = '#d9a441'; c.rotulos = rotulos; })));
+    const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA(Object.assign({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarEnVivo: true, mostrarLogo: true }, estado)));
+    await r.waitForSelector('#rotulo.en');
+    await r.waitForTimeout(1600);
+    return { ctx, r };
+  };
+  const css = (r) => r.evaluate(() => {
+    const cs = (sel, pseudo) => getComputedStyle(document.querySelector(sel), pseudo || null);
+    return {
+      oscuro: getComputedStyle(document.documentElement).getPropertyValue('--oscuro').trim(),
+      ladoDisplay: cs('#rotulo .lado').display, radio: cs('#rotulo').borderRadius,
+      fondo: cs('#rotulo .cuerpo').backgroundColor, lineaIzq: cs('#rotulo .cuerpo').borderLeftColor,
+      kFondo: cs('#r-k').backgroundColor, kColor: cs('#r-k').color, tColor: cs('#r-t').color, punto: cs('#r-s', '::before').backgroundColor,
+      clases: [...document.getElementById('escenario').classList].filter((x) => /^diseno-/.test(x)).join(' ')
+    };
+  });
+  const rgb = (hex) => 'rgb(' + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ') + ')';
+
+  // Tarjeta
+  let { ctx, r } = await abrirCon({ diseno: 'tarjeta' });
+  let m = await css(r);
+  const OSCURO = rgb(m.oscuro);
+  igual(m.clases, 'diseno-tarjeta', 'tarjeta: clase en el escenario');
+  igual(m.ladoDisplay, 'none', 'tarjeta: sin franja ni logo');
+  igual(m.fondo, BLANCO, 'tarjeta: la tarjeta es blanca');
+  igual(m.kFondo, ACENTO, 'tarjeta: la píldora de la ceja es la línea de acento');
+  igual(m.kColor, OSCURO, 'tarjeta: sobre un acento claro, el texto de la píldora va oscuro');
+  igual(m.punto, rgb('#1155a4'), 'tarjeta: sin colorLado, el punto del subtítulo es el color principal');
+  await captura(r, 'disenos/tarjeta_izquierda');
+  await ctx.close();
+  ({ ctx, r } = await abrirCon({ diseno: 'tarjeta', colorLado: 'blanco', colorLinea: 'oscuro' }));
+  m = await css(r);
+  igual(m.punto, OSCURO, 'tarjeta: con un fondo claro, el punto es oscuro (no blanco sobre blanco)');
+  igual(m.kColor, BLANCO, 'tarjeta: sobre una línea oscura, el texto de la píldora va blanco');
+  await ctx.close();
+
+  // Review final 2: la primera vez que aparece una tipografía nueva, la fuente todavía no cargó y ajustarTexto mide con la
+  // de reserva. Al cargar, el nombre se vuelve a medir: queda del mismo tamaño que al volver a pintar, y no se corta.
+  ({ ctx, r } = await abrirCon({ tipografia: 'cinzel' }, { celebrante: 'Que te alaben, Señor, todos los pueblos, que todos los pueblos te alaben' }));
+  const medida = await r.evaluate(async () => {
+    const t = document.getElementById('r-t');
+    const antes = { tam: t.style.fontSize, corta: t.scrollWidth > t.clientWidth + 1 };
+    pintar(leerEstado());
+    return { antes, despues: t.style.fontSize };
+  });
+  igual(medida.antes.tam, medida.despues, 'cinzel: con la fuente ya cargada, el nombre se midió de nuevo');
+  revisar(!medida.antes.corta, 'cinzel: el nombre largo no se corta la primera vez');
+  await ctx.close();
+
+  // Minimal
+  ({ ctx, r } = await abrirCon({ diseno: 'minimal', esquinas: 'redondas' }));
+  m = await css(r);
+  igual(m.clases, 'diseno-minimal', 'minimal: clase en el escenario');
+  igual(m.ladoDisplay, 'none', 'minimal: sin franja ni logo');
+  igual(m.fondo, 'rgba(0, 0, 0, 0)', 'minimal: sin caja');
+  igual(m.tColor, BLANCO, 'minimal: el nombre va en blanco');
+  igual(m.lineaIzq, ACENTO, 'minimal: la línea vertical es la línea de acento');
+  igual(m.radio, '0px', 'minimal: las esquinas no aplican (aunque pida redondas)');
+  await captura(r, 'disenos/minimal_izquierda');
+  await ctx.close();
+
+  // Etiqueta
+  ({ ctx, r } = await abrirCon({ diseno: 'etiqueta' }));
+  m = await css(r);
+  igual(m.clases, 'diseno-etiqueta', 'etiqueta: clase en el escenario');
+  igual(m.ladoDisplay, 'none', 'etiqueta: sin franja ni logo');
+  igual(m.fondo, OSCURO, 'etiqueta: sin colorLado, la caja es del color oscuro');
+  igual(m.kFondo, ACENTO, 'etiqueta: la pestaña es la línea de acento');
+  igual(m.kColor, OSCURO, 'etiqueta: sobre un acento claro, el texto de la pestaña va oscuro');
+  igual(m.tColor, BLANCO, 'etiqueta: el nombre va en blanco sobre la caja oscura');
+  const cajaYPestana = await r.evaluate(() => { const a = document.getElementById('rotulo').getBoundingClientRect(); const k = document.getElementById('r-k').getBoundingClientRect(); return k.top >= a.top - 1 && k.bottom <= document.querySelector('#rotulo .cuerpo').getBoundingClientRect().top + 1; });
+  revisar(cajaYPestana, 'etiqueta: la pestaña va encima de la caja y dentro del rótulo');
+  await captura(r, 'disenos/etiqueta_izquierda');
+  // Review final 3: «primero entra la pestaña y después se despliega la caja». A los 150 ms (la caja empieza a los
+  // 220 ms) la pestaña ya se ve: el clip-path de la caja no la tapa (clip-path también corta el hit-test).
+  const pestanaPrimero = await r.evaluate(() => {
+    for (const a of document.getAnimations()) { a.pause(); a.currentTime = 150; }
+    const k = document.getElementById('r-k').getBoundingClientRect();
+    const el = document.elementFromPoint(k.left + k.width / 2, k.top + k.height / 2);
+    return !!(el && el.closest('#r-k'));
+  });
+  revisar(pestanaPrimero, 'etiqueta: a los 150 ms la pestaña ya se ve, antes que la caja');
+  await ctx.close();
+  ({ ctx, r } = await abrirCon({ diseno: 'etiqueta', colorLado: 'blanco', colorLinea: 'principal' }));
+  m = await css(r);
+  igual(m.tColor, OSCURO, 'etiqueta: con un fondo claro, el nombre va oscuro');
+  igual(m.kColor, BLANCO, 'etiqueta: sobre una línea oscura, el texto de la pestaña va blanco');
+  await ctx.close();
+  ({ ctx, r } = await abrirCon({ diseno: 'etiqueta', colorLado: '#7a3b12' }));
+  igual((await css(r)).fondo, 'rgb(122, 59, 18)', 'etiqueta: la caja usa el «Fondo del rótulo»');
+  await ctx.close();
+
+  // Entrada y salida de cada diseño; cambiar de diseño con el rótulo en pantalla
+  for (const diseno of ['tarjeta', 'minimal', 'etiqueta']) {
+    ({ ctx, r } = await abrirCon({ diseno }));
+    await r.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' })));
+    revisar(await r.evaluate(() => document.getElementById('rotulo').classList.contains('sale')), diseno + ': al sacar el rótulo, sale');
+    await r.waitForTimeout(500);
+    const resto = await r.evaluate(() => ['en', 'sale'].filter((c) => document.getElementById('rotulo').classList.contains(c)).join(' '));
+    igual(resto, '', diseno + ': después de salir no queda ni .en ni .sale');
+    await ctx.close();
+  }
+  ({ ctx, r } = await abrirCon({}));
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { diseno: 'etiqueta' } }); aplicarParroquia(PARROQUIA); });
+  await r.waitForTimeout(200);
+  igual(await r.evaluate(() => ['en', 'sale'].filter((c) => document.getElementById('rotulo').classList.contains(c)).join(' ')), 'en', 'cambiar de diseño con el rótulo en pantalla: sigue en pantalla, sin salir');
+  igual((await css(r)).clases, 'diseno-etiqueta', 'cambiar de diseño con el rótulo en pantalla: toma el diseño nuevo');
+  const otro = await r.evaluate(() => rotulosDe(estado).map((x) => x.id).find((id) => id !== 'persona'));
+  await r.evaluate((id) => pintar(Object.assign({}, estado, { rotulo: id })), otro);
+  await r.waitForTimeout(1500);
+  igual(await r.evaluate(() => [...document.getElementById('rotulo').classList].filter((c) => c === 'en' || c === 'sale').join(' ')), 'en', 'después, cambiar a otro rótulo (' + otro + ') sale y entra el nuevo');
+  await ctx.close();
+
+  // Nombre largo con Cinzel en los 4 diseños × los 4 lugares
+  for (const diseno of ['clasico', 'tarjeta', 'minimal', 'etiqueta']) {
+    for (const posicion of ['izquierda', 'centro', 'derecha', 'arriba-derecha']) {
+      ({ ctx, r } = await abrirCon({ diseno, posicion, tipografia: 'cinzel' }, { celebrante: 'Excmo. Mons. José Luis Escobar Alas' }));
+      await r.evaluate(() => document.fonts.ready);
+      const g = await r.evaluate(() => {
+        const visible = (e) => { for (let n = e; n; n = n.parentElement) { const cs = getComputedStyle(n); if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden' || n.classList.contains('oculto')) return false; } return true; };
+        const b = document.getElementById('rotulo').getBoundingClientRect();
+        const t = document.getElementById('r-t');
+        const choca = (id) => { const e = document.getElementById(id); if (!visible(e)) return false; const o = e.getBoundingClientRect(); return o.width > 0 && !(o.right <= b.left || o.left >= b.right || o.bottom <= b.top || o.top >= b.bottom); };
+        return { dentro: b.left >= 0 && b.top >= 0 && b.right <= 1920 && b.bottom <= 1080, cortado: t.scrollWidth > t.clientWidth, logo: choca('logo-esquina'), envivo: choca('envivo') };
+      });
+      const n = diseno + ' ' + posicion + ' (Cinzel, nombre largo)';
+      revisar(g.dentro, n + ': entra en 1920×1080');
+      revisar(!g.cortado, n + ': el nombre no se corta');
+      revisar(!g.logo && !g.envivo, n + ': no pisa el logo de la esquina ni EN VIVO');
+      if (diseno !== 'clasico') await captura(r, 'disenos/' + diseno + '_' + posicion);
+      await ctx.close();
+    }
+  }
+}
+
+/* El rótulo Clásico (sin rotulos.diseno) tiene que verse igual al píxel que antes de los diseños de rótulo.
+   Con --grabar-clasico escribe las capturas de referencia en clasico-referencia/ (se graban una vez, sobre el código
+   sin cambios); sin la marca compara byte a byte y, si difiere, deja la captura nueva en capturas/vicaria/clasico-diferente/. */
+async function casoClasicoIgual() {
+  const grabar = process.argv.includes('--grabar-clasico');
+  console.log('Rótulo Clásico igual al de antes' + (grabar ? ' (grabando)' : ''));
+  const carpeta = path.join(__dirname, 'clasico-referencia');
+  const diferentes = path.join(CAPTURAS, 'clasico-diferente');
+  fs.mkdirSync(grabar ? carpeta : diferentes, { recursive: true });
+  for (const slug of [CA, SJ]) {
+    for (const posicion of ['izquierda', 'centro']) {
+      const nombre = slug + '_' + posicion + '.png';
+      const cfg = JSON.parse(JSON.stringify(CONFIG[slug]));
+      cfg.rotulos = Object.assign({}, cfg.rotulos, { posicion });
+      const ctx = await nuevoContexto();
+      await ctx.route(rutaConfig, servirConfig(cfg));
+      const p = await abrir(ctx, `/${slug}/rotulos.html`, 1920, 1080, async (pg) => {
+        await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+        await pg.addInitScript(([k, v]) => localStorage.setItem(k, v),
+          [`pev_${slug}_estado_v1`, JSON.stringify({ tipo: 'dominical', rotulo: 'persona', celebrante: 'Pbro. José Martínez' })]);
+      });
+      await p.waitForSelector('#rotulo.en');
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(1500);
+      const png = await p.screenshot({ animations: 'disabled' });
+      await ctx.close();
+      if (grabar) { fs.writeFileSync(path.join(carpeta, nombre), png); console.log('  grabada ' + nombre); continue; }
+      const ref = path.join(carpeta, nombre);
+      const igualA = fs.existsSync(ref) && Buffer.compare(fs.readFileSync(ref), png) === 0;
+      if (!igualA) fs.writeFileSync(path.join(diferentes, nombre), png);
+      revisar(igualA, 'Clásico ' + slug + ' ' + posicion + ': igual a la referencia' + (igualA ? '' : ' (nueva en capturas/vicaria/clasico-diferente/' + nombre + ')'));
+    }
+  }
+}
+
+/* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
+async function casoRotulosLugares() {
+  console.log('Rótulos · lugares nuevos y EN VIVO');
+  fs.mkdirSync(path.join(CAPTURAS, 'lugares'), { recursive: true });
+  const abrirCon = async (rotulos, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.rotulos = rotulos; })));
+    const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA(Object.assign({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarEnVivo: true }, estado)));
+    await r.waitForSelector('#rotulo.en');
+    await r.waitForTimeout(1500);
+    return { ctx, r };
+  };
+  const caja = (r) => r.evaluate(() => { const b = document.getElementById('rotulo').getBoundingClientRect(); return { top: b.top, right: b.right, bottom: b.bottom, left: b.left }; });
+  const envivoOculto = (r) => r.evaluate(() => document.getElementById('envivo').classList.contains('oculto'));
+  const cerca = (a, b) => Math.abs(a - b) <= 2;
+  const sinRotulo = async (r) => { await r.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' }))); };
+
+  // Abajo a la derecha
+  let { ctx, r } = await abrirCon({ posicion: 'derecha' });
+  let b = await caja(r);
+  revisar(cerca(b.right, 1860) && cerca(b.bottom, 1010), 'derecha: borde derecho en 1860 y de abajo en 1010 (' + b.right.toFixed(1) + ', ' + b.bottom.toFixed(1) + ')');
+  revisar(!(await envivoOculto(r)), 'derecha: EN VIVO sigue visible');
+  igual(await r.evaluate(() => document.getElementById('escenario').classList.contains('pos-derecha')), true, 'derecha: clase pos-derecha');
+  await captura(r, 'lugares/derecha');
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSaleDerecha', 'derecha: sale hacia la derecha');
+  await ctx.close();
+
+  // Arriba a la derecha: EN VIVO se esconde con el rótulo y vuelve cuando sale
+  ({ ctx, r } = await abrirCon({ posicion: 'arriba-derecha' }));
+  b = await caja(r);
+  revisar(cerca(b.top, 44) && cerca(b.right, 1860), 'arriba-derecha: borde de arriba en 44 y derecho en 1860 (' + b.top.toFixed(1) + ', ' + b.right.toFixed(1) + ')');
+  revisar(await envivoOculto(r), 'arriba-derecha: con rótulo, EN VIVO se esconde');
+  await captura(r, 'lugares/arriba-derecha');
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSaleDerecha', 'arriba-derecha: sale hacia la derecha');
+  await r.waitForTimeout(600);
+  revisar(!(await envivoOculto(r)), 'arriba-derecha: sin rótulo, EN VIVO vuelve');
+  await ctx.close();
+
+  // Con el rótulo en pantalla, la parroquia pasa a arriba-derecha: EN VIVO se esconde enseguida
+  ({ ctx, r } = await abrirCon({ posicion: 'izquierda' }));
+  revisar(!(await envivoOculto(r)), 'izquierda: EN VIVO visible con rótulo');
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { posicion: 'arriba-derecha' } }); aplicarParroquia(PARROQUIA); });
+  revisar(await envivoOculto(r), 'al pasar a arriba-derecha con el rótulo en pantalla, EN VIVO se esconde enseguida');
+  b = await caja(r);
+  revisar(cerca(b.top, 44), 'y el rótulo queda arriba (' + b.top.toFixed(1) + ')');
+  await ctx.close();
+
+  // Con mostrarEnVivo apagado, al salir el rótulo EN VIVO no aparece
+  ({ ctx, r } = await abrirCon({ posicion: 'arriba-derecha' }, { mostrarEnVivo: false }));
+  await sinRotulo(r);
+  await r.waitForTimeout(700);
+  revisar(await envivoOculto(r), 'sin mostrarEnVivo: al salir el rótulo, EN VIVO sigue oculto');
+  await ctx.close();
+
+  // Izquierda sale como siempre
+  ({ ctx, r } = await abrirCon({ posicion: 'izquierda' }));
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSale', 'izquierda: sale como siempre');
+  await ctx.close();
+}
+
+/* Las seis tipografías nuevas del nombre del rótulo: se aplican con la clase tipo-<clave> y la fuente propia carga. */
+async function casoTipografiasNuevas() {
+  console.log('Rótulos · seis tipografías nuevas');
+  const FAMILIAS = { cinzel: 'Cinzel', playfair: 'Playfair', 'eb-garamond': 'EBGaramond', merriweather: 'Merriweather', nunito: 'Nunito', oswald: 'Oswald' };
+  fs.mkdirSync(path.join(CAPTURAS, 'tipografias'), { recursive: true });
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, servirConfig(conBloques(() => {})));
+  const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarEnVivo: true }));
+  await r.waitForSelector('#rotulo.en');
+  await r.waitForTimeout(1800);   // que termine la entrada (y el brillo) antes de la primera captura
+  for (const [clave, familia] of Object.entries(FAMILIAS)) {
+    await r.evaluate((t) => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { tipografia: t } }); aplicarParroquia(PARROQUIA); }, clave);
+    const m = await r.evaluate(async (fam) => {
+      await document.fonts.ready;
+      const t = document.getElementById('r-t');
+      await document.fonts.load(getComputedStyle(t).fontWeight + ' 52px ' + fam);
+      return {
+        familia: getComputedStyle(t).fontFamily,
+        cargada: [...document.fonts].some((f) => f.family.replace(/["']/g, '') === fam && f.status === 'loaded'),
+        clases: [...document.getElementById('escenario').classList].filter((x) => /^tipo-/.test(x)).join(' '),
+        cortado: t.scrollWidth > t.clientWidth
+      };
+    }, familia);
+    revisar(new RegExp('^"?' + familia + '"?').test(m.familia), clave + ': la font-family del nombre empieza con ' + familia + ' (' + m.familia + ')');
+    revisar(m.cargada, clave + ': la fuente ' + familia + ' está cargada');
+    igual(m.clases, 'tipo-' + clave, clave + ': clase en el escenario');
+    revisar(!m.cortado, clave + ': el nombre no se corta');
+    await r.waitForTimeout(300);
+    await captura(r, 'tipografias/' + clave);
+  }
+  await ctx.close();
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -2062,7 +2343,7 @@ async function casoModoAppSinGuardadas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2102,6 +2383,10 @@ async function casoModoAppSinGuardadas() {
     await casoDisenoRotulo();
     await casoDisenoProduccion();
     await casoLineaBase();
+    await casoClasicoIgual();
+    await casoTipografiasNuevas();
+    await casoRotulosLugares();
+    await casoRotulosDisenos();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();

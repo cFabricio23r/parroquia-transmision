@@ -1117,6 +1117,14 @@ grupo('validarConfig: campos del rediseño (1)', () => {
     assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: '#4b0f18', colorLinea: 'acento', logoEsquina: false }; })).ok);
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia: 'source-sans', colorLinea: '#d9a441', logoEsquina: true }; })).ok);
   });
+  prueba('rotulos: diseño, lugares y tipografías nuevas', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { diseno: 'tarjeta', posicion: 'arriba-derecha', tipografia: 'cinzel' }; })).ok);
+    for (const diseno of ['clasico', 'tarjeta', 'minimal', 'etiqueta']) assert.ok(p.validarConfig(copia((c) => { c.rotulos = { diseno }; })).ok, diseno);
+    for (const posicion of ['izquierda', 'centro', 'derecha', 'arriba-derecha']) assert.ok(p.validarConfig(copia((c) => { c.rotulos = { posicion }; })).ok, posicion);
+    for (const tipografia of ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald']) {
+      assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia }; })).ok, tipografia);
+    }
+  });
   prueba('rotulos.colorLado ya no exige contraste con blanco y acepta nombres', () => {
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'blanco' }; })).ok);
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: '#f2e6c8' }; })).ok);
@@ -1170,7 +1178,9 @@ grupo('validarConfig: campos del rediseño (1)', () => {
     assert.equal(p.colorDe('rojo', col), null); assert.equal(p.colorDe(undefined, col), null);
   });
   prueba('constantes nuevas', () => {
-    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans']);
+    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald']);
+    assert.deepEqual(Array.from(p.DISENOS_ROTULO), ['clasico', 'tarjeta', 'minimal', 'etiqueta']);
+    assert.deepEqual(Array.from(p.POSICIONES_ROTULO), ['izquierda', 'centro', 'derecha', 'arriba-derecha']);
     assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['rectas', 'suaves', 'redondas', 'redondeadas']);   // F6:24, más el nombre viejo
     assert.deepEqual(Object.assign({}, p.ESQUINAS_DISENO), { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' });
     assert.deepEqual(Array.from(p.COLORES_CON_NOMBRE), ['principal', 'oscuro', 'acento', 'blanco']);
@@ -1823,7 +1833,8 @@ grupo('config 1b', () => {
   malo('textos con clave que no existe', (c) => { c.pantallas = { inicio: { textos: { inexistente: 'x' } } }; }, 'pantallas.inicio.textos.inexistente');
   malo('rotulos.tipografia arial', (c) => { c.rotulos = { tipografia: 'arial' }; }, 'rotulos.tipografia');
   malo('rotulos.esquinas desconocida', (c) => { c.rotulos = { esquinas: 'ovaladas' }; }, 'rotulos.esquinas');
-  malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'derecha' }; }, 'rotulos.posicion');
+  malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'arriba-izquierda' }; }, 'rotulos.posicion');
+  malo('rotulos.diseno banda', (c) => { c.rotulos = { diseno: 'banda' }; }, 'rotulos.diseno');
   malo('rotulos.colorLado que no es #rrggbb ni un nombre de color', (c) => { c.rotulos = { colorLado: 'amarillo' }; }, 'rotulos.colorLado');
   malo('rotulos.cargos con 13 elementos', (c) => { c.rotulos = { cargos: Array.from({ length: 13 }, (_, i) => 'CARGO ' + i) }; }, 'rotulos.cargos');
   malo('tipo propio con clave dominical', (c) => { c.tipos = { propios: [{ clave: 'dominical', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
@@ -2194,20 +2205,20 @@ grupo('pantallas', () => {
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
-    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
   });
   prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
     const x = cargarPantallas((cfg) => {
       cfg.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] };
     });
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), ['LECTOR', 'MONAGUILLO']);
   });
   prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
     const x = cargarPantallas();
-    forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'abajo', diseno: 'banda', colorLado: 'rojo', cargos: [] } }));
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
@@ -2463,7 +2474,7 @@ grupo('pantallas: lógica del rediseño', () => {
   prueba('estiloRotulos sin bloque rotulos: los valores de hoy más colorLinea null, ladoClaro false, logoEsquina true', () => {
     assert.deepEqual(plano(c.estiloRotulos()), {
       tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null,
-      colorLinea: null, ladoClaro: false, logoEsquina: true
+      colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true
     });
   });
   prueba('estiloRotulos: tipografía, esquinas suaves, logoEsquina y colores con nombre', () => {
@@ -2473,7 +2484,7 @@ grupo('pantallas: lógica del rediseño', () => {
     });
     assert.deepEqual(plano(x.estiloRotulos()), {
       tipografia: 'lora', esquinas: 'suaves', posicion: 'izquierda', colorLado: '#0c3562',
-      colorLinea: '#1155a4', ladoClaro: false, logoEsquina: false
+      colorLinea: '#1155a4', ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: false
     });
   });
   prueba('esquinas (R3): validarConfig acepta los nombres del diseño y el viejo; estiloRotulos da el nombre del diseño', () => {
@@ -2495,6 +2506,22 @@ grupo('pantallas: lógica del rediseño', () => {
     assert.equal(e.ladoClaro, true);
     const y = cargarP((cfg) => { cfg.rotulos = { colorLado: '#f0e6c8' }; });
     assert.equal(y.estiloRotulos().ladoClaro, true, 'un hex claro también');
+  });
+  prueba('estiloRotulos: diseño, lugares nuevos y lineaClara', () => {
+    const x = cargarP((cfg) => { cfg.rotulos = { diseno: 'etiqueta', posicion: 'derecha', colorLinea: '#f4e9c8' }; });
+    const e = x.estiloRotulos();
+    assert.equal(e.diseno, 'etiqueta');
+    assert.equal(e.posicion, 'derecha');
+    assert.equal(e.lineaClara, true);
+    assert.equal(cargarP((cfg) => { cfg.rotulos = { posicion: 'arriba-derecha' }; }).estiloRotulos().posicion, 'arriba-derecha');
+    assert.equal(cargarP((cfg) => { cfg.rotulos = { colorLinea: 'oscuro' }; }).estiloRotulos().lineaClara, false);
+  });
+  prueba('estiloRotulos: sin colorLinea ni acento, lineaClara mira el celeste de la paleta (review final 1)', () => {
+    const x = cargarP((cfg) => { cfg.colores = { principal: '#00796b', oscuro: '#00332e' }; delete cfg.rotulos; });
+    assert.equal(x.estiloRotulos().colorLinea, null, 'la línea sigue siendo la de hoy (var(--celeste))');
+    assert.equal(x.estiloRotulos().lineaClara, true, 'blanco sobre el celeste de #00796b no llega a 3:1');
+    const y = cargarP((cfg) => { cfg.colores = { principal: '#0c3562', oscuro: '#061a31' }; delete cfg.rotulos; });
+    assert.equal(y.estiloRotulos().lineaClara, false, 'un principal oscuro deja el celeste oscuro');
   });
   prueba('estiloRotulos: con acento y sin colorLinea, la línea es el acento', () => {
     const x = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; });
