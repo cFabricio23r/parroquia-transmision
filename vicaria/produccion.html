@@ -21,6 +21,15 @@
   --vivo:#3176c3;--tenue:#d3e3f5;--velo:#edf4fc;--tinta:#28313c;--gris:#48515c;--papel:#f3f2fb;--vivo-rgb:49, 118, 195}
 [hidden]{display:none !important}
 *{box-sizing:border-box}
+/* Letra del nombre (pantallas.produccion.letras.titulo): las tipografías de los rótulos, como estilos.css. */
+@font-face{font-family:Lora;src:url(fuentes/lora-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:SourceSans;src:url(fuentes/source-sans-3-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Cinzel;src:url(fuentes/cinzel-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Playfair;src:url(fuentes/playfair-display-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:EBGaramond;src:url(fuentes/eb-garamond-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Merriweather;src:url(fuentes/merriweather-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Nunito;src:url(fuentes/nunito-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:Oswald;src:url(fuentes/oswald-latin-600-normal.woff2) format('woff2');font-weight:600}
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Mont,sans-serif}
 .escenario{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
 .lamina{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -35,7 +44,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .claro .logo-redondo{width:300px;height:300px;border-radius:50%;background:var(--rey);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .claro .logo-redondo img{width:200px;display:block}
 .claro .nombres{display:flex;flex-direction:column;gap:10px}
-.claro .grande{font-weight:900;font-size:118px;line-height:.95;letter-spacing:-3px;color:var(--rey)}
+.claro .grande{font-weight:900;font-size:calc(118px * var(--escala-nombre,1));line-height:.95;letter-spacing:-3px;color:var(--rey)}
 .claro .sub{font-weight:700;font-size:34px;letter-spacing:8px;color:var(--vivo)}
 .claro .pie{position:absolute !important;left:0;right:0;bottom:72px;text-align:center;font-weight:600;font-size:26px;letter-spacing:3px;color:var(--gris)}
 
@@ -45,11 +54,22 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .azul .ceja{font-weight:700;font-size:36px;letter-spacing:12px;color:var(--tenue)}
 .azul img{position:relative;width:300px;display:block;filter:drop-shadow(0 16px 30px rgba(5,20,50,.4))}
 .azul .nombres{display:flex;flex-direction:column;align-items:center;gap:14px}
-.azul .grande{font-weight:900;font-size:128px;line-height:.95;letter-spacing:-3px}
+.azul .grande{font-weight:900;font-size:calc(128px * var(--escala-nombre,1));line-height:.95;letter-spacing:-3px}
 .azul .linea{display:flex;align-items:center;gap:24px}
 .azul .raya{width:90px;height:3px;background:var(--tenue)}
 .azul .sub{font-weight:700;font-size:34px;letter-spacing:9px;color:var(--velo)}
 .azul .banda{position:absolute !important;left:0;right:0;bottom:0;height:96px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;letter-spacing:6px;color:var(--oscuro)}
+
+/* ---------- El nombre: en una línea (encajarNombre lo achica si no entra) y en la letra elegida ---------- */
+.grande{white-space:nowrap}
+.escenario.letra-lora .grande{font-family:Lora,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-source-sans .grande{font-family:SourceSans,Mont,sans-serif;font-weight:700;letter-spacing:0}
+.escenario.letra-cinzel .grande{font-family:Cinzel,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-playfair .grande{font-family:Playfair,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-eb-garamond .grande{font-family:EBGaramond,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-merriweather .grande{font-family:Merriweather,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-nunito .grande{font-family:Nunito,Mont,sans-serif;font-weight:800;letter-spacing:0}
+.escenario.letra-oswald .grande{font-family:Oswald,Mont,sans-serif;font-weight:600;letter-spacing:0}
 
 /* ---------- Parroquia que no existe ---------- */
 .no-existe{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#0c3562;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 160px;font-weight:800;font-size:72px;line-height:1.2}
@@ -162,7 +182,33 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
     imagen(logo, c.logos && c.logos.blanco);
     if (b && Array.isArray(b.ocultar) && b.ocultar.indexOf('marca') !== -1) logo.hidden = true;
     if (caja) caja.hidden = logo.hidden;   // sin logo (o con la marca oculta) no queda el círculo vacío
+    aplicarLetraYTamano();
   }
+  // Letra y tamaño del nombre (estiloProduccion de parroquia.js). Sin elegir, la clase no se pone y la escala es 1:
+  // la lámina queda igual que siempre.
+  var ESCALAS = { 'muy-chico': 0.7, chico: 0.85, normal: 1, grande: 1.15 };
+  var escalaElegida = 1;
+  function aplicarLetraYTamano() {
+    var e = estiloProduccion();
+    var esc = document.getElementById('escenario');
+    Array.prototype.slice.call(esc.classList).forEach(function (c) { if (c.indexOf('letra-') === 0) esc.classList.remove(c); });
+    if (e.letra !== 'montserrat') esc.classList.add('letra-' + e.letra);
+    escalaElegida = ESCALAS[e.tamano] || 1;
+    encajarNombre();
+  }
+  // El nombre va en una línea; si a la escala elegida no entra en el ancho libre (1640 px, menos el logo
+  // del Claro), se achica hasta que entre, nunca por debajo del 45 %.
+  function encajarNombre() {
+    var g = lamina.querySelector('.grande');
+    if (!g) return;
+    g.style.setProperty('--escala-nombre', escalaElegida);
+    var libre = 1640;
+    if (caja && !caja.hidden) libre -= 300 + 48;
+    var ancho = g.scrollWidth;
+    if (ancho > libre) g.style.setProperty('--escala-nombre', Math.max(0.45, escalaElegida * libre / ancho));
+  }
+  var caja = document.getElementById('logo-claro-caja');
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(encajarNombre);
   aplicarParroquia(PARROQUIA);
   alCambiarParroquia(aplicarParroquia);
   vigilarParroquia();

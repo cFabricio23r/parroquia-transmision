@@ -204,7 +204,7 @@ function seSale(caja, abajo = 0) {
    3. En Inicio, Portada y Gracias sin caja de horarios ni redes (no hay otra cosa que achicar): también a lo alto.
    Corre dentro de cada encaje (encajarExtra, encajarRedesAvisos, encajarHorarios), así reencajar lo repite al
    cargar una fuente. */
-const ESCALAS_TAMANO = { chico: 0.85, normal: 1, grande: 1.15 };
+const ESCALAS_TAMANO = { 'muy-chico': 0.7, chico: 0.85, normal: 1, grande: 1.15 };
 const ESCALA_MINIMA = 0.6;
 let tamanosVista = { titulo: 'normal', frase: 'normal' };
 function _anchoSeSale(v) {
@@ -512,7 +512,7 @@ function aplicarAjustes(vista) {
 const CLASES_ESTILO = TIPOGRAFIAS.map((t) => 'letra-titulo-' + t).concat(LETRAS_FRASE.map((t) => 'letra-frase-' + t), ['logo-chico', 'logo-grande']);
 function aplicarEstiloPantallas() {
   const esc = $('escenario');
-  const e = estiloPantallas();
+  const e = estiloDe(vista);   // el de todas, con las letras propias de esta pantalla encima
   esc.classList.remove(...CLASES_ESTILO);
   if (e.letraTitulo !== 'montserrat') esc.classList.add('letra-titulo-' + e.letraTitulo);
   if (e.letraFrase !== 'vibes') esc.classList.add('letra-frase-' + e.letraFrase);
