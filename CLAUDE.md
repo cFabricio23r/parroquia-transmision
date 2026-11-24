@@ -57,6 +57,15 @@ y los mensajes van en español.
 - `obs/estilos.css` — tokens de color en `:root`, componentes y la sección «ANIMACIONES».
 - `herramientas/transiciones/` — `stinger.html` y `stinger_virgen.html` (animación con `window.setFrame(t)`),
   `render.js` (Playwright → PNG → ffmpeg VP9 con alfa + sonido sintetizado). Punto de transición = mitad de la duración.
+  **Solo para `obs/`** (Ciudad Arce sin plataforma): arma los `.webm` de `transiciones/`.
+- `vicaria/transicion.html` + `vicaria/transicion.js` — la transición de cada parroquia de la plataforma, dibujada
+  en un canvas de 1920×1080 con su identidad (colores de `paleta()`, logo blanco, nombre y lugar; versión «Con la
+  imagen del patrono» con `?version=patrono`). Un solo código de dibujo (`dibujarTransicion(g, t, d)`) para tres usos:
+  la vista previa del editor (`?repetir=1&vista-previa=1`), el video que arma el editor («Descargar transición»,
+  `plataforma/lib/editor/transicion.ts`: 120 cuadros → WebM VP9 con alfa + Opus con mediabunny, en el navegador;
+  necesita `VideoEncoder`, o sea Chrome/Edge en https o localhost) y la capa de la app (`Capa.kt` llama a
+  `reproducir()`, `pausar()`, `seguir()`). Las imágenes se cargan con `crossOrigin='anonymous'`: sin eso el logo del
+  almacenamiento de Supabase contamina el canvas y el video no se puede armar.
 
 ## Estado (resumen de campos)
 
@@ -99,6 +108,10 @@ Migraciones en `normalizarEstado`: `virgen` a|b|c → `imagen` `virgen-a|b|c`; r
   el tamaño en `TAMANO_NOMBRE` de `rotulos.html` si no es 52, y en el editor `OPCIONES_TIPOGRAFIA`,
   `FAMILIA_TIPOGRAFIA` y su `@font-face` en `plataforma/app/estilos/fuentes.css`. Sumarla a `FUENTES` en
   `app/scripts/copiar-vicaria.test.js`. Sin Google Fonts ni CDN.
+- **Nueva letra para las pantallas** (título o frase): es la misma lista de los rótulos (`TIPOGRAFIAS`), así que
+  primero se suma como tipografía de rótulo (punto anterior). Después, en `vicaria/estilos.css`, sus reglas
+  `.escenario.letra-titulo-<clave>` (título y `.tarjeta h1`) y `.escenario.letra-frase-<clave> .cursiva`. El editor
+  la ofrece solo (`OPCIONES_LETRA_FRASE` = Great Vibes + `OPCIONES_TIPOGRAFIA`).
 - **Nueva pantalla completa**: nueva vista `<div class="texto" id="v-NOMBRE" hidden>` en `pantalla.html`, su rama en
   `pintar()` y la fila en README/LEEME con `?tipo=NOMBRE`.
 - **Nueva imagen**: un PNG recortado en `obs/img/` con el nombre de la clave (`obs/img/NOMBRE.png`, ver `imagenDe()`)
