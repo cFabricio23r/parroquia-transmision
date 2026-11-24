@@ -282,7 +282,7 @@ async function casoDireccionesRaras() {
   for (const ruta of [`/Ciudad-Arce/pantalla.html`, `/no-existe/pantalla.html`, `/no-existe/panel.html`, `/no-existe/rotulos.html`, `/no-existe/produccion.html`]) {
     const p = await abrir(ctx, ruta, ruta.includes('panel') ? 360 : 1920, ruta.includes('panel') ? 800 : 1080);
     await p.waitForSelector('#no-existe', { state: 'visible' });
-    igual((await texto(p, '#no-existe')).trim(), 'Esta parroquia no existe, revisa el link', ruta + ': «Esta parroquia no existe, revisa el link»');
+    igual((await texto(p, '#no-existe')).trim(), 'Esta parroquia no existe, revisá el link', ruta + ': «Esta parroquia no existe, revisá el link»');
     const cuerpo = await p.innerText('body');
     revisar(!/Inmaculada|San José/.test(cuerpo), ruta + ': sin datos de ninguna parroquia');
     revisar((await claves(p)).filter((k) => !k.startsWith('pev_')).length === 0, ruta + ': sin claves ajenas a pev_');
@@ -2054,6 +2054,7 @@ async function nubeDePrueba(ctx, filas = [], opciones = {}) {
     if (u.pathname === '/auth/v1/token') {
       const b = q.postDataJSON();
       if (opciones.demoraToken) await new Promise((r) => setTimeout(r, opciones.demoraToken));
+      if (opciones.estadoToken) return json(opciones.estadoToken, {});
       if (b.password !== 'clave-buena') return json(400, { error_code: 'invalid_credentials' });
       return json(200, { access_token: 'acc-prueba', refresh_token: 'ref-prueba', expires_in: 3600, user: { email: b.email } });
     }
@@ -2091,7 +2092,7 @@ async function revisar44(p, sel, prefijo) {
     if (caja) revisar(caja.height >= 44, (prefijo || '') + 'control de 44 px o más: ' + ((await b.getAttribute('aria-label')) || (await b.textContent()).trim()) + ' (' + caja.height + ')');
   }
 }
-const TXT_VACIA = 'Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión» y va a quedar acá.';
+const TXT_VACIA = 'Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión…» y después «Guardar»; va a quedar acá.';
 
 async function casoMisasListas() {
   console.log('Misas listas en Preparar');
@@ -2238,42 +2239,121 @@ async function casoMisasListas() {
     const estado = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), CLAVE_CA('estado_v1'));
     const sel = (nombre) => `#listas button[aria-label="Cargar «${nombre}»"]`;
     const cargar = async (nombre) => { await p.click(sel(nombre), { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(300); };
-    const abierto = () => p.evaluate(() => document.getElementById('dialogo-cargar') ? document.getElementById('dialogo-cargar').open : false);
+    const abierto = () => p.evaluate(() => document.getElementById('dialogo-confirmar') ? document.getElementById('dialogo-confirmar').open : false);
     const foco = () => p.evaluate(() => (document.activeElement && (document.activeElement.getAttribute('aria-label') || document.activeElement.id)) || '');
     const celebranteGuia = async () => { const e = await estado(); return (e.rotulosTexto || {}).guia && e.rotulosTexto.guia.t; };
     await cargar('Domingo 30');
     // la primera vez no hay con qué comparar (concern 1 de la Tarea 5): puede preguntar
-    if (await abierto()) { await p.click('#cargar-igual'); await p.waitForTimeout(300); }
+    if (await abierto()) { await p.click('#confirmar-si'); await p.waitForTimeout(300); }
     igual((await estado()).celebrante, 'Pbro. Domingo 30', 'Cargar carga la guardada');
     igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y la línea de estado dice «Cargada: Domingo 30»');
     revisar(((await p.textContent(sel('Domingo 30') + ' >> xpath=..')) || '').includes('Usada hoy'), 'la cargada dice «Usada hoy»');
     await cargar('Hora Santa jueves');
     igual(await abierto(), false, 'recién cargada (sin cambios) carga directo, sin preguntar');
     igual((await estado()).celebrante, 'Pbro. Hora Santa jueves', 'y carga la otra');
+    igual(await foco(), 'Cargar «Hora Santa jueves»', 'cargada directo, el foco queda en ese «Cargar»');
     await p.fill('#rot-guia-t', 'Juan cambiado');
     await p.waitForTimeout(500);
     await cargar('Domingo 30');
     igual(await abierto(), true, 'con cambios abre el diálogo del panel');
-    igual(((await p.textContent('#cargar-pregunta').catch(() => '')) || '').trim(), 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar Domingo 30 de todas formas?', 'con el texto aprobado');
-    igual(((await p.textContent('#cargar-igual').catch(() => '')) || '').trim() + ' / ' + ((await p.textContent('#cargar-volver').catch(() => '')) || '').trim(), 'Cargar igual / Volver', 'y los botones «Cargar igual» y «Volver»');
-    igual(await foco(), 'cargar-volver', 'el foco entra al diálogo, en «Volver»');
-    await revisar44(p, '#dialogo-cargar button', 'PC, diálogo de cargar: ');
+    igual(((await p.textContent('#confirmar-pregunta').catch(() => '')) || '').trim(), 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar Domingo 30 de todas formas?', 'con el texto aprobado');
+    igual(((await p.textContent('#confirmar-si').catch(() => '')) || '').trim() + ' / ' + ((await p.textContent('#confirmar-volver').catch(() => '')) || '').trim(), 'Cargar igual / Volver', 'y los botones «Cargar igual» y «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra al diálogo, en «Volver»');
+    await revisar44(p, '#dialogo-confirmar button', 'PC, diálogo de cargar: ');
     await p.keyboard.press('Escape');
     await p.waitForTimeout(200);
     igual(await abierto(), false, 'Esc cierra el diálogo');
     igual(await celebranteGuia(), 'Juan cambiado', 'Esc cuenta como «Volver»: no carga nada');
     igual(await foco(), 'Cargar «Domingo 30»', 'y el foco vuelve al botón que lo abrió');
     await cargar('Domingo 30');
-    await p.click('#cargar-volver', { timeout: 3000 }).catch(() => {});
+    await p.click('#confirmar-volver', { timeout: 3000 }).catch(() => {});
     await p.waitForTimeout(200);
     igual(await celebranteGuia(), 'Juan cambiado', '«Volver» no carga nada');
     igual(await foco(), 'Cargar «Domingo 30»', 'y devuelve el foco al botón');
     await cargar('Domingo 30');
-    await p.click('#cargar-igual', { timeout: 3000 }).catch(() => {});
+    await p.click('#confirmar-si', { timeout: 3000 }).catch(() => {});
     await p.waitForTimeout(300);
     igual((await estado()).celebrante, 'Pbro. Domingo 30', '«Cargar igual» carga');
     igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y dice «Cargada: Domingo 30»');
     igual(await foco(), 'Cargar «Domingo 30»', 'el foco vuelve al «Cargar» de esa misa');
+    igual(nativas.length, 0, 'nunca aparece un confirm() del navegador');
+    await ctx.close();
+  }
+
+  console.log(' · entrar: el servidor falla, el botón siempre se repone, el error vacío no deja hueco');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [], { estadoToken: 503 });
+    const p = await abrirPanelListas(ctx, {});
+    await p.click('#entrar', { timeout: 3000 });
+    igual(await p.evaluate(() => { const e = document.getElementById('entrar-error'); return e.textContent === '' && e.getClientRects().length === 0; }), true, 'el error vacío no ocupa lugar');
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-error', 'No se pudo entrar. Probá de nuevo en un rato.'), 'No se pudo entrar. Probá de nuevo en un rato.', 'con un 503 lo dice (hay red)');
+    igual(await p.evaluate(() => document.getElementById('entrar-error').getClientRects().length > 0), true, 'y el error se ve');
+    // entrar que no termina: al cerrar y volver a abrir, el botón está repuesto
+    await p.evaluate(() => { window.entrarGuardadas = () => new Promise(() => {}); });
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-boton', 'Entrando…', 1000), 'Entrando…', 'mientras entra dice «Entrando…»');
+    await p.click('#entrar-cancelar');
+    await p.click('#entrar', { timeout: 3000 });
+    igual(((await p.textContent('#entrar-boton')) || '').trim() + ' ' + (await p.isDisabled('#entrar-boton')), 'Entrar false', 'al volver a abrir, el botón dice «Entrar» y está habilitado');
+    igual(await p.evaluate(() => document.getElementById('entrar-error').textContent), '', 'y sin el error anterior');
+    // entrar que falla con una excepción: el botón se repone igual (finally)
+    await p.evaluate(() => { window.entrarGuardadas = () => Promise.reject(new Error('roto a propósito')); });
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    await p.waitForTimeout(300);
+    igual(((await p.textContent('#entrar-boton')) || '').trim() + ' ' + (await p.isDisabled('#entrar-boton')), 'Entrar false', 'si entrar se rompe, el botón vuelve a «Entrar» y se habilita');
+    igual(((await p.textContent('#entrar-error')) || '').trim(), 'No se pudo entrar. Probá de nuevo en un rato.', 'y lo dice como un error del servidor');
+    igual(errores.filter((e) => e.includes('roto a propósito')).length, 0, 'la excepción no queda sin atender en la página');
+    await ctx.close();
+  }
+
+  console.log(' · Reemplazar y Borrar preguntan en el diálogo del panel');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)] });
+    const nativas = [];
+    p.on('dialog', (d) => { nativas.push(d.message()); d.dismiss(); });
+    const abierto = () => p.evaluate(() => document.getElementById('dialogo-confirmar').open);
+    const foco = () => p.evaluate(() => (document.activeElement && (document.activeElement.getAttribute('aria-label') || document.activeElement.id)) || '');
+    const nombres = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]').map((g) => g.nombre), CLAVE_CA('guardadas_v1'));
+    const textos = async () => ((await p.textContent('#confirmar-pregunta')) || '').trim() + ' | ' + ((await p.textContent('#confirmar-si')) || '').trim() + ' / ' + ((await p.textContent('#confirmar-volver')) || '').trim();
+    await p.click('[data-hoja="guardadas"]');
+    await p.fill('#guardar-nombre', 'hora santa jueves');
+    await p.click('#guardar-boton');
+    igual(await abierto(), true, 'un nombre que ya existe abre el diálogo del panel');
+    igual(await textos(), 'Ya existe «hora santa jueves». ¿Reemplazarla? | Reemplazar / Volver', 'con la pregunta de siempre y «Reemplazar» / «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra en «Volver»');
+    await revisar44(p, '#dialogo-confirmar button', 'PC, diálogo de reemplazar: ');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    igual(await abierto(), false, 'Esc lo cierra');
+    igual((await nombres()).join('|'), 'Hora Santa jueves', 'Esc no reemplaza');
+    igual(await foco(), 'guardar-boton', 'y el foco vuelve a «Guardar»');
+    await p.click('#guardar-boton');
+    await p.click('#confirmar-si');
+    await p.waitForTimeout(200);
+    igual((await nombres()).join('|'), 'hora santa jueves', '«Reemplazar» reemplaza');
+    igual(await foco(), 'guardar-boton', 'y el foco vuelve a «Guardar»');
+    const borrar = '#lista-guardadas button[aria-label="Borrar «hora santa jueves»"]';
+    await p.click(borrar);
+    igual(await abierto(), true, '«Borrar» abre el diálogo del panel');
+    igual(await textos(), '¿Borrar «hora santa jueves»? | Borrar / Volver', 'con «Borrar» / «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra en «Volver»');
+    await p.click('#confirmar-volver');
+    await p.waitForTimeout(200);
+    igual((await nombres()).length, 1, '«Volver» no borra');
+    igual(await foco(), 'Borrar «hora santa jueves»', 'y el foco vuelve a ese «Borrar»');
+    await p.click(borrar);
+    await p.click('#confirmar-si');
+    await p.waitForTimeout(200);
+    igual((await nombres()).length, 0, '«Borrar» borra');
+    igual(await foco(), 'titulo-guardadas', 'y el foco va al título de la lista');
     igual(nativas.length, 0, 'nunca aparece un confirm() del navegador');
     await ctx.close();
   }

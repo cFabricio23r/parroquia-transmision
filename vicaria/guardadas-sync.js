@@ -211,9 +211,10 @@ async function _syncCorrer() {
   if (!leerSesionNube()) return _syncSinSesion();
   const r = await _syncCorrerConSesion();
   if (r !== 'sin-sesion') return r;
-  // Empezó con sesión y el servidor la rechazó (o venció): se borra y se recuerda para decirlo.
-  salirNube();
+  // Empezó con sesión y el servidor la rechazó (o venció): se recuerda para decirlo y se borra. La marca va
+  // ANTES de borrar la sesión: los otros docks se enteran por el evento storage de la sesión y ya la leen.
   _syncEscribir(CLAVE_SESION_CERRADA, { cuando: Date.now() });
+  salirNube();
   return 'sesion-cerrada';
 }
 
@@ -223,7 +224,7 @@ async function _syncCorrerConSesion() {
     if (!_syncParroquiaId) {
       const r = await parroquiaIdNube(SLUG);
       if (!r.ok) {
-        if (r.error.tipo === 'permiso') { salirNube(); return 'sin-sesion'; }   // la cuenta ya no es de esta parroquia
+        if (r.error.tipo === 'permiso') return 'sin-sesion';   // la cuenta ya no es de esta parroquia: _syncCorrer cierra la sesión
         return _syncCorte(r) || 'error-servidor';
       }
       _syncParroquiaId = r.valor;
@@ -304,16 +305,26 @@ function programarSincronizacionGuardadas(ms) {
 /* ---------- Entrar y salir ---------- */
 
 const SIN_INTERNET_ENTRAR = 'No hay internet. Probá de nuevo.';
+const NO_SE_PUDO_ENTRAR = 'No se pudo entrar. Probá de nuevo en un rato.';
+
+/* El texto de un error al entrar. Sin respuesta (sin `estado`) es falta de red; con respuesta (5xx, 429, otro
+   error de Auth) la red anda y falló el servidor. */
+function _syncTextoAlEntrar(e) {
+  if (e.tipo === 'credenciales') return 'Correo o contraseña incorrectos';
+  if (e.tipo === 'permiso') return 'Esta cuenta no es de esta parroquia';
+  if (e.tipo === 'sin-conexion' && e.estado === undefined) return SIN_INTERNET_ENTRAR;
+  return NO_SE_PUDO_ENTRAR;
+}
 
 /* Entra con la cuenta del editor web. Devuelve { ok:true } o { ok:false, texto } con el error para el voluntario. */
 async function entrarGuardadas(correo, clave) {
   if (_syncModoApp()) return { ok: false, texto: '' };
   const r = await entrarNube(correo, clave);
-  if (!r.ok) return { ok: false, texto: r.error.tipo === 'credenciales' ? 'Correo o contraseña incorrectos' : SIN_INTERNET_ENTRAR };
+  if (!r.ok) return { ok: false, texto: _syncTextoAlEntrar(r.error) };
   const p = await parroquiaIdNube(SLUG);
   if (!p.ok) {
     salirNube();
-    return { ok: false, texto: p.error.tipo === 'permiso' ? 'Esta cuenta no es de esta parroquia' : SIN_INTERNET_ENTRAR };
+    return { ok: false, texto: _syncTextoAlEntrar(p.error) };
   }
   _syncOlvidarCierre();
   _syncParroquiaId = p.valor;
@@ -340,6 +351,9 @@ function iniciarSincronizacionGuardadas(opciones) {
   setInterval(() => { if (!_syncOpciones.enVivo() && haySesionGuardadas()) sincronizarGuardadas(); }, CADA_SYNC_MS);
   window.addEventListener('online', () => { if (haySesionGuardadas()) sincronizarGuardadas(); });
   window.addEventListener('storage', (e) => {
+    // Otro dock cerró la sesión: al renovar, nube-cliente la borra antes de que llegue la marca, así que
+    // también se escucha la marca.
+    if (e.key === CLAVE_SESION_CERRADA) { if (!haySesionGuardadas()) _syncAvisar(_syncSinSesion()); return; }
     if (e.key !== CLAVE_SESION_NUBE) return;   // se entró o se salió en otro panel de esta PC
     _syncParroquiaId = null;
     if (haySesionGuardadas()) sincronizarGuardadas(); else _syncAvisar(_syncSinSesion());

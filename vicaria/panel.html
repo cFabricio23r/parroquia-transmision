@@ -203,6 +203,7 @@ dialog h2{margin:0;font-size:16px;font-weight:800}
 .botones-dialogo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 dialog p{margin:0;font-size:14px;line-height:1.45}
 #listas-vacia{margin:0}
+#entrar-error:empty{display:none}   /* sin error no deja un hueco en el formulario */
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 
@@ -345,7 +346,7 @@ dialog p{margin:0;font-size:14px;line-height:1.45}
 </head>
 <body>
 
-<div class="no-existe-panel" id="no-existe" role="alert">Esta parroquia no existe, revisa el link</div>
+<div class="no-existe-panel" id="no-existe" role="alert">Esta parroquia no existe, revisá el link</div>
 
 <div class="arriba">
   <p class="parroquia-nombre" id="nombre-parroquia"></p>
@@ -403,7 +404,7 @@ dialog p{margin:0;font-size:14px;line-height:1.45}
         <button type="button" class="secundario" id="entrar" hidden>Entrar con mi cuenta</button>
       </div>
       <div id="listas" role="list" aria-labelledby="listas-titulo"></div>
-      <p class="ayuda" id="listas-vacia" hidden>Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión» y va a quedar acá.</p>
+      <p class="ayuda" id="listas-vacia" hidden>Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión…» y después «Guardar»; va a quedar acá.</p>
       <button type="button" class="enlace" id="ver-todas">Ver todas las misas listas</button>
     </div>
 
@@ -526,13 +527,14 @@ dialog p{margin:0;font-size:14px;line-height:1.45}
   </form>
 </dialog>
 
-<!-- Antes de cargar una misa lista con cambios sin guardar (diálogo propio: confirm() no está verificado en el dock de OBS) -->
-<dialog id="dialogo-cargar" role="alertdialog" aria-labelledby="cargar-pregunta">
+<!-- Confirmación propia del panel (cargar con cambios sin guardar, reemplazar, borrar): confirm() no está
+     verificado en el dock de OBS. El texto y el botón de «sí» los pone confirmarEnPanel(). -->
+<dialog id="dialogo-confirmar" role="alertdialog" aria-labelledby="confirmar-pregunta">
   <form method="dialog">
-    <p id="cargar-pregunta"></p>
+    <p id="confirmar-pregunta"></p>
     <div class="botones-dialogo">
-      <button type="submit" class="secundario" id="cargar-volver" value="volver">Volver</button>
-      <button type="submit" class="primario" id="cargar-igual" value="cargar">Cargar igual</button>
+      <button type="submit" class="secundario" id="confirmar-volver" value="volver">Volver</button>
+      <button type="submit" class="primario" id="confirmar-si" value="si"></button>
     </div>
   </form>
 </dialog>
@@ -904,7 +906,7 @@ function esControl(el) {
 document.addEventListener('keydown', (e) => {
   if (PARROQUIA_NO_EXISTE) return;
   const t = e.target;
-  if (t.closest && t.closest('dialog')) return;   // en un diálogo (Entrar, Cargar igual), Esc solo lo cierra
+  if (t.closest && t.closest('dialog')) return;   // en un diálogo (Entrar o una confirmación), Esc solo lo cierra
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
@@ -945,31 +947,41 @@ const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
 function cargarGuardada(id, boton) {
   const g = leerGuardadas().find((x) => x.id === id);
   if (!g) { pintarGuardadas(); return; }
-  if (!hayCambiosSinGuardar(s)) { hacerCarga(id); return; }
-  pedirConfirmarCarga(g, boton);
+  const foco = () => botonCargarDe(id, boton);
+  if (!hayCambiosSinGuardar(s)) { hacerCarga(id); enfocar(foco()); return; }
+  confirmarEnPanel('Lo que cambiaste y no guardaste se va a perder. ¿Cargar ' + g.nombre + ' de todas formas?', 'Cargar igual',
+    () => hacerCarga(id), foco);
 }
-const dialogoCargar = $('dialogo-cargar');
-let cargaPedida = null;   // { id, boton } mientras el diálogo está abierto
-function pedirConfirmarCarga(g, boton) {
-  cargaPedida = { id: g.id, boton: boton || null };
-  $('cargar-pregunta').textContent = 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar ' + g.nombre + ' de todas formas?';
-  dialogoCargar.returnValue = '';   // Esc cierra sin valor: cuenta como «Volver»
-  dialogoCargar.showModal();
-  $('cargar-volver').focus();       // lo que no pierde nada, primero
+
+/* Confirmación propia del panel. Abre el diálogo con el foco en «Volver» (lo que no pierde nada). Esc lo cierra
+   sin valor: cuenta como «Volver». Al cerrar, si se apretó el botón de «sí» corre alSi(), y el foco va a lo
+   que devuelva foco(siSeHizo): el botón que lo abrió, o el que lo reemplaza si la lista se repintó. */
+const dialogoConfirmar = $('dialogo-confirmar');
+let confirmacion = null;   // { alSi, foco } mientras el diálogo está abierto
+function confirmarEnPanel(pregunta, textoSi, alSi, foco) {
+  confirmacion = { alSi, foco };
+  $('confirmar-pregunta').textContent = pregunta;
+  $('confirmar-si').textContent = textoSi;
+  dialogoConfirmar.returnValue = '';
+  dialogoConfirmar.showModal();
+  $('confirmar-volver').focus();
 }
-function botonCargarDe(id, previo) {
+dialogoConfirmar.addEventListener('close', () => {
+  const c = confirmacion;
+  confirmacion = null;
+  if (!c) return;
+  const si = dialogoConfirmar.returnValue === 'si';
+  if (si) c.alSi();
+  enfocar(c.foco(si));
+});
+const enfocar = (el) => { if (el && el.focus) el.focus(); };
+/* El botón `previo` si todavía se ve; si no (la lista se repintó), el de esa misa en las listas a la vista. */
+function botonDe(selector, id, previo) {
   const seVe = (b) => b && b.isConnected && b.getClientRects().length > 0;
   if (seVe(previo)) return previo;
-  return [...document.querySelectorAll('#listas button, #lista-guardadas .cargar')].find((b) => b.dataset.id === id && seVe(b)) || null;
+  return [...document.querySelectorAll(selector)].find((b) => b.dataset.id === id && seVe(b)) || null;
 }
-dialogoCargar.addEventListener('close', () => {
-  const pedida = cargaPedida;
-  cargaPedida = null;
-  if (!pedida) return;
-  if (dialogoCargar.returnValue === 'cargar') hacerCarga(pedida.id);
-  const b = botonCargarDe(pedida.id, pedida.boton);
-  if (b) b.focus();
-});
+const botonCargarDe = (id, previo) => botonDe('#listas button, #lista-guardadas .cargar', id, previo);
 function hacerCarga(id) {
   const g = leerGuardadas().find((x) => x.id === id);
   const estado = cargarTransmision(id, s);
@@ -988,12 +1000,17 @@ function hacerCarga(id) {
   avisarCargada(g.nombre);
   programarSincronizacionGuardadas();
 }
-function guardarActual() {
+/* «Guardar» (o Enter en el nombre). Si el nombre ya existe, pregunta antes en el diálogo del panel; el foco vuelve
+   a lo que lo abrió. */
+function guardarActual(abridor) {
   const campo = $('guardar-nombre');
   const nombre = campo.value.trim();
   if (!nombre) { avisoGuardadas('Escribí un nombre para guardarla.'); campo.focus(); return; }
   const existia = existeGuardada(nombre);
-  if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
+  if (!existia) { guardarConNombre(nombre, false); return; }
+  confirmarEnPanel('Ya existe «' + nombre + '». ¿Reemplazarla?', 'Reemplazar', () => guardarConNombre(nombre, true), () => abridor || $('guardar-boton'));
+}
+function guardarConNombre(nombre, existia) {
   const guardada = guardarTransmision(nombre, s);
   if (guardada && guardada.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
   if (!guardada) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
@@ -1052,13 +1069,14 @@ function pintarGuardadas() {
         const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
         if (nuevoCargar) nuevoCargar.focus();
       }),
-      boton('borrar', 'Borrar', () => {
-        if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
-        const borrada = borrarTransmision(g.id);
-        if (borrada) programarSincronizacionGuardadas();
-        avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
-        pintarGuardadas();
-        $('titulo-guardadas').focus();
+      boton('borrar', 'Borrar', (e) => {
+        const abridor = e.currentTarget;
+        confirmarEnPanel('¿Borrar «' + g.nombre + '»?', 'Borrar', () => {
+          const borrada = borrarTransmision(g.id);
+          if (borrada) programarSincronizacionGuardadas();
+          avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
+          pintarGuardadas();
+        }, (si) => (si ? $('titulo-guardadas') : botonDe('#lista-guardadas .borrar', g.id, abridor)));
       })
     );
     fila.append(info, acciones);
@@ -1072,8 +1090,8 @@ function pintarGuardadas() {
   $('ver-todas').hidden = !lista.length;
 }
 $('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
-$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual(); e.preventDefault(); } });
-$('guardar-boton').addEventListener('click', guardarActual);
+$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual($('guardar-nombre')); e.preventDefault(); } });
+$('guardar-boton').addEventListener('click', () => guardarActual($('guardar-boton')));
 $('ver-todas').addEventListener('click', () => abrir('guardadas'));
 $('guardar-esta').addEventListener('click', () => {
   abrir('guardadas');
@@ -1111,8 +1129,13 @@ function avisarCargada(nombre) {
   cargadaT = setTimeout(() => { cargadaHasta = 0; ponerLineaSync(ultimoSync.texto, ultimoSync.aviso); }, MUESTRA_CARGADA_MS);
 }
 const dialogoEntrar = $('dialogo-entrar');
+function reponerBotonEntrar() {
+  $('entrar-boton').disabled = false;
+  $('entrar-boton').textContent = 'Entrar';
+}
 $('entrar').addEventListener('click', () => {
   $('entrar-error').textContent = '';
+  reponerBotonEntrar();   // un intento anterior que no terminó no lo deja en «Entrando…»
   dialogoEntrar.showModal();
   $('entrar-correo').focus();
 });
@@ -1125,9 +1148,14 @@ $('form-entrar').addEventListener('submit', async (e) => {
   boton.disabled = true;
   boton.textContent = 'Entrando…';
   $('entrar-error').textContent = '';
-  const r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value);
-  boton.disabled = false;
-  boton.textContent = 'Entrar';
+  let r;
+  try {
+    r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value);
+  } catch (err) {
+    r = { ok: false, texto: 'No se pudo entrar. Probá de nuevo en un rato.' };
+  } finally {
+    reponerBotonEntrar();
+  }
   if (!r.ok) { $('entrar-error').textContent = r.texto; $('entrar-clave').focus(); return; }
   dialogoEntrar.close();
   pintarSesion();

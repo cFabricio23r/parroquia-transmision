@@ -3796,6 +3796,69 @@ grupo('guardadas: sincronizar', () => {
     const c = nuevo(f, {});
     assert.deepEqual(JSON.parse(JSON.stringify(await c.entrarGuardadas('a@b.c', 'x'))), { ok: false, texto: 'No hay internet. Probá de nuevo.' });
   });
+  prueba('entrar con red pero el servidor falla o limita (5xx, 429) dice «No se pudo entrar. Probá de nuevo en un rato.»', async () => {
+    const NO_ENTRA = 'No se pudo entrar. Probá de nuevo en un rato.';
+    const plano = (x) => JSON.parse(JSON.stringify(x));
+    for (const estado of [500, 503, 429]) {
+      const f = nubeFalsa([]);
+      f.token = () => ({ status: estado, cuerpo: {} });
+      assert.deepEqual(plano(await nuevo(f, {}).entrarGuardadas('a@b.c', 'x')), { ok: false, texto: NO_ENTRA }, 'token ' + estado);
+    }
+    // entra, pero buscar la parroquia falla en el servidor: tampoco es «sin internet»
+    const g = nubeFalsa([]);
+    g.token = () => ({ status: 200, cuerpo: { access_token: 'acc1', refresh_token: 'ref1', expires_in: 3600 } });
+    const original = g;
+    const h = async (url, init) => (url.includes('/rest/v1/parroquias') ? { status: 502, text: async () => '' } : original(url, init));
+    const c = nuevo(h, {});
+    assert.deepEqual(plano(await c.entrarGuardadas('a@b.c', 'x')), { ok: false, texto: NO_ENTRA });
+    assert.ok(!(KEY_SESION in c.__almacen), 'y no queda una sesión a medias');
+    // sin red de verdad sigue «No hay internet»
+    const sinRed = nubeFalsa([]);
+    sinRed.sinRed = () => true;
+    assert.equal((await nuevo(sinRed, {}).entrarGuardadas('a@b.c', 'x')).texto, 'No hay internet. Probá de nuevo.');
+  });
+  /* localStorage que anota, al borrar la sesión, si la marca de «sesión cerrada» ya estaba escrita. */
+  function almacenQueMira(inicial) {
+    const datos = Object.assign({}, inicial);
+    const visto = [];
+    return {
+      datos, visto,
+      ls: {
+        getItem: (k) => (k in datos ? datos[k] : null),
+        setItem: (k, v) => { datos[k] = String(v); },
+        removeItem: (k) => { if (k === KEY_SESION) visto.push(K('guardadas_sesion_cerrada') in datos); delete datos[k]; }
+      }
+    };
+  }
+  prueba('al cerrarse la sesión la marca se escribe ANTES de borrar la sesión (los otros docks la ven en el evento storage)', async () => {
+    // 401 aun con el access renovado: la sesión la borra la sincronización
+    const f = nubeFalsa([], () => ({ status: 401, cuerpo: {} }));
+    f.token = () => ({ status: 200, cuerpo: { access_token: 'acc9', refresh_token: 'ref9', expires_in: 3600 } });
+    const a = almacenQueMira(conSesionYMarca({ [KEY]: JSON.stringify([local('aaaa1', 'A')]), [KEY_PEND]: JSON.stringify([{ op: 'guardar', id: 'aaaa1', cuando: 10 }]) }));
+    const c = nuevo(f, {}, { localStorage: a.ls });
+    assert.equal(await c.sincronizarGuardadas(), 'sesion-cerrada');
+    assert.ok(a.visto.length > 0, 'se borró la sesión');
+    assert.deepEqual(a.visto, a.visto.map(() => true), 'cada vez que se borró la sesión, la marca ya estaba');
+    // la cuenta ya no es de esta parroquia (permiso): igual
+    const g = nubeFalsa([]);
+    const h = async (url, init) => (url.includes('/rest/v1/parroquias') ? { status: 200, text: async () => '[]' } : g(url, init));
+    const b = almacenQueMira(conSesionYMarca({}));
+    const d = nuevo(h, {}, { localStorage: b.ls });
+    assert.equal(await d.sincronizarGuardadas(), 'sesion-cerrada');
+    assert.deepEqual(b.visto, [true]);
+  });
+  prueba('otro dock ve la marca de sesión cerrada por el evento storage y lo dice', () => {
+    const oyentes = {};
+    const ventana = { innerWidth: 1920, innerHeight: 1080, addEventListener: (n, fn) => { (oyentes[n] = oyentes[n] || []).push(fn); } };
+    const c = nuevo(nubeFalsa([]), {}, { window: ventana });
+    const v = [];
+    c.iniciarSincronizacionGuardadas({ alEstado: (e, tx) => v.push(e) });
+    assert.deepEqual(v, ['sin-sesion']);
+    // el renovar de otro dock borró la sesión primero y escribió la marca después
+    c.__almacen[K('guardadas_sesion_cerrada')] = JSON.stringify({ cuando: 1 });
+    oyentes.storage.forEach((fn) => fn({ key: K('guardadas_sesion_cerrada') }));
+    assert.equal(v[v.length - 1], 'sesion-cerrada');
+  });
   prueba('firmaEstado no mira el rótulo al aire ni el orden de las claves', () => {
     const c = nuevo(nubeFalsa([]), {});
     assert.equal(c.firmaEstado({ a: 1, b: { y: 2, x: 1 }, rotulo: 'guia', rotuloHasta: 9, rotuloDesde: 3 }), c.firmaEstado({ b: { x: 1, y: 2 }, a: 1 }));
