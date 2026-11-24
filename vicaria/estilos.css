@@ -262,6 +262,12 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
    pos-centro centra con márgenes automáticos (sin transform) para no pisar las animaciones .en/.sale. */
 .esquinas-rectas .rotulo,.esquinas-rectas .capa-logo,.esquinas-rectas .barra{border-radius:0}
 .pos-centro .rotulo{left:0;right:0;margin-left:auto;margin-right:auto;width:max-content}
+/* Abajo a la derecha y arriba a la derecha: el mismo margen que a la izquierda (60px). Arriba, a la altura de la cajita
+   «EN VIVO» (top:44px), que se esconde mientras está el rótulo (rotulos.html, pintar). Salen hacia la derecha. */
+.pos-derecha .rotulo,.pos-arriba-derecha .rotulo{left:auto;right:60px}
+.pos-arriba-derecha .rotulo{bottom:auto;top:44px}
+.pos-derecha .rotulo.sale,.pos-arriba-derecha .rotulo.sale{animation-name:rotuloSaleDerecha}
+@keyframes rotuloSaleDerecha{to{opacity:0;transform:translateX(60px)}}
 /* Esquinas (F6:24): suaves es el defecto (24px el rótulo, 18 la capa del logo, 16 la barra) y no lleva clase.
    Redondas: valor provisional, F6 no lo trae (pregunta abierta del plan 1.1). */
 .esquinas-redondas .rotulo{border-radius:48px}

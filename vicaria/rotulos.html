@@ -99,7 +99,9 @@ function pintar(s) {
   const conMarca = s.mostrarLogo && visible('envivo', 'marca');
   $('logo').classList.toggle('oculto', !conMarca || hayRotulo);
   $('logo-esquina').classList.toggle('oculto', !(conMarca && hayRotulo && estiloRotulos().logoEsquina));
-  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo || !visible('envivo', 'envivo'));
+  // Arriba a la derecha el rótulo ocupa el lugar de la cajita EN VIVO: se esconde mientras hay rótulo.
+  const rotuloArriba = hayRotulo && estiloRotulos().posicion === 'arriba-derecha';
+  $('envivo').classList.toggle('oculto', !s.mostrarEnVivo || !visible('envivo', 'envivo') || rotuloArriba);
   $('logo-txt').textContent = textoDe(s, 'envivo', 'capa_logo');
 
   aplicar(s);
@@ -123,6 +125,8 @@ function aplicarParroquia(c) {
   TIPOGRAFIAS.forEach((t) => esc.classList.toggle('tipo-' + t, t !== 'montserrat' && e.tipografia === t));
   ESQUINAS_ROTULO.forEach((q) => esc.classList.toggle('esquinas-' + q, (q === 'rectas' || q === 'redondas') && e.esquinas === q));
   esc.classList.toggle('pos-centro', e.posicion === 'centro');
+  esc.classList.toggle('pos-derecha', e.posicion === 'derecha');
+  esc.classList.toggle('pos-arriba-derecha', e.posicion === 'arriba-derecha');
   if (e.colorLado) esc.style.setProperty('--lado', e.colorLado);
   else esc.style.removeProperty('--lado');
   if (e.colorLinea) esc.style.setProperty('--linea', e.colorLinea);

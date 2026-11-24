@@ -2087,6 +2087,72 @@ async function casoClasicoIgual() {
   }
 }
 
+/* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
+async function casoRotulosLugares() {
+  console.log('Rótulos · lugares nuevos y EN VIVO');
+  fs.mkdirSync(path.join(CAPTURAS, 'lugares'), { recursive: true });
+  const abrirCon = async (rotulos, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.rotulos = rotulos; })));
+    const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA(Object.assign({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarEnVivo: true }, estado)));
+    await r.waitForSelector('#rotulo.en');
+    await r.waitForTimeout(1500);
+    return { ctx, r };
+  };
+  const caja = (r) => r.evaluate(() => { const b = document.getElementById('rotulo').getBoundingClientRect(); return { top: b.top, right: b.right, bottom: b.bottom, left: b.left }; });
+  const envivoOculto = (r) => r.evaluate(() => document.getElementById('envivo').classList.contains('oculto'));
+  const cerca = (a, b) => Math.abs(a - b) <= 2;
+  const sinRotulo = async (r) => { await r.evaluate(() => pintar(Object.assign({}, estado, { rotulo: 'ninguno' }))); };
+
+  // Abajo a la derecha
+  let { ctx, r } = await abrirCon({ posicion: 'derecha' });
+  let b = await caja(r);
+  revisar(cerca(b.right, 1860) && cerca(b.bottom, 1010), 'derecha: borde derecho en 1860 y de abajo en 1010 (' + b.right.toFixed(1) + ', ' + b.bottom.toFixed(1) + ')');
+  revisar(!(await envivoOculto(r)), 'derecha: EN VIVO sigue visible');
+  igual(await r.evaluate(() => document.getElementById('escenario').classList.contains('pos-derecha')), true, 'derecha: clase pos-derecha');
+  await captura(r, 'lugares/derecha');
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSaleDerecha', 'derecha: sale hacia la derecha');
+  await ctx.close();
+
+  // Arriba a la derecha: EN VIVO se esconde con el rótulo y vuelve cuando sale
+  ({ ctx, r } = await abrirCon({ posicion: 'arriba-derecha' }));
+  b = await caja(r);
+  revisar(cerca(b.top, 44) && cerca(b.right, 1860), 'arriba-derecha: borde de arriba en 44 y derecho en 1860 (' + b.top.toFixed(1) + ', ' + b.right.toFixed(1) + ')');
+  revisar(await envivoOculto(r), 'arriba-derecha: con rótulo, EN VIVO se esconde');
+  await captura(r, 'lugares/arriba-derecha');
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSaleDerecha', 'arriba-derecha: sale hacia la derecha');
+  await r.waitForTimeout(600);
+  revisar(!(await envivoOculto(r)), 'arriba-derecha: sin rótulo, EN VIVO vuelve');
+  await ctx.close();
+
+  // Con el rótulo en pantalla, la parroquia pasa a arriba-derecha: EN VIVO se esconde enseguida
+  ({ ctx, r } = await abrirCon({ posicion: 'izquierda' }));
+  revisar(!(await envivoOculto(r)), 'izquierda: EN VIVO visible con rótulo');
+  await r.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { posicion: 'arriba-derecha' } }); aplicarParroquia(PARROQUIA); });
+  revisar(await envivoOculto(r), 'al pasar a arriba-derecha con el rótulo en pantalla, EN VIVO se esconde enseguida');
+  b = await caja(r);
+  revisar(cerca(b.top, 44), 'y el rótulo queda arriba (' + b.top.toFixed(1) + ')');
+  await ctx.close();
+
+  // Con mostrarEnVivo apagado, al salir el rótulo EN VIVO no aparece
+  ({ ctx, r } = await abrirCon({ posicion: 'arriba-derecha' }, { mostrarEnVivo: false }));
+  await sinRotulo(r);
+  await r.waitForTimeout(700);
+  revisar(await envivoOculto(r), 'sin mostrarEnVivo: al salir el rótulo, EN VIVO sigue oculto');
+  await ctx.close();
+
+  // Izquierda sale como siempre
+  ({ ctx, r } = await abrirCon({ posicion: 'izquierda' }));
+  await sinRotulo(r);
+  await r.waitForTimeout(100);
+  igual(await r.evaluate(() => getComputedStyle(document.getElementById('rotulo')).animationName), 'rotuloSale', 'izquierda: sale como siempre');
+  await ctx.close();
+}
+
 /* Las seis tipografías nuevas del nombre del rótulo: se aplican con la clase tipo-<clave> y la fuente propia carga. */
 async function casoTipografiasNuevas() {
   console.log('Rótulos · seis tipografías nuevas');
@@ -2130,7 +2196,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2172,6 +2238,7 @@ async function casoTipografiasNuevas() {
     await casoLineaBase();
     await casoClasicoIgual();
     await casoTipografiasNuevas();
+    await casoRotulosLugares();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
