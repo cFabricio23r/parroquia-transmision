@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Transición – Parroquia</title>
+<!--
+  La transición con la identidad de la parroquia (pantallas más opciones, #3). Lee config.json como las
+  demás páginas y dibuja con transicion.js en un canvas de 1920×1080 (fondo transparente).
+  - La app la carga en la capa (Capa.kt) y llama a reproducir() (true si está lista), pausar() y seguir().
+  - ?version=patrono dibuja la versión con la imagen del patrono (sin esa imagen, la del logo).
+  - ?repetir=1 se repite sola (vista previa del editor). ?vista-previa=1 recibe el borrador por mensaje.
+  - window.transicion = { listo, cuadro(t), datos }: listo es una promesa (letras e imágenes cargadas),
+    cuadro(t) dibuja el segundo t (0 a 2) y devuelve dónde quedó el nombre.
+-->
+<style>
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:Mont;src:url(fuentes/montserrat-latin-600-normal.woff2) format('woff2');font-weight:600}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}
+canvas{position:absolute;left:0;top:0;width:100vw;height:100vh;display:block}
+</style>
+</head>
+<body>
+<canvas id="lienzo" width="1920" height="1080" aria-hidden="true"></canvas>
+<script src="parroquia.js"></script>
+<script src="transicion.js"></script>
+<script>
+(function () {
+  var consulta = new URLSearchParams(location.search);
+  var pedida = consulta.get('version') === 'patrono' ? 'patrono' : 'logo';
+  var repetir = consulta.get('repetir') === '1';
+  var lienzo = document.getElementById('lienzo');
+  var g = lienzo.getContext('2d', { alpha: true });
+
+  var datos = null;     // lo que necesita dibujarTransicion, cuando ya está todo cargado
+  var lista = false;
+  var resolver;
+  var listo = new Promise(function (r) { resolver = r; });
+  var generacion = 0;
+
+  function srcDe(im) { return im && typeof im.src === 'string' && im.src ? im.src : ''; }
+  // Una imagen ya decodificada, o null si no hay o no carga (sin error en la consola).
+  function cargarImagen(src) {
+    if (!src) return Promise.resolve(null);
+    var img = new Image();
+    img.src = src;
+    return img.decode().then(function () { return img; }, function () { return null; });
+  }
+
+  function preparar(c) {
+    var gen = ++generacion;
+    var colores = (c && c.colores) || {};
+    var principal = typeof colores.principal === 'string' ? colores.principal : '#1155a4';
+    var oscuro = typeof colores.oscuro === 'string' ? colores.oscuro : '#0c3562';
+    var logos = (c && c.logos) || {};
+    var version = versionesTransicion(c).indexOf(pedida) !== -1 ? pedida : 'logo';
+    return Promise.all([
+      document.fonts.load('800 34px Mont'),
+      document.fonts.load('600 22px Mont'),
+      // el logo blanco; si no carga, el de color; si tampoco, solo el nombre
+      cargarImagen(srcDe(logos.blanco)).then(function (img) { return img || cargarImagen(srcDe(logos.color)); }),
+      version === 'patrono' ? cargarImagen(srcDe(c.patrono && c.patrono.imagen)) : Promise.resolve(null)
+    ]).then(function (r) {
+      if (gen !== generacion) return;   // llegó otra configuración mientras tanto
+      var patrono = r[3];
+      datos = {
+        version: version === 'patrono' && patrono ? 'patrono' : 'logo',
+        colores: coloresTransicion(principal, oscuro),
+        colorLugar: _conBlanco(principal, 0.75),
+        nombre: (c && c.nombre) || '',
+        lugar: (c && c.lugar) || '',
+        logo: r[2],
+        patrono: patrono
+      };
+      window.transicion.datos = datos;
+      lista = true;
+      resolver();
+      if (!corriendo) cuadro(enPausa === null ? TRANSICION_DURACION : enPausa);
+    });
+  }
+
+  function cuadro(t) {
+    if (!datos) { g.clearRect(0, 0, lienzo.width, lienzo.height); return { lineas: [] }; }
+    return dibujarTransicion(g, t, datos);
+  }
+
+  // Reproducción con requestAnimationFrame: t avanza con el reloj, y pausar() lo congela.
+  var corriendo = false, inicio = 0, enPausa = null, pedido = 0;
+  function paso(ahora) {
+    if (!corriendo) return;
+    var t = (ahora - inicio) / 1000;
+    if (t >= TRANSICION_DURACION) {
+      cuadro(TRANSICION_DURACION);
+      corriendo = false;
+      if (repetir) setTimeout(function () { reproducir(); }, 700);
+      return;
+    }
+    cuadro(t);
+    pedido = requestAnimationFrame(paso);
+  }
+  function reproducir() {
+    if (!lista) return false;
+    cancelAnimationFrame(pedido);
+    enPausa = null;
+    corriendo = true;
+    inicio = performance.now();
+    pedido = requestAnimationFrame(paso);
+    return true;
+  }
+  function pausar() {
+    if (!corriendo) return;
+    corriendo = false;
+    cancelAnimationFrame(pedido);
+    enPausa = (performance.now() - inicio) / 1000;
+  }
+  function seguir() {
+    if (corriendo || enPausa === null) return;
+    corriendo = true;
+    inicio = performance.now() - enPausa * 1000;
+    enPausa = null;
+    pedido = requestAnimationFrame(paso);
+  }
+  window.reproducir = reproducir;
+  window.pausar = pausar;
+  window.seguir = seguir;
+
+  window.transicion = {
+    get listo() { return listo; },
+    cuadro: cuadro,
+    datos: null
+  };
+
+  function aplicarParroquia(c) {
+    if (PARROQUIA_NO_EXISTE) { datos = null; cuadro(0); return; }
+    preparar(c).then(function () { if (repetir && !corriendo && enPausa === null) reproducir(); });
+  }
+  // Sin copia guardada, lo primero es la configuración neutra: se espera a la de verdad (o a un aviso de parroquia.js).
+  if (PARROQUIA !== CONFIG_NEUTRA) aplicarParroquia(PARROQUIA);
+  alCambiarParroquia(aplicarParroquia);
+  vigilarParroquia();
+})();
+</script>
+</body>
+</html>

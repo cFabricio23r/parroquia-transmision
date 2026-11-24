@@ -3212,6 +3212,46 @@ grupo('pantallas: estilo, tamaños y encuadre', () => {
   });
 });
 
+/* ---------- La transición con la identidad de la parroquia (pantallas más opciones, Tarea 9) ---------- */
+
+grupo('transicion', () => {
+  const x = cargarCon(['transicion.js']);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  prueba('coloresTransicion: de la paleta, del más claro al más oscuro', () => {
+    const p = x.paleta('#1155a4', '#0c3562');
+    const c = plano(x.coloresTransicion('#1155a4', '#0c3562'));
+    assert.equal(c.length, 4);
+    assert.equal(c[0], p.claro);
+    assert.equal(c[1], p.celeste);
+    assert.equal(c[2], '#1155a4');
+    assert.deepEqual(c[3], { de: '#0c3562', a: '#1155a4' });
+  });
+  prueba('coloresTransicion: San José da sus colores, no el azul', () => {
+    const c = plano(x.coloresTransicion('#8a1c2b', '#4b0f18'));
+    assert.equal(c[2], '#8a1c2b');
+    assert.deepEqual(c[3], { de: '#4b0f18', a: '#8a1c2b' });
+  });
+  prueba('sonidoTransicion: 96000 muestras por canal, pico 0,6 y siempre igual', () => {
+    const a = x.sonidoTransicion(48000, 2);
+    assert.equal(a.izq.length, 96000);
+    assert.equal(a.der.length, 96000);
+    let pico = 0;
+    for (let i = 0; i < 96000; i++) pico = Math.max(pico, Math.abs(a.izq[i]), Math.abs(a.der[i]));
+    assert.ok(Math.abs(pico - 0.6) <= 0.01, 'pico ' + pico);
+    const b = x.sonidoTransicion(48000, 2);
+    for (let i = 0; i < 96000; i += 997) {
+      assert.equal(a.izq[i], b.izq[i]);
+      assert.equal(a.der[i], b.der[i]);
+    }
+  });
+  prueba('versionesTransicion: la del patrono solo con su imagen', () => {
+    assert.deepEqual(plano(x.versionesTransicion(CONFIG_CIUDAD_ARCE)), ['logo', 'patrono']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { nombre: 'San José' } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { imagen: { src: '', alt: '' } } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({})), ['logo']);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

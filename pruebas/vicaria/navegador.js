@@ -28,6 +28,7 @@ const SJ = 'san-jose-ejemplo';
 const HOST = '127.0.0.1';   // el servidor escucha solo en IPv4: «localhost» pasaría primero por ::1
 const configDe = (slug) => JSON.parse(fs.readFileSync(path.join(RAIZ, slug, 'config.json'), 'utf8'));
 const CONFIG = { [CA]: configDe(CA), [SJ]: configDe(SJ) };
+const CONFIG_NOMBRE_CA = CONFIG[CA].nombre.toUpperCase();
 
 let fallos = 0;
 const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg); if (!cond) fallos++; };
@@ -2573,6 +2574,102 @@ async function casoTipografiasNuevas() {
 
 /* ---------- Programa ---------- */
 
+/* La transición con la identidad de la parroquia (pantallas más opciones, Tarea 9): transicion.html dibuja en un
+   canvas con los colores, el logo y el nombre de config.json. Guarda cuadros de Ciudad Arce en
+   pruebas/vicaria/transicion-referencia/ para compararlos a ojo con el .webm de hoy (la comparación es del revisor). */
+async function casoTransicion() {
+  console.log('Transición · dibujada con la identidad');
+  const REF = path.join(__dirname, 'transicion-referencia');
+  fs.mkdirSync(REF, { recursive: true });
+  const abrirT = async (slug, cfg, consulta, antes) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(`**/${slug}/config.json`, servirConfig(cfg));
+    if (antes) await antes(ctx);
+    const p = await abrir(ctx, `/${slug}/transicion.html${consulta || ''}`);
+    await p.evaluate(() => window.transicion.listo);
+    return { ctx, p };
+  };
+  const alfa = (p, t, x, y) => p.evaluate(([t, x, y]) => {
+    window.transicion.cuadro(t);
+    return document.getElementById('lienzo').getContext('2d').getImageData(x, y, 1, 1).data[3];
+  }, [t, x, y]);
+  const pixel = (p, t, x, y) => p.evaluate(([t, x, y]) => {
+    window.transicion.cuadro(t);
+    return Array.from(document.getElementById('lienzo').getContext('2d').getImageData(x, y, 1, 1).data);
+  }, [t, x, y]);
+  const guardar = async (p, t, nombre) => {
+    const url = await p.evaluate((t) => { window.transicion.cuadro(t); return document.getElementById('lienzo').toDataURL('image/png'); }, t);
+    fs.writeFileSync(path.join(REF, nombre + '.png'), Buffer.from(url.split(',')[1], 'base64'));
+  };
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const dentro = (lineas) => Array.isArray(lineas) && lineas.length > 0 && lineas.every((l) => l.x >= 0 && l.x + l.ancho <= 1920);
+
+  // reproducir() antes de estar lista: el logo tarda en llegar
+  let ctx = await nuevoContexto();
+  await ctx.route(`**/${CA}/config.json`, servirConfig(CONFIG[CA]));
+  await ctx.route('**/medios/logo-blanco.png', async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.continue(); });
+  let p = await abrir(ctx, `/${CA}/transicion.html`);
+  await p.waitForFunction(() => typeof window.reproducir === 'function');
+  igual(await p.evaluate(() => window.reproducir()), false, 'reproducir() antes de estar lista devuelve false');
+  await p.evaluate(() => window.transicion.listo);
+  igual(await p.evaluate(() => window.reproducir()), true, 'y después, true');
+  await ctx.close();
+
+  // Ciudad Arce, solo el logo
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA]));
+  igual(await alfa(p, 0.05, 20, 20), 0, 'a 0,05 s la esquina es transparente');
+  igual(await alfa(p, 1.0, 960, 540), 255, 'a 1,0 s el centro está tapado');
+  const vacio = await p.evaluate(() => {
+    window.transicion.cuadro(2.0);
+    const d = document.getElementById('lienzo').getContext('2d').getImageData(0, 0, 1920, 1080).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return false;
+    return true;
+  });
+  revisar(vacio, 'a 2,0 s todo el canvas es transparente');
+  revisar(/logo-blanco\.png$/.test(await p.evaluate(() => window.transicion.datos.logo && window.transicion.datos.logo.src)), 'usa el logo blanco');
+  for (const t of [0.5, 1.0, 1.5]) await guardar(p, t, `ciudad-arce_logo_${t.toFixed(1)}`);
+  await ctx.close();
+
+  // Ciudad Arce, con la imagen del patrono
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '?version=patrono'));
+  igual(await p.evaluate(() => window.transicion.datos.version), 'patrono', 'Ciudad Arce tiene la versión del patrono');
+  revisar(/patrono\.png$/.test(await p.evaluate(() => window.transicion.datos.patrono && window.transicion.datos.patrono.src)), 'con la imagen del patrono');
+  igual(await alfa(p, 1.0, 960, 540), 255, 'patrono: a 1,0 s el centro está tapado');
+  for (const t of [0.5, 1.0, 1.5]) await guardar(p, t, `ciudad-arce_patrono_${t.toFixed(1)}`);
+  await ctx.close();
+
+  // San José: sus colores; sin imagen del patrono, la versión del patrono cae a la del logo
+  ({ ctx, p } = await abrirT(SJ, CONFIG[SJ], '?version=patrono'));
+  igual(await p.evaluate(() => window.transicion.datos.version), 'logo', 'San José sin imagen del patrono dibuja la del logo');
+  const px = await pixel(p, 1.0, 5, 5);
+  const os = rgb(CONFIG[SJ].colores.oscuro);
+  revisar(px[3] === 255 && px.slice(0, 3).every((v, i) => Math.abs(v - os[i]) <= 25), 'a 1,0 s la franja oscura es del oscuro de San José (' + px.join(',') + ')');
+  await guardar(p, 1.0, 'san-jose_logo_1.0');
+  await ctx.close();
+
+  // logos.blanco es obligatorio en config.json: «sin logo blanco» es que no carga. Entonces usa el de color; sin ninguno, el nombre solo
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '', (c) => c.route('**/medios/logo-blanco.png', (r) => r.abort())));
+  revisar(/logo-color\.png$/.test(await p.evaluate(() => window.transicion.datos.logo && window.transicion.datos.logo.src)), 'si el logo blanco no carga, usa el de color');
+  await ctx.close();
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '', (c) => c.route(/medios\/logo-(blanco|color)\.png$/, (r) => r.abort())));
+  igual(await p.evaluate(() => window.transicion.datos.logo), null, 'sin logos, no hay logo');
+  const sinLogo = await p.evaluate(() => window.transicion.cuadro(1.0));
+  revisar(dentro(sinLogo.lineas) && sinLogo.lineas[0].texto === CONFIG_NOMBRE_CA, 'y se ve el nombre (' + JSON.stringify(sinLogo.lineas) + ')');
+  await ctx.close();
+
+  // Un nombre de 70 letras queda dentro de los 1920 px, en las dos versiones
+  const nombre70 = 'Parroquia Nuestra Señora de la Asunción y San Juan Bautista del Llanos';
+  for (const version of ['logo', 'patrono']) {
+    ({ ctx, p } = await abrirT(CA, conBloques((c) => { c.nombre = nombre70; }), '?version=' + version));
+    const m = await p.evaluate(() => window.transicion.cuadro(1.0));
+    revisar(nombre70.length === 70 && dentro(m.lineas), `${version}: un nombre de 70 letras queda dentro (${m.lineas.map((l) => Math.round(l.x) + '+' + Math.round(l.ancho)).join(' / ')})`);
+    revisar(m.lineas.map((l) => l.texto).join(' ') === nombre70.toUpperCase(), `${version}: y no se corta`);
+    if (version === 'patrono') await guardar(p, 1.0, 'nombre-largo_patrono_1.0');
+    else await guardar(p, 1.0, 'nombre-largo_logo_1.0');
+    await ctx.close();
+  }
+}
+
 (async () => {
   const servidor = crearServidor();
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
@@ -2581,7 +2678,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas, casoTransicion };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2630,6 +2727,7 @@ async function casoTipografiasNuevas() {
     await casoRotulosDisenos();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
+    await casoTransicion();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
