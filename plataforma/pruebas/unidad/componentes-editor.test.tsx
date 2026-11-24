@@ -2,7 +2,7 @@
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { CampoColor } from '../../app/componentes/CampoColor';
+import { CampoColor, valorInicialSelector } from '../../app/componentes/CampoColor';
 import { CampoImagen } from '../../app/componentes/CampoImagen';
 import { Dialogo } from '../../app/componentes/Dialogo';
 import { PastillaContraste } from '../../app/componentes/PastillaContraste';
@@ -51,6 +51,26 @@ describe('CampoColor', () => {
     expect(h).toContain('<span id="principal-etiqueta" class="pv-campo-etiqueta">Color principal</span>');
     expect(h).toContain('aria-labelledby="principal-etiqueta"');
     expect(h).toContain('aria-describedby="principal-error"');
+  });
+  it('valorInicialSelector: el valor si es válido, si no el último válido, si no negro', () => {
+    expect(valorInicialSelector('#8A1C2B', null)).toBe('#8a1c2b');
+    expect(valorInicialSelector('#8a1', '#134c92')).toBe('#134c92');
+    expect(valorInicialSelector('', null)).toBe('#000000');
+  });
+  it('la muestra es un botón con nombre propio', () => {
+    const h = html(<CampoColor id="principal" etiqueta="Color principal" valor="#8a1c2b" onCambiar={nada} />);
+    expect(h).toContain('<button type="button" class="pv-color-boton" aria-label="Elegir color principal"');
+    expect(h).toContain('background:#8a1c2b');
+  });
+  it('el input de color está fuera del orden de Tab y de los lectores', () => {
+    const h = html(<CampoColor id="principal" etiqueta="Color principal" valor="#8a1c2b" onCambiar={nada} />);
+    expect(h).toMatch(/<input type="color"[^>]*tabindex="-1"[^>]*aria-hidden="true"/);
+    expect(h).toMatch(/<input type="color"[^>]*value="#8a1c2b"/);
+  });
+  it('el envoltorio ya no es un label', () => {
+    const h = html(<CampoColor id="principal" etiqueta="Color principal" valor="#8a1c2b" onCambiar={nada} />);
+    expect(h.startsWith('<div class="pv-campo">')).toBe(true);
+    expect(h).not.toContain('<label');
   });
 });
 
