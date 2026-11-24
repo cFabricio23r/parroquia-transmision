@@ -77,6 +77,10 @@ try {
   await principal.click();
   igual((await selectoresAbiertos(pagina)).length, abiertos.length + 1, 'un clic en el texto también lo abre');
   igual(await pagina.evaluate(() => document.activeElement?.id), 'identidad-color-principal', 'y el foco queda en el texto');
+  const trasPrimerClic = (await selectoresAbiertos(pagina)).length;
+  await principal.click();
+  await principal.dblclick();
+  igual((await selectoresAbiertos(pagina)).length, trasPrimerClic, 'con el foco ya en el texto, otro clic o un doble clic no lo vuelven a abrir (para corregir una letra)');
   abiertos = await selectoresAbiertos(pagina);
   await principal.focus();
   await pagina.keyboard.press('Tab');

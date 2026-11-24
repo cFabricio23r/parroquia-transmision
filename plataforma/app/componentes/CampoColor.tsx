@@ -32,6 +32,9 @@ export function CampoColor({
   if (valido) ultimoValido.current = valor;
   const nativo = useRef<HTMLInputElement>(null);
   const nombreBoton = `Elegir ${etiqueta.toLowerCase()}`;
+  // Desde el texto, el selector abre solo con el clic que trae el foco: con el foco ya ahí, un clic
+  // es para poner el cursor o seleccionar (corregir una letra), no para elegir otro color.
+  const textoYaEnfocado = useRef(false);
 
   const abrir = () => {
     const input = nativo.current;
@@ -79,7 +82,16 @@ export function CampoColor({
           spellCheck={false}
           autoComplete="off"
           value={valor}
-          onClick={abrir}
+          onPointerDown={(e) => {
+            textoYaEnfocado.current = document.activeElement === e.currentTarget;
+          }}
+          onClick={() => {
+            if (!textoYaEnfocado.current) abrir();
+            textoYaEnfocado.current = true;
+          }}
+          onBlur={() => {
+            textoYaEnfocado.current = false;
+          }}
           onChange={(e) => onCambiar(e.target.value)}
           aria-labelledby={`${id}-etiqueta`}
           aria-invalid={error ? true : undefined}
