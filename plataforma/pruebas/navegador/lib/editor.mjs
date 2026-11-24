@@ -119,6 +119,37 @@ export async function limpiar() {
   creadas.usuarios.length = 0;
 }
 
+/**
+ * Playwright no maneja el selector de color del navegador: antes de cargar la página se cambia
+ * `showPicker` (y el clic en un input de color) por uno que anota la llamada en `window.__selectores`
+ * — `{ campo: id del texto vecino, valor }` — y no abre nada. Llamar antes de `goto`.
+ */
+export async function espiarSelector(pagina) {
+  await pagina.addInitScript(() => {
+    window.__selectores = [];
+    const anotar = (input) => {
+      const texto = input.closest('.pv-color')?.querySelector('input[type=text]');
+      window.__selectores.push({ campo: texto?.id ?? null, valor: input.value });
+    };
+    HTMLInputElement.prototype.showPicker = function () {
+      anotar(this);
+    };
+  });
+}
+export const selectoresAbiertos = (pagina) => pagina.evaluate(() => window.__selectores ?? []);
+
+/** Simula elegir `valor` en el selector del campo de texto `idTexto`: pone el valor y dispara `input`. */
+export const elegirColor = (pagina, idTexto, valor) =>
+  pagina.evaluate(
+    ([id, v]) => {
+      const nativo = document.getElementById(id).closest('.pv-color').querySelector('input[type=color]');
+      const poner = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      poner.call(nativo, v);
+      nativo.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    [idTexto, valor],
+  );
+
 /** Ids de los campos sin etiqueta (label o aria-label/aria-labelledby). */
 export const camposSinEtiqueta = (pagina) =>
   pagina.evaluate(() =>
