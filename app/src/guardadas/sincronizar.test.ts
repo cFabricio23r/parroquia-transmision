@@ -220,6 +220,9 @@ describe('auth y 429 cortan: la cola queda y nada se rechaza', () => {
     ['la renovación da 429', {}, (async () => error({ tipo: 'muchos-intentos' })) as never],
     ['la sesión ya no vale', {}, (async () => error({ tipo: 'sesion-invalida' })) as never],
     ['PostgREST da 429', { upsert: () => error({ tipo: 'servidor', estado: 429 }) }, undefined],
+    ['PostgREST da 408', { upsert: () => error({ tipo: 'servidor', estado: 408 }) }, undefined],
+    ['PostgREST da 425', { upsert: () => error({ tipo: 'servidor', estado: 425 }) }, undefined],
+    ['PostgREST da 403 (permiso: la cuenta, no la guardada)', { upsert: () => error({ tipo: 'permiso' }) }, undefined],
     ['sin conexión', { upsert: () => error({ tipo: 'sin-conexion' }) }, undefined],
   ];
   test.each(casos)('%s', async (_n, o, conSesion) => {
@@ -341,10 +344,12 @@ describe('registrarGuardadas', () => {
     const canal = crearCanalGuardadas();
     const s = crearSincronizador();
     const l = crearLimpiezas();
-    const { cliente, llamadas } = clienteFalso();
+    const { cliente, llamadas } = clienteFalso({ nube: () => ({ ok: true, valor: [fila(B)] }) });
     const base = contexto(cliente, o);
+    const scripts: string[] = [];
+    canal.conectar(SLUG, (x) => scripts.push(x));
     registrarGuardadas(s, l, { canal, contexto: () => base });
-    return { canal, s, l, base, llamadas };
+    return { canal, s, l, base, llamadas, scripts };
   }
 
   test('va en abrir, antes de iniciar y al terminar', async () => {
@@ -371,21 +376,58 @@ describe('registrarGuardadas', () => {
     expect(llamadas.filter((l) => l.op === 'upsert')).toHaveLength(1);
   });
 
-  test('un mensaje sin pendientes (o solo rechazados) no dispara nada', async () => {
+  test('el primer mensaje del panel baja la nube aunque no haya pendientes (las del otro aparato se ven al abrir)', async () => {
+    jest.useFakeTimers();
+    const { canal, llamadas, scripts } = armar();
+    canal.recibir(SLUG, { tipo: 'guardadas', lista: [], pendientes: [] });
+    await jest.advanceTimersByTimeAsync(2100);
+    expect(llamadas.map((l) => l.op)).toEqual(['seleccionar']);
+    expect(scripts).toHaveLength(1);   // la lista de la nube le llega al panel
+    expect(scripts[0]).toContain(B.nombre);
+  });
+
+  test('después del primero, un mensaje sin pendientes (o solo rechazados) no dispara nada', async () => {
     jest.useFakeTimers();
     const { canal, llamadas } = armar();
     canal.recibir(SLUG, { tipo: 'guardadas', lista: [A], pendientes: [] });
+    await jest.advanceTimersByTimeAsync(2100);
+    const antes = llamadas.length;
+    canal.recibir(SLUG, { tipo: 'guardadas', lista: [A], pendientes: [] });
     canal.recibir(SLUG, { tipo: 'guardadas', lista: [A], pendientes: [{ op: 'guardar', id: A.id, cuando: 1, rechazado: true }] });
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(llamadas).toHaveLength(antes);
+  });
+
+  test('el primer mensaje en vivo no corre nada', async () => {
+    jest.useFakeTimers();
+    const { canal, llamadas } = armar({ enVivo: () => true });
+    canal.recibir(SLUG, { tipo: 'guardadas', lista: [], pendientes: [] });
     await jest.advanceTimersByTimeAsync(5000);
     expect(llamadas).toHaveLength(0);
   });
 
-  test('la limpieza olvida el último mensaje', async () => {
-    const { canal, l } = armar();
+  test('la limpieza olvida el último mensaje (y el próximo vuelve a ser el primero)', async () => {
+    jest.useFakeTimers();
+    const { canal, l, llamadas } = armar();
     canal.recibir(SLUG, { tipo: 'guardadas', lista: [], pendientes: [] });
+    await jest.advanceTimersByTimeAsync(2100);
     await l.limpiar({ tipo: 'parroquia', parroquia: PARROQUIA });
     expect(canal.ultimo(SLUG)).toBeNull();
+    canal.recibir(SLUG, { tipo: 'guardadas', lista: [], pendientes: [] });
+    await jest.advanceTimersByTimeAsync(2100);
+    expect(llamadas.filter((x) => x.op === 'seleccionar')).toHaveLength(2);
   });
+});
+
+test('un guardar cuya guardada ya no está en la lista del panel se queda en la cola (ni se descarta ni se rechaza)', async () => {
+  const canal = crearCanalGuardadas();
+  const pendientes: PendienteGuardada[] = [{ op: 'guardar', id: 'perd-000000', cuando: 100 }];
+  const panel = panelFalso(canal, { lista: [A], pendientes });
+  const { cliente, llamadas } = clienteFalso({ nube: () => ({ ok: true, valor: [fila(A)] }) });
+  await crearTareaGuardadas({ canal })(contexto(cliente));
+  expect(llamadas.filter((l) => l.op === 'upsert')).toHaveLength(0);
+  panel.correr();
+  expect(panel.pendientes()).toEqual(pendientes);
 });
 
 test('no escribe en la consola nada más que el aviso de corte', async () => {

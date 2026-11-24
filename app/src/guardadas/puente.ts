@@ -99,15 +99,19 @@ export function scriptPonerGuardadas(slug: string, nube: readonly FilaGuardada[]
   var nueva = cola.filter(function (x) { return !hecho(x) && !viejo(x); })
     .map(function (x) { return rechazar(x) && !x.rechazado ? Object.assign({}, x, { rechazado: true }) : x; });
   var texto = JSON.stringify(nueva);
-  if (texto !== JSON.stringify(cola)) { try { ls.setItem('${cp}', texto); } catch (e) { return; } }
+  var colaCambio = false;
+  if (texto !== JSON.stringify(cola)) { try { ls.setItem('${cp}', texto); colaCambio = true; } catch (e) { return; } }
+  // Repinta si cambió la cola (una fila pudo pasar a «No se guardó en la nube»), aunque la lista quede igual.
+  function pintar() { try { if (typeof window.pintarGuardadas === 'function') window.pintarGuardadas(); } catch (e) {} }
+  function fin() { if (colaCambio) pintar(); }
 
-  if (nube === null || typeof GUARDADAS === 'undefined' || !GUARDADAS || typeof GUARDADAS.fusionar !== 'function') return;
+  if (nube === null || typeof GUARDADAS === 'undefined' || !GUARDADAS || typeof GUARDADAS.fusionar !== 'function') return fin();
   var g = leer('${cl}');
-  if (!g.ok) return;
+  if (!g.ok) return fin();
   var items = [];
   if (g.t !== null && g.t !== '') {
-    try { items = JSON.parse(g.t); } catch (e) { return; }
-    if (!Array.isArray(items)) return;
+    try { items = JSON.parse(g.t); } catch (e) { return fin(); }
+    if (!Array.isArray(items)) return fin();
   }
   function valida(x) { return !!x && typeof x === 'object' && typeof x.id === 'string' && typeof x.nombre === 'string' && !!x.datos && typeof x.datos === 'object'; }
   var locales = items.filter(valida).map(function (x) {
@@ -127,9 +131,9 @@ export function scriptPonerGuardadas(slug: string, nube: readonly FilaGuardada[]
     return v;
   }
   function firma(l) { return JSON.stringify(ordenado(l.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; }))); }
-  if (firma(lista) === firma(locales)) return;
-  try { ls.setItem('${cl}', JSON.stringify(items.filter(function (x) { return !valida(x); }).concat(lista))); } catch (e) { return; }
-  try { if (typeof window.pintarGuardadas === 'function') window.pintarGuardadas(); } catch (e) {}
+  if (firma(lista) === firma(locales)) return fin();
+  try { ls.setItem('${cl}', JSON.stringify(items.filter(function (x) { return !valida(x); }).concat(lista))); } catch (e) { return fin(); }
+  pintar();
 })();
 true;`;
 }

@@ -219,6 +219,21 @@ describe('scriptPonerGuardadas', () => {
     expect(almacen[CL]).toBe('{roto');
   });
 
+  it('si solo cambió la cola (una rechazada), repinta: el panel muestra el aviso y la fila', () => {
+    for (const nube of [null, [fila(A)]]) {
+      const almacen: Record<string, string> = {
+        [CL]: JSON.stringify([GUARDADAS.deFila(fila(A))]),
+        [CP]: JSON.stringify([{ op: 'guardar', id: A.id, cuando: 7 }]),
+      };
+      let pintadas = 0;
+      correrEnPanel(scriptPonerGuardadas(SLUG, nube, { hechos: [], rechazados: [{ op: 'guardar', id: A.id, cuando: 7 }] }), almacen, {
+        pintar: () => pintadas++,
+      });
+      expect(JSON.parse(almacen[CP])).toEqual([{ op: 'guardar', id: A.id, cuando: 7, rechazado: true }]);
+      expect(pintadas).toBe(1);
+    }
+  });
+
   it('si nada cambió no escribe ni repinta', () => {
     const almacen: Record<string, string> = { [CL]: JSON.stringify([GUARDADAS.deFila(fila(A))]), [CP]: '[]' };
     const antes = { ...almacen };

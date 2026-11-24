@@ -3,8 +3,11 @@
 // vicaria/guardadas-sync.js (la referencia):
 //   - un pendiente sale de la cola solo cuando la subida se confirmó, y solo hasta el `cuando` que se subió;
 //   - 23505 (el nombre ya está en la nube): «(copia)» con nombreLibre y un solo reintento;
-//   - otro 4xx de PostgREST: queda `rechazado`, nunca se reintenta y la guardada sigue a la vista;
-//   - Auth (la renovación de la sesión), un 429 o sin red: se corta y la cola queda;
+//   - otro 4xx de PostgREST: queda `rechazado`, nunca se reintenta y la guardada sigue a la vista (el panel
+//     dice «No se guardó en la nube» en su fila y cuántas son en la línea de estado);
+//   - Auth (la renovación de la sesión), un 403 de PostgREST (la cuenta), un 408, 425 o 429, o sin red: se corta y
+//     la cola queda;
+//   - un guardar cuya guardada no está en la lista del panel queda en la cola: no hay nada que subir ahora;
 //   - varios «usar» de una guardada van en un solo rpc usar_guardada, con el último.
 // Nada corre en vivo. El panel nunca ve tokens: lo nativo sube y baja, y le inyecta solo la lista y la cola.
 import type { ContextoSincronizar, Limpiezas, Sincronizador, TareaSincronizar } from '../sincronizar/sincronizar';
@@ -38,13 +41,17 @@ async function pedir<T>(c: Base, fn: (s: SesionSupabase) => Promise<Resultado<T>
   return { r, deAuth: r !== deFn };
 }
 
+/** Respuestas pasajeras de PostgREST: cortan y se reintenta después. */
+const PASAJEROS: readonly number[] = [408, 425, 429];
+
 /** 'ok', 'rechazar' (la respuesta de PostgREST a esta guardada, un 4xx) o 'cortar'. */
 function clasificar(x: { r: Resultado<unknown>; deAuth: boolean }): 'ok' | 'rechazar' | 'cortar' {
   if (x.r.ok) return 'ok';
   if (x.deAuth) return 'cortar';
   const e = x.r.error;
-  if (e.tipo === 'permiso') return 'rechazar';   // un 403 de PostgREST, como en el panel
-  if (e.tipo === 'servidor' && e.estado !== 429 && e.estado >= 400 && e.estado < 500) return 'rechazar';
+  // Un 403 de PostgREST ('permiso') es de la cuenta, no de esta guardada: corta y la cola queda, como en el panel.
+  // 408, 425 y 429 son pasajeros (plazo, «muy temprano», límite de pedidos): también cortan.
+  if (e.tipo === 'servidor' && !PASAJEROS.includes(e.estado) && e.estado >= 400 && e.estado < 500) return 'rechazar';
   return 'cortar';
 }
 
@@ -123,10 +130,9 @@ function crearCorredor(d: DepsGuardadas) {
 
     async function subirGuardar(p: PendienteGuardada): Promise<true | null> {
       const g = lista.find((x) => x.id === p.id);
-      if (!g) {
-        hecho(p);   // ya no está en la copia del panel: no hay nada que subir
-        return null;
-      }
+      // Ya no está en la copia del panel: no hay nada que subir ahora, pero tampoco se descarta ni se rechaza
+      // (la nube no dijo nada). Queda en la cola, como en vicaria/guardadas-sync.js.
+      if (!g) return null;
       let fila = GUARDADAS.aFila(g, 'app', pid);
       let x = await subir(c, fila);
       if (!x.r.ok && !x.deAuth && x.r.error.tipo === 'servidor' && x.r.error.codigo === '23505') {
@@ -247,16 +253,26 @@ export interface DepsRegistroGuardadas extends DepsGuardadas {
 
 /**
  * La tarea 'guardadas' en abrir, antes de iniciar y al terminar (como 'semana'), y también
- * ESPERA_TRAS_CAMBIO_MS después de cada mensaje del panel con pendientes, si no está en vivo.
+ * ESPERA_TRAS_CAMBIO_MS después de cada mensaje del panel con pendientes (y del primero de cada parroquia,
+ * aunque no traiga pendientes), si no está en vivo.
  */
 export function registrarGuardadas(s: Sincronizador, l: Limpiezas, d: DepsRegistroGuardadas): void {
   const correr = crearCorredor(d);
   s.registrarTarea('guardadas', ['abrir', 'antes-de-iniciar', 'al-terminar'], (c) => correr(c));
-  l.registrar('guardadas', async (a) => d.canal.olvidar(a.tipo === 'parroquia' ? a.parroquia.slug : undefined));
 
+  // El primer mensaje de cada parroquia (el panel recién abierto) corre aunque no haya pendientes: 'abrir'
+  // puede haber corrido antes de que la vista estuviera conectada, y así las misas del otro aparato se ven al abrir.
+  const primeros = new Set<string>();
+  l.registrar('guardadas', async (a) => {
+    const slug = a.tipo === 'parroquia' ? a.parroquia.slug : undefined;
+    d.canal.olvidar(slug);
+    if (slug === undefined) primeros.clear();
+    else primeros.delete(slug);
+  });
   let espera: ReturnType<typeof setTimeout> | undefined;
   d.canal.alMensaje((slug, m) => {
-    if (!m.pendientes.some((p) => !p.rechazado)) return;
+    const primero = !primeros.has(slug);
+    if (!primero && !m.pendientes.some((p) => !p.rechazado)) return;
     if (espera !== undefined) clearTimeout(espera);
     espera = setTimeout(() => {
       espera = undefined;
@@ -267,6 +283,7 @@ export function registrarGuardadas(s: Sincronizador, l: Limpiezas, d: DepsRegist
       } catch {
         return;   // si no se puede saber, no se corre: nunca se sube nada en vivo por error
       }
+      primeros.add(slug);
       correr(c).catch(() => console.warn('sincronizar: guardadas falló'));
     }, ESPERA_TRAS_CAMBIO_MS);
   });
