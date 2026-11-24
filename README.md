@@ -64,6 +64,8 @@ y los avisos se quedan. Las direcciones de OBS no cambian.
 
 3. Transición: **Stinger** con `transiciones/Transicion_2000ms_Logo.webm` (o `_Virgen`), punto de transición **1000 ms**.
    Las transiciones son archivos locales: clone o copie el repositorio, por ejemplo en `C:\parroquia-obs`.
+   Las parroquias de la plataforma no usan estos archivos: descargan **su** transición (con su logo, nombre y
+   colores) desde el editor, en la sección **Transición** → «Descargar transición», y la cargan igual (Stinger, 1000 ms).
 
 > Importante: panel y fuentes deben usar **exactamente el mismo dominio** (`obs.parroquiaciudadarce.org`)
 > para compartir el mismo almacenamiento. Otro dominio de Vercel, una dirección `file:///` o «Archivo local»

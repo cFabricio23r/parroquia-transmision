@@ -247,7 +247,13 @@ const ELEMENTOS_OCULTABLES = ['marca', 'envivo', 'chispas', 'rayos', 'fachada', 
 const ELEMENTOS_MOSTRABLES = ['redes', 'horarios'];
 const PORTADAS_PROPIO = ['ninguna', 'fiesta', 'evento'];
 const MAX_NOMBRE_PANEL = 40;
-const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans'];
+const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald'];
+/* Letra de la frase en cursiva de las pantallas: vibes (Great Vibes, la de siempre) o una de los rótulos. */
+const LETRAS_FRASE = ['vibes'].concat(TIPOGRAFIAS);
+/* Tamaños del logo de las pantallas y de sus textos. normal es el de siempre (y el que se usa si falta). */
+const TAMANOS = ['chico', 'normal', 'grande'];
+/* Diseños de rótulo: clasico es el de siempre (y el que se usa si falta). */
+const DISENOS_ROTULO = ['clasico', 'tarjeta', 'minimal', 'etiqueta'];
 /* Esquinas de los rótulos: los nombres del artboard F6 (Rectas, Suaves, Redondas) y, para que una configuración
    vieja siga validando, 'redondeadas'. ESQUINAS_DISENO traduce cada valor al del diseño: 'redondeadas' (24px) es
    'suaves', que mide lo mismo. */
@@ -256,7 +262,7 @@ const ESQUINAS_DISENO = { rectas: 'rectas', suaves: 'suaves', redondas: 'redonda
 /* Nombres que un color de rótulo puede usar en vez de un #rrggbb (se resuelven con colorDe). */
 const COLORES_CON_NOMBRE = ['principal', 'oscuro', 'acento', 'blanco'];
 const MAX_HORAS = 6;
-const POSICIONES_ROTULO = ['izquierda', 'centro'];
+const POSICIONES_ROTULO = ['izquierda', 'centro', 'derecha', 'arriba-derecha'];
 const ESQUINAS_TIPO = ['hoy', 'fecha', 'fiesta', 'texto'];
 const REDES = ['facebook', 'youtube', 'instagram', 'whatsapp', 'web'];
 const MAX_TEXTO = 200;
@@ -381,7 +387,68 @@ function _validarPantalla(pa, campo, ids, errores) {
         else _textoCorto(pa.textos[k], campo + '.textos.' + k, errores, false);
       }
     }
+  }  _validarTamanosYEncuadre(pa, campo, ids, errores);
+}
+
+/* Claves de un objeto que no están en `validas`: cada una es un error «Ese valor no existe (campo.clave).». */
+function _clavesConocidas(o, validas, campo, errores) {
+  for (const k of Object.keys(o)) if (!validas.includes(k)) errores.push('Ese valor no existe (' + campo + '.' + k + ').');
+}
+
+function _validarEntero(v, min, max, campo, errores) {
+  if (!Number.isInteger(v) || v < min || v > max) errores.push('El valor (' + campo + ') debe ser un entero de ' + min + ' a ' + max + '.');
+}
+
+/* Encuadre de una foto: { de, x, y, zoom }. `validarDe` comprueba que `de` sea una foto posible para ese lugar. */
+function _validarEncuadreFoto(e, campo, errores, validarDe) {
+  if (!_objeto(e)) {
+    errores.push('El encuadre (' + campo + ') debe ser un objeto.');
+    return;
   }
+  _clavesConocidas(e, ['de', 'x', 'y', 'zoom'], campo, errores);
+  if (e.de === undefined) errores.push('Falta la foto del encuadre (' + campo + '.de).');
+  else validarDe(e.de, campo + '.de');
+  _validarEntero(e.x, 0, 100, campo + '.x', errores);
+  _validarEntero(e.y, 0, 100, campo + '.y', errores);
+  _validarEntero(e.zoom, 100, 200, campo + '.zoom', errores);
+}
+
+function _validarTamanosYEncuadre(pa, campo, ids, errores) {
+  if (pa.tamanos !== undefined) {
+    const ct = campo + '.tamanos';
+    if (!_objeto(pa.tamanos)) errores.push('Los tamaños (' + ct + ') deben ser un objeto.');
+    else {
+      _clavesConocidas(pa.tamanos, ['titulo', 'frase'], ct, errores);
+      _unoDe(pa.tamanos.titulo, TAMANOS, ct + '.titulo', errores);
+      _unoDe(pa.tamanos.frase, TAMANOS, ct + '.frase', errores);
+    }
+  }
+  if (pa.encuadre !== undefined) {
+    const ce = campo + '.encuadre';
+    if (!_objeto(pa.encuadre)) errores.push('El encuadre (' + ce + ') debe ser un objeto.');
+    else {
+      _clavesConocidas(pa.encuadre, ['imagen', 'fondo'], ce, errores);
+      if (pa.encuadre.imagen !== undefined) {
+        _validarEncuadreFoto(pa.encuadre.imagen, ce + '.imagen', errores, (de, c) => _validarImagenElegida(de, c, ids, errores, IMAGENES_PANTALLA));
+      }
+      if (pa.encuadre.fondo !== undefined) {
+        _validarEncuadreFoto(pa.encuadre.fondo, ce + '.fondo', errores, (de, c) => _validarRefGaleria(String(de).replace(/^galeria:/, ''), c, ids, errores));
+      }
+    }
+  }
+}
+
+/* estiloPantallas: la letra del título y de la frase y el tamaño del logo de todas las pantallas. */
+function _validarEstiloPantallas(e, errores) {
+  if (e === undefined) return;
+  if (!_objeto(e)) {
+    errores.push('El estilo de las pantallas (estiloPantallas) debe ser un objeto.');
+    return;
+  }
+  _clavesConocidas(e, ['letraTitulo', 'letraFrase', 'logo'], 'estiloPantallas', errores);
+  if (e.letraTitulo !== undefined && !TIPOGRAFIAS.includes(e.letraTitulo)) errores.push('La letra del título (estiloPantallas.letraTitulo) debe ser una de: ' + TIPOGRAFIAS.join(', ') + '.');
+  if (e.letraFrase !== undefined && !LETRAS_FRASE.includes(e.letraFrase)) errores.push('La letra de la frase (estiloPantallas.letraFrase) debe ser una de: ' + LETRAS_FRASE.join(', ') + '.');
+  if (e.logo !== undefined && !TAMANOS.includes(e.logo)) errores.push('El tamaño del logo (estiloPantallas.logo) debe ser uno de: ' + TAMANOS.join(', ') + '.');
 }
 
 function _validarPantallas(pantallas, ids, errores) {
@@ -405,6 +472,7 @@ function _validarRotulos(r, errores, colores) {
   _unoDe(r.tipografia, TIPOGRAFIAS, 'rotulos.tipografia', errores);
   _unoDe(r.esquinas, ESQUINAS_ROTULO, 'rotulos.esquinas', errores);
   _unoDe(r.posicion, POSICIONES_ROTULO, 'rotulos.posicion', errores);
+  _unoDe(r.diseno, DISENOS_ROTULO, 'rotulos.diseno', errores);
   if (r.colorLado !== undefined) _validarColorNombrado(r.colorLado, COLORES_CON_NOMBRE, 'rotulos.colorLado', colores, errores);
   if (r.colorLinea !== undefined) _validarColorNombrado(r.colorLinea, COLORES_CON_NOMBRE.filter((n) => n !== 'blanco'), 'rotulos.colorLinea', colores, errores);
   if (r.logoEsquina !== undefined && typeof r.logoEsquina !== 'boolean') errores.push('El valor (rotulos.logoEsquina) debe ser verdadero o falso.');
@@ -694,6 +762,7 @@ function validarConfig(c) {
 
   const ids = _validarGaleria(c.galeria, errores);
   _validarPantallas(c.pantallas, ids, errores);
+  _validarEstiloPantallas(c.estiloPantallas, errores);
   _validarRotulos(c.rotulos, errores, c.colores);
   _validarTipos(c.tipos, ids, errores);
   _validarHorarios(c.horarios, errores);

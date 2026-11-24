@@ -29,7 +29,8 @@ describe('esUrlPermitida', () => {
   const origen = 'https://plataforma.vercel.app';
 
   it.each([
-    'file:///android_asset/app/transicion.html',
+    'https://plataforma.vercel.app/ciudad-arce/transicion.html',
+    'file:///android_asset/vicaria/panel.html',
     'https://plataforma.vercel.app/ciudad-arce/panel.html?modo=app',
   ])('permite %p', (url) => {
     expect(esUrlPermitida(url, origen)).toBe(true);

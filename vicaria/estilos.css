@@ -7,6 +7,12 @@
 /* Tipografías de los rótulos (rotulos.tipografia). Licencias en fuentes/LICENCIAS.md. */
 @font-face{font-family:Lora;src:url(fuentes/lora-latin-700-normal.woff2) format('woff2');font-weight:700}
 @font-face{font-family:SourceSans;src:url(fuentes/source-sans-3-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Cinzel;src:url(fuentes/cinzel-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Playfair;src:url(fuentes/playfair-display-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:EBGaramond;src:url(fuentes/eb-garamond-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Merriweather;src:url(fuentes/merriweather-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Nunito;src:url(fuentes/nunito-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:Oswald;src:url(fuentes/oswald-latin-600-normal.woff2) format('woff2');font-weight:600}
 
 :root{
   --oscuro:#0c3562; --rey:#1155a4; --medio:#157ec1; --celeste:#3d9be0; --claro:#8cc0ef; --palido:#e6f1fb; --rojo:#dd0300;
@@ -43,8 +49,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .texto{position:absolute;left:860px;right:90px;top:150px;bottom:230px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:22px}
 .pildora{background:#fff;color:var(--rey);font-weight:800;font-size:28px;letter-spacing:4px;padding:12px 30px;border-radius:999px;white-space:nowrap}
 .ceja{margin:6px 0 0;font-weight:700;font-size:24px;letter-spacing:7px;color:var(--tenue)}
-.titulo{margin:0;font-weight:900;font-size:104px;line-height:.95;letter-spacing:-2px;text-transform:uppercase}
-.cursiva{margin:4px 0 0;font-family:Vibes,cursive;font-size:54px;line-height:1.15;color:var(--velo);max-width:940px}
+.titulo{margin:0;font-weight:900;font-size:calc(104px * var(--escala-titulo,1));line-height:.95;letter-spacing:-2px;text-transform:uppercase}
+.cursiva{margin:4px 0 0;font-family:Vibes,cursive;font-size:calc(54px * var(--escala-frase,1));line-height:1.15;color:var(--velo);max-width:940px}
 .cuenta{display:flex;align-items:center;gap:16px;margin-top:6px;border:2px solid rgba(255,255,255,.7);border-radius:18px;padding:12px 26px 12px 14px}
 .cuenta b{background:#fff;color:var(--rey);border-radius:12px;min-width:78px;height:64px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:40px;padding:0 12px}
 .cuenta span{font-weight:700;font-size:26px;line-height:1.2}
@@ -67,7 +73,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 /* ---------- Avisos ---------- */
 .tarjeta{position:absolute;z-index:2;left:600px;right:80px;top:60px;bottom:200px;background:#fff;color:var(--oscuro);border-radius:36px;padding:44px 60px;display:flex;flex-direction:column;gap:24px}
 .tarjeta .cab{display:flex;align-items:center;justify-content:space-between}
-.tarjeta h1{margin:0;font-weight:900;font-size:84px;line-height:1;text-transform:uppercase;color:var(--rey)}
+.tarjeta h1{margin:0;font-weight:900;font-size:calc(84px * var(--escala-titulo,1));line-height:1;text-transform:uppercase;color:var(--rey)}
 .tarjeta .sub{font-weight:800;font-size:20px;letter-spacing:6px;color:var(--vivo)}
 .filas{display:flex;flex-direction:column;flex-grow:1;justify-content:flex-start;gap:18px;padding-top:6px}
 .fila{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:28px;align-items:center;padding:18px 26px;background:var(--velo);border-radius:20px}
@@ -249,21 +255,34 @@ body.avisos .escenario.dist-centro .virgen.logo,body.horarios .escenario.dist-ce
 
 /* La tarjeta de horarios se ubica igual que la de avisos */
 body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
-#v-horarios h1{font-size:64px}
+#v-horarios h1{font-size:calc(64px * var(--escala-titulo,1))}
 #v-horarios .envivo{white-space:nowrap}
 
 /* Estilo de rótulos de la parroquia (rotulos.html): se aplican como clases del escenario.
    pos-centro centra con márgenes automáticos (sin transform) para no pisar las animaciones .en/.sale. */
 .esquinas-rectas .rotulo,.esquinas-rectas .capa-logo,.esquinas-rectas .barra{border-radius:0}
 .pos-centro .rotulo{left:0;right:0;margin-left:auto;margin-right:auto;width:max-content}
+/* Abajo a la derecha y arriba a la derecha: el mismo margen que a la izquierda (60px). Arriba, a la altura de la cajita
+   «EN VIVO» (top:44px), que se esconde mientras está el rótulo (rotulos.html, pintar). Salen hacia la derecha. */
+.pos-derecha .rotulo,.pos-arriba-derecha .rotulo{left:auto;right:60px}
+.pos-arriba-derecha .rotulo{bottom:auto;top:44px}
+.pos-derecha .rotulo.sale,.pos-arriba-derecha .rotulo.sale{animation-name:rotuloSaleDerecha}
+@keyframes rotuloSaleDerecha{to{opacity:0;transform:translateX(60px)}}
 /* Esquinas (F6:24): suaves es el defecto (24px el rótulo, 18 la capa del logo, 16 la barra) y no lleva clase.
    Redondas: valor provisional, F6 no lo trae (pregunta abierta del plan 1.1). */
 .esquinas-redondas .rotulo{border-radius:48px}
 .esquinas-redondas .capa-logo{border-radius:36px}
 .esquinas-redondas .barra{border-radius:32px}
-/* Tipografía del nombre del rótulo: Lora («clásica») o Source Sans («sencilla»), en 700. */
+/* Tipografía del nombre del rótulo (rotulos.tipografia): Lora («clásica») o Source Sans («sencilla»), en 700, y las de abajo. */
 .tipo-lora .rotulo .t{font-family:Lora,Georgia,serif;font-weight:700;font-size:54px;line-height:1.08}
 .tipo-source-sans .rotulo .t{font-family:SourceSans,Mont,sans-serif;font-weight:700}
+/* Las seis de los diseños de rótulo. El tamaño de cada una lo pone rotulos.html (TAMANO_NOMBRE), para que todas se vean del mismo alto. */
+.tipo-cinzel .rotulo .t{font-family:Cinzel,Georgia,serif;font-weight:700;line-height:1.1}
+.tipo-playfair .rotulo .t{font-family:Playfair,Georgia,serif;font-weight:700;line-height:1.08}
+.tipo-eb-garamond .rotulo .t{font-family:EBGaramond,Georgia,serif;font-weight:700;line-height:1.05}
+.tipo-merriweather .rotulo .t{font-family:Merriweather,Georgia,serif;font-weight:700;line-height:1.12}
+.tipo-nunito .rotulo .t{font-family:Nunito,Mont,sans-serif;font-weight:800}
+.tipo-oswald .rotulo .t{font-family:Oswald,Mont,sans-serif;font-weight:600;line-height:1.1}
 
 /* ================= Rediseño =================
    Acento: solo con colores.acento (clase con-acento en <html>); sin él, la franja se ve como siempre. */
@@ -331,3 +350,86 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 #v-horarios.f-una .fila.horario .f{font-size:18px}
 #v-horarios.f-una .filas.dos-col .fila.horario .a{font-size:22px}
 #v-horarios.f-sin .fila.horario .f{display:none}
+
+/* ================= Diseños de rótulo (rotulos.diseno) =================
+   El mismo #rotulo (.lado, .cuerpo, .k, .t, .s) con otra apariencia; rotulos.html pone la clase en #escenario.
+   Clásico (el de siempre) no lleva clase. --lado es el «Fondo del rótulo» y --linea la «Línea de acento»;
+   lado-claro y linea-clara (contraste con blanco menor que 3) ponen oscuro el texto que va encima. */
+.escenario.diseno-tarjeta .rotulo .lado,.escenario.diseno-minimal .rotulo .lado,.escenario.diseno-etiqueta .rotulo .lado{display:none}
+
+/* Tarjeta: tarjeta blanca compacta, la ceja en una píldora de color y un punto de color delante del subtítulo. */
+.escenario.diseno-tarjeta .rotulo{box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.escenario.diseno-tarjeta .rotulo .cuerpo{border-top:0;min-width:520px;padding:28px 56px 30px 40px;gap:10px}
+.escenario.diseno-tarjeta .rotulo .k{align-self:flex-start;background:var(--linea,var(--celeste));color:#fff;font-size:16px;letter-spacing:4px;padding:7px 18px;border-radius:999px}
+.escenario.diseno-tarjeta.linea-clara .rotulo .k{color:var(--oscuro)}
+.escenario.diseno-tarjeta .rotulo .s{display:flex;align-items:center;gap:14px}
+.escenario.diseno-tarjeta .rotulo .s::before{content:"";flex:none;width:14px;height:14px;border-radius:50%;background:var(--lado,var(--rey))}
+.escenario.diseno-tarjeta.lado-claro .rotulo .s::before{background:var(--oscuro)}
+.escenario.diseno-tarjeta .rotulo.en .cuerpo{animation:tarjetaEntra .6s cubic-bezier(.2,.8,.2,1) .05s both}
+.escenario.diseno-tarjeta .rotulo.en .k{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .35s both}
+.escenario.diseno-tarjeta .rotulo.en .t{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .45s both}
+.escenario.diseno-tarjeta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .58s both}
+@keyframes tarjetaEntra{from{opacity:0;transform:translateY(36px) scale(.97)}to{opacity:1;transform:none}}
+
+/* Minimal: sin caja; texto blanco sobre un oscurecido del ancho de la pantalla y una línea vertical de color.
+   El oscurecido es un ::before del rótulo que se extiende hasta los bordes (el rótulo deja de recortar). */
+.escenario.diseno-minimal .rotulo{border-radius:0;overflow:visible;isolation:isolate}
+.escenario.diseno-minimal .rotulo::before{content:"";position:absolute;z-index:-1;left:-60px;width:1920px;bottom:-70px;height:440px;
+  background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,.42) 45%,rgba(0,0,0,0));pointer-events:none}
+.escenario.diseno-minimal.pos-centro .rotulo::before{left:50%;margin-left:-960px}
+.escenario.diseno-minimal.pos-derecha .rotulo::before,.escenario.diseno-minimal.pos-arriba-derecha .rotulo::before{left:auto;right:-60px}
+.escenario.diseno-minimal.pos-arriba-derecha .rotulo::before{bottom:auto;top:-44px;background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,.42) 45%,rgba(0,0,0,0))}
+.escenario.diseno-minimal .rotulo .cuerpo{background:transparent;border-top:0;border-left:8px solid var(--linea,var(--celeste));min-width:0;padding:6px 0 8px 32px;overflow:visible}
+.escenario.diseno-minimal .rotulo .k{color:rgba(255,255,255,.82)}
+.escenario.diseno-minimal .rotulo .t{color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+.escenario.diseno-minimal .rotulo .s{color:rgba(255,255,255,.9)}
+.escenario.diseno-minimal .rotulo.en::before{animation:oscurecidoEntra .45s ease-out both}
+.escenario.diseno-minimal .rotulo.en .cuerpo{animation:lineaCrece .5s cubic-bezier(.2,.8,.2,1) .2s both}
+.escenario.diseno-minimal .rotulo.en .cuerpo::after{display:none}
+@keyframes oscurecidoEntra{from{opacity:0}to{opacity:1}}
+@keyframes lineaCrece{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+/* Etiqueta: la ceja como pestaña de color pegada encima de una caja oscura (o del «Fondo del rótulo»).
+   El rótulo deja lugar arriba para la pestaña (padding-top), así su caja incluye la pestaña. */
+.escenario.diseno-etiqueta .rotulo{border-radius:0;overflow:visible;padding-top:46px}
+.escenario.diseno-etiqueta .rotulo .cuerpo{background:var(--lado,var(--oscuro));border-top:0;min-width:520px;padding:24px 56px 28px 36px;overflow:visible;
+  border-radius:0 24px 24px 24px;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+.escenario.diseno-etiqueta .rotulo .k{position:absolute;left:0;top:-46px;height:46px;display:flex;align-items:center;padding:0 22px;
+  background:var(--linea,var(--celeste));color:#fff;font-size:17px;border-radius:14px 14px 0 0;white-space:nowrap}
+.escenario.diseno-etiqueta.linea-clara .rotulo .k{color:var(--oscuro)}
+.escenario.diseno-etiqueta .rotulo .t{color:#fff}
+.escenario.diseno-etiqueta .rotulo .s{color:rgba(255,255,255,.82)}
+.escenario.diseno-etiqueta.lado-claro .rotulo .t,.escenario.diseno-etiqueta.lado-claro .rotulo .s{color:var(--oscuro)}
+.escenario.diseno-etiqueta.esquinas-rectas .rotulo .cuerpo,.escenario.diseno-etiqueta.esquinas-rectas .rotulo .k{border-radius:0}
+.escenario.diseno-etiqueta.esquinas-redondas .rotulo .cuerpo{border-radius:0 40px 40px 40px}
+.escenario.diseno-etiqueta.esquinas-redondas .rotulo .k{border-radius:22px 22px 0 0}
+.escenario.diseno-etiqueta .rotulo.en .k{animation:pestanaEntra .4s cubic-bezier(.2,.9,.25,1.15) both}
+.escenario.diseno-etiqueta .rotulo.en .cuerpo{animation:cajaEntra .6s cubic-bezier(.2,.8,.2,1) .22s both}
+.escenario.diseno-etiqueta .rotulo.en .cuerpo::after{display:none}
+.escenario.diseno-etiqueta .rotulo.en .t{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .5s both}
+.escenario.diseno-etiqueta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .62s both}
+@keyframes pestanaEntra{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes cajaEntra{from{clip-path:inset(-60px -60px 100% -60px)}to{clip-path:inset(-60px -60px -60px -60px)}}
+
+/* ===================== ESTILO DE LAS PANTALLAS (estiloPantallas) =====================
+   Sin clase: lo de siempre (Montserrat 900 en el título, Great Vibes en la frase, logo de 70 px). Las letras son las
+   mismas familias y pesos que los rótulos (.tipo-<clave> .rotulo .t). */
+.escenario.letra-titulo-lora .titulo,.escenario.letra-titulo-lora .tarjeta h1{font-family:Lora,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-source-sans .titulo,.escenario.letra-titulo-source-sans .tarjeta h1{font-family:SourceSans,Mont,sans-serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-cinzel .titulo,.escenario.letra-titulo-cinzel .tarjeta h1{font-family:Cinzel,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-playfair .titulo,.escenario.letra-titulo-playfair .tarjeta h1{font-family:Playfair,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-eb-garamond .titulo,.escenario.letra-titulo-eb-garamond .tarjeta h1{font-family:EBGaramond,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-merriweather .titulo,.escenario.letra-titulo-merriweather .tarjeta h1{font-family:Merriweather,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-nunito .titulo,.escenario.letra-titulo-nunito .tarjeta h1{font-family:Nunito,Mont,sans-serif;font-weight:800;letter-spacing:0}
+.escenario.letra-titulo-oswald .titulo,.escenario.letra-titulo-oswald .tarjeta h1{font-family:Oswald,Mont,sans-serif;font-weight:600;letter-spacing:0}
+.escenario.letra-frase-lora .cursiva{font-family:Lora,Georgia,serif;font-weight:700}
+.escenario.letra-frase-source-sans .cursiva{font-family:SourceSans,Mont,sans-serif;font-weight:700}
+.escenario.letra-frase-cinzel .cursiva{font-family:Cinzel,Georgia,serif;font-weight:700}
+.escenario.letra-frase-playfair .cursiva{font-family:Playfair,Georgia,serif;font-weight:700}
+.escenario.letra-frase-eb-garamond .cursiva{font-family:EBGaramond,Georgia,serif;font-weight:700}
+.escenario.letra-frase-merriweather .cursiva{font-family:Merriweather,Georgia,serif;font-weight:700}
+.escenario.letra-frase-nunito .cursiva{font-family:Nunito,Mont,sans-serif;font-weight:800}
+.escenario.letra-frase-oswald .cursiva{font-family:Oswald,Mont,sans-serif;font-weight:600}
+.escenario.letra-frase-montserrat .cursiva{font-family:Mont,sans-serif;font-weight:800}
+.escenario.logo-chico .marca img{height:54px}
+.escenario.logo-grande .marca img{height:90px}

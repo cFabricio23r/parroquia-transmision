@@ -31,6 +31,9 @@ const nuevaPagina = async (correo) => {
 };
 const apretado = (pagina, grupo) =>
   pagina.getByRole('group', { name: grupo, exact: true }).locator('button[aria-pressed="true"]').innerText();
+const marcada = (pagina) =>
+  pagina.getByRole('group', { name: 'Tipografía', exact: true }).locator('label:has(input:checked)').innerText();
+const NOTA_MINIMAL = 'El diseño Minimal no tiene caja';
 const LOGO = 'Logo pequeño en la esquina mientras hay rótulo';
 const CARGOS = 'Cargos sugeridos para «Persona»';
 const estadoMenu = (pagina) =>
@@ -47,10 +50,22 @@ try {
     'el texto del artboard',
   );
   const botones = (grupo) => p.getByRole('group', { name: grupo, exact: true }).locator('button').allInnerTexts();
-  igual(JSON.stringify(await botones('Tipografía')), JSON.stringify(['Montserrat (la de hoy)', 'Lora (clásica)', 'Source Sans (sencilla)']), 'los botones de «Tipografía»');
+  igual(JSON.stringify(await botones('Diseño')), JSON.stringify(['Clásico', 'Tarjeta', 'Minimal', 'Etiqueta']), 'los botones de «Diseño»');
+  igual(await apretado(p, 'Diseño'), 'Clásico', 'apretado «Clásico»');
+  const radios = p.getByRole('group', { name: 'Tipografía', exact: true }).getByRole('radio');
+  igual(await radios.count(), 9, 'hay 9 tipografías');
+  igual(
+    JSON.stringify(await p.getByRole('group', { name: 'Tipografía', exact: true }).locator('label').allInnerTexts()),
+    JSON.stringify(['Montserrat (la de hoy)', 'Lora (clásica)', 'Source Sans (sencilla)', 'Cinzel (solemne)', 'Playfair Display (elegante)', 'EB Garamond (de libro)', 'Merriweather (firme)', 'Nunito (cercana)', 'Oswald (angosta)']),
+    'las opciones de «Tipografía»',
+  );
   igual(JSON.stringify(await botones('Esquinas')), JSON.stringify(['Rectas', 'Suaves', 'Redondas']), 'los botones de «Esquinas»');
-  igual(JSON.stringify(await botones('Posición')), JSON.stringify(['Abajo a la izquierda', 'Abajo al centro']), 'los botones de «Posición»');
-  igual(await apretado(p, 'Tipografía'), 'Montserrat (la de hoy)', 'apretada «Montserrat (la de hoy)»');
+  igual(
+    JSON.stringify(await botones('Posición')),
+    JSON.stringify(['Abajo a la izquierda', 'Abajo al centro', 'Abajo a la derecha', 'Arriba a la derecha']),
+    'los botones de «Posición»',
+  );
+  igual(await marcada(p), 'Montserrat (la de hoy)', 'marcada «Montserrat (la de hoy)»');
   igual(await apretado(p, 'Esquinas'), 'Suaves', 'apretada «Suaves»');
   igual(await apretado(p, 'Posición'), 'Abajo a la izquierda', 'apretada «Abajo a la izquierda»');
   igual(await p.getByRole('switch', { name: LOGO }).getAttribute('aria-checked'), 'true', 'el logo en la esquina está encendido');
@@ -67,7 +82,7 @@ try {
   );
 
   console.log('F6 · Escritura en la base');
-  await p.getByRole('button', { name: 'Lora (clásica)' }).click();
+  await p.getByRole('radio', { name: 'Lora (clásica)' }).check();
   await p.getByLabel('Fondo del rótulo').selectOption({ label: '#4b0f18 (oscuro)' });
   await p.getByLabel('Línea de acento').selectOption({ label: '#d9a441 (acento)' });
   await p.getByRole('switch', { name: LOGO }).click();
@@ -124,6 +139,65 @@ try {
   const c3 = await esperarEnBase(A.id, (c) => c.rotulos?.colorLado === 'oscuro');
   igual(c3.rotulos?.colorLado, 'oscuro', 'elegir el oscuro lo guarda');
   revisar(puts.length > 0 && puts.every((s) => s === 200), `el guardado dio 200 (${puts.join(', ')})`);
+
+  console.log('Diseños · Elegir diseño, tipografía y posición');
+  const D = await prepararParroquia({ config: CONFIG_BASE });
+  const pd = await nuevaPagina(D.correo);
+  await pd.goto(`${BASE}/editor/p/${D.slug}/rotulos`);
+  await pd.getByRole('button', { name: 'Tarjeta', exact: true }).click();
+  await esperarGuardado(pd);
+  const d1 = await esperarEnBase(D.id, (c) => c.rotulos?.diseno === 'tarjeta');
+  igual(d1.rotulos?.diseno, 'tarjeta', 'elegir «Tarjeta» guarda diseno: tarjeta');
+  await pd.getByRole('radio', { name: 'Montserrat (la de hoy)' }).focus();
+  await pd.keyboard.press('ArrowDown');
+  await pd.keyboard.press('ArrowDown');
+  await pd.keyboard.press('ArrowDown');
+  igual(await marcada(pd), 'Cinzel (solemne)', 'con las flechas queda marcada «Cinzel (solemne)»');
+  await esperarGuardado(pd);
+  const d2 = await esperarEnBase(D.id, (c) => c.rotulos?.tipografia === 'cinzel');
+  igual(d2.rotulos?.tipografia, 'cinzel', 'con el teclado se guarda tipografia: cinzel');
+  await pd.getByRole('button', { name: 'Arriba a la derecha' }).click();
+  await esperarGuardado(pd);
+  const d3 = await esperarEnBase(D.id, (c) => c.rotulos?.posicion === 'arriba-derecha');
+  igual(d3.rotulos?.posicion, 'arriba-derecha', '«Arriba a la derecha» guarda posicion');
+
+  console.log('Diseños · Minimal deshabilita esquinas y fondo');
+  await pd.getByRole('button', { name: 'Rectas' }).click();
+  await pd.getByLabel('Fondo del rótulo').selectOption({ label: '#4b0f18 (oscuro)' });
+  await esperarGuardado(pd);
+  await esperarEnBase(D.id, (c) => c.rotulos?.esquinas === 'rectas' && c.rotulos?.colorLado === 'oscuro');
+  await pd.getByRole('button', { name: 'Minimal', exact: true }).click();
+  await esperarGuardado(pd);
+  const d4 = await esperarEnBase(D.id, (c) => c.rotulos?.diseno === 'minimal');
+  const esquinasBotones = pd.getByRole('group', { name: 'Esquinas', exact: true }).locator('button');
+  revisar((await esquinasBotones.evaluateAll((bs) => bs.every((b) => b.disabled))), 'con Minimal, «Esquinas» está deshabilitado');
+  revisar(await pd.getByLabel('Fondo del rótulo').isDisabled(), 'con Minimal, «Fondo del rótulo» está deshabilitado');
+  revisar(await pd.getByText(NOTA_MINIMAL).first().isVisible(), `con Minimal se ve «${NOTA_MINIMAL}»`);
+  revisar(d4.rotulos?.esquinas === 'rectas' && d4.rotulos?.colorLado === 'oscuro', 'Minimal no borra esquinas ni colorLado');
+  igual((await camposSinEtiqueta(pd)).length, 0, 'con Minimal todo campo tiene etiqueta');
+  await pd.getByRole('button', { name: 'Clásico', exact: true }).click();
+  await esperarGuardado(pd);
+  const d5 = await esperarEnBase(D.id, (c) => c.rotulos?.diseno === 'clasico');
+  igual(await apretado(pd, 'Esquinas'), 'Rectas', 'de vuelta en Clásico, siguen «Rectas»');
+  revisar(!(await pd.getByLabel('Fondo del rótulo').isDisabled()), 'de vuelta en Clásico, «Fondo del rótulo» se puede usar');
+  revisar(d5.rotulos?.esquinas === 'rectas' && d5.rotulos?.colorLado === 'oscuro', 'y la base conserva esquinas y colorLado');
+
+  console.log('Diseños · Minimal con un fondo que ya no sirve (review final 7)');
+  const M = await prepararParroquia({
+    config: { ...CONFIG_BASE, colores: { principal: '#8a1c2b', oscuro: '#4b0f18' }, rotulos: { diseno: 'minimal', colorLado: 'acento' } },
+  });
+  const pm = await nuevaPagina(M.correo);
+  await pm.goto(`${BASE}/editor/p/${M.slug}/rotulos`);
+  revisar(
+    await pm.getByText('Falta el color de acento en Identidad. Elige otro color.').isVisible(),
+    'con Minimal, el error de «Fondo del rótulo» se sigue viendo',
+  );
+  revisar(!(await pm.getByLabel('Fondo del rótulo').isDisabled()), 'y el campo se puede cambiar sin salir de Minimal');
+  await pm.getByLabel('Fondo del rótulo').selectOption({ label: '#4b0f18 (oscuro)' });
+  await esperarGuardado(pm);
+  const m1 = await esperarEnBase(M.id, (c) => c.rotulos?.colorLado === 'oscuro');
+  igual(m1.rotulos?.colorLado, 'oscuro', 'elegir otro lo arregla');
+  revisar(await pm.getByLabel('Fondo del rótulo').isDisabled(), 'ya sin error, el campo vuelve a quedar deshabilitado');
 
   console.log('F6 · Config viejo');
   const V = await prepararParroquia({ config: { ...CONFIG_BASE, rotulos: { esquinas: 'redondeadas' } } });

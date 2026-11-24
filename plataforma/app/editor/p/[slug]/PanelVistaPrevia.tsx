@@ -15,13 +15,14 @@ import {
 } from '../../../../lib/vista-previa';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { CampoSelect } from '../../../componentes/CampoSelect';
+import { versionElegida } from '../../../../lib/editor/transicion';
 import { useBorrador } from './ProveedorBorrador';
 
 /** La última vista mostrada: el iframe conserva su página mientras está oculto. */
 const SIN_VISTA: VistaPreviaSeccion = { pagina: 'pantalla', vista: 'inicio', titulo: 'Vista previa', conSelectorTipo: false };
 
 export function PanelVistaPrevia() {
-  const { datos, borrador, urls, notaVistaPrevia, tipoVistaPrevia, elegirTipoVistaPrevia, vistaPreviaExtra } = useBorrador();
+  const { datos, borrador, urls, notaVistaPrevia, tipoVistaPrevia, elegirTipoVistaPrevia, vistaPreviaExtra, versionTransicion } = useBorrador();
   const pathname = usePathname() ?? '';
   const ruta = vistaPreviaDeRuta(pathname, datos.slug);
   const visible = ruta.vistaPrevia !== null;
@@ -29,7 +30,11 @@ export function PanelVistaPrevia() {
   // Mientras está oculto se queda con la última vista, para no recargar el iframe.
   const ultimaVista = useRef<VistaPreviaSeccion>(ruta.vistaPrevia ?? SIN_VISTA);
   if (ruta.vistaPrevia) ultimaVista.current = ruta.vistaPrevia;
-  const vp = ultimaVista.current;
+  // La transición se ve en la versión elegida en su sección (sin imagen del patrono, la del logo).
+  const vp =
+    ultimaVista.current.pagina === 'transicion'
+      ? { ...ultimaVista.current, vista: versionElegida(borrador, versionTransicion) }
+      : ultimaVista.current;
   const src = srcVistaPrevia(datos.slug, vp);
 
   const tipos = useMemo(() => tiposParaVistaPrevia(borrador, datos.tiposComunes), [borrador, datos.tiposComunes]);

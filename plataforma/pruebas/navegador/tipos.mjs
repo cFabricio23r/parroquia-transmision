@@ -148,11 +148,15 @@ try {
   igual(await portada.locator('[aria-pressed="true"]').innerText(), 'Sin portada', '«Sin portada» está apretada');
   igual(
     JSON.stringify(await pn.locator('.pv-casilla').allInnerTexts()),
-    JSON.stringify(['Persona', 'Misterio del rosario', 'Lectura', 'Oración', 'Lugar o estación', 'Libre']),
-    'las seis casillas del artboard',
+    JSON.stringify(['Celebrante o persona', '1.ª lectura', 'Salmo', '2.ª lectura', 'Evangelio', 'Misterio del rosario', 'Oración', 'Lugar o estación', 'Libre']),
+    'una casilla por rótulo: las lecturas, el salmo y el evangelio van sueltos',
   );
   const marcadas = await pn.locator('.pv-casilla input').evaluateAll((l) => l.map((c) => c.checked));
-  igual(JSON.stringify(marcadas), JSON.stringify([true, false, false, false, false, false]), 'solo «Persona» está marcada');
+  igual(
+    JSON.stringify(marcadas),
+    JSON.stringify([true, true, true, false, true, false, false, false, false]),
+    'un tipo nuevo empieza con celebrante, 1.ª lectura, salmo y evangelio',
+  );
   await pn.getByRole('button', { name: 'Guardar tipo' }).click();
   revisar(await pn.getByText('Escribe el nombre.').isVisible(), 'sin nombre dice «Escribe el nombre.»');
   // Revisión fix2: con errores, el foco va al primer campo inválido (lee su error por aria-describedby).
@@ -163,6 +167,7 @@ try {
   await pn.getByLabel('Texto de arriba en Inicio', { exact: true }).fill('En breve comenzamos');
   await pn.getByLabel('Texto de Gracias', { exact: true }).fill('Gracias por rezar con nosotros');
   await portada.getByRole('button', { name: 'Portada de la fiesta' }).click();
+  for (const c of ['1.ª lectura', 'Salmo', 'Evangelio']) await pn.getByRole('checkbox', { name: c, exact: true }).uncheck();
   for (const c of ['Misterio del rosario', 'Oración', 'Libre']) await pn.getByRole('checkbox', { name: c }).check();
   await pn.getByRole('group', { name: 'Imagen' }).getByRole('button', { name: 'Elegir de la galería' }).click();
   await pn.getByRole('dialog').getByRole('button', { name: /Virgen del Rosario/ }).click();

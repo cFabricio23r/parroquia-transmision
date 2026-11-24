@@ -40,7 +40,7 @@ object Capa {
   private const val ANCHO = 1920
   private const val ALTO = 1080
 
-  // Transición (Transicion_2000ms_Logo.webm): el logo tapa la pantalla a los 1000 ms.
+  // Transición (transicion.html de la parroquia, versión «Solo el logo»): el logo tapa la pantalla a los 1000 ms.
   private const val CORTE_MS = 1000L
   private const val DURACION_MS = 2000L
   // Si la escena nueva no terminó de cargar, se espera con el logo quieto hasta este tope.
@@ -75,7 +75,18 @@ object Capa {
   private fun sinParroquia() = CodedException("SIN_PARROQUIA", "Falta elegir la parroquia.", null)
   private var estiloProduccion = "azul"
   private val FIJAS = setOf("camara", "inicio")
-  private const val URL_TRANSICION = "file:///android_asset/app/transicion.html"
+
+  /**
+   * La transición de la parroquia elegida (pantallas más opciones, #3): su identidad, no la de Ciudad
+   * Arce. Sin red sale de su copia o del respaldo, como las escenas (Interceptor). Mismo contrato que el
+   * video de antes: reproducir(), pausar(), seguir().
+   */
+  private fun urlTransicion(): String {
+    val origen = Copias.origen
+    val slug = Copias.slug
+    if (origen == null || slug == null) throw sinParroquia()
+    return "$origen/$slug/transicion.html"
+  }
 
   private val h = Handler(Looper.getMainLooper())
   private var contenedor: FrameLayout? = null
@@ -113,7 +124,7 @@ object Capa {
     val t = nuevaWeb(actividad, "transicion")
     t.visibility = View.INVISIBLE
     c.addView(t, FrameLayout.LayoutParams(ANCHO, ALTO))
-    t.loadUrl(URL_TRANSICION)
+    t.loadUrl(urlTransicion())
     transicion = t
     mostrarSolo(actual)
     // Debajo del contenido de la ventana: existe y dibuja, pero no se ve en el celular.
@@ -340,13 +351,8 @@ object Capa {
     val app = ctx.applicationContext
     w.settings.javaScriptEnabled = true
     w.settings.domStorageEnabled = true
-    // La transición y su video están en file:///android_asset/app/. Las escenas son del origen de
-    // la plataforma, y Chromium no les deja leer file://.
-    w.settings.allowFileAccess = true
-    if (nombre == "transicion") {
-      @Suppress("DEPRECATION")
-      w.settings.allowFileAccessFromFileURLs = true
-    }
+    // Todas las páginas, la transición incluida, son del origen de la plataforma: ninguna lee file://.
+    w.settings.allowFileAccess = false
     w.settings.mediaPlaybackRequiresUserGesture = false
     // Sin esto la página se ve a 1/2,6 del escenario (Tarea 1, arreglo 2).
     w.settings.useWideViewPort = true

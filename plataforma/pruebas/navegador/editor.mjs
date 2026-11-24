@@ -21,6 +21,7 @@ const SECCIONES = [
   'Patrono y fiesta',
   'Pantallas',
   'Rótulos y estilo',
+  'Transición',
   'Tipos de transmisión',
   'Galería',
   'Horarios y redes',
@@ -49,17 +50,19 @@ try {
   console.log('Menú');
   const menu = pagina.locator('nav[aria-label="Secciones del editor"]');
   const enlaces = menu.getByRole('link');
-  igual(await enlaces.count(), 12, 'el menú tiene 12 enlaces');
+  igual(await enlaces.count(), 13, 'el menú tiene 13 enlaces');
   const textos = await enlaces.evaluateAll((l) => l.map((a) => a.childNodes[0]?.textContent?.trim()));
   igual(JSON.stringify(textos), JSON.stringify(SECCIONES), 'los enlaces están en el orden del diseño');
   igual(await menu.getByRole('link', { name: /^Resumen/ }).getAttribute('aria-current'), 'page', '«Resumen» es la página actual');
   const estados = await enlaces.evaluateAll((l) => l.map((a) => a.querySelector('.pv-solo-lectores')?.textContent ?? null));
-  revisar(estados.slice(0, 9).every((e) => ['Listo', 'Revisar', 'Falta algo', 'Opcional'].includes(e)), 'cada ítem salvo Semana, App y Publicar tiene su estado para lectores');
-  igual(estados[9], null, '«Transmisiones de la semana» no tiene punto');
-  igual(estados[10], null, '«App y transmisión» no tiene punto');
-  igual(estados[11], null, '«Publicar» no tiene punto');
+  const conPunto = estados.filter((_, i) => ![5, 10, 11, 12].includes(i));
+  revisar(conPunto.every((e) => ['Listo', 'Revisar', 'Falta algo', 'Opcional'].includes(e)), 'cada ítem salvo Transición, Semana, App y Publicar tiene su estado para lectores');
+  igual(estados[5], null, '«Transición» no tiene punto (no edita el borrador)');
+  igual(estados[10], null, '«Transmisiones de la semana» no tiene punto');
+  igual(estados[11], null, '«App y transmisión» no tiene punto');
+  igual(estados[12], null, '«Publicar» no tiene punto');
   igual(estados[1], 'Falta algo', 'con el borrador mínimo, «Identidad» dice «Falta algo»');
-  igual(estados[8], 'Opcional', '«Avisos fijos» dice «Opcional»');
+  igual(estados[9], 'Opcional', '«Avisos fijos» dice «Opcional»');
   revisar(
     await menu.getByText('Todo se guarda solo como borrador. En OBS no cambia nada hasta que publiques. App y transmisión se guarda al instante y no necesita Publicar.').isVisible(),
     'la nota del pie está en el menú',

@@ -82,6 +82,26 @@ describe('galería', () => {
     expect(deGaleria(aplicarCambios(CONFIG, { galeria: [img('img-y')] })).length).toBeGreaterThan(0);
     expect(CONFIG.galeria).toHaveLength(2); // no muta
   });
+  it('quitarImagen también quita el encuadre de esa foto (si no, no se puede publicar ni arreglar)', () => {
+    const conEncuadre = {
+      ...CONFIG,
+      pantallas: {
+        inicio: {
+          modo: 'personalizada',
+          imagen: 'galeria:img-x',
+          fondo: { tipo: 'imagen', imagen: 'img-x' },
+          encuadre: { imagen: { de: 'galeria:img-x', x: 10, y: 10, zoom: 150 }, fondo: { de: 'galeria:img-x', x: 0, y: 0, zoom: 120 } },
+        },
+        gracias: { modo: 'personalizada', imagen: 'patrono', encuadre: { imagen: { de: 'patrono', x: 40, y: 30, zoom: 110 } } },
+      },
+    };
+    const aplicado = aplicarCambios(conEncuadre, quitarImagen(conEncuadre, 'img-x')) as typeof conEncuadre;
+    expect(JSON.stringify(aplicado)).not.toContain('img-x');
+    expect(aplicado.pantallas.inicio).toEqual({ modo: 'personalizada' });
+    // el encuadre de otra foto no se toca
+    expect(aplicado.pantallas.gracias.encuadre).toEqual({ imagen: { de: 'patrono', x: 40, y: 30, zoom: 110 } });
+    expect(validarBorrador(aplicado, 'san-jose').errores.filter((e) => e.includes('encuadre'))).toEqual([]);
+  });
   it('quitarImagen de una imagen sin usos devuelve solo la galería', () => {
     expect(Object.keys(quitarImagen(CONFIG, 'img-y'))).toEqual(['galeria']);
   });

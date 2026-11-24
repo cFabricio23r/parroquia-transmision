@@ -153,6 +153,8 @@ Las vistas se llaman `inicio`, `portada`, `gracias`, `avisos`, `horarios` (esta 
 | `ocultar` | Lista de elementos a ocultar: `marca`, `envivo`, `chispas`, `rayos`, `fachada`, `franja`, `esquina`, `cuenta`. **El título nunca se oculta**: la pantalla no queda en blanco. `chispas`, `rayos` y `fachada` (la silueta del templo) siguen valiendo, pero ya no cambian nada: el diseño no los dibuja (ver «Cómo se ve cada pantalla»). |
 | `mostrar` | Lista opcional de elementos que se piden a propósito (lo contrario de `ocultar`): `redes`, `horarios`. Sin `mostrar` (o con `modo` `como-viene`) no se muestran: la pantalla se ve como siempre. En `avisos`, `horarios` agrega las filas de horarios después de los avisos (día y notas, y las horas), siempre dentro del máximo de 6 filas, y `redes` pone las redes debajo de las filas. En `inicio` y `gracias`, los horarios y las redes van en una caja debajo del texto, sin tapar la franja ni sacar el título del cuadro: en `gracias` van como mucho 6 filas de horarios; si aun así no caben, la caja se achica y deja fuera horarios desde el final (y, solo con textos muy largos, redes). En `avisos`, con `redes` las filas y las redes van más compactas para caber en la tarjeta. Un elemento que no está en esa lista, como `logo`, rechaza el archivo con «Ese elemento no se puede mostrar (pantallas.inicio.mostrar[0]): solo redes, horarios.». |
 | `textos` | Objeto `clave: texto` (hasta 200 caracteres). Claves válidas más abajo. |
+| `tamanos` | Tamaño del título y de la frase de la pantalla: `{ "titulo": "grande", "frase": "chico" }`, cada uno `chico`, `normal` (por defecto, el de siempre) o `grande`. **Es un tope, no un tamaño fijo:** si con `grande` el texto no cabe (a lo ancho o porque empujaría la franja o la caja de horarios y redes), se achica solo hasta que quepa, y antes de que la pantalla quite filas de horarios o redes vuelve a su tamaño normal. `grande` nunca hace desaparecer un horario. En `avisos` y `horarios` solo cuenta `titulo` (el título de la tarjeta; Horarios no tiene página en el editor, pero el campo se acepta aquí). Otra clave rechaza el archivo. |
+| `encuadre` | Cómo se ve la foto dentro de su marco: `{ "imagen": { "de": "patrono", "x": 50, "y": 20, "zoom": 100 }, "fondo": { "de": "galeria:taller", "x": 50, "y": 50, "zoom": 100 } }`. `imagen` es la foto del arco y `fondo` la foto de fondo. `de` es **obligatorio**: la foto para la que se hizo el encuadre (los mismos valores que `imagen`, o `galeria:<id>` para el fondo). `x` y `y`, enteros de 0 a 100: qué punto de la foto queda a la vista (0 = izquierda o arriba). `zoom`, entero de 100 a 200: cuánto se acerca (por ciento). El marco no cambia de tamaño ni de forma. **El encuadre solo se usa cuando la pantalla muestra esa misma foto:** si el panel eligió otra imagen ese día, si la foto ya no está en la galería o si no cargó, la que se ve va con el encuadre de siempre (arco: `x` 50, `y` 20; fondo: centrado; sin acercar). Con el logo en el arco no se aplica. |
 
 En `produccion` y `envivo` se aceptan `fondo`, `imagen` y `distribucion`, pero no se aplican: ahí solo cuentan `ocultar` y `textos`.
 
@@ -180,10 +182,25 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 
 **Qué texto gana:** primero lo que se escribe en el panel; si no hay, lo de la configuración; si no hay, el texto automático de siempre.
 
+### `estiloPantallas`: letras y logo de todas las pantallas
+
+```json
+"estiloPantallas": { "letraTitulo": "cinzel", "letraFrase": "vibes", "logo": "grande" }
+```
+
+| Campo | Valores |
+|---|---|
+| `letraTitulo` | La letra del título grande de Inicio, Portada, Gracias y Evento y del título de la tarjeta de Avisos y Horarios: una de las de los rótulos (`montserrat`, por defecto, `lora`, `source-sans`, `cinzel`, `playfair`, `eb-garamond`, `merriweather`, `nunito`, `oswald`). Sigue en mayúsculas y con el mismo brillo. |
+| `letraFrase` | La letra de la frase en cursiva: `vibes` (Great Vibes, por defecto) o una de las de arriba. |
+| `logo` | El tamaño del logo de arriba a la izquierda (Inicio, Portada, Evento y Gracias): `chico`, `normal` (por defecto) o `grande`. El logo del círculo de Avisos y Horarios no cambia. |
+
+Vale para todas las pantallas, **también las que están «Como viene»**: es el estilo de la parroquia. Producción y la capa EN VIVO no cambian. Un valor desconocido o una clave que no existe rechazan el archivo.
+
 ### `rotulos`: estilo de los rótulos
 
 ```json
 "rotulos": {
+  "diseno": "clasico",
   "tipografia": "montserrat",
   "esquinas": "rectas",
   "posicion": "izquierda",
@@ -196,11 +213,12 @@ Un texto puede llevar huecos que se rellenan solos con los datos de la parroquia
 
 | Campo | Valores y límites |
 |---|---|
-| `tipografia` | `montserrat` (por defecto), `lora` o `source-sans`. |
+| `diseno` | `clasico` (por defecto: el de siempre, con la franja y el logo), `tarjeta` (tarjeta blanca, la ceja en una píldora de color), `minimal` (sin caja: texto blanco sobre un oscurecido y una línea de color) o `etiqueta` (la ceja como pestaña de color sobre una caja oscura). Todos los rótulos de la parroquia usan el mismo. |
+| `tipografia` | La letra del nombre grande: `montserrat` (por defecto), `lora`, `source-sans`, `cinzel`, `playfair`, `eb-garamond`, `merriweather`, `nunito` u `oswald`. |
 | `esquinas` | `rectas`, `suaves` (por defecto: 24 px en el rótulo, 18 en la capa del logo y 16 en la barra) o `redondas` (valor provisional: 48, 36 y 32 px, hasta que el diseño lo confirme). **Valores de antes:** `redondeadas` sigue aceptado y se ve como `suaves` (mide lo mismo); un `suaves` escrito antes de este cambio también se ve a 24 px. |
-| `posicion` | `izquierda` (por defecto) o `centro`. |
-| `colorLado` | `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
-| `colorLinea` | `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
+| `posicion` | `izquierda` (por defecto, abajo), `centro` (abajo), `derecha` (abajo) o `arriba-derecha`. Con `arriba-derecha`, la cajita «EN VIVO» se esconde mientras se ve el rótulo y vuelve cuando sale. |
+| `colorLado` | El «Fondo del rótulo»: la franja en `clasico`, la caja en `etiqueta`, el punto del subtítulo en `tarjeta`; `minimal` no lo usa. `#rrggbb` o un nombre: `principal`, `oscuro`, `acento` o `blanco`. No exige contraste con blanco. `acento` solo vale si existe `colores.acento`; si no, se rechaza con «El color (rotulos.colorLado) usa el acento, pero falta colores.acento.». Sin él, se usa el degradado de la paleta. Si el color es claro (contraste con blanco menor que 3, como `blanco`), en el lateral va el logo a color (`logos.color`), si existe. |
+| `colorLinea` | La «Línea de acento»: la línea de arriba en `clasico`, la píldora en `tarjeta`, la pestaña en `etiqueta` y la línea vertical en `minimal` (si es clara, el texto encima va oscuro). `#rrggbb` o un nombre: `principal`, `oscuro` o `acento` (`blanco` no vale). Mismo aviso si pide `acento` y falta `colores.acento`. Sin él, la línea usa `colores.acento` si existe; si no, la de siempre. |
 | `logoEsquina` | Opcional; `true` (por defecto) o `false`. Mientras hay un rótulo, la capa del logo (con su caja y el nombre) se aparta; con `true` queda en la esquina el logo blanco solo, sin caja y un poco transparente. Con `false` no queda nada. |
 | `cargos` | Hasta 12 textos (no vacíos, hasta 200 caracteres) que reemplazan la lista sugerida de cargos del panel. |
 

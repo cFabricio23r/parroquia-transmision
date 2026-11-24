@@ -43,8 +43,60 @@ function ajustesDe(vista) {
     distribucion: conFondo && typeof b.distribucion === 'string' ? b.distribucion : 'izquierda',
     ocultar: b && Array.isArray(b.ocultar) ? b.ocultar.filter((e) => typeof e === 'string' && e !== 'titulo') : [],
     mostrar: b && Array.isArray(b.mostrar) ? b.mostrar.filter((e) => ELEMENTOS_MOSTRABLES.includes(e)) : [],
-    textos: b && b.textos && typeof b.textos === 'object' ? Object.assign({}, b.textos) : {}
+    textos: b && b.textos && typeof b.textos === 'object' ? Object.assign({}, b.textos) : {},
+    tamanos: _tamanosDe(conFondo ? b : null),
+    encuadre: {
+      imagen: conFondo ? _encuadreGuardado(b, 'imagen') : null,
+      fondo: conFondo ? _encuadreGuardado(b, 'fondo') : null
+    }
   };
+}
+
+/* Tamaño del título y de la frase del bloque (o 'normal', el de siempre). */
+function _tamanosDe(b) {
+  const t = b && b.tamanos && typeof b.tamanos === 'object' ? b.tamanos : {};
+  const uno = (v) => (TAMANOS.includes(v) ? v : 'normal');
+  return { titulo: uno(t.titulo), frase: uno(t.frase) };
+}
+
+/* El encuadre guardado de una foto ('imagen' o 'fondo') tal cual: { de, x, y, zoom }, o null. */
+function _encuadreGuardado(b, cual) {
+  const e = b.encuadre && b.encuadre[cual];
+  if (!e || typeof e !== 'object' || typeof e.de !== 'string') return null;
+  // el fondo puede nombrar la foto como en fondo.imagen («taller») o como «galeria:taller»: se guarda siempre así
+  const de = cual === 'fondo' && e.de.indexOf('galeria:') !== 0 ? 'galeria:' + e.de : e.de;
+  return { de: de, x: e.x, y: e.y, zoom: e.zoom };
+}
+
+/* La foto fija que muestra el arco de la vista, como la nombra el encuadre (`patrono`, `galeria:taller`), o null si
+   no hay una foto fija para encuadrar: el panel eligió otra imagen, es la del tipo (automatica), el logo, ninguna,
+   o una foto de la galería que ya no existe. Que la foto cargue lo comprueba quien la pinta. */
+function fotoMostrada(s, vista) {
+  if (s && s.imagen) return null;
+  const e = ajustesDe(vista).imagen;
+  if (e === 'automatica' || e === 'logo' || e === 'ninguna') return null;
+  if (e.indexOf('galeria:') === 0 && !imagenGaleria(e.slice(8))) return null;
+  // Sin imagen del patrono se ve la fachada (imagenDe): no se encuadra como si fuera el patrono.
+  if (e === 'patrono' && !(PARROQUIA.patrono && PARROQUIA.patrono.imagen && PARROQUIA.patrono.imagen.src)) return null;
+  return e;
+}
+
+/* El estilo de todas las pantallas (estiloPantallas), con los valores de siempre en lo que falta.
+   Vale también para las pantallas «Como viene»: es el estilo de la parroquia. PARROQUIA se lee al llamarse. */
+function estiloPantallas() {
+  const e = PARROQUIA.estiloPantallas && typeof PARROQUIA.estiloPantallas === 'object' ? PARROQUIA.estiloPantallas : {};
+  return {
+    letraTitulo: TIPOGRAFIAS.includes(e.letraTitulo) ? e.letraTitulo : 'montserrat',
+    letraFrase: LETRAS_FRASE.includes(e.letraFrase) ? e.letraFrase : 'vibes',
+    logo: TAMANOS.includes(e.logo) ? e.logo : 'normal'
+  };
+}
+
+/* El encuadre { x, y, zoom } de la foto `cual` ('imagen' o 'fondo') de la vista, solo si se hizo para la foto que
+   se ve (`deMostrada`, por ejemplo 'patrono' o 'galeria:taller'). Si se ve otra, null: va con el encuadre de siempre. */
+function encuadreVisto(vista, cual, deMostrada) {
+  const e = ajustesDe(vista).encuadre[cual];
+  return e && deMostrada && e.de === deMostrada ? { x: e.x, y: e.y, zoom: e.zoom } : null;
 }
 
 /* ¿Se muestra este elemento? El título siempre. Redes y horarios solo si la vista los pide en `mostrar`;
@@ -167,20 +219,28 @@ function redesVisibles(vista) {
    colorLado y colorLinea: #rrggbb o un nombre (principal, oscuro, acento, blanco), resueltos con colorDe; null si
    no hay o no se resuelve. Sin colorLinea, la línea es el acento si existe (si no, null: la de hoy).
    ladoClaro: el lateral es claro (contraste con blanco menor que 3), y lleva el logo a color.
+   lineaClara: lo mismo con la línea; en Tarjeta y Etiqueta la línea es el fondo de la ceja y su texto va oscuro.
+   diseno: clasico (el de siempre), tarjeta, minimal o etiqueta; posicion: izquierda, centro, derecha o arriba-derecha.
    logoEsquina: mientras hay rótulo, el logo blanco queda solo en la esquina (F6:24); vale true cuando falta. */
 function estiloRotulos() {
   const r = PARROQUIA.rotulos && typeof PARROQUIA.rotulos === 'object' ? PARROQUIA.rotulos : {};
   const colores = PARROQUIA.colores;
   const colorLado = colorDe(r.colorLado, colores);
   const linea = colorDe(r.colorLinea, colores);
+  const lineaFinal = linea || colorDe('acento', colores);
+  // Sin línea elegida ni acento, la línea es var(--celeste) de la paleta: lineaClara se mide contra ese color.
+  const lineaVista = lineaFinal
+    || (colores && typeof colores.principal === 'string' ? paleta(colores.principal, colores.oscuro).celeste : null);
   return {
     tipografia: TIPOGRAFIAS.includes(r.tipografia) ? r.tipografia : 'montserrat',
     // el nombre del diseño (R3): 'redondeadas' de una configuración vieja se ve como 'suaves'; sin valor, 'suaves'
     esquinas: ESQUINAS_ROTULO.includes(r.esquinas) ? ESQUINAS_DISENO[r.esquinas] : 'suaves',
-    posicion: r.posicion === 'centro' ? 'centro' : 'izquierda',
+    posicion: POSICIONES_ROTULO.includes(r.posicion) ? r.posicion : 'izquierda',
+    diseno: DISENOS_ROTULO.includes(r.diseno) ? r.diseno : 'clasico',
     colorLado,
-    colorLinea: linea || colorDe('acento', colores),
+    colorLinea: lineaFinal,
     ladoClaro: colorLado !== null && contraste('#ffffff', colorLado) < 3,
+    lineaClara: lineaVista !== null && contraste('#ffffff', lineaVista) < 3,
     logoEsquina: r.logoEsquina !== false
   };
 }

@@ -85,6 +85,18 @@ describe('reglas sueltas', () => {
     });
   });
 
+  it('con Minimal el fondo del rótulo no se usa: no avisa', () => {
+    const b = { colores: { principal: '#8a1c2b', oscuro: '#4b0f18', acento: '#808080' }, rotulos: { colorLado: 'acento', diseno: 'minimal' } };
+    expect(estadoDeSeccion(b, 'rotulos', [], hoy).avisos).toEqual([]);
+  });
+
+  it('en Etiqueta el aviso del acento como fondo no recomienda usarlo como línea', () => {
+    const b = { colores: { principal: '#8a1c2b', oscuro: '#4b0f18', acento: '#808080' }, rotulos: { colorLado: 'acento', diseno: 'etiqueta' } };
+    const r = estadoDeSeccion(b, 'rotulos', [], hoy);
+    expect(r.avisos[0].titulo).toBe('El acento como fondo de rótulo tiene poco contraste');
+    expect(r.avisos[0].detalle).not.toContain('como línea');
+  });
+
   it('un error de identidad deja «Falta algo» con la frase limpia', () => {
     const r = estadoDeSeccion({}, 'identidad', ['Falta el lugar (lugar).'], hoy);
     expect(r).toMatchObject({ estado: 'falta', frase: 'Falta el lugar.' });
@@ -104,6 +116,9 @@ describe('reglas sueltas', () => {
 
   it('frases de rótulos, tipos y pantallas', () => {
     expect(estadoDeSeccion({}, 'rotulos', [], hoy).frase).toBe('Tipografía Montserrat, esquinas suaves.');
+    expect(estadoDeSeccion({ rotulos: { tipografia: 'cinzel' } }, 'rotulos', [], hoy).frase).toBe('Tipografía Cinzel, esquinas suaves.');
+    expect(estadoDeSeccion({ rotulos: { diseno: 'tarjeta', tipografia: 'playfair' } }, 'rotulos', [], hoy).frase).toBe('Diseño Tarjeta, tipografía Playfair Display, esquinas suaves.');
+    expect(estadoDeSeccion({ rotulos: { diseno: 'minimal', esquinas: 'rectas' } }, 'rotulos', [], hoy).frase).toBe('Diseño Minimal, tipografía Montserrat.');
     expect(estadoDeSeccion({ rotulos: { tipografia: 'lora', esquinas: 'redondeadas' } }, 'rotulos', [], hoy).frase).toBe(
       'Tipografía Lora, esquinas suaves.',
     );

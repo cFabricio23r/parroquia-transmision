@@ -20,6 +20,11 @@ for (const slug of SLUGS) {
   CASOS.push({ slug, pagina: 'produccion.html', query: '?estilo=claro', estado: {} });
   CASOS.push({ slug, pagina: 'produccion.html', query: '?estilo=azul', estado: {} });
 }
+/* Diseños de rótulo (2026-11-24): un caso por diseño nuevo, con un lugar nuevo. `rotulos` se suma al bloque rotulos de
+   la config de la parroquia (el runner la sirve con route) y entra en el nombre del caso; los casos de antes no lo llevan. */
+for (const rotulos of [{ diseno: 'tarjeta', posicion: 'derecha' }, { diseno: 'minimal', posicion: 'derecha' }, { diseno: 'etiqueta', posicion: 'arriba-derecha' }]) {
+  CASOS.push({ slug: 'ciudad-arce', pagina: 'rotulos.html', query: '', estado: { tipo: 'dominical', rotulo: 'persona', celebrante: 'P. Prueba' }, rotulos });
+}
 
 /* Se evalúa dentro de la página. */
 async function huella(page) {

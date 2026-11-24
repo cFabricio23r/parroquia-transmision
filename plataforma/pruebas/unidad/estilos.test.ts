@@ -57,9 +57,35 @@ describe('fuentes.css', () => {
       expect(css).toContain(`url('/fuentes/montserrat-latin-${peso}-normal.woff2') format('woff2')`);
       expect(css).toMatch(new RegExp(`font-weight:\\s*${peso};`));
     }
-    expect((css.match(/@font-face/g) ?? []).length).toBe(5);
+    expect((css.match(/font-family: 'Montserrat'/g) ?? []).length).toBe(5);
     expect(css).toContain('font-display: swap');
     expect(css).not.toContain('googleapis');
+  });
+  // Diseños de rótulo: la lista de tipografías del editor muestra cada opción en su letra.
+  const ROTULO: [string, string][] = [
+    ['Lora', 'lora-latin-700-normal.woff2'],
+    ['SourceSans', 'source-sans-3-latin-700-normal.woff2'],
+    ['Cinzel', 'cinzel-latin-700-normal.woff2'],
+    ['Playfair', 'playfair-display-latin-700-normal.woff2'],
+    ['EBGaramond', 'eb-garamond-latin-700-normal.woff2'],
+    ['Merriweather', 'merriweather-latin-700-normal.woff2'],
+    ['Nunito', 'nunito-latin-800-normal.woff2'],
+    ['Oswald', 'oswald-latin-600-normal.woff2'],
+  ];
+  it('las 8 tipografías del rótulo, desde el propio sitio y con font-display: swap', () => {
+    // 5 Montserrat + las del rótulo + Vibes (la cursiva de las pantallas, para «Letra de la frase»)
+    expect((css.match(/@font-face/g) ?? []).length).toBe(5 + ROTULO.length + 1);
+    expect((css.match(/font-display: swap/g) ?? []).length).toBe(5 + ROTULO.length + 1);
+    for (const [familia, archivo] of ROTULO) {
+      expect(css).toContain(`font-family: '${familia}'`);
+      expect(css).toContain(`url('/fuentes/${archivo}') format('woff2')`);
+      expect(() => readFileSync(resolve(raiz, '..', 'vicaria', 'fuentes', archivo))).not.toThrow();
+    }
+  });
+  it('Vibes (Great Vibes), para la lista «Letra de la frase» de Pantallas', () => {
+    expect(css).toContain("font-family: 'Vibes'");
+    expect(css).toContain("url('/fuentes/great-vibes-latin-400-normal.woff2') format('woff2')");
+    expect(() => readFileSync(resolve(raiz, '..', 'vicaria', 'fuentes', 'great-vibes-latin-400-normal.woff2'))).not.toThrow();
   });
   it('las cinco fuentes existen en vicaria/fuentes (copiar-vicaria las lleva a public/)', () => {
     for (const peso of [500, 600, 700, 800, 900]) {

@@ -5,7 +5,9 @@ import {
   BASE,
   camposSinEtiqueta,
   CONFIG_BASE,
+  elegirColor,
   entrar,
+  espiarSelector,
   esperarEnBase,
   esperarGuardado,
   igual,
@@ -13,6 +15,7 @@ import {
   limpiar,
   prepararParroquia,
   revisar,
+  selectoresAbiertos,
   terminar,
   VIEWPORT,
 } from './lib/editor.mjs';
@@ -204,6 +207,7 @@ try {
     config: { ...CONFIG_BASE, galeria: [{ id: 'img-virgen', src: 'medios/virgen.png', alt: 'Virgen', nombre: 'Virgen del Rosario' }] },
   });
   const p2 = await nuevaPagina(R.correo);
+  await espiarSelector(p2);
   await p2.goto(`${BASE}/editor/p/${R.slug}/pantallas/inicio`);
   await p2.getByRole('button', { name: 'Siempre la misma' }).click();
   await esperarGuardado(p2);
@@ -241,10 +245,19 @@ try {
   await esperarGuardado(p2);
   c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.tipo === 'color');
   revisar(iguales(c4.pantallas?.inicio?.fondo, { tipo: 'color', color: '#4b0f18' }), `«Color liso» escribe el oscuro (${JSON.stringify(c4.pantallas?.inicio?.fondo)})`);
-  await p2.getByLabel('Color del fondo').fill('#ffff00');
+  await p2.getByLabel('Color del fondo', { exact: true }).fill('#ffff00');
   revisar(await p2.getByText('El texto blanco no se lee sobre este color. Elige uno más oscuro.').isVisible(), 'un color claro muestra el error');
   await p2.waitForTimeout(1500);
   igual((await leerConfig(R.id)).pantallas?.inicio?.fondo?.color, '#4b0f18', 'y la base sigue con el oscuro');
+  await p2.getByRole('button', { name: 'Elegir color del fondo' }).click();
+  igual((await selectoresAbiertos(p2)).at(-1)?.campo, 'pantalla-color', '«Elegir color del fondo» abre el selector');
+  await elegirColor(p2, 'pantalla-color', '#123456');
+  igual(await p2.getByLabel('Color del fondo', { exact: true }).inputValue(), '#123456', 'elegir un color oscuro lo pone en el texto');
+  await esperarGuardado(p2);
+  revisar(
+    iguales((await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.color === '#123456')).pantallas?.inicio?.fondo, { tipo: 'color', color: '#123456' }),
+    'y se guarda igual que escrito a mano',
+  );
   igual((await camposSinEtiqueta(p2)).length, 0, 'todo campo tiene etiqueta (con los selects a la vista)');
 
   console.log('F5 · Config viejo');
@@ -267,6 +280,111 @@ try {
     iguales(c5.pantallas?.gracias, { modo: 'personalizada', ocultar: ['chispas'], imagen: 'santo', mostrar: ['horarios'] }),
     `encender «Horarios» conserva chispas y santo (${JSON.stringify(c5.pantallas?.gracias)})`,
   );
+
+  console.log('Pantallas más opciones · Estilo de todas las pantallas');
+  const E = await prepararParroquia({
+    config: {
+      ...CONFIG_BASE,
+      patrono: { ...CONFIG_BASE.patrono, imagen: { src: 'medios/patrono.png', alt: 'San José' } },
+      galeria: [{ id: 'img-taller', src: 'medios/taller.png', alt: 'El taller', nombre: 'El taller' }],
+    },
+  });
+  const p4 = await nuevaPagina(E.correo);
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas`);
+  const bloque = p4.getByRole('region', { name: 'Estilo de todas las pantallas' });
+  revisar(await bloque.isVisible(), 'la lista tiene el bloque «Estilo de todas las pantallas»');
+  for (const g of ['Letra del título', 'Letra de la frase']) revisar(await bloque.getByRole('group', { name: g, exact: true }).isVisible(), `con «${g}»`);
+  revisar(await bloque.getByRole('group', { name: 'Tamaño del logo', exact: true }).isVisible(), 'con «Tamaño del logo»');
+  revisar(
+    await bloque.getByText('La letra del título cambia Inicio, Portada, Evento, Gracias, Avisos y Horarios').isVisible(),
+    'debajo, la línea de a qué alcanza',
+  );
+  revisar(await bloque.getByText('Producción y la capa EN VIVO no cambian.').isVisible(), 'y que Producción y EN VIVO no cambian');
+  const letraTitulo = bloque.getByRole('group', { name: 'Letra del título', exact: true });
+  await letraTitulo.getByRole('radio', { name: /^Cinzel/ }).check();
+  await esperarGuardado(p4);
+  const c6 = await esperarEnBase(E.id, (c) => c.estiloPantallas?.letraTitulo === 'cinzel');
+  igual(c6.estiloPantallas?.letraTitulo, 'cinzel', 'elegir Cinzel guarda estiloPantallas.letraTitulo');
+  const conCinzel = await p4
+    .frameLocator('main article:first-child iframe')
+    .locator('#escenario.letra-titulo-cinzel')
+    .waitFor({ state: 'attached', timeout: 15_000 })
+    .then(() => true, () => false);
+  revisar(conCinzel, 'la miniatura de Inicio usa la letra Cinzel');
+  await bloque.getByRole('group', { name: 'Tamaño del logo', exact: true }).getByRole('button', { name: 'Grande' }).click();
+  await esperarGuardado(p4);
+  await esperarEnBase(E.id, (c) => c.estiloPantallas?.logo === 'grande');
+  await letraTitulo.getByRole('radio', { name: /^Montserrat/ }).check();
+  await esperarGuardado(p4);
+  const c7 = await esperarEnBase(E.id, (c) => c.estiloPantallas && !('letraTitulo' in c.estiloPantallas));
+  revisar(iguales(c7.estiloPantallas, { logo: 'grande' }), `volver a Montserrat borra la clave (${JSON.stringify(c7.estiloPantallas)})`);
+  igual(
+    JSON.stringify(await p4.locator('main article .pv-chip').allInnerTexts()),
+    JSON.stringify(Array(7).fill('Como viene')),
+    'el estilo no hace «Personalizada» ninguna pantalla',
+  );
+  igual((await camposSinEtiqueta(p4)).length, 0, 'todo campo de la lista tiene etiqueta');
+
+  console.log('Pantallas más opciones · Tamaño de los textos');
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/inicio`);
+  for (const g of ['Tamaño del título', 'Tamaño de la frase']) {
+    igual(JSON.stringify(await p4.getByRole('group', { name: g, exact: true }).locator('button').allInnerTexts()), JSON.stringify(['Chico', 'Normal', 'Grande']), `Inicio tiene «${g}»`);
+    igual(await apretado(p4, g), 'Normal', `«${g}» empieza en Normal`);
+  }
+  await p4.getByRole('group', { name: 'Tamaño del título', exact: true }).getByRole('button', { name: 'Grande' }).click();
+  await esperarGuardado(p4);
+  const c8 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.tamanos?.titulo === 'grande');
+  revisar(iguales(c8.pantallas?.inicio, { modo: 'personalizada', tamanos: { titulo: 'grande' } }), `«Grande» guarda tamanos.titulo y la hace personalizada (${JSON.stringify(c8.pantallas?.inicio)})`);
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/avisos`);
+  igual(await p4.getByRole('group', { name: 'Tamaño del título', exact: true }).count(), 1, 'Avisos tiene «Tamaño del título»');
+  igual(await p4.getByRole('group', { name: 'Tamaño de la frase', exact: true }).count(), 0, 'y no «Tamaño de la frase»');
+
+  console.log('Pantallas más opciones · Mover la foto');
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/inicio`);
+  const mover = p4.getByRole('group', { name: 'Mover la foto', exact: true });
+  igual(await mover.count(), 0, 'con «La del tipo de transmisión» no hay «Mover la foto»');
+  await p4.getByRole('button', { name: 'Siempre la misma' }).click();
+  await esperarGuardado(p4);
+  await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.imagen === 'patrono');
+  revisar(await mover.isVisible(), 'con «Siempre la misma» (patrono) aparece «Mover la foto»');
+  const lados = mover.getByRole('slider', { name: 'Hacia los lados' });
+  igual(await lados.inputValue(), '50', '«Hacia los lados» empieza al centro');
+  await lados.focus();
+  await p4.keyboard.press('ArrowRight');
+  await p4.keyboard.press('ArrowRight');
+  await esperarGuardado(p4);
+  const c9 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.encuadre?.imagen?.de === 'patrono');
+  const e9 = c9.pantallas?.inicio?.encuadre?.imagen ?? {};
+  revisar(e9.de === 'patrono' && e9.x !== 50 && e9.y === 20 && e9.zoom === 100, `con el teclado guarda el encuadre del patrono (${JSON.stringify(e9)})`);
+  await mover.getByRole('button', { name: 'Volver a como venía' }).click();
+  await esperarGuardado(p4);
+  const c10 = await esperarEnBase(E.id, (c) => !c.pantallas?.inicio?.encuadre);
+  igual(c10.pantallas?.inicio?.encuadre, undefined, '«Volver a como venía» de la foto borra el encuadre');
+  igual(c10.pantallas?.inicio?.modo, 'personalizada', 'y la pantalla sigue personalizada');
+  await lados.focus();
+  await p4.keyboard.press('ArrowLeft');
+  await esperarGuardado(p4);
+  await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.encuadre?.imagen?.de === 'patrono');
+  await p4.getByLabel('¿Cuál imagen?').selectOption({ label: 'Fachada' });
+  await esperarGuardado(p4);
+  const c11 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.imagen === 'fachada');
+  igual(c11.pantallas?.inicio?.encuadre, undefined, 'cambiar a la fachada borra el encuadre del patrono');
+  igual(await lados.inputValue(), '50', 'y los deslizadores vuelven al centro');
+
+  console.log('Pantallas más opciones · Mover la foto del fondo');
+  igual(await p4.getByRole('group', { name: 'Mover la foto del fondo', exact: true }).count(), 0, 'con los colores de la parroquia no hay «Mover la foto del fondo»');
+  await p4.getByRole('button', { name: 'Foto de la galería' }).click();
+  await esperarGuardado(p4);
+  await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.fondo?.tipo === 'imagen');
+  const moverFondo = p4.getByRole('group', { name: 'Mover la foto del fondo', exact: true });
+  revisar(await moverFondo.isVisible(), 'con una foto de la galería de fondo aparece «Mover la foto del fondo»');
+  await moverFondo.getByRole('slider', { name: 'Arriba / abajo' }).focus();
+  await p4.keyboard.press('ArrowUp');
+  await esperarGuardado(p4);
+  const c12 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.encuadre?.fondo);
+  const e12 = c12.pantallas?.inicio?.encuadre?.fondo ?? {};
+  revisar(e12.de === 'galeria:img-taller' && e12.y !== 50, `el fondo guarda su encuadre (${JSON.stringify(e12)})`);
+  igual((await camposSinEtiqueta(p4)).length, 0, 'todo campo tiene etiqueta (con los deslizadores a la vista)');
 } finally {
   await navegador.close();
   await limpiar();

@@ -6,6 +6,7 @@ import { contraste, MIN_CONTRASTE } from '../contraste';
 import { MESES } from '../fecha';
 import { bloqueDeError, limpiarMensaje } from './errores';
 import { avisoImagenPatrono } from './pantallas';
+import { disenoDe, nombreDiseno, nombreTipografia } from './rotulos';
 import { filasActivas } from './tipos';
 import { SECCIONES, usaBorrador, type IdSeccion, type IdSeccionBorrador } from './secciones';
 
@@ -48,7 +49,6 @@ export const NOMBRES_REDES: Record<string, string> = {
   instagram: 'Instagram',
 };
 
-const TIPOGRAFIAS: Record<string, string> = { montserrat: 'Montserrat', lora: 'Lora', 'source-sans': 'Source Sans' };
 const ESQUINAS: Record<string, string> = { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' };
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 const MENSAJE_SIN_ALT = 'Sin la descripción (alt) no se puede publicar.';
@@ -112,6 +112,9 @@ function colorResuelto(valor: unknown, colores: unknown): string | null {
 function avisosDeRotulos(borrador: Config): Problema[] {
   const r = borrador.rotulos;
   if (!esObjeto(r)) return [];
+  // El «Fondo del rótulo» solo lleva texto encima en Clásico y Etiqueta (Minimal no lo usa; en Tarjeta es un punto).
+  const diseno = disenoDe(r);
+  if (diseno === 'minimal' || diseno === 'tarjeta') return [];
   const hex = colorResuelto(r.colorLado, borrador.colores);
   if (!hex) return [];
   if (Math.max(contraste(hex, '#ffffff'), contraste(hex, '#14223a')) >= MIN_CONTRASTE) return [];
@@ -119,7 +122,10 @@ function avisosDeRotulos(borrador: Config): Problema[] {
     ? [
         {
           titulo: 'El acento como fondo de rótulo tiene poco contraste',
-          detalle: 'Se puede publicar, pero conviene usarlo solo como línea.',
+          detalle:
+            diseno === 'etiqueta'
+              ? 'Se puede publicar; el texto de la caja se pone oscuro, pero puede costar leerse.'
+              : 'Se puede publicar, pero conviene usarlo solo como línea.',
           seccion: 'rotulos',
         },
       ]
@@ -162,9 +168,12 @@ function fraseLista(borrador: Config, id: IdSeccion): string {
     }
     case 'rotulos': {
       const r = esObjeto(borrador.rotulos) ? borrador.rotulos : {};
-      const tipo = TIPOGRAFIAS[String(r.tipografia)] ?? 'Montserrat';
+      const tipo = nombreTipografia(r.tipografia);
       const esquinas = ESQUINAS[String(r.esquinas)] ?? 'suaves';
-      return `Tipografía ${tipo}, esquinas ${esquinas}.`;
+      const diseno = disenoDe(r);
+      if (diseno === 'clasico') return `Tipografía ${tipo}, esquinas ${esquinas}.`;
+      if (diseno === 'minimal') return `Diseño Minimal, tipografía ${tipo}.`;
+      return `Diseño ${nombreDiseno(diseno)}, tipografía ${tipo}, esquinas ${esquinas}.`;
     }
     case 'tipos': {
       // Plan 4, Decisión 16: cuenta filas de la tabla (el grupo de la novena es una), más los propios.

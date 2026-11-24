@@ -14,6 +14,9 @@ import {
   limpiar,
   prepararParroquia,
   revisar,
+  elegirColor,
+  espiarSelector,
+  selectoresAbiertos,
   terminar,
   VIEWPORT,
 } from './lib/editor.mjs';
@@ -37,6 +40,7 @@ try {
   const P = await prepararParroquia({ config: CONFIG });
   const pagina = await (await navegador.newContext({ viewport: VIEWPORT })).newPage();
   await entrar(pagina, P.correo);
+  await espiarSelector(pagina);
   await pagina.goto(`${BASE}/editor/p/${P.slug}/identidad`);
 
   console.log('Campos y etiquetas');
@@ -65,6 +69,50 @@ try {
   await principal.fill('#7a1c2b');
   await esperarGuardado(pagina);
   igual((await esperarEnBase(P.id, (c) => c.colores.principal === '#7a1c2b')).colores.principal, '#7a1c2b', 'un #rrggbb completo se guarda');
+
+  console.log('Selector de color');
+  await pagina.getByRole('button', { name: 'Elegir color principal' }).click();
+  let abiertos = await selectoresAbiertos(pagina);
+  igual(JSON.stringify(abiertos.at(-1)), JSON.stringify({ campo: 'identidad-color-principal', valor: '#7a1c2b' }), 'el botón «Elegir color principal» abre el selector en el color actual');
+  await principal.click();
+  igual((await selectoresAbiertos(pagina)).length, abiertos.length + 1, 'un clic en el texto también lo abre');
+  igual(await pagina.evaluate(() => document.activeElement?.id), 'identidad-color-principal', 'y el foco queda en el texto');
+  const trasPrimerClic = (await selectoresAbiertos(pagina)).length;
+  await principal.click();
+  await principal.dblclick();
+  igual((await selectoresAbiertos(pagina)).length, trasPrimerClic, 'con el foco ya en el texto, otro clic o un doble clic no lo vuelven a abrir (para corregir una letra)');
+  abiertos = await selectoresAbiertos(pagina);
+  await principal.focus();
+  await pagina.keyboard.press('Tab');
+  await pagina.keyboard.press('Tab');
+  igual(await pagina.evaluate(() => document.activeElement?.id), 'identidad-color-oscuro', 'con Tab se llega al texto de «Color oscuro» (el input de color no está en el camino)');
+  igual((await selectoresAbiertos(pagina)).length, abiertos.length, 'con Tab no se abre el selector');
+  await pagina.keyboard.press('ControlOrMeta+a');
+  await pagina.keyboard.type('#4b0f19');
+  await esperarGuardado(pagina);
+  igual((await esperarEnBase(P.id, (c) => c.colores.oscuro === '#4b0f19')).colores.oscuro, '#4b0f19', 'escrito con el teclado se guarda');
+  await principal.fill('#8a1');
+  await pagina.getByRole('button', { name: 'Elegir color principal' }).click();
+  igual((await selectoresAbiertos(pagina)).at(-1)?.valor, '#7a1c2b', 'con «#8a1» a medio escribir abre en el último color válido');
+  await elegirColor(pagina, 'identidad-color-principal', '#123456');
+  igual(await principal.inputValue(), '#123456', 'elegir un color lo pone en el texto');
+  revisar(!(await pagina.getByText('Escribe el color como #rrggbb.').isVisible()), 'y quita el error de «#8a1»');
+  await esperarGuardado(pagina);
+  igual((await esperarEnBase(P.id, (c) => c.colores.principal === '#123456')).colores.principal, '#123456', 'lo elegido se guarda');
+  revisar(await pagina.getByText(/^Texto blanco sobre principal: 12,\d:1 ✓$/).isVisible(), 'la pastilla del principal se actualiza');
+  const puts = [];
+  const anotarPut = (r) => r.method() === 'PUT' && r.url().endsWith('/borrador') && puts.push(r.url());
+  pagina.on('request', anotarPut);
+  for (const c of ['#111111', '#222222', '#333333', '#444444', '#555555']) {
+    await elegirColor(pagina, 'identidad-color-principal', c);
+    await pagina.waitForTimeout(50);
+  }
+  await esperarGuardado(pagina);
+  await pagina.waitForTimeout(1200);
+  pagina.off('request', anotarPut);
+  igual(puts.length, 1, 'arrastrar en el selector (cinco cambios seguidos) hace un solo guardado');
+  igual((await esperarEnBase(P.id, (c) => c.colores.principal === '#555555')).colores.principal, '#555555', 'y guarda el último color');
+  igual((await camposSinEtiqueta(pagina)).length, 0, 'todo campo tiene etiqueta (con el input de color)');
 
   console.log('Nombre corto vacío');
   await pagina.getByLabel('Nombre corto', { exact: true }).fill('');

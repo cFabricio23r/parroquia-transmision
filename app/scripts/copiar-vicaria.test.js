@@ -14,15 +14,22 @@ const vercel = JSON.parse(fs.readFileSync(path.join(raizRepo, 'vicaria', 'vercel
 const PAGINAS = [
   'comun.js', 'estilos.css', 'guardadas-nucleo.js', 'guardadas-sync.js', 'guardadas.js', 'nube-cliente.js', 'nube.js', 'panel.html', 'pantalla.html',
   'pantallas.js', 'parroquia.js', 'produccion.html', 'rotulos.html', 'tipos.js',
+  'transicion.html', 'transicion.js',
 ];
 const FUENTES = [
+  'fuentes/cinzel-latin-700-normal.woff2',
+  'fuentes/eb-garamond-latin-700-normal.woff2',
   'fuentes/great-vibes-latin-400-normal.woff2',
   'fuentes/lora-latin-700-normal.woff2',
+  'fuentes/merriweather-latin-700-normal.woff2',
   'fuentes/montserrat-latin-500-normal.woff2',
   'fuentes/montserrat-latin-600-normal.woff2',
   'fuentes/montserrat-latin-700-normal.woff2',
   'fuentes/montserrat-latin-800-normal.woff2',
   'fuentes/montserrat-latin-900-normal.woff2',
+  'fuentes/nunito-latin-800-normal.woff2',
+  'fuentes/oswald-latin-600-normal.woff2',
+  'fuentes/playfair-display-latin-700-normal.woff2',
   'fuentes/source-sans-3-latin-700-normal.woff2',
 ];
 
@@ -96,12 +103,16 @@ describe('copiarVicaria', () => {
     });
   });
 
-  test('copia la transición del logo a app/transiciones/ y no la de la Virgen', () => {
+  test('la transición es la página de la parroquia: no copia videos y borra app/transiciones/ de antes', () => {
+    fs.mkdirSync(path.join(tmp, 'app', 'transiciones'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'app', 'transiciones', 'Transicion_2000ms_Logo.webm'), 'viejo');
+
     const copiadas = relativas(copiarVicaria(raizRepo, tmp));
 
-    expect(copiadas).toContain('app/transiciones/Transicion_2000ms_Logo.webm');
-    expect(existe('app/transiciones/Transicion_2000ms_Logo.webm')).toBe(true);
-    expect(existe('app/transiciones/Transicion_2000ms_Virgen.webm')).toBe(false);
+    expect(copiadas).toContain('vicaria/transicion.html');
+    expect(copiadas).toContain('vicaria/transicion.js');
+    expect(copiadas.filter((r) => r.endsWith('.webm'))).toEqual([]);
+    expect(existe('app/transiciones')).toBe(false);
   });
 
   test('borra un destino/obs/ viejo y lo viejo de destino/vicaria/', () => {

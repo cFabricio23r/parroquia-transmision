@@ -3,7 +3,9 @@
 // antes de comparar. La igualdad no mira el orden de claves (jsonb).
 import { NOMBRES_REDES, unirLista } from './estados';
 import { iguales } from './fusion';
+import { disenoDe, nombreDiseno, nombreTipografia } from './rotulos';
 import { aFormaNueva } from './horarios';
+import { OPCIONES_LETRA_FRASE, OPCIONES_TAMANO } from './pantallas';
 import { NOMBRES_VISTAS, SECCIONES, type IdSeccion } from './secciones';
 
 export interface CambiosSeccion {
@@ -72,11 +74,24 @@ const ELEMENTOS: [string, string][] = [
   ['esquina', 'esquina'],
 ];
 
+const nombreTamano = (v: unknown) => (OPCIONES_TAMANO.find((o) => o.valor === v) ?? OPCIONES_TAMANO[1]).texto;
+const nombreLetraFrase = (v: unknown) => (OPCIONES_LETRA_FRASE.find((o) => o.valor === v) ?? OPCIONES_LETRA_FRASE[0]).texto.replace(/ \(.*\)$/, '');
+
+function estiloPantallas(p: Config, b: Config): string[] {
+  const a = obj(p.estiloPantallas);
+  const d = obj(b.estiloPantallas);
+  const frases: string[] = [];
+  if (distinto(a.letraTitulo, d.letraTitulo)) frases.push(`Letra del título: ${nombreTipografia(d.letraTitulo)}`);
+  if (distinto(a.letraFrase, d.letraFrase)) frases.push(`Letra de la frase: ${nombreLetraFrase(d.letraFrase)}`);
+  if (distinto(a.logo, d.logo)) frases.push(`Tamaño del logo: ${nombreTamano(d.logo)}`);
+  return frases;
+}
+
 function pantallas(p: Config, b: Config): string[] {
   const pp = obj(p.pantallas);
   const bp = obj(b.pantallas);
   const vistas = [...ORDEN_VISTAS, ...Object.keys({ ...pp, ...bp }).filter((v) => !ORDEN_VISTAS.includes(v))];
-  const frases: string[] = [];
+  const frases: string[] = estiloPantallas(p, b);
   for (const v of vistas) {
     const a = obj(pp[v]);
     const d = obj(bp[v]);
@@ -96,21 +111,26 @@ function pantallas(p: Config, b: Config): string[] {
     const visible = (c: Config, e: string) => (lista(c.mostrar).includes(e) ? 'mostrar' : lista(c.ocultar).includes(e) ? 'ocultar' : '');
     for (const [e, texto] of ELEMENTOS) if (visible(a, e) !== visible(d, e)) detalles.push(texto);
     if (distinto(a.textos, d.textos)) detalles.push('texto de arriba');
+    if (distinto(obj(a.tamanos).titulo, obj(d.tamanos).titulo)) detalles.push('tamaño del título');
+    if (distinto(obj(a.tamanos).frase, obj(d.tamanos).frase)) detalles.push('tamaño de la frase');
+    if (distinto(a.encuadre, d.encuadre)) detalles.push('foto movida');
     frases.push(`Pantalla de ${nombre}: ${detalles.length ? unirLista(detalles) : 'personalizada'}`);
   }
   return frases;
 }
 
-const TIPOGRAFIAS: Record<string, string> = { montserrat: 'Montserrat', lora: 'Lora', 'source-sans': 'Source Sans' };
 const ESQUINAS: Record<string, string> = { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' };
+const POSICIONES: Record<string, string> = { centro: 'al centro', derecha: 'abajo a la derecha', 'arriba-derecha': 'arriba a la derecha' };
 
 function rotulos(p: Config, b: Config): string[] {
   const a = obj(p.rotulos);
   const d = obj(b.rotulos);
   const frases: string[] = [];
-  const tipo = (r: Config) => TIPOGRAFIAS[String(r.tipografia)] ?? 'Montserrat';
+  const tipo = (r: Config) => nombreTipografia(r.tipografia);
+  const dis = (r: Config) => nombreDiseno(disenoDe(r));
   const esq = (r: Config) => ESQUINAS[String(r.esquinas)] ?? 'suaves';
-  const pos = (r: Config) => (r.posicion === 'centro' ? 'al centro' : 'abajo a la izquierda');
+  const pos = (r: Config) => POSICIONES[String(r.posicion)] ?? 'abajo a la izquierda';
+  if (dis(a) !== dis(d)) frases.push(`Diseño de rótulos: ${dis(d)}`);
   if (tipo(a) !== tipo(d)) frases.push(`Tipografía de rótulos: ${tipo(d)}`);
   if (esq(a) !== esq(d)) frases.push(`Esquinas de rótulos: ${esq(d)}`);
   if (distinto(a.colorLado, d.colorLado)) frases.push('Fondo del rótulo');

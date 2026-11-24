@@ -57,6 +57,15 @@ y los mensajes van en español.
 - `obs/estilos.css` — tokens de color en `:root`, componentes y la sección «ANIMACIONES».
 - `herramientas/transiciones/` — `stinger.html` y `stinger_virgen.html` (animación con `window.setFrame(t)`),
   `render.js` (Playwright → PNG → ffmpeg VP9 con alfa + sonido sintetizado). Punto de transición = mitad de la duración.
+  **Solo para `obs/`** (Ciudad Arce sin plataforma): arma los `.webm` de `transiciones/`.
+- `vicaria/transicion.html` + `vicaria/transicion.js` — la transición de cada parroquia de la plataforma, dibujada
+  en un canvas de 1920×1080 con su identidad (colores de `paleta()`, logo blanco, nombre y lugar; versión «Con la
+  imagen del patrono» con `?version=patrono`). Un solo código de dibujo (`dibujarTransicion(g, t, d)`) para tres usos:
+  la vista previa del editor (`?repetir=1&vista-previa=1`), el video que arma el editor («Descargar transición»,
+  `plataforma/lib/editor/transicion.ts`: 120 cuadros → WebM VP9 con alfa + Opus con mediabunny, en el navegador;
+  necesita `VideoEncoder`, o sea Chrome/Edge en https o localhost) y la capa de la app (`Capa.kt` llama a
+  `reproducir()`, `pausar()`, `seguir()`). Las imágenes se cargan con `crossOrigin='anonymous'`: sin eso el logo del
+  almacenamiento de Supabase contamina el canvas y el video no se puede armar.
 
 ## Estado (resumen de campos)
 
@@ -89,6 +98,20 @@ Migraciones en `normalizarEstado`: `virgen` a|b|c → `imagen` `virgen-a|b|c`; r
   `tipos.js` y `camposDe()` en `panel.html` (hoy tienen caso en ambos `persona`, `lectura1/2`, `evangelio`, `salmo`, `rosario` y `lugar`; `santisimo` y
   `oracion` solo en `camposDe()`), y de forma opcional una entrada en `FALTA` (`panel.html`). Un uso `persona` con `ceja` propia (Guía) guarda su nombre en `rotulosTexto[id].t`, no en `s.celebrante`.
   Los atajos 1–9 cubren los nueve primeros usos.
+- **Nuevo diseño de rótulo** (`vicaria/` y el editor, no `obs/`): la clave en `DISENOS_ROTULO` (`vicaria/parroquia.js`),
+  sus reglas bajo `.escenario.diseno-<clave>` en la sección «Diseños de rótulo» al final de `vicaria/estilos.css`
+  (mismo `#rotulo`: no se toca `rotulos.html` salvo que necesite algo propio) y la opción en `OPCIONES_DISENO`
+  (`plataforma/lib/editor/rotulos.ts`). Si no usa esquinas o fondo, decirlo en `usaCampo()`. El Clásico no se toca:
+  `casoClasicoIgual` (`pruebas/vicaria/navegador.js`) lo compara píxel a píxel.
+- **Nueva tipografía de rótulo**: el woff2 en `vicaria/fuentes/` (con su fila y licencia en `LICENCIAS.md`), la clave
+  en `TIPOGRAFIAS` (`vicaria/parroquia.js`), su `@font-face` y `.tipo-<clave> .rotulo .t` en `vicaria/estilos.css`,
+  el tamaño en `TAMANO_NOMBRE` de `rotulos.html` si no es 52, y en el editor `OPCIONES_TIPOGRAFIA`,
+  `FAMILIA_TIPOGRAFIA` y su `@font-face` en `plataforma/app/estilos/fuentes.css`. Sumarla a `FUENTES` en
+  `app/scripts/copiar-vicaria.test.js`. Sin Google Fonts ni CDN.
+- **Nueva letra para las pantallas** (título o frase): es la misma lista de los rótulos (`TIPOGRAFIAS`), así que
+  primero se suma como tipografía de rótulo (punto anterior). Después, en `vicaria/estilos.css`, sus reglas
+  `.escenario.letra-titulo-<clave>` (título y `.tarjeta h1`) y `.escenario.letra-frase-<clave> .cursiva`. El editor
+  la ofrece solo (`OPCIONES_LETRA_FRASE` = Great Vibes + `OPCIONES_TIPOGRAFIA`).
 - **Nueva pantalla completa**: nueva vista `<div class="texto" id="v-NOMBRE" hidden>` en `pantalla.html`, su rama en
   `pintar()` y la fila en README/LEEME con `?tipo=NOMBRE`.
 - **Nueva imagen**: un PNG recortado en `obs/img/` con el nombre de la clave (`obs/img/NOMBRE.png`, ver `imagenDe()`)

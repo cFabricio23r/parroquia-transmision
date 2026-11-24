@@ -1243,6 +1243,14 @@ grupo('validarConfig: campos del rediseño (1)', () => {
     assert.ok(p.validarConfig(copia((c) => { c.colores.acento = '#d9a441'; c.rotulos = { tipografia: 'lora', esquinas: 'suaves', colorLado: '#4b0f18', colorLinea: 'acento', logoEsquina: false }; })).ok);
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia: 'source-sans', colorLinea: '#d9a441', logoEsquina: true }; })).ok);
   });
+  prueba('rotulos: diseño, lugares y tipografías nuevas', () => {
+    assert.ok(p.validarConfig(copia((c) => { c.rotulos = { diseno: 'tarjeta', posicion: 'arriba-derecha', tipografia: 'cinzel' }; })).ok);
+    for (const diseno of ['clasico', 'tarjeta', 'minimal', 'etiqueta']) assert.ok(p.validarConfig(copia((c) => { c.rotulos = { diseno }; })).ok, diseno);
+    for (const posicion of ['izquierda', 'centro', 'derecha', 'arriba-derecha']) assert.ok(p.validarConfig(copia((c) => { c.rotulos = { posicion }; })).ok, posicion);
+    for (const tipografia of ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald']) {
+      assert.ok(p.validarConfig(copia((c) => { c.rotulos = { tipografia }; })).ok, tipografia);
+    }
+  });
   prueba('rotulos.colorLado ya no exige contraste con blanco y acepta nombres', () => {
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: 'blanco' }; })).ok);
     assert.ok(p.validarConfig(copia((c) => { c.rotulos = { colorLado: '#f2e6c8' }; })).ok);
@@ -1296,7 +1304,9 @@ grupo('validarConfig: campos del rediseño (1)', () => {
     assert.equal(p.colorDe('rojo', col), null); assert.equal(p.colorDe(undefined, col), null);
   });
   prueba('constantes nuevas', () => {
-    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans']);
+    assert.deepEqual(Array.from(p.TIPOGRAFIAS), ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 'eb-garamond', 'merriweather', 'nunito', 'oswald']);
+    assert.deepEqual(Array.from(p.DISENOS_ROTULO), ['clasico', 'tarjeta', 'minimal', 'etiqueta']);
+    assert.deepEqual(Array.from(p.POSICIONES_ROTULO), ['izquierda', 'centro', 'derecha', 'arriba-derecha']);
     assert.deepEqual(Array.from(p.ESQUINAS_ROTULO), ['rectas', 'suaves', 'redondas', 'redondeadas']);   // F6:24, más el nombre viejo
     assert.deepEqual(Object.assign({}, p.ESQUINAS_DISENO), { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' });
     assert.deepEqual(Array.from(p.COLORES_CON_NOMBRE), ['principal', 'oscuro', 'acento', 'blanco']);
@@ -1949,7 +1959,8 @@ grupo('config 1b', () => {
   malo('textos con clave que no existe', (c) => { c.pantallas = { inicio: { textos: { inexistente: 'x' } } }; }, 'pantallas.inicio.textos.inexistente');
   malo('rotulos.tipografia arial', (c) => { c.rotulos = { tipografia: 'arial' }; }, 'rotulos.tipografia');
   malo('rotulos.esquinas desconocida', (c) => { c.rotulos = { esquinas: 'ovaladas' }; }, 'rotulos.esquinas');
-  malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'derecha' }; }, 'rotulos.posicion');
+  malo('rotulos.posicion desconocida', (c) => { c.rotulos = { posicion: 'arriba-izquierda' }; }, 'rotulos.posicion');
+  malo('rotulos.diseno banda', (c) => { c.rotulos = { diseno: 'banda' }; }, 'rotulos.diseno');
   malo('rotulos.colorLado que no es #rrggbb ni un nombre de color', (c) => { c.rotulos = { colorLado: 'amarillo' }; }, 'rotulos.colorLado');
   malo('rotulos.cargos con 13 elementos', (c) => { c.rotulos = { cargos: Array.from({ length: 13 }, (_, i) => 'CARGO ' + i) }; }, 'rotulos.cargos');
   malo('tipo propio con clave dominical', (c) => { c.tipos = { propios: [{ clave: 'dominical', nombre: 'Otro' }] }; }, 'tipos.propios[0].clave');
@@ -2320,20 +2331,20 @@ grupo('pantallas', () => {
     assert.deepEqual(arr(x.redesPara(), plano), [{ red: 'web', texto: 'x.org' }]);
   });
   prueba('sin bloque rotulos, estiloRotulos y cargosDe dan los valores de hoy', () => {
-    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([c.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(c.cargosDe()), arr(vm.runInContext("CARGOS", c)));
   });
   prueba('el bloque rotulos de la configuración manda en estiloRotulos y cargosDe', () => {
     const x = cargarPantallas((cfg) => {
       cfg.rotulos = { esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', cargos: ['LECTOR', 'MONAGUILLO'] };
     });
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'rectas', posicion: 'centro', colorLado: '#1a5276', colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), ['LECTOR', 'MONAGUILLO']);
   });
   prueba('estiloRotulos ignora valores raros y un colorLado que no es #rrggbb; cargos vacío cae a CARGOS', () => {
     const x = cargarPantallas();
-    forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'derecha', colorLado: 'rojo', cargos: [] } }));
-    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, logoEsquina: true }]);
+    forzar(x, Object.assign(base(), { rotulos: { esquinas: 'ovaladas', posicion: 'abajo', diseno: 'banda', colorLado: 'rojo', cargos: [] } }));
+    assert.deepEqual(arr([x.estiloRotulos()], plano), [{ tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null, colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true }]);
     assert.deepEqual(arr(x.cargosDe()), arr(vm.runInContext("CARGOS", x)));
   });
   prueba('los ayudantes leen PARROQUIA al llamarse (la configuración llega después)', () => {
@@ -2589,7 +2600,7 @@ grupo('pantallas: lógica del rediseño', () => {
   prueba('estiloRotulos sin bloque rotulos: los valores de hoy más colorLinea null, ladoClaro false, logoEsquina true', () => {
     assert.deepEqual(plano(c.estiloRotulos()), {
       tipografia: 'montserrat', esquinas: 'suaves', posicion: 'izquierda', colorLado: null,
-      colorLinea: null, ladoClaro: false, logoEsquina: true
+      colorLinea: null, ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: true
     });
   });
   prueba('estiloRotulos: tipografía, esquinas suaves, logoEsquina y colores con nombre', () => {
@@ -2599,7 +2610,7 @@ grupo('pantallas: lógica del rediseño', () => {
     });
     assert.deepEqual(plano(x.estiloRotulos()), {
       tipografia: 'lora', esquinas: 'suaves', posicion: 'izquierda', colorLado: '#0c3562',
-      colorLinea: '#1155a4', ladoClaro: false, logoEsquina: false
+      colorLinea: '#1155a4', ladoClaro: false, lineaClara: false, diseno: 'clasico', logoEsquina: false
     });
   });
   prueba('esquinas (R3): validarConfig acepta los nombres del diseño y el viejo; estiloRotulos da el nombre del diseño', () => {
@@ -2621,6 +2632,22 @@ grupo('pantallas: lógica del rediseño', () => {
     assert.equal(e.ladoClaro, true);
     const y = cargarP((cfg) => { cfg.rotulos = { colorLado: '#f0e6c8' }; });
     assert.equal(y.estiloRotulos().ladoClaro, true, 'un hex claro también');
+  });
+  prueba('estiloRotulos: diseño, lugares nuevos y lineaClara', () => {
+    const x = cargarP((cfg) => { cfg.rotulos = { diseno: 'etiqueta', posicion: 'derecha', colorLinea: '#f4e9c8' }; });
+    const e = x.estiloRotulos();
+    assert.equal(e.diseno, 'etiqueta');
+    assert.equal(e.posicion, 'derecha');
+    assert.equal(e.lineaClara, true);
+    assert.equal(cargarP((cfg) => { cfg.rotulos = { posicion: 'arriba-derecha' }; }).estiloRotulos().posicion, 'arriba-derecha');
+    assert.equal(cargarP((cfg) => { cfg.rotulos = { colorLinea: 'oscuro' }; }).estiloRotulos().lineaClara, false);
+  });
+  prueba('estiloRotulos: sin colorLinea ni acento, lineaClara mira el celeste de la paleta (review final 1)', () => {
+    const x = cargarP((cfg) => { cfg.colores = { principal: '#00796b', oscuro: '#00332e' }; delete cfg.rotulos; });
+    assert.equal(x.estiloRotulos().colorLinea, null, 'la línea sigue siendo la de hoy (var(--celeste))');
+    assert.equal(x.estiloRotulos().lineaClara, true, 'blanco sobre el celeste de #00796b no llega a 3:1');
+    const y = cargarP((cfg) => { cfg.colores = { principal: '#0c3562', oscuro: '#061a31' }; delete cfg.rotulos; });
+    assert.equal(y.estiloRotulos().lineaClara, false, 'un principal oscuro deja el celeste oscuro');
   });
   prueba('estiloRotulos: con acento y sin colorLinea, la línea es el acento', () => {
     const x = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; });
@@ -3981,6 +4008,161 @@ grupo('guardadas: sincronizar', () => {
     }
   });
   function yaMigradoU() { return { [KEY_MIGRADAS]: JSON.stringify({ cuando: 1, cantidad: 0 }) }; }
+});
+
+grupo('validarConfig: estilo de pantallas, tamaños y encuadre', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    c.galeria = [{ id: 'taller', src: 'medios/taller.png', alt: 'El taller' }];
+    cambios(c);
+    return c;
+  };
+  const ok = (cambios) => p.validarConfig(copia(cambios)).ok;
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+  const inicio = (extra) => (c) => { c.pantallas = { inicio: Object.assign({ modo: 'personalizada', imagen: 'patrono' }, extra) }; };
+
+  prueba('los tres campos válidos pasan', () => {
+    assert.ok(ok((c) => {
+      c.estiloPantallas = { letraTitulo: 'cinzel', letraFrase: 'vibes', logo: 'grande' };
+      c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', fondo: { tipo: 'imagen', imagen: 'taller' },
+        tamanos: { titulo: 'grande', frase: 'chico' },
+        encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 0, y: 100, zoom: 200 } } } };
+    }));
+    assert.ok(ok((c) => { c.estiloPantallas = { letraFrase: 'oswald' }; }));
+    assert.ok(ok((c) => { c.estiloPantallas = {}; }));
+    assert.ok(ok(inicio({ encuadre: { imagen: { de: 'galeria:taller', x: 50, y: 50, zoom: 100 } } })));
+  });
+  prueba('estiloPantallas: valores inválidos dan su mensaje', () => {
+    assert.match(errs((c) => { c.estiloPantallas = { letraTitulo: 'vibes' }; }), /La letra del título \(estiloPantallas\.letraTitulo\) debe ser una de: montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { letraFrase: 'comic' }; }), /La letra de la frase \(estiloPantallas\.letraFrase\) debe ser una de: vibes, montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { logo: 'enorme' }; }), /El tamaño del logo \(estiloPantallas\.logo\) debe ser uno de: chico, normal, grande/);
+    assert.match(errs((c) => { c.estiloPantallas = 'grande'; }), /El estilo de las pantallas \(estiloPantallas\) debe ser un objeto/);
+    assert.match(errs((c) => { c.estiloPantallas = { otro: 1 }; }), /estiloPantallas\.otro/);
+  });
+  prueba('tamanos: valores inválidos', () => {
+    assert.match(errs(inicio({ tamanos: { titulo: 'gigante' } })), /pantallas\.inicio\.tamanos\.titulo/);
+    assert.match(errs(inicio({ tamanos: { otro: 'grande' } })), /pantallas\.inicio\.tamanos\.otro/);
+    assert.match(errs(inicio({ tamanos: 'grande' })), /pantallas\.inicio\.tamanos/);
+    assert.ok(ok((c) => { c.pantallas = { horarios: { modo: 'personalizada', tamanos: { titulo: 'grande' } } }; }));
+  });
+  prueba('encuadre: valores inválidos', () => {
+    const enc = (v) => errs(inicio({ encuadre: { imagen: v } }));
+    assert.match(enc({ x: 50, y: 50, zoom: 100 }), /Falta la foto del encuadre \(pantallas\.inicio\.encuadre\.imagen\.de\)/);
+    assert.match(enc({ de: 'patrono', x: 101, y: 50, zoom: 100 }), /pantallas\.inicio\.encuadre\.imagen\.x\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: -1, zoom: 100 }), /encuadre\.imagen\.y\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 99 }), /encuadre\.imagen\.zoom\) debe ser un entero de 100 a 200/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 201 }), /encuadre\.imagen\.zoom/);
+    assert.match(enc({ de: 'patrono', x: 50.5, y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'patrono', y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'galeria:noexiste', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) no está en la galería/);
+    assert.match(enc({ de: 'otra', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) debe ser una de/);
+    assert.match(errs(inicio({ encuadre: { fondo: { de: 'noexiste', x: 50, y: 50, zoom: 100 } } })), /encuadre\.fondo\.de\) no está en la galería/);
+    assert.match(errs(inicio({ encuadre: { otro: {} } })), /pantallas\.inicio\.encuadre\.otro/);
+    assert.match(errs(inicio({ encuadre: { imagen: 'patrono' } })), /pantallas\.inicio\.encuadre\.imagen\) debe ser un objeto/);
+  });
+});
+
+grupo('pantallas: estilo, tamaños y encuadre', () => {
+  const cargarP = (cambios) => {
+    const cfg = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cfg.galeria = [{ id: 'taller', src: 'medios/taller.png', alt: 'El taller' }];
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const ENC = { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 120 } };
+
+  prueba('sin bloques nuevos: estilo, tamaños y encuadre de siempre', () => {
+    const x = cargarP();
+    assert.deepEqual(plano(x.estiloPantallas()), { letraTitulo: 'montserrat', letraFrase: 'vibes', logo: 'normal' });
+    for (const v of ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento']) {
+      const a = x.ajustesDe(v);
+      assert.deepEqual(plano(a.tamanos), { titulo: 'normal', frase: 'normal' }, v);
+      assert.deepEqual(plano(a.encuadre), { imagen: null, fondo: null }, v);
+    }
+  });
+  prueba('estiloPantallas: completa lo que falta', () => {
+    const x = cargarP((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; });
+    assert.deepEqual(plano(x.estiloPantallas()), { letraTitulo: 'cinzel', letraFrase: 'vibes', logo: 'normal' });
+  });
+  prueba('personalizada: usa tamanos y encuadre', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', tamanos: { titulo: 'grande' }, encuadre: ENC } }; });
+    const a = x.ajustesDe('inicio');
+    assert.deepEqual(plano(a.tamanos), { titulo: 'grande', frase: 'normal' });
+    assert.deepEqual(plano(a.encuadre), ENC);
+  });
+  prueba('«Como viene» con tamanos y encuadre escritos: no se aplican, pero el estilo global sí', () => {
+    const x = cargarP((c) => {
+      c.estiloPantallas = { letraTitulo: 'oswald', logo: 'chico' };
+      c.pantallas = { inicio: { modo: 'como-viene', tamanos: { titulo: 'grande', frase: 'chico' }, encuadre: ENC } };
+    });
+    const a = x.ajustesDe('inicio');
+    assert.deepEqual(plano(a.tamanos), { titulo: 'normal', frase: 'normal' });
+    assert.deepEqual(plano(a.encuadre), { imagen: null, fondo: null });
+    assert.equal(x.estiloPantallas().letraTitulo, 'oswald');
+    assert.equal(x.estiloPantallas().logo, 'chico');
+  });
+  prueba('produccion y envivo: nunca tamanos ni encuadre', () => {
+    const x = cargarP((c) => { c.pantallas = { produccion: { modo: 'personalizada', tamanos: { titulo: 'grande' }, encuadre: ENC } }; });
+    assert.deepEqual(plano(x.ajustesDe('produccion').tamanos), { titulo: 'normal', frase: 'normal' });
+    assert.deepEqual(plano(x.ajustesDe('produccion').encuadre), { imagen: null, fondo: null });
+  });
+  prueba('fotoMostrada: sin imagen del patrono se ve la fachada, y no se encuadra como si fuera el patrono', () => {
+    const con = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(con.fotoMostrada({}, 'inicio'), 'patrono');
+    const sin = cargarP((c) => { delete c.patrono.imagen; c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(sin.fotoMostrada({}, 'inicio'), null);
+  });
+  prueba('encuadreVisto: solo con la misma foto', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', encuadre: ENC } }; });
+    assert.deepEqual(plano(x.encuadreVisto('inicio', 'imagen', 'patrono')), { x: 30, y: 70, zoom: 150 });
+    assert.equal(x.encuadreVisto('inicio', 'imagen', 'fachada'), null);
+    assert.equal(x.encuadreVisto('inicio', 'imagen', null), null);
+    assert.deepEqual(plano(x.encuadreVisto('inicio', 'fondo', 'galeria:taller')), { x: 10, y: 90, zoom: 120 });
+    assert.equal(x.encuadreVisto('inicio', 'fondo', 'galeria:otra'), null);
+    assert.equal(x.encuadreVisto('portada', 'imagen', 'patrono'), null);
+  });
+});
+
+/* ---------- La transición con la identidad de la parroquia (pantallas más opciones, Tarea 9) ---------- */
+
+grupo('transicion', () => {
+  const x = cargarCon(['transicion.js']);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  prueba('coloresTransicion: de la paleta, del más claro al más oscuro', () => {
+    const p = x.paleta('#1155a4', '#0c3562');
+    const c = plano(x.coloresTransicion('#1155a4', '#0c3562'));
+    assert.equal(c.length, 4);
+    assert.equal(c[0], p.claro);
+    assert.equal(c[1], p.celeste);
+    assert.equal(c[2], '#1155a4');
+    assert.deepEqual(c[3], { de: '#0c3562', a: '#1155a4' });
+  });
+  prueba('coloresTransicion: San José da sus colores, no el azul', () => {
+    const c = plano(x.coloresTransicion('#8a1c2b', '#4b0f18'));
+    assert.equal(c[2], '#8a1c2b');
+    assert.deepEqual(c[3], { de: '#4b0f18', a: '#8a1c2b' });
+  });
+  prueba('sonidoTransicion: 96000 muestras por canal, pico 0,6 y siempre igual', () => {
+    const a = x.sonidoTransicion(48000, 2);
+    assert.equal(a.izq.length, 96000);
+    assert.equal(a.der.length, 96000);
+    let pico = 0;
+    for (let i = 0; i < 96000; i++) pico = Math.max(pico, Math.abs(a.izq[i]), Math.abs(a.der[i]));
+    assert.ok(Math.abs(pico - 0.6) <= 0.01, 'pico ' + pico);
+    const b = x.sonidoTransicion(48000, 2);
+    for (let i = 0; i < 96000; i += 997) {
+      assert.equal(a.izq[i], b.izq[i]);
+      assert.equal(a.der[i], b.der[i]);
+    }
+  });
+  prueba('versionesTransicion: la del patrono solo con su imagen', () => {
+    assert.deepEqual(plano(x.versionesTransicion(CONFIG_CIUDAD_ARCE)), ['logo', 'patrono']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { nombre: 'San José' } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { imagen: { src: '', alt: '' } } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({})), ['logo']);
+  });
 });
 
 /* ---------- Resultado ---------- */

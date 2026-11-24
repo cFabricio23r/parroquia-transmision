@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { configParaVistaPrevia, ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, prepararVistaPrevia, recogerMedios, srcVistaPrevia, tiposParaVistaPrevia } from '../../lib/vista-previa';
+import { configParaVistaPrevia, ESPERA_VISTA_PREVIA_MS, mensajeVistaPrevia, prepararVistaPrevia, recogerMedios, srcVistaPrevia, tiposParaVistaPrevia, tituloMarcoVistaPrevia } from '../../lib/vista-previa';
 
 const urls = { 'medios/logo.png': 'http://x/firmada-logo?token=1', 'medios/fachada.jpg': 'http://x/firmada-fachada?token=2' };
 
@@ -58,6 +58,12 @@ describe('vista previa continua (plan 3)', () => {
     { clave: 'semana', nombre: 'Misa entre semana' },
     { clave: 'horasanta', nombre: 'Hora Santa' },
   ];
+
+  it('la transición se repite sola en la versión pedida, y su marco se llama «Vista previa: Transición»', () => {
+    const vp = { pagina: 'transicion', vista: 'patrono', titulo: 'x', conSelectorTipo: false } as const;
+    expect(srcVistaPrevia('san-jose', vp)).toBe('/san-jose/transicion.html?repetir=1&version=patrono&vista-previa=1');
+    expect(tituloMarcoVistaPrevia(vp)).toBe('Vista previa: Transición');
+  });
 
   it('srcVistaPrevia arma la URL de la pantalla con la vista', () => {
     expect(srcVistaPrevia('san-jose', { pagina: 'pantalla', vista: 'avisos', titulo: 'x', conSelectorTipo: false })).toBe(
