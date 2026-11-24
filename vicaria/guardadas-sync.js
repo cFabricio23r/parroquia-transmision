@@ -11,9 +11,10 @@
    sincronizarGuardadas() devuelve:
    - 'ok';
    - 'sin-sesion': nunca se entró en este panel (o se apretó Salir);
-   - 'sesion-cerrada': había sesión y el servidor la rechazó o venció (se recuerda hasta entrar o salir);
+   - 'sesion-cerrada': había sesión y el servidor la rechazó o venció, o PostgREST dijo 403 (la cuenta ya no
+     puede con esta parroquia): se recuerda hasta entrar o salir. La cola se conserva entera;
    - 'sin-conexion': no hubo respuesta (sin red);
-   - 'error-servidor': hubo respuesta pero falló (5xx, 429, error de Auth al renovar…). Igual que sin
+   - 'error-servidor': hubo respuesta pero falló (5xx, 408, 425, 429, error de Auth al renovar…). Igual que sin
      conexión, corta y conserva la cola: nada pasa a rechazado por esto;
    - 'ocupado': otro panel de esta PC está sincronizando. */
 
@@ -52,6 +53,20 @@ function _syncLeer(clave) {
 }
 function _syncEscribir(clave, valor) {
   try { localStorage.setItem(clave, JSON.stringify(valor)); return true; } catch (e) { return false; }
+}
+
+/* ---------- Misas que la nube rechazó ----------
+   Se cuentan los «guardar» rechazados cuya guardada sigue en la copia local: esas son las misas que no están en
+   la nube. Un «usar» o un «borrar» rechazado no deja una misa sin guardar. Lo usa el panel también en la app
+   (allá la cola la marca lo nativo), así que no depende de la sesión. */
+const TEXTO_FILA_RECHAZADA = 'No se guardó en la nube';
+function textoRechazadas(n) {
+  return n === 1 ? '1 misa no se pudo guardar en la nube. Sigue en esta computadora.'
+    : n + ' misas no se pudieron guardar en la nube. Siguen en esta computadora.';
+}
+function idsRechazadasGuardadas() {
+  const ids = new Set(leerGuardadas().map((g) => g.id));
+  return new Set(leerPendientes().filter((p) => p.rechazado && p.op === 'guardar' && ids.has(p.id)).map((p) => p.id));
 }
 
 /* «Se guardaron N misas de esta computadora en la nube» (con una sola, en singular). */
@@ -134,13 +149,15 @@ function _syncRechazar(p) {
 
 /* Ante un error de la nube: cortar o, si es la respuesta de PostgREST a esta guardada (un 4xx), null = rechazar.
    Se corta (y la cola se conserva) sin red, sin sesión, con un 5xx, si falló Auth al renovar (origen 'auth':
-   no habla de esta guardada) o con un 429 (límite de pedidos, de Auth o de PostgREST: es pasajero).
-   Sin respuesta es 'sin-conexion'; con respuesta (5xx, 429, Auth) es 'error-servidor'. */
+   no habla de esta guardada) o con un 408, 425 o 429 (plazo, «muy temprano» o límite de pedidos: pasajeros).
+   Sin respuesta es 'sin-conexion'; con respuesta (5xx, 408, 425, 429, Auth) es 'error-servidor'.
+   Un 403 de PostgREST ('permiso') es de la cuenta, no de esta guardada: corta como sesión cerrada. */
+const _SYNC_PASAJEROS = [408, 425, 429];
 function _syncCorte(r) {
   const e = r.error;
   if (e.tipo === 'sin-conexion') return e.estado === undefined ? 'sin-conexion' : 'error-servidor';
-  if (e.tipo === 'sesion') return 'sin-sesion';
-  if (e.origen === 'auth' || e.estado === 429) return 'error-servidor';
+  if (e.tipo === 'sesion' || e.tipo === 'permiso') return 'sin-sesion';   // _syncCorrer cierra la sesión
+  if (e.origen === 'auth' || _SYNC_PASAJEROS.includes(e.estado)) return 'error-servidor';
   return null;
 }
 
@@ -155,7 +172,9 @@ function _syncTerminar(p, r) {
 
 async function _syncSubirGuardar(pid, p, ctx) {
   const g = leerGuardadas().find((x) => x.id === p.id);
-  if (!g) { _syncQuitar(p); return null; }    // ya no está en la copia local: no hay nada que subir
+  // Ya no está en la copia local (se perdió o la escribió otro dock a destiempo): no hay nada que subir ahora,
+  // pero tampoco se descarta ni se rechaza (la nube no dijo nada): queda en la cola por si la guardada vuelve.
+  if (!g) return null;
   let fila = GUARDADAS.aFila(g, 'panel', pid);
   let r = await subirGuardadaNube(fila);
   if (!r.ok && r.error.codigo === '23505') {
@@ -211,8 +230,10 @@ async function _syncCorrer() {
   if (!leerSesionNube()) return _syncSinSesion();
   const r = await _syncCorrerConSesion();
   if (r !== 'sin-sesion') return r;
-  // Empezó con sesión y el servidor la rechazó (o venció): se recuerda para decirlo y se borra. La marca va
-  // ANTES de borrar la sesión: los otros docks se enteran por el evento storage de la sesión y ya la leen.
+  // Empezó con sesión y el servidor la rechazó, venció o dio 403: se recuerda para decirlo y se borra.
+  // Si la borra este panel (401 aun renovada, 403), la marca va ANTES: los otros docks la leen ya en el evento
+  // storage de la sesión. Si la borró renovarNube (refresh rechazado), la sesión ya no estaba al escribir la
+  // marca: los otros docks se enteran por el evento storage de la marca (ver iniciarSincronizacionGuardadas).
   _syncEscribir(CLAVE_SESION_CERRADA, { cuando: Date.now() });
   salirNube();
   return 'sesion-cerrada';
@@ -223,10 +244,8 @@ async function _syncCorrerConSesion() {
   try {
     if (!_syncParroquiaId) {
       const r = await parroquiaIdNube(SLUG);
-      if (!r.ok) {
-        if (r.error.tipo === 'permiso') return 'sin-sesion';   // la cuenta ya no es de esta parroquia: _syncCorrer cierra la sesión
-        return _syncCorte(r) || 'error-servidor';
-      }
+      // 'permiso' (la cuenta ya no es de esta parroquia) corta como sin-sesion: _syncCorrer cierra la sesión.
+      if (!r.ok) return _syncCorte(r) || 'error-servidor';
       _syncParroquiaId = r.valor;
     }
     const pid = _syncParroquiaId;
@@ -316,18 +335,29 @@ function _syncTextoAlEntrar(e) {
   return NO_SE_PUDO_ENTRAR;
 }
 
-/* Entra con la cuenta del editor web. Devuelve { ok:true } o { ok:false, texto } con el error para el voluntario. */
-async function entrarGuardadas(correo, clave) {
+/* Entra con la cuenta del editor web. Devuelve { ok:true } o { ok:false, texto } con el error para el voluntario.
+   `sigue()` (opcional) dice si el voluntario todavía espera (no cerró el diálogo): si ya no, la sesión que llegó
+   se borra y devuelve { ok:false, cancelado:true }, sin sincronizar. */
+async function entrarGuardadas(correo, clave, sigue) {
   if (_syncModoApp()) return { ok: false, texto: '' };
+  const vigente = typeof sigue === 'function' ? sigue : () => true;
+  const cancelado = () => { salirNube(); return { ok: false, texto: '', cancelado: true }; };
   const r = await entrarNube(correo, clave);
   if (!r.ok) return { ok: false, texto: _syncTextoAlEntrar(r.error) };
+  if (!vigente()) return cancelado();
   const p = await parroquiaIdNube(SLUG);
+  if (!vigente()) return cancelado();
   if (!p.ok) {
     salirNube();
     return { ok: false, texto: _syncTextoAlEntrar(p.error) };
   }
   _syncOlvidarCierre();
   _syncParroquiaId = p.valor;
+  // Lo rechazado antes (por ejemplo por un 403 de una cuenta sin permiso) se vuelve a intentar una vez.
+  const cola = leerPendientes();
+  if (cola.some((x) => x.rechazado)) {
+    escribirPendientes(cola.map((x) => { if (!x.rechazado) return x; const y = Object.assign({}, x); delete y.rechazado; return y; }));
+  }
   sincronizarGuardadas();
   return { ok: true };
 }

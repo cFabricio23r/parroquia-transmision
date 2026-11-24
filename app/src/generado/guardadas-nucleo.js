@@ -11,6 +11,7 @@
    actualizado_desde, actualizado_por, borrada_en } (ISO). */
 
 const _GUA_LIMITE = 50;
+const _GUA_LARGO_NOMBRE = 80;   // check (char_length(nombre) between 1 and 80) de public.guardadas
 const _GUA_CAMPOS_DE_AIRE = ['rotulo', 'rotuloHasta', 'rotuloDesde'];
 
 const _guaMismoNombre = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
@@ -95,12 +96,14 @@ function _guaFusionar(local, nube, pendientes) {
   return salida;
 }
 
-/* «X (copia)», «X (copia 2)»… el primero que no esté en `ocupados` (mismo criterio que mismoNombre). */
+/* «X (copia)», «X (copia 2)»… el primero que no esté en `ocupados` (mismo criterio que mismoNombre).
+   Si no entra en _GUA_LARGO_NOMBRE letras (char_length de la base), se recorta X, nunca el sufijo. */
 function _guaNombreLibre(nombre, ocupados) {
-  const base = String(nombre).trim();
+  const letras = Array.from(String(nombre).trim());   // por letras: un emoji no se parte
   const libre = (n) => !ocupados.some((o) => _guaMismoNombre(o, n));
-  let candidato = base + ' (copia)';
-  for (let n = 2; !libre(candidato); n++) candidato = base + ' (copia ' + n + ')';
+  const con = (sufijo) => letras.slice(0, Math.max(0, _GUA_LARGO_NOMBRE - sufijo.length)).join('').trimEnd() + sufijo;
+  let candidato = con(' (copia)');
+  for (let n = 2; !libre(candidato); n++) candidato = con(' (copia ' + n + ')');
   return candidato;
 }
 

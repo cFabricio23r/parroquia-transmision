@@ -2064,6 +2064,7 @@ async function nubeDePrueba(ctx, filas = [], opciones = {}) {
       const fila = q.postDataJSON()[0];
       n.subidas.push(fila);
       if (opciones.demoraSubida) await new Promise((r) => setTimeout(r, opciones.demoraSubida));
+      if (opciones.estadoSubida) return json(opciones.estadoSubida, { code: 'x' });
       const i = n.filas.findIndex((x) => x.id === fila.id);
       if (i >= 0) n.filas[i] = fila; else n.filas.push(fila);
       return json(201);
@@ -2404,6 +2405,104 @@ async function casoMisasListas() {
     igual(await a.evaluate((k) => localStorage.getItem(k), CLAVE_CA('guardadas_pendientes_v1')), '[]', 'y la cola quedó vacía');
     igual(await esperarTexto(b, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'el otro panel también queda «Sincronizado»');
     igual(await esperarTexto(a, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'y el primero también');
+    await ctx.close();
+  }
+
+  const TXT_RECH_1 = '1 misa no se pudo guardar en la nube. Sigue en esta computadora.';
+  const TXT_RECH_2 = '2 misas no se pudieron guardar en la nube. Siguen en esta computadora.';
+  const TXT_FILA_RECH = 'No se guardó en la nube';
+  const metaDe = (p, sel, nombre) => p.evaluate(([s, n]) => {
+    const f = [...document.querySelectorAll(s)].find((x) => x.querySelector('.nom') && x.querySelector('.nom').textContent === n);
+    return f ? f.querySelector('.meta').textContent : null;
+  }, [sel, nombre]);
+
+  console.log(' · una misa que la nube rechazó se ve: en su fila y en la línea, en lugar de Sincronizado');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [filaPrueba('bbbb2', 'Domingo 30', Date.now() - 60000)]);
+    const valores = Object.assign({
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000, rechazado: true }]
+    }, sesionPrueba(), yaMigrado());
+    const p = await abrirPanelListas(ctx, valores);
+    try { await p.waitForFunction(() => document.querySelectorAll('#listas .rapida').length === 2, null, { timeout: 6000 }); } catch (e) {}
+    igual((await nombresListas(p)).length, 2, 'ya se sincronizó (llegó la de la nube)');
+    igual(await esperarTexto(p, '#estado-sync', TXT_RECH_1), TXT_RECH_1, 'la línea lo dice en singular');
+    igual(await p.evaluate(() => document.getElementById('estado-sync').classList.contains('aviso-sync')), true, 'como aviso');
+    igual(await metaDe(p, '#listas .rapida', 'Hora Santa jueves'), TXT_FILA_RECH, 'la fila rechazada dice «No se guardó en la nube»');
+    revisar(((await metaDe(p, '#listas .rapida', 'Domingo 30')) || '').startsWith('Guardada '), 'la otra sigue diciendo «Guardada …»');
+    revisar(((await metaDe(p, '#lista-guardadas .guardada', 'Hora Santa jueves')) || '').endsWith(TXT_FILA_RECH), 'también en la pestaña Misas listas');
+    await p.evaluate(() => { window.__cambiosSync = 0; new MutationObserver((m) => { window.__cambiosSync += m.length; }).observe(document.getElementById('estado-sync'), { childList: true, characterData: true, subtree: true }); });
+    await p.evaluate(async () => { await sincronizarGuardadas(); await sincronizarGuardadas(); });
+    await p.waitForTimeout(300);
+    igual(await p.evaluate(() => window.__cambiosSync), 0, 'dos sincronizaciones más no reescriben el aviso');
+    // otra más rechazada: el plural (la cola cambia sin que cambie la lista)
+    await p.evaluate(([kl, kp]) => {
+      const l = JSON.parse(localStorage.getItem(kl)); const g = Object.assign({}, l[0], { id: 'cccc3', nombre: 'Novena' });
+      localStorage.setItem(kl, JSON.stringify(l.concat(g)));
+      localStorage.setItem(kp, JSON.stringify(JSON.parse(localStorage.getItem(kp)).concat({ op: 'guardar', id: 'cccc3', cuando: 3000, rechazado: true })));
+      return sincronizarGuardadas();
+    }, [CLAVE_CA('guardadas_v1'), CLAVE_CA('guardadas_pendientes_v1')]);
+    igual(await esperarTexto(p, '#estado-sync', TXT_RECH_2), TXT_RECH_2, 'con dos, en plural');
+    await ctx.close();
+  }
+
+  console.log(' · en la app, lo rechazado que marca lo nativo también se ve');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const valores = {
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }]
+    };
+    const app = await abrirPanelListas(ctx, valores, { ancho: 844, alto: 390, app: true });
+    igual(((await app.textContent('#estado-sync')) || '').trim(), '', 'modo-app: sin rechazadas la línea no dice nada');
+    // lo que hace scriptPonerGuardadas (app/src/guardadas/puente.ts): marca la cola y llama a pintarGuardadas
+    await app.evaluate((kp) => { localStorage.setItem(kp, JSON.stringify([{ op: 'guardar', id: 'aaaa1', cuando: 2000, rechazado: true }])); window.pintarGuardadas(); }, CLAVE_CA('guardadas_pendientes_v1'));
+    igual(await esperarTexto(app, '#estado-sync', TXT_RECH_1, 1000), TXT_RECH_1, 'modo-app: la línea lo dice');
+    igual(await metaDe(app, '#listas .rapida', 'Hora Santa jueves'), TXT_FILA_RECH, 'modo-app: y la fila también');
+    await ctx.close();
+  }
+
+  console.log(' · un 403 de la nube cierra la sesión y deja la cola (no rechaza)');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [], { estadoSubida: 403 });
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }];
+    const p = await abrirPanelListas(ctx, Object.assign({ [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)], [CLAVE_CA('guardadas_pendientes_v1')]: pend }, sesionPrueba(), yaMigrado()));
+    igual(await esperarTexto(p, '#estado-sync', 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.'), 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.', 'dice que se cerró la sesión');
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('guardadas_pendientes_v1')), JSON.stringify(pend), 'la cola queda igual, sin rechazado');
+    revisar(((await metaDe(p, '#listas .rapida', 'Hora Santa jueves')) || '').startsWith('Guardada '), 'y la fila no dice «No se guardó»');
+    await ctx.close();
+  }
+
+  console.log(' · Cancelar mientras entra: la sesión que llega después no queda');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [], { demoraToken: 800 });
+    const p = await abrirPanelListas(ctx, {});
+    await p.click('#entrar', { timeout: 3000 });
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    await p.click('#entrar-cancelar');
+    await p.waitForTimeout(1500);
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('sesion_nube_v1')), null, 'no queda la sesión');
+    igual(await visibleEn(p, '#entrar'), true, '«Entrar con mi cuenta» sigue a la vista');
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), false, 'el diálogo sigue cerrado');
+    igual(((await p.textContent('#estado-sync')) || '').trim(), 'Entrá para ver también las del celular', 'y la línea sigue invitando a entrar');
+    revisar(!nube.pedidos.includes('GET /rest/v1/guardadas'), 'no sincronizó');
+    await ctx.close();
+  }
+
+  console.log(' · Salir deja el foco en el título de Misas listas');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, Object.assign(sesionPrueba(), yaMigrado()));
+    await p.click('[data-hoja="guardadas"]');
+    await p.click('#salir');
+    igual(await p.evaluate(() => document.activeElement && document.activeElement.id), 'titulo-guardadas', 'el foco va a #titulo-guardadas');
     await ctx.close();
   }
 }

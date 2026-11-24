@@ -10,6 +10,9 @@
    Toda función devuelve una promesa de { ok:true, valor } o
    { ok:false, error:{ tipo:'sin-conexion'|'credenciales'|'permiso'|'sesion'|'servidor', estado?, codigo? } }.
    Un 5xx también es 'sin-conexion' (pasajero), pero lleva su `estado`: hubo respuesta, así que la red anda.
+   Los errores 'servidor' de Auth (entrar o renovar) llevan origen:'auth': no son la respuesta a una guardada
+   (un 429 por límite de pedidos, un 403…) y la sincronización no debe rechazar un pendiente por ellos.
+   Un 403 de PostgREST es 'permiso': habla de la cuenta, no de una guardada (la sincronización corta).
    `fetch` es inyectable para las pruebas (usarFetchNube); por defecto es el del navegador. */
 
 const CLAVE_SESION_NUBE = claveDe('sesion_nube_v1');
@@ -105,8 +108,6 @@ function _nubeToken(tipo, cuerpo) {
   });
 }
 
-/* Los errores 'servidor' de Auth (entrar o renovar) llevan origen:'auth': no son la respuesta a una guardada
-   (un 429 por límite de pedidos, un 403…) y la sincronización no debe rechazar un pendiente por ellos. */
 /* Guarda la sesión y devuelve { ok:true, valor:{ correo, vence } } (los tokens no salen de aquí). */
 function _nubeGuardarDeRespuesta(r) {
   const s = _nubeSesionDeToken(_nubeJson(r.texto));

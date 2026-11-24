@@ -1020,14 +1020,15 @@ function guardarConNombre(nombre, existia) {
   pintarGuardadas();
   programarSincronizacionGuardadas();
 }
-/* Una fila de «Misas listas»: nombre, cuándo se usó (o se guardó, si nunca se cargó) y «Cargar». */
-function pintarRapidas(caja, lista) {
+/* Una fila de «Misas listas»: nombre, cuándo se usó (o se guardó, si nunca se cargó) y «Cargar». Si la nube
+   la rechazó (`rechazadas`, los ids), en lugar de cuándo dice «No se guardó en la nube». */
+function pintarRapidas(caja, lista, rechazadas) {
   caja.textContent = '';
   lista.forEach(g => {
     const fila = nuevo('div', 'rapida'); fila.setAttribute('role', 'listitem');
     const txt = nuevo('div', 'txt');
     const uso = usoDeGuardada(g);
-    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', uso.palabra + ' ' + haceCuanto(uso.cuando)));
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', rechazadas.has(g.id) ? TEXTO_FILA_RECHAZADA : uso.palabra + ' ' + haceCuanto(uso.cuando)));
     const b = nuevo('button', '', 'Cargar'); b.type = 'button'; b.dataset.id = g.id;
     b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
     b.addEventListener('click', () => cargarGuardada(g.id, b));
@@ -1035,11 +1036,14 @@ function pintarRapidas(caja, lista) {
     caja.append(fila);
   });
 }
-/* Se repinta solo si cambió algo que se ve (la sincronización llama esto seguido). */
+/* Se repinta solo si cambió algo que se ve (la sincronización llama esto seguido). También la llama la app
+   (scriptPonerGuardadas) después de marcar la cola: la línea de estado se revisa siempre. */
 let firmaPintadas = null;
 function pintarGuardadas() {
+  refrescarLineaSync();
   const lista = leerGuardadas();
-  const firma = JSON.stringify([lista, new Date().toDateString(), firmaTipos]);
+  const rechazadas = idsRechazadasGuardadas();
+  const firma = JSON.stringify([lista, [...rechazadas].sort(), new Date().toDateString(), firmaTipos]);
   if (firma === firmaPintadas) return;
   firmaPintadas = firma;
   const caja = $('lista-guardadas'); caja.textContent = '';
@@ -1048,7 +1052,8 @@ function pintarGuardadas() {
     const fila = nuevo('div', 'guardada');
     const info = nuevo('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
     const uso = usoDeGuardada(g);
-    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · ' + uso.palabra.toLowerCase() + ' ' + haceCuanto(uso.cuando)));
+    const cuando = rechazadas.has(g.id) ? TEXTO_FILA_RECHAZADA : uso.palabra.toLowerCase() + ' ' + haceCuanto(uso.cuando);
+    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · ' + cuando));
     info.title = 'Última vez: ' + new Date(ultimoUso(g)).toLocaleDateString('es');
     const acciones = nuevo('div', 'acciones');
     const boton = (clase, texto, accion) => {
@@ -1084,7 +1089,7 @@ function pintarGuardadas() {
   });
 
   /* «Misas listas» en Preparar: las 5 más usadas */
-  pintarRapidas($('listas'), lista.slice(0, 5));
+  pintarRapidas($('listas'), lista.slice(0, 5), rechazadas);
   $('listas').hidden = !lista.length;          // vacía, la lista no se anuncia: el mensaje va fuera de role=list
   $('listas-vacia').hidden = !!lista.length;
   $('ver-todas').hidden = !lista.length;
@@ -1098,7 +1103,7 @@ $('guardar-esta').addEventListener('click', () => {
   if (!nombreEscrito) $('guardar-nombre').value = nombreSugerido();
   $('guardar-nombre').focus(); $('guardar-nombre').select();
 });
-window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS) pintarGuardadas(); });
+window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS || e.key === CLAVE_PENDIENTES) pintarGuardadas(); });
 
 /* ---------- misas listas en la nube (solo en la PC; la app sincroniza de forma nativa) ---------- */
 function pintarSesion() {
@@ -1108,7 +1113,7 @@ function pintarSesion() {
 }
 const ESTADOS_AVISO = ['sin-conexion', 'error-servidor', 'sesion-cerrada'];
 const MUESTRA_CARGADA_MS = 5000;
-let ultimoSync = { texto: '', aviso: false };
+let ultimoSync = { estado: '', texto: '', aviso: false };   // estado '': todavía nada (en la app, siempre)
 let cargadaHasta = 0, cargadaT = null;
 /* La línea tiene role="status": reescribirla con el mismo texto la vuelve a anunciar, así que solo se toca si cambia. */
 function ponerLineaSync(texto, aviso) {
@@ -1116,17 +1121,28 @@ function ponerLineaSync(texto, aviso) {
   if (el.textContent !== texto) el.textContent = texto;
   el.classList.toggle('aviso-sync', !!aviso);
 }
-function estadoSync(estado, texto) {
-  ultimoSync = { texto, aviso: ESTADOS_AVISO.includes(estado) };
-  pintarSesion();
+/* Lo que dice la línea: el estado de la sincronización. Si hay misas que la nube rechazó y lo demás está bien
+   («Sincronizado», o nada todavía, que en la app es siempre), en su lugar dice cuántas. */
+function lineaSync() {
+  const tranquila = ultimoSync.estado === '' || (ultimoSync.estado === 'ok' && ultimoSync.texto === TEXTO_SYNC.ok);
+  const n = tranquila ? idsRechazadasGuardadas().size : 0;
+  return n ? { texto: textoRechazadas(n), aviso: true } : ultimoSync;
+}
+function refrescarLineaSync() {
   if (Date.now() < cargadaHasta) return;   // «Cargada: …» se queda unos segundos; después vuelve el estado
-  ponerLineaSync(ultimoSync.texto, ultimoSync.aviso);
+  const l = lineaSync();
+  ponerLineaSync(l.texto, l.aviso);
+}
+function estadoSync(estado, texto) {
+  ultimoSync = { estado, texto, aviso: ESTADOS_AVISO.includes(estado) };
+  pintarSesion();
+  pintarGuardadas();   // una fila pudo pasar a rechazada sin que cambie la lista; también revisa la línea
 }
 function avisarCargada(nombre) {
   ponerLineaSync('Cargada: ' + nombre, false);
   cargadaHasta = Date.now() + MUESTRA_CARGADA_MS;
   clearTimeout(cargadaT);
-  cargadaT = setTimeout(() => { cargadaHasta = 0; ponerLineaSync(ultimoSync.texto, ultimoSync.aviso); }, MUESTRA_CARGADA_MS);
+  cargadaT = setTimeout(() => { cargadaHasta = 0; refrescarLineaSync(); }, MUESTRA_CARGADA_MS);
 }
 const dialogoEntrar = $('dialogo-entrar');
 function reponerBotonEntrar() {
@@ -1140,7 +1156,8 @@ $('entrar').addEventListener('click', () => {
   $('entrar-correo').focus();
 });
 $('entrar-cancelar').addEventListener('click', () => dialogoEntrar.close());
-dialogoEntrar.addEventListener('close', () => { $('entrar-clave').value = ''; });   // la contraseña no queda escrita
+let intentoEntrar = 0;   // cerrar el diálogo (Cancelar, Esc) deja viejo el intento en curso: su resultado no cuenta
+dialogoEntrar.addEventListener('close', () => { intentoEntrar++; $('entrar-clave').value = ''; });   // la contraseña no queda escrita
 $('form-entrar').addEventListener('submit', async (e) => {
   e.preventDefault();
   const boton = $('entrar-boton');
@@ -1148,20 +1165,23 @@ $('form-entrar').addEventListener('submit', async (e) => {
   boton.disabled = true;
   boton.textContent = 'Entrando…';
   $('entrar-error').textContent = '';
+  const intento = intentoEntrar;
+  const vigente = () => intento === intentoEntrar && dialogoEntrar.open;
   let r;
   try {
-    r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value);
+    r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value, vigente);
   } catch (err) {
     r = { ok: false, texto: 'No se pudo entrar. Probá de nuevo en un rato.' };
   } finally {
     reponerBotonEntrar();
   }
+  if (r.cancelado || !vigente()) return;   // se cerró el diálogo mientras entraba: entrarGuardadas borró la sesión
   if (!r.ok) { $('entrar-error').textContent = r.texto; $('entrar-clave').focus(); return; }
   dialogoEntrar.close();
   pintarSesion();
   ($('ver-todas').hidden ? $('cambiar-tipo') : $('ver-todas')).focus();   // «Entrar» ya no está: el foco no se pierde
 });
-$('salir').addEventListener('click', () => { salirGuardadas(); pintarSesion(); });
+$('salir').addEventListener('click', () => { salirGuardadas(); pintarSesion(); $('titulo-guardadas').focus(); });   // «Salir» se oculta: el foco no se pierde
 
 /* ---------- pintar el panel ---------- */
 function llenar() {
