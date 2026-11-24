@@ -127,6 +127,10 @@ function aplicarParroquia(c) {
   esc.classList.toggle('pos-centro', e.posicion === 'centro');
   esc.classList.toggle('pos-derecha', e.posicion === 'derecha');
   esc.classList.toggle('pos-arriba-derecha', e.posicion === 'arriba-derecha');
+  ['tarjeta', 'minimal', 'etiqueta'].forEach((d) => esc.classList.toggle('diseno-' + d, e.diseno === d));
+  // Solo los diseños nuevos las usan; el Clásico no lleva clases nuevas (su huella en la línea base no cambia).
+  esc.classList.toggle('lado-claro', e.diseno !== 'clasico' && e.ladoClaro);
+  esc.classList.toggle('linea-clara', e.diseno !== 'clasico' && e.lineaClara);
   if (e.colorLado) esc.style.setProperty('--lado', e.colorLado);
   else esc.style.removeProperty('--lado');
   if (e.colorLinea) esc.style.setProperty('--linea', e.colorLinea);

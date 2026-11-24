@@ -350,3 +350,63 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 #v-horarios.f-una .fila.horario .f{font-size:18px}
 #v-horarios.f-una .filas.dos-col .fila.horario .a{font-size:22px}
 #v-horarios.f-sin .fila.horario .f{display:none}
+
+/* ================= Diseños de rótulo (rotulos.diseno) =================
+   El mismo #rotulo (.lado, .cuerpo, .k, .t, .s) con otra apariencia; rotulos.html pone la clase en #escenario.
+   Clásico (el de siempre) no lleva clase. --lado es el «Fondo del rótulo» y --linea la «Línea de acento»;
+   lado-claro y linea-clara (contraste con blanco menor que 3) ponen oscuro el texto que va encima. */
+.escenario.diseno-tarjeta .rotulo .lado,.escenario.diseno-minimal .rotulo .lado,.escenario.diseno-etiqueta .rotulo .lado{display:none}
+
+/* Tarjeta: tarjeta blanca compacta, la ceja en una píldora de color y un punto de color delante del subtítulo. */
+.escenario.diseno-tarjeta .rotulo{box-shadow:0 18px 40px rgba(0,0,0,.28)}
+.escenario.diseno-tarjeta .rotulo .cuerpo{border-top:0;min-width:520px;padding:28px 56px 30px 40px;gap:10px}
+.escenario.diseno-tarjeta .rotulo .k{align-self:flex-start;background:var(--linea,var(--celeste));color:#fff;font-size:16px;letter-spacing:4px;padding:7px 18px;border-radius:999px}
+.escenario.diseno-tarjeta.linea-clara .rotulo .k{color:var(--oscuro)}
+.escenario.diseno-tarjeta .rotulo .s{display:flex;align-items:center;gap:14px}
+.escenario.diseno-tarjeta .rotulo .s::before{content:"";flex:none;width:14px;height:14px;border-radius:50%;background:var(--lado,var(--rey))}
+.escenario.diseno-tarjeta.lado-claro .rotulo .s::before{background:var(--oscuro)}
+.escenario.diseno-tarjeta .rotulo.en .cuerpo{animation:tarjetaEntra .6s cubic-bezier(.2,.8,.2,1) .05s both}
+.escenario.diseno-tarjeta .rotulo.en .k{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .35s both}
+.escenario.diseno-tarjeta .rotulo.en .t{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .45s both}
+.escenario.diseno-tarjeta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .58s both}
+@keyframes tarjetaEntra{from{opacity:0;transform:translateY(36px) scale(.97)}to{opacity:1;transform:none}}
+
+/* Minimal: sin caja; texto blanco sobre un oscurecido del ancho de la pantalla y una línea vertical de color.
+   El oscurecido es un ::before del rótulo que se extiende hasta los bordes (el rótulo deja de recortar). */
+.escenario.diseno-minimal .rotulo{border-radius:0;overflow:visible;isolation:isolate}
+.escenario.diseno-minimal .rotulo::before{content:"";position:absolute;z-index:-1;left:-60px;width:1920px;bottom:-70px;height:440px;
+  background:linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,.42) 45%,rgba(0,0,0,0));pointer-events:none}
+.escenario.diseno-minimal.pos-centro .rotulo::before{left:50%;margin-left:-960px}
+.escenario.diseno-minimal.pos-derecha .rotulo::before,.escenario.diseno-minimal.pos-arriba-derecha .rotulo::before{left:auto;right:-60px}
+.escenario.diseno-minimal.pos-arriba-derecha .rotulo::before{bottom:auto;top:-44px;background:linear-gradient(180deg,rgba(0,0,0,.72),rgba(0,0,0,.42) 45%,rgba(0,0,0,0))}
+.escenario.diseno-minimal .rotulo .cuerpo{background:transparent;border-top:0;border-left:8px solid var(--linea,var(--celeste));min-width:0;padding:6px 0 8px 32px;overflow:visible}
+.escenario.diseno-minimal .rotulo .k{color:rgba(255,255,255,.82)}
+.escenario.diseno-minimal .rotulo .t{color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+.escenario.diseno-minimal .rotulo .s{color:rgba(255,255,255,.9)}
+.escenario.diseno-minimal .rotulo.en::before{animation:oscurecidoEntra .45s ease-out both}
+.escenario.diseno-minimal .rotulo.en .cuerpo{animation:lineaCrece .5s cubic-bezier(.2,.8,.2,1) .2s both}
+.escenario.diseno-minimal .rotulo.en .cuerpo::after{display:none}
+@keyframes oscurecidoEntra{from{opacity:0}to{opacity:1}}
+@keyframes lineaCrece{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+/* Etiqueta: la ceja como pestaña de color pegada encima de una caja oscura (o del «Fondo del rótulo»).
+   El rótulo deja lugar arriba para la pestaña (padding-top), así su caja incluye la pestaña. */
+.escenario.diseno-etiqueta .rotulo{border-radius:0;overflow:visible;padding-top:46px}
+.escenario.diseno-etiqueta .rotulo .cuerpo{background:var(--lado,var(--oscuro));border-top:0;min-width:520px;padding:24px 56px 28px 36px;overflow:visible;
+  border-radius:0 24px 24px 24px;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+.escenario.diseno-etiqueta .rotulo .k{position:absolute;left:0;top:-46px;height:46px;display:flex;align-items:center;padding:0 22px;
+  background:var(--linea,var(--celeste));color:#fff;font-size:17px;border-radius:14px 14px 0 0;white-space:nowrap}
+.escenario.diseno-etiqueta.linea-clara .rotulo .k{color:var(--oscuro)}
+.escenario.diseno-etiqueta .rotulo .t{color:#fff}
+.escenario.diseno-etiqueta .rotulo .s{color:rgba(255,255,255,.82)}
+.escenario.diseno-etiqueta.lado-claro .rotulo .t,.escenario.diseno-etiqueta.lado-claro .rotulo .s{color:var(--oscuro)}
+.escenario.diseno-etiqueta.esquinas-rectas .rotulo .cuerpo,.escenario.diseno-etiqueta.esquinas-rectas .rotulo .k{border-radius:0}
+.escenario.diseno-etiqueta.esquinas-redondas .rotulo .cuerpo{border-radius:0 40px 40px 40px}
+.escenario.diseno-etiqueta.esquinas-redondas .rotulo .k{border-radius:22px 22px 0 0}
+.escenario.diseno-etiqueta .rotulo.en .k{animation:pestanaEntra .4s cubic-bezier(.2,.9,.25,1.15) both}
+.escenario.diseno-etiqueta .rotulo.en .cuerpo{animation:cajaEntra .6s cubic-bezier(.2,.8,.2,1) .22s both}
+.escenario.diseno-etiqueta .rotulo.en .cuerpo::after{display:none}
+.escenario.diseno-etiqueta .rotulo.en .t{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .5s both}
+.escenario.diseno-etiqueta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .62s both}
+@keyframes pestanaEntra{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes cajaEntra{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(-60px -60px -60px -60px)}}
