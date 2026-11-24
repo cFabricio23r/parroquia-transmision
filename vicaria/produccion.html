@@ -62,6 +62,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 
 /* ---------- El nombre: en una línea (encajarNombre lo achica si no entra) y en la letra elegida ---------- */
 .grande{white-space:nowrap}
+.grande.en-lineas{white-space:normal;text-align:center}
+.claro .grande.en-lineas{text-align:left}   /* en el Claro el nombre va alineado con la línea de abajo */
 .escenario.letra-lora .grande{font-family:Lora,Georgia,serif;font-weight:700;letter-spacing:0}
 .escenario.letra-source-sans .grande{font-family:SourceSans,Mont,sans-serif;font-weight:700;letter-spacing:0}
 .escenario.letra-cinzel .grande{font-family:Cinzel,Georgia,serif;font-weight:700;letter-spacing:0}
@@ -178,7 +180,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
     // Los dos estilos usan el logo blanco: en el Claro va dentro de su círculo del principal (F4:35).
     var logo = document.getElementById('logo-claro') || document.getElementById('logo-azul');
     var caja = document.getElementById('logo-claro-caja');
-    if (caja && !logo.dataset.vigilaCaja) { logo.dataset.vigilaCaja = '1'; logo.addEventListener('error', function () { caja.hidden = true; }); }
+    if (caja && !logo.dataset.vigilaCaja) { logo.dataset.vigilaCaja = '1'; logo.addEventListener('error', function () { caja.hidden = true; encajarNombre(); }); }
     imagen(logo, c.logos && c.logos.blanco);
     if (b && Array.isArray(b.ocultar) && b.ocultar.indexOf('marca') !== -1) logo.hidden = true;
     if (caja) caja.hidden = logo.hidden;   // sin logo (o con la marca oculta) no queda el círculo vacío
@@ -197,18 +199,29 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
     encajarNombre();
   }
   // El nombre va en una línea; si a la escala elegida no entra en el ancho libre (1640 px, menos el logo
-  // del Claro), se achica hasta que entre, nunca por debajo del 45 %.
+  // del Claro), se achica hasta que entre. Por debajo del 45 % ya no se lee: queda al 45 % en dos líneas.
   function encajarNombre() {
     var g = lamina.querySelector('.grande');
     if (!g) return;
+    g.classList.remove('en-lineas');
+    g.style.maxWidth = '';
     g.style.setProperty('--escala-nombre', escalaElegida);
     var libre = 1640;
     if (caja && !caja.hidden) libre -= 300 + 48;
     var ancho = g.scrollWidth;
-    if (ancho > libre) g.style.setProperty('--escala-nombre', Math.max(0.45, escalaElegida * libre / ancho));
+    if (ancho <= libre) return;
+    var k = escalaElegida * libre / ancho;
+    if (k >= 0.45) { g.style.setProperty('--escala-nombre', k); return; }
+    g.style.setProperty('--escala-nombre', 0.45);
+    g.style.maxWidth = libre + 'px';
+    g.classList.add('en-lineas');
   }
   var caja = document.getElementById('logo-claro-caja');
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(encajarNombre);
+  // Una letra elegida puede terminar de cargar después de medir: se mide de nuevo (como pantalla.html).
+  if (document.fonts) {
+    document.fonts.addEventListener('loadingdone', encajarNombre);
+    if (document.fonts.ready) document.fonts.ready.then(encajarNombre);
+  }
   aplicarParroquia(PARROQUIA);
   alCambiarParroquia(aplicarParroquia);
   vigilarParroquia();

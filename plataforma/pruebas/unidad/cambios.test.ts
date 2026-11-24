@@ -135,6 +135,10 @@ describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
     const despues = { inicio: { modo: 'personalizada', letras: { titulo: 'lora', frase: 'oswald' }, tamanos: { titulo: 'muy-chico' } } };
     expect(frases({ pantallas: antes }, { pantallas: despues })).toEqual(['Pantalla de Inicio: tamaño del título, letra del título y letra de la frase']);
   });
+  it('Producción dice «nombre», como el editor', () => {
+    const despues = { produccion: { modo: 'personalizada', letras: { titulo: 'oswald' }, tamanos: { titulo: 'muy-chico' } } };
+    expect(frases({ pantallas: { produccion: { modo: 'personalizada' } } }, { pantallas: despues })).toEqual(['Pantalla de Producción: tamaño del nombre y letra del nombre']);
+  });
   it('Capa EN VIVO con EN VIVO oculto', () => {
     expect(frases({}, { pantallas: { envivo: { modo: 'personalizada', ocultar: ['envivo'] } } })).toEqual(['Pantalla de Capa EN VIVO: EN VIVO']);
   });

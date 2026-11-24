@@ -2785,6 +2785,23 @@ async function casoLetraPorPantalla() {
   revisar(tituloGracias.startsWith('Cinzel'), 'Gracias sin letras propias: sigue con la de todas (Cinzel) (' + tituloGracias + ')');
   await ctx.close();
 
+  // La letra es la de la pantalla que se pinta de verdad (revisión C1): dominical no tiene portada y pinta Inicio;
+  // la portada de un evento usa el bloque `evento`.
+  const conTres = (c) => {
+    c.pantallas = {
+      inicio: { modo: 'personalizada', letras: { titulo: 'oswald' } },
+      portada: { modo: 'personalizada', letras: { titulo: 'cinzel' } },
+      evento: { modo: 'personalizada', letras: { titulo: 'lora' } },
+    };
+  };
+  ({ ctx, p } = await abrirCon(conTres, 'pantalla.html?tipo=portada'));
+  revisar((await familia(p, '#i-titulo')).startsWith('Oswald'), 'Portada de un domingo (pinta Inicio): la letra de Inicio (' + await familia(p, '#i-titulo') + ')');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(conTres, 'pantalla.html?tipo=portada', { tipo: 'evento', evento: 'Concierto', fecha: '2026-12-20', lugar: 'Atrio' }));
+  const tituloEvento = await p.evaluate(() => { const t = document.querySelector('#v-portada .titulo'); return t ? getComputedStyle(t).fontFamily : ''; });
+  revisar(tituloEvento.startsWith('Lora'), 'Portada de un evento: la letra del bloque evento (' + tituloEvento + ')');
+  await ctx.close();
+
   // «Muy chico»: el título de Inicio queda al 70 %.
   ({ ctx, p } = await abrirCon(() => {}, 'pantalla.html?tipo=inicio'));
   const normalInicio = await letraTam(p, '#i-titulo');
@@ -2803,6 +2820,23 @@ async function casoLetraPorPantalla() {
     const lineas = await p.evaluate((s) => { const g = document.querySelector(s); return Math.round(g.getBoundingClientRect().height / parseFloat(getComputedStyle(g).lineHeight)); }, '#' + estilo + ' .grande');
     igual(lineas, 1, estilo + ': el nombre largo va en una línea');
     await captura(p, 'letra-por-pantalla/produccion_largo_' + estilo);
+    await ctx.close();
+  }
+  // Con una letra que carga después (Cinzel, ancha) y Grande, el nombre largo igual entra (revisión I1).
+  ({ ctx, p } = await abrirCon((c) => {
+    c.pantallas = { produccion: { modo: 'personalizada', letras: { titulo: 'cinzel' }, tamanos: { titulo: 'grande' }, textos: { prod_nombre: 'Parroquia Vianney Comunicaciones' } } };
+  }, 'produccion.html?estilo=azul'));
+  let bc = await caja(p, '#azul .grande');
+  revisar(bc.izq >= 0 && bc.der <= 1920, 'Cinzel grande: el nombre largo entra (' + bc.izq.toFixed(0) + '–' + bc.der.toFixed(0) + ')');
+  await ctx.close();
+  // Un nombre larguísimo (el nombre completo de la parroquia) tampoco se sale: pasa a dos líneas (revisión I2).
+  for (const estilo of ['azul', 'claro']) {
+    ({ ctx, p } = await abrirCon((c) => {
+      c.pantallas = { produccion: { modo: 'personalizada', textos: { prod_nombre: 'Parroquia Inmaculada Concepción de María de Ciudad Arce, La Libertad' } } };
+    }, 'produccion.html?estilo=' + estilo));
+    bc = await caja(p, '#' + estilo + ' .grande');
+    revisar(bc.izq >= 0 && bc.der <= 1920, estilo + ': el nombre larguísimo entra (' + bc.izq.toFixed(0) + '–' + bc.der.toFixed(0) + ')');
+    await captura(p, 'letra-por-pantalla/produccion_larguisimo_' + estilo);
     await ctx.close();
   }
   ({ ctx, p } = await abrirCon(() => {}, 'produccion.html?estilo=azul'));

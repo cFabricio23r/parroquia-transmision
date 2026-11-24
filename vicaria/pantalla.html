@@ -322,6 +322,7 @@ function pintar(s) {
   const vistaCfg = esPortadaEvento && conBloqueEvento ? 'evento' : efectiva;
   const T = (clave) => textoDe(s, vistaCfg, clave);
   aplicarAjustes(vistaCfg);
+  aplicarEstiloPantallas(vistaCfg);
   tamanosVista = ajustesDe(vistaCfg).tamanos;
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
@@ -510,9 +511,10 @@ function aplicarAjustes(vista) {
 /* estiloPantallas: clases letra-titulo-<clave>, letra-frase-<clave> y logo-chico|logo-grande en el escenario.
    Los valores de siempre no ponen clase, así la pantalla queda idéntica a la de antes. */
 const CLASES_ESTILO = TIPOGRAFIAS.map((t) => 'letra-titulo-' + t).concat(LETRAS_FRASE.map((t) => 'letra-frase-' + t), ['logo-chico', 'logo-grande']);
-function aplicarEstiloPantallas() {
+function aplicarEstiloPantallas(v) {
   const esc = $('escenario');
-  const e = estiloDe(vista);   // el de todas, con las letras propias de esta pantalla encima
+  // El de todas, con las letras propias de la pantalla que se pinta de verdad (vistaCfg de pintar) encima.
+  const e = estiloDe(v || vista);
   esc.classList.remove(...CLASES_ESTILO);
   if (e.letraTitulo !== 'montserrat') esc.classList.add('letra-titulo-' + e.letraTitulo);
   if (e.letraFrase !== 'vibes') esc.classList.add('letra-frase-' + e.letraFrase);

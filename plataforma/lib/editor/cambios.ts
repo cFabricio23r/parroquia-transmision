@@ -111,9 +111,10 @@ function pantallas(p: Config, b: Config): string[] {
     const visible = (c: Config, e: string) => (lista(c.mostrar).includes(e) ? 'mostrar' : lista(c.ocultar).includes(e) ? 'ocultar' : '');
     for (const [e, texto] of ELEMENTOS) if (visible(a, e) !== visible(d, e)) detalles.push(texto);
     if (distinto(a.textos, d.textos)) detalles.push('texto de arriba');
-    if (distinto(obj(a.tamanos).titulo, obj(d.tamanos).titulo)) detalles.push('tamaño del título');
+    const delTitulo = v === 'produccion' ? 'del nombre' : 'del título';   // como lo dice el editor
+    if (distinto(obj(a.tamanos).titulo, obj(d.tamanos).titulo)) detalles.push(`tamaño ${delTitulo}`);
     if (distinto(obj(a.tamanos).frase, obj(d.tamanos).frase)) detalles.push('tamaño de la frase');
-    if (distinto(obj(a.letras).titulo, obj(d.letras).titulo)) detalles.push('letra del título');
+    if (distinto(obj(a.letras).titulo, obj(d.letras).titulo)) detalles.push(`letra ${delTitulo}`);
     if (distinto(obj(a.letras).frase, obj(d.letras).frase)) detalles.push('letra de la frase');
     if (distinto(a.encuadre, d.encuadre)) detalles.push('foto movida');
     frases.push(`Pantalla de ${nombre}: ${detalles.length ? unirLista(detalles) : 'personalizada'}`);
