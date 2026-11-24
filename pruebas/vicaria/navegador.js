@@ -28,6 +28,7 @@ const SJ = 'san-jose-ejemplo';
 const HOST = '127.0.0.1';   // el servidor escucha solo en IPv4: «localhost» pasaría primero por ::1
 const configDe = (slug) => JSON.parse(fs.readFileSync(path.join(RAIZ, slug, 'config.json'), 'utf8'));
 const CONFIG = { [CA]: configDe(CA), [SJ]: configDe(SJ) };
+const CONFIG_NOMBRE_CA = CONFIG[CA].nombre.toUpperCase();
 
 let fallos = 0;
 const revisar = (cond, msg) => { console.log((cond ? '  ✔ ' : '  ✘ ') + msg); if (!cond) fallos++; };
@@ -2234,6 +2235,244 @@ async function casoClasicoIgual() {
   }
 }
 
+/* Compara dos PNG del mismo tamaño en una página: cuántos píxeles difieren poco (> 8 en algún canal) y mucho (> 32). */
+async function difPixeles(a, b) {
+  const pg = await browser.newPage();
+  const r = await pg.evaluate(async ([x, y]) => {
+    const leer = async (b64) => { const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode();
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d');
+      g.drawImage(im, 0, 0); return g.getImageData(0, 0, im.width, im.height).data; };
+    const p = await leer(x), q = await leer(y);
+    if (p.length !== q.length) return { leves: Infinity, fuertes: Infinity };
+    let leves = 0, fuertes = 0;
+    for (let i = 0; i < p.length; i += 4) {
+      const m = Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]), Math.abs(p[i + 3] - q[i + 3]));
+      if (m > 32) fuertes++; else if (m > 8) leves++;
+    }
+    return { leves, fuertes };
+  }, [a.toString('base64'), b.toString('base64')]);
+  await pg.close();
+  return r;
+}
+
+/* Las pantallas sin estiloPantallas, tamanos ni encuadre tienen que verse igual al píxel que antes de esta obra.
+   Con --grabar-pantallas escribe las capturas de referencia en pantallas-referencia/ (una vez, sobre el código sin
+   cambios); sin la marca compara byte a byte y, si difiere, deja la nueva en capturas/vicaria/pantallas-diferente/. */
+async function casoPantallasIgual() {
+  const grabar = process.argv.includes('--grabar-pantallas');
+  console.log('Pantallas iguales a las de antes' + (grabar ? ' (grabando)' : ''));
+  const carpeta = path.join(__dirname, 'pantallas-referencia');
+  const diferentes = path.join(CAPTURAS, 'pantallas-diferente');
+  fs.mkdirSync(grabar ? carpeta : diferentes, { recursive: true });
+  for (const slug of [CA, SJ]) {
+    for (const tipo of ['inicio', 'portada', 'gracias', 'avisos', 'horarios']) {
+      const nombre = slug + '_' + tipo + '.png';
+      const ctx = await nuevoContexto();
+      const p = await abrir(ctx, `/${slug}/pantalla.html?tipo=${tipo}`, 1920, 1080, async (pg) => {
+        await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+        await pg.addInitScript(([k, v]) => localStorage.setItem(k, v),
+          [`pev_${slug}_estado_v1`, JSON.stringify({ tipo: 'dominical' })]);
+        // Las chispas usan Math.random: con una semilla fija salen siempre en el mismo lugar.
+        await pg.addInitScript(() => { let s = 7; Math.random = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; }; });
+      });
+      await p.waitForLoadState('networkidle');
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(1800);
+      const png = await p.screenshot({ animations: 'disabled' });
+      await ctx.close();
+      if (grabar) { fs.writeFileSync(path.join(carpeta, nombre), png); console.log('  grabada ' + nombre); continue; }
+      const ref = path.join(carpeta, nombre);
+      // Byte a byte no sirve acá: el borde suavizado de los rayos y del arco cambia unos pocos píxeles (≤ 12/255)
+      // entre corridas. Se acepta ese ruido; un cambio real (letra, tamaño, posición) mueve miles de píxeles.
+      const d = fs.existsSync(ref) ? await difPixeles(fs.readFileSync(ref), png) : null;
+      const igualA = !!d && d.fuertes === 0 && d.leves <= 200;
+      if (!igualA) fs.writeFileSync(path.join(diferentes, nombre), png);
+      revisar(igualA, 'Pantalla ' + slug + ' ' + tipo + ': igual a la referencia' + (igualA ? '' : ' (' + (d ? d.fuertes + ' píxeles muy distintos, ' + d.leves + ' leves' : 'sin referencia') + '; nueva en capturas/vicaria/pantallas-diferente/' + nombre + ')'));
+    }
+  }
+}
+
+/* Estilo de todas las pantallas (estiloPantallas), tamaño de los textos (tamanos) y su techo. */
+async function casoEstiloPantallas() {
+  console.log('Pantallas · letras, logo y tamaños');
+  fs.mkdirSync(path.join(CAPTURAS, 'estilo-pantallas'), { recursive: true });
+  const abrirCon = async (cambios, tipo, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques(cambios)));
+    const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=${tipo}`, 1920, 1080, estadoCA(Object.assign({ tipo: 'dominical' }, estado || {})));
+    await p.waitForLoadState('networkidle');
+    await p.evaluate(() => document.fonts.ready);
+    await p.waitForTimeout(1200);
+    return { ctx, p };
+  };
+  const familia = (p, sel) => p.evaluate((s) => getComputedStyle(document.querySelector(s)).fontFamily, sel);
+  const alto = (p, sel) => p.evaluate((s) => document.querySelector(s).getBoundingClientRect().height / (document.getElementById('escenario').getBoundingClientRect().height / 1080), sel);
+
+  // Letras
+  let { ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel', letraFrase: 'oswald' }; }, 'inicio');
+  revisar((await familia(p, '#i-titulo')).startsWith('Cinzel'), 'letraTitulo cinzel: el título de Inicio va en Cinzel (' + await familia(p, '#i-titulo') + ')');
+  revisar((await familia(p, '#i-cursiva')).startsWith('Oswald'), 'letraFrase oswald: la frase va en Oswald');
+  revisar((await familia(p, '#i-ceja')).startsWith('Mont'), 'la ceja sigue en Montserrat');
+  revisar((await familia(p, '#i-pildora')).startsWith('Mont'), 'la píldora sigue en Montserrat');
+  revisar((await familia(p, '#t-marca')).startsWith('Mont'), 'la marca sigue en Montserrat');
+  igual(await p.evaluate(() => getComputedStyle(document.getElementById('i-titulo').parentNode).textTransform), 'uppercase', 'el título sigue en mayúsculas');
+  await captura(p, 'estilo-pantallas/cinzel_oswald_inicio');
+  await ctx.close();
+  for (const tipo of ['avisos', 'horarios']) {
+    ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; }, tipo));
+    const sel = tipo === 'avisos' ? '#a-titulo' : '#h-titulo';
+    revisar((await familia(p, sel)).startsWith('Cinzel'), tipo + ': el título de la tarjeta va en Cinzel');
+    await ctx.close();
+  }
+
+  // Logo
+  ({ ctx, p } = await abrirCon(() => {}, 'inicio'));
+  const normal = await alto(p, '#marca-logo');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'grande' }; }, 'inicio'));
+  const grande = await alto(p, '#marca-logo');
+  await captura(p, 'estilo-pantallas/logo_grande');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'chico' }; }, 'inicio'));
+  const chico = await alto(p, '#marca-logo');
+  await ctx.close();
+  revisar(Math.abs(normal - 70) < 1, 'logo normal: 70 px (' + normal.toFixed(1) + ')');
+  revisar(grande > 70 && chico < 70, 'logo grande más alto y chico más bajo (' + chico.toFixed(1) + ' / ' + grande.toFixed(1) + ')');
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'grande' }; }, 'avisos'));
+  const circulo = await p.evaluate(() => { const e = document.querySelector('#a-logo img') || document.getElementById('a-logo'); return e.getBoundingClientRect().height; });
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(() => {}, 'avisos'));
+  const circuloAntes = await p.evaluate(() => { const e = document.querySelector('#a-logo img') || document.getElementById('a-logo'); return e.getBoundingClientRect().height; });
+  await ctx.close();
+  revisar(Math.abs(circulo - circuloAntes) < 0.5, 'avisos: el logo del círculo no cambia con logo grande');
+
+  // Tamaños de los textos (tamanos) y su techo
+  const tam = (p, sel) => p.evaluate((s) => parseFloat(getComputedStyle(document.querySelector(s)).fontSize), sel);
+  const cabe = (p, vistaSel) => p.evaluate((s) => {
+    const v = document.querySelector(s);
+    const anchos = [...v.querySelectorAll('h1, .cursiva')].filter((e) => e.offsetParent !== null).every((e) => e.scrollWidth <= e.clientWidth + 1);
+    return anchos && !seSale(v, parseFloat(getComputedStyle(v).paddingBottom) || 0);
+  }, vistaSel);
+  const pant = (vista, extra) => (c) => { c.pantallas = Object.assign({}, c.pantallas, { [vista]: Object.assign({ modo: 'personalizada' }, extra) }); };
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'grande', frase: 'chico' } }), 'inicio', { textos: { inicio_titulo: 'MISA', inicio_cursiva: 'Hoy' } }));
+  const tg = await tam(p, '#i-titulo'); const fc = await tam(p, '#i-cursiva');
+  revisar(Math.abs(tg - 104 * 1.15) <= 1, 'inicio título grande: 115 % de 104 (' + tg.toFixed(1) + ')');
+  revisar(Math.abs(fc - 54 * 0.85) <= 1, 'inicio frase chica: 85 % de 54 (' + fc.toFixed(1) + ')');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'chico' } }), 'inicio', { textos: { inicio_titulo: 'MISA' } }));
+  revisar(Math.abs(await tam(p, '#i-titulo') - 104 * 0.85) <= 1, 'inicio título chico: 85 % de 104');
+  await ctx.close();
+  const LARGO = 'PEREGRINACIÓN SOLEMNE CON LA IMAGEN DE NUESTRA SEÑORA DEL CARMEN POR TODA LA COLONIA';
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'grande', frase: 'grande' } }), 'inicio', { textos: { inicio_titulo: LARGO } }));
+  const tl = await tam(p, '#i-titulo');
+  revisar(await cabe(p, '#v-inicio'), 'inicio grande con título largo: no se sale del cuadro');
+  revisar(tl <= 104 * 1.15 + 0.5, 'inicio grande con título largo: no pasa de grande (' + tl.toFixed(1) + ')');
+  await captura(p, 'estilo-pantallas/inicio_grande_largo');
+  await ctx.close();
+
+  // Review Focus 1: Gracias con 6 horarios y redes, «Grande» no quita horarios que con «Normal» se ven
+  const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const conExtras = (tamanos) => (c) => {
+    c.horarios = DIAS.map((d, i) => ({ dia: d, horas: [{ hora: (6 + i) + ':00 a. m.', nota: 'Misa con niños' }, { hora: (5 + i) + ':00 p. m.' }] }));
+    c.redes = [{ red: 'facebook', url: 'https://www.facebook.com/x', texto: '/Parroquia' }, { red: 'youtube', url: 'https://www.youtube.com/@x', texto: '@Parroquia' }, { red: 'whatsapp', url: 'https://wa.me/50300000000', texto: '0000-0000' }];
+    pant('gracias', Object.assign({ mostrar: ['horarios', 'redes'] }, tamanos ? { tamanos } : {}))(c);
+  };
+  const filas = (p) => p.evaluate(() => ({ h: document.querySelectorAll('#v-gracias .extra .hora').length, r: document.querySelectorAll('#v-gracias .extra .red').length }));
+  ({ ctx, p } = await abrirCon(conExtras(null), 'gracias'));
+  const fNormal = await filas(p);
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(conExtras({ titulo: 'grande', frase: 'grande' }), 'gracias'));
+  const fGrande = await filas(p);
+  revisar(fGrande.h === fNormal.h && fGrande.r === fNormal.r, 'gracias con 6 horarios: «Grande» muestra los mismos horarios y redes que «Normal» (' + JSON.stringify(fGrande) + ' / ' + JSON.stringify(fNormal) + ')');
+  revisar(await cabe(p, '#v-gracias'), 'gracias grande con horarios: no se sale');
+  await captura(p, 'estilo-pantallas/gracias_grande_horarios');
+  await ctx.close();
+
+  // Avisos: el título de la tarjeta crece y las filas siguen dentro
+  ({ ctx, p } = await abrirCon(pant('avisos', { tamanos: { titulo: 'grande' } }), 'avisos'));
+  revisar(Math.abs(await tam(p, '#a-titulo') - 84 * 1.15) <= 1, 'avisos título grande: 115 % de 84');
+  revisar(await cabe(p, '#v-avisos'), 'avisos grande: las filas siguen dentro de la tarjeta');
+  await ctx.close();
+
+  // Horarios (sin página en el editor; el campo se acepta en config.json)
+  ({ ctx, p } = await abrirCon(pant('horarios', { tamanos: { titulo: 'grande' } }), 'horarios'));
+  revisar(Math.abs(await tam(p, '#h-titulo') - 64 * 1.15) <= 1, 'horarios título grande: 115 % de 64 (' + (await tam(p, '#h-titulo')).toFixed(1) + ')');
+  await ctx.close();
+
+  // Review Focus 3: Cinzel la primera vez (contexto nuevo), título largo: se vuelve a medir al cargar la fuente
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; }, 'inicio', { textos: { inicio_titulo: 'EXTRAORDINARIAMENTE BIENAVENTURADOS LOS CONGREGADOS AQUÍ' } }));
+  revisar(await cabe(p, '#v-inicio'), 'Cinzel la primera vez, título de 56 caracteres: no se sale ni se corta');
+  await captura(p, 'estilo-pantallas/cinzel_largo');
+  await ctx.close();
+}
+
+/* Encuadre de las fotos (pantallas.<vista>.encuadre): solo con la misma foto que se ve. */
+async function casoEncuadre() {
+  console.log('Pantallas · mover y acercar las fotos');
+  fs.mkdirSync(path.join(CAPTURAS, 'encuadre'), { recursive: true });
+  const GAL = [{ id: 'taller', src: 'medios/fachada.jpg', alt: 'El taller' }, { id: 'rota', src: 'medios/no-existe.jpg', alt: 'Rota' }];
+  const abrirCon = async (inicio, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.galeria = GAL; c.pantallas = { inicio: Object.assign({ modo: 'personalizada' }, inicio) }; })));
+    const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1920, 1080, estadoCA(Object.assign({ tipo: 'dominical' }, estado || {})));
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1600);
+    return { ctx, p };
+  };
+  const mide = (p, sel) => p.evaluate((s) => {
+    const e = document.querySelector(s); const cs = getComputedStyle(e); const k = document.getElementById('escenario').getBoundingClientRect().width / 1920;
+    const b = e.getBoundingClientRect();
+    return { pos: cs.objectPosition, caja: cs.objectViewBox || 'none', w: Math.round(b.width / k), h: Math.round(b.height / k), visible: !e.hidden };
+  }, sel);
+  const ENC = { de: 'patrono', x: 30, y: 70, zoom: 150 };
+
+  let { ctx, p } = await abrirCon({ imagen: 'patrono' });
+  const sin = await mide(p, '#virgen');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'patrono', encuadre: { imagen: ENC } }));
+  let m = await mide(p, '#virgen');
+  igual(m.pos, '30% 70%', 'arco: la foto se mueve a 30 % 70 %');
+  revisar(m.caja !== 'none', 'arco: con zoom 150 la foto se acerca (object-view-box ' + m.caja + ')');
+  revisar(m.w === sin.w && m.h === sin.h, 'arco: el marco mide lo mismo (' + m.w + '×' + m.h + ' / ' + sin.w + '×' + sin.h + ')');
+  await captura(p, 'encuadre/arco_30_70_150');
+  await ctx.close();
+  igual(sin.pos, '50% 20%', 'arco sin encuadre: el de siempre');
+
+  // Review Focus 2: la foto que se ve no es la del encuadre
+  ({ ctx, p } = await abrirCon({ imagen: 'patrono', encuadre: { imagen: ENC } }, { imagen: 'fachada' }));
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'el panel eligió otra imagen: va con el encuadre de siempre');
+  igual(m.caja, 'none', 'el panel eligió otra imagen: sin acercar');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'galeria:rota', encuadre: { imagen: { de: 'galeria:rota', x: 10, y: 10, zoom: 200 } } }));
+  await p.waitForTimeout(600);
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'la foto no cargó y cayó a la fachada: encuadre de siempre');
+  igual(m.caja, 'none', 'la foto no cargó: sin acercar');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'galeria:taller', encuadre: { imagen: { de: 'galeria:taller', x: 10, y: 10, zoom: 120 } } }));
+  igual((await mide(p, '#virgen')).pos, '10% 10%', 'foto de la galería encuadrada');
+  await p.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { galeria: [] }); aplicarParroquia(PARROQUIA); });
+  await p.waitForTimeout(400);
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'la foto ya no está en la galería: encuadre de siempre');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'logo', encuadre: { imagen: { de: 'logo', x: 0, y: 0, zoom: 200 } } }));
+  m = await mide(p, '#virgen');
+  igual(m.caja, 'none', 'con el logo en el arco no se acerca nada');
+  revisar(m.pos !== '0% 0%', 'con el logo en el arco no se mueve');
+  await ctx.close();
+
+  // Fondo de foto
+  ({ ctx, p } = await abrirCon({ fondo: { tipo: 'imagen', imagen: 'taller' }, encuadre: { fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 130 } } }));
+  m = await mide(p, '#fondo-img');
+  igual(m.pos, '10% 90%', 'fondo: la foto se mueve');
+  revisar(m.caja !== 'none', 'fondo: se acerca');
+  revisar(m.w === 1920 && m.h === 1080, 'fondo: sigue cubriendo 1920×1080 (' + m.w + '×' + m.h + ')');
+  await captura(p, 'encuadre/fondo');
+  await ctx.close();
+}
+
 /* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
 async function casoRotulosLugares() {
   console.log('Rótulos · lugares nuevos y EN VIVO');
@@ -2335,6 +2574,102 @@ async function casoTipografiasNuevas() {
 
 /* ---------- Programa ---------- */
 
+/* La transición con la identidad de la parroquia (pantallas más opciones, Tarea 9): transicion.html dibuja en un
+   canvas con los colores, el logo y el nombre de config.json. Guarda cuadros de Ciudad Arce en
+   pruebas/vicaria/transicion-referencia/ para compararlos a ojo con el .webm de hoy (la comparación es del revisor). */
+async function casoTransicion() {
+  console.log('Transición · dibujada con la identidad');
+  const REF = path.join(__dirname, 'transicion-referencia');
+  fs.mkdirSync(REF, { recursive: true });
+  const abrirT = async (slug, cfg, consulta, antes) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(`**/${slug}/config.json`, servirConfig(cfg));
+    if (antes) await antes(ctx);
+    const p = await abrir(ctx, `/${slug}/transicion.html${consulta || ''}`);
+    await p.evaluate(() => window.transicion.listo);
+    return { ctx, p };
+  };
+  const alfa = (p, t, x, y) => p.evaluate(([t, x, y]) => {
+    window.transicion.cuadro(t);
+    return document.getElementById('lienzo').getContext('2d').getImageData(x, y, 1, 1).data[3];
+  }, [t, x, y]);
+  const pixel = (p, t, x, y) => p.evaluate(([t, x, y]) => {
+    window.transicion.cuadro(t);
+    return Array.from(document.getElementById('lienzo').getContext('2d').getImageData(x, y, 1, 1).data);
+  }, [t, x, y]);
+  const guardar = async (p, t, nombre) => {
+    const url = await p.evaluate((t) => { window.transicion.cuadro(t); return document.getElementById('lienzo').toDataURL('image/png'); }, t);
+    fs.writeFileSync(path.join(REF, nombre + '.png'), Buffer.from(url.split(',')[1], 'base64'));
+  };
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const dentro = (lineas) => Array.isArray(lineas) && lineas.length > 0 && lineas.every((l) => l.x >= 0 && l.x + l.ancho <= 1920);
+
+  // reproducir() antes de estar lista: el logo tarda en llegar
+  let ctx = await nuevoContexto();
+  await ctx.route(`**/${CA}/config.json`, servirConfig(CONFIG[CA]));
+  await ctx.route('**/medios/logo-blanco.png', async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.continue(); });
+  let p = await abrir(ctx, `/${CA}/transicion.html`);
+  await p.waitForFunction(() => typeof window.reproducir === 'function');
+  igual(await p.evaluate(() => window.reproducir()), false, 'reproducir() antes de estar lista devuelve false');
+  await p.evaluate(() => window.transicion.listo);
+  igual(await p.evaluate(() => window.reproducir()), true, 'y después, true');
+  await ctx.close();
+
+  // Ciudad Arce, solo el logo
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA]));
+  igual(await alfa(p, 0.05, 20, 20), 0, 'a 0,05 s la esquina es transparente');
+  igual(await alfa(p, 1.0, 960, 540), 255, 'a 1,0 s el centro está tapado');
+  const vacio = await p.evaluate(() => {
+    window.transicion.cuadro(2.0);
+    const d = document.getElementById('lienzo').getContext('2d').getImageData(0, 0, 1920, 1080).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return false;
+    return true;
+  });
+  revisar(vacio, 'a 2,0 s todo el canvas es transparente');
+  revisar(/logo-blanco\.png$/.test(await p.evaluate(() => window.transicion.datos.logo && window.transicion.datos.logo.src)), 'usa el logo blanco');
+  for (const t of [0.5, 1.0, 1.5]) await guardar(p, t, `ciudad-arce_logo_${t.toFixed(1)}`);
+  await ctx.close();
+
+  // Ciudad Arce, con la imagen del patrono
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '?version=patrono'));
+  igual(await p.evaluate(() => window.transicion.datos.version), 'patrono', 'Ciudad Arce tiene la versión del patrono');
+  revisar(/patrono\.png$/.test(await p.evaluate(() => window.transicion.datos.patrono && window.transicion.datos.patrono.src)), 'con la imagen del patrono');
+  igual(await alfa(p, 1.0, 960, 540), 255, 'patrono: a 1,0 s el centro está tapado');
+  for (const t of [0.5, 1.0, 1.5]) await guardar(p, t, `ciudad-arce_patrono_${t.toFixed(1)}`);
+  await ctx.close();
+
+  // San José: sus colores; sin imagen del patrono, la versión del patrono cae a la del logo
+  ({ ctx, p } = await abrirT(SJ, CONFIG[SJ], '?version=patrono'));
+  igual(await p.evaluate(() => window.transicion.datos.version), 'logo', 'San José sin imagen del patrono dibuja la del logo');
+  const px = await pixel(p, 1.0, 5, 5);
+  const os = rgb(CONFIG[SJ].colores.oscuro);
+  revisar(px[3] === 255 && px.slice(0, 3).every((v, i) => Math.abs(v - os[i]) <= 25), 'a 1,0 s la franja oscura es del oscuro de San José (' + px.join(',') + ')');
+  await guardar(p, 1.0, 'san-jose_logo_1.0');
+  await ctx.close();
+
+  // logos.blanco es obligatorio en config.json: «sin logo blanco» es que no carga. Entonces usa el de color; sin ninguno, el nombre solo
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '', (c) => c.route('**/medios/logo-blanco.png', (r) => r.abort())));
+  revisar(/logo-color\.png$/.test(await p.evaluate(() => window.transicion.datos.logo && window.transicion.datos.logo.src)), 'si el logo blanco no carga, usa el de color');
+  await ctx.close();
+  ({ ctx, p } = await abrirT(CA, CONFIG[CA], '', (c) => c.route(/medios\/logo-(blanco|color)\.png$/, (r) => r.abort())));
+  igual(await p.evaluate(() => window.transicion.datos.logo), null, 'sin logos, no hay logo');
+  const sinLogo = await p.evaluate(() => window.transicion.cuadro(1.0));
+  revisar(dentro(sinLogo.lineas) && sinLogo.lineas[0].texto === CONFIG_NOMBRE_CA, 'y se ve el nombre (' + JSON.stringify(sinLogo.lineas) + ')');
+  await ctx.close();
+
+  // Un nombre de 70 letras queda dentro de los 1920 px, en las dos versiones
+  const nombre70 = 'Parroquia Nuestra Señora de la Asunción y San Juan Bautista del Llanos';
+  for (const version of ['logo', 'patrono']) {
+    ({ ctx, p } = await abrirT(CA, conBloques((c) => { c.nombre = nombre70; }), '?version=' + version));
+    const m = await p.evaluate(() => window.transicion.cuadro(1.0));
+    revisar(nombre70.length === 70 && dentro(m.lineas), `${version}: un nombre de 70 letras queda dentro (${m.lineas.map((l) => Math.round(l.x) + '+' + Math.round(l.ancho)).join(' / ')})`);
+    revisar(m.lineas.map((l) => l.texto).join(' ') === nombre70.toUpperCase(), `${version}: y no se corta`);
+    if (version === 'patrono') await guardar(p, 1.0, 'nombre-largo_patrono_1.0');
+    else await guardar(p, 1.0, 'nombre-largo_logo_1.0');
+    await ctx.close();
+  }
+}
+
 (async () => {
   const servidor = crearServidor();
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
@@ -2343,7 +2678,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas, casoTransicion };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2384,11 +2719,15 @@ async function casoTipografiasNuevas() {
     await casoDisenoProduccion();
     await casoLineaBase();
     await casoClasicoIgual();
+    await casoPantallasIgual();
+    await casoEstiloPantallas();
+    await casoEncuadre();
     await casoTipografiasNuevas();
     await casoRotulosLugares();
     await casoRotulosDisenos();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
+    await casoTransicion();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));

@@ -7,6 +7,7 @@ export type IdSeccion =
   | 'patrono'
   | 'pantallas'
   | 'rotulos'
+  | 'transicion'
   | 'tipos'
   | 'galeria'
   | 'horarios-y-redes'
@@ -26,6 +27,7 @@ export type Bloque =
   | 'fiesta'
   | 'galeria'
   | 'pantallas'
+  | 'estiloPantallas'
   | 'rotulos'
   | 'tipos'
   | 'horarios'
@@ -44,6 +46,7 @@ export const BLOQUES: readonly Bloque[] = [
   'fiesta',
   'galeria',
   'pantallas',
+  'estiloPantallas',
   'rotulos',
   'tipos',
   'horarios',
@@ -52,7 +55,7 @@ export const BLOQUES: readonly Bloque[] = [
 ];
 
 export interface VistaPreviaSeccion {
-  pagina: 'pantalla' | 'rotulos' | 'produccion';
+  pagina: 'pantalla' | 'rotulos' | 'produccion' | 'transicion';
   vista: string;
   titulo: string;
   conSelectorTipo: boolean;
@@ -99,8 +102,18 @@ export const SECCIONES: readonly Seccion[] = [
     },
     disposicion: 'dos-columnas',
   },
-  { id: 'pantallas', texto: 'Pantallas', ruta: 'pantallas', bloques: ['pantallas'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
+  { id: 'pantallas', texto: 'Pantallas', ruta: 'pantallas', bloques: ['pantallas', 'estiloPantallas'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'rotulos', texto: 'Rótulos y estilo', ruta: 'rotulos', bloques: ['rotulos'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
+  {
+    id: 'transicion',
+    texto: 'Transición',
+    ruta: 'transicion',
+    bloques: [],
+    conPunto: false,
+    // `vista` es la versión («logo» o «patrono»): la cambia la sección (PanelVistaPrevia).
+    vistaPrevia: { pagina: 'transicion', vista: 'logo', titulo: 'Vista previa · Transición', conSelectorTipo: false },
+    disposicion: 'dos-columnas',
+  },
   { id: 'tipos', texto: 'Tipos de transmisión', ruta: 'tipos', bloques: ['tipos'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'galeria', texto: 'Galería', ruta: 'galeria', bloques: ['galeria'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   {
@@ -128,8 +141,8 @@ export const SECCIONES: readonly Seccion[] = [
   { id: 'publicar', texto: 'Publicar', ruta: 'publicar', bloques: [], conPunto: false, vistaPrevia: null, disposicion: 'una-columna' },
 ];
 
-/** Secciones que no editan el borrador: no tienen estado ni punto (3c `app`, 3b `semana`). */
-export const SECCIONES_SIN_BORRADOR = ['publicar', 'app', 'semana'] as const;
+/** Secciones que no editan el borrador: no tienen estado ni punto (3c `app`, 3b `semana`, la transición, que solo lo lee). */
+export const SECCIONES_SIN_BORRADOR = ['publicar', 'app', 'semana', 'transicion'] as const;
 /** El nombre que usa el plan 3b para la misma lista. */
 export const SECCIONES_FUERA_DEL_BORRADOR = SECCIONES_SIN_BORRADOR;
 export type IdSeccionBorrador = Exclude<IdSeccion, (typeof SECCIONES_SIN_BORRADOR)[number]>;

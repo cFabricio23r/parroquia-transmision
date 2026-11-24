@@ -73,13 +73,19 @@ describe('fuentes.css', () => {
     ['Oswald', 'oswald-latin-600-normal.woff2'],
   ];
   it('las 8 tipografías del rótulo, desde el propio sitio y con font-display: swap', () => {
-    expect((css.match(/@font-face/g) ?? []).length).toBe(5 + ROTULO.length);
-    expect((css.match(/font-display: swap/g) ?? []).length).toBe(5 + ROTULO.length);
+    // 5 Montserrat + las del rótulo + Vibes (la cursiva de las pantallas, para «Letra de la frase»)
+    expect((css.match(/@font-face/g) ?? []).length).toBe(5 + ROTULO.length + 1);
+    expect((css.match(/font-display: swap/g) ?? []).length).toBe(5 + ROTULO.length + 1);
     for (const [familia, archivo] of ROTULO) {
       expect(css).toContain(`font-family: '${familia}'`);
       expect(css).toContain(`url('/fuentes/${archivo}') format('woff2')`);
       expect(() => readFileSync(resolve(raiz, '..', 'vicaria', 'fuentes', archivo))).not.toThrow();
     }
+  });
+  it('Vibes (Great Vibes), para la lista «Letra de la frase» de Pantallas', () => {
+    expect(css).toContain("font-family: 'Vibes'");
+    expect(css).toContain("url('/fuentes/great-vibes-latin-400-normal.woff2') format('woff2')");
+    expect(() => readFileSync(resolve(raiz, '..', 'vicaria', 'fuentes', 'great-vibes-latin-400-normal.woff2'))).not.toThrow();
   });
   it('las cinco fuentes existen en vicaria/fuentes (copiar-vicaria las lleva a public/)', () => {
     for (const peso of [500, 600, 700, 800, 900]) {

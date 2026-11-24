@@ -7,6 +7,7 @@ export function ListaTipografias({
   familias,
   valor,
   onCambiar,
+  nombre = 'rotulos-tipografia',
 }: {
   etiqueta: string;
   opciones: { valor: string; texto: string }[];
@@ -14,6 +15,8 @@ export function ListaTipografias({
   familias: Record<string, string>;
   valor: string;
   onCambiar: (v: string) => void;
+  /** El `name` de los radios: dos listas en la misma página necesitan nombres distintos. */
+  nombre?: string;
 }) {
   return (
     <fieldset className="pv-tipografias">
@@ -23,7 +26,7 @@ export function ListaTipografias({
           <label key={o.valor} className="pv-tipografia" style={{ fontFamily: familias[o.valor] }}>
             <input
               type="radio"
-              name="rotulos-tipografia"
+              name={nombre}
               value={o.valor}
               checked={o.valor === valor}
               onChange={() => onCambiar(o.valor)}

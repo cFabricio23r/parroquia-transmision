@@ -1,12 +1,11 @@
-// Copia las páginas comunes de vicaria/ (nunca las carpetas de parroquias) y la
-// transición del logo a los assets del módulo Transmisor. Es el respaldo dentro
+// Copia las páginas comunes de vicaria/ (nunca las carpetas de parroquias) a los
+// assets del módulo Transmisor (la transición también es una de ellas,
+// transicion.html: ya no hay video). Es el respaldo dentro
 // de la app: Interceptor.kt lo sirve cuando la copia de la parroquia no tiene un
 // archivo. Escribe también vicaria/manifiesto.json, que leen Copias.kt e
 // Interceptor.kt. Se corre solo antes de `npm run android` (script «preandroid»).
 const fs = require('fs');
 const path = require('path');
-
-const TRANSICION = 'Transicion_2000ms_Logo.webm';
 
 // Las extensiones que sirve Interceptor.kt. Lo demás (LICENCIAS.md, por
 // ejemplo) no es parte de las páginas y no entra en la app.
@@ -48,16 +47,15 @@ function listarArchivos(carpeta) {
   });
 }
 
-// Copia las páginas comunes a `destino/vicaria/`, con su manifiesto, y la
-// transición del logo a `destino/app/transiciones/`. Borra antes lo que hubiera
-// en esas dos carpetas y la copia vieja de obs/. Devuelve las rutas copiadas.
+// Copia las páginas comunes a `destino/vicaria/`, con su manifiesto. Borra antes
+// lo que hubiera ahí, la copia vieja de obs/ y `destino/app/transiciones/` (el
+// video de la transición de antes). Devuelve las rutas copiadas.
 function copiarVicaria(raizRepo, destino) {
   const origen = path.join(raizRepo, 'vicaria');
   const salida = path.join(destino, 'vicaria');
-  const transiciones = path.join(destino, 'app', 'transiciones');
   fs.rmSync(path.join(destino, 'obs'), { recursive: true, force: true });
   fs.rmSync(salida, { recursive: true, force: true });
-  fs.rmSync(transiciones, { recursive: true, force: true });
+  fs.rmSync(path.join(destino, 'app', 'transiciones'), { recursive: true, force: true });
 
   const vercel = JSON.parse(fs.readFileSync(path.join(origen, 'vercel.json'), 'utf8'));
   const { paginas, carpetas } = archivosDeRewrites(vercel);
@@ -79,13 +77,7 @@ function copiarVicaria(raizRepo, destino) {
     JSON.stringify({ paginas, estaticos }, null, 2) + '\n',
   );
 
-  fs.mkdirSync(transiciones, { recursive: true });
-  fs.copyFileSync(
-    path.join(raizRepo, 'transiciones', TRANSICION),
-    path.join(transiciones, TRANSICION),
-  );
-
-  return [...listarArchivos(salida), ...listarArchivos(transiciones)];
+  return listarArchivos(salida);
 }
 
 // El núcleo de la semana dentro de la app (plan 3b, Decisión 1): copia

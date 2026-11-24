@@ -117,13 +117,19 @@ export interface CasillaPropio {
 
 /** Decisión 20, en el orden del DOM (la grilla de 2 columnas se lee por filas). */
 export const CASILLAS_PROPIO: CasillaPropio[] = [
-  { id: 'persona', texto: 'Persona', bases: ['persona'] },
+  { id: 'persona', texto: 'Celebrante o persona', bases: ['persona'] },
+  { id: 'lectura1', texto: '1.ª lectura', bases: ['lectura1'] },
+  { id: 'salmo', texto: 'Salmo', bases: ['salmo'] },
+  { id: 'lectura2', texto: '2.ª lectura', bases: ['lectura2'] },
+  { id: 'evangelio', texto: 'Evangelio', bases: ['evangelio'] },
   { id: 'rosario', texto: 'Misterio del rosario', bases: ['rosario'] },
-  { id: 'lectura', texto: 'Lectura', bases: ['lectura1', 'salmo', 'lectura2', 'evangelio'] },
   { id: 'oracion', texto: 'Oración', bases: ['oracion'] },
   { id: 'lugar', texto: 'Lugar o estación', bases: ['lugar'] },
   { id: 'libre', texto: 'Libre', bases: ['libre'] },
 ];
+
+/** Las casillas marcadas al crear un tipo propio. */
+const CASILLAS_NUEVO = ['persona', 'lectura1', 'salmo', 'evangelio'];
 
 /** El orden en que se escriben las bases. */
 const ORDEN_BASES = ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario', 'oracion', 'lugar', 'libre'];
@@ -149,11 +155,23 @@ export function rotulosDeCasillas(marcadas: Record<string, boolean>, anteriores:
   const quedan = antes.filter((b, i, a) => !quitar.has(b) && a.indexOf(b) === i);
   const nuevas = ORDEN_BASES.filter((b) => agregar.has(b) && !quedan.includes(b));
   const cubiertas = new Set(CASILLAS_PROPIO.flatMap((c) => c.bases));
-  let donde = 0;
-  quedan.forEach((b, i) => {
-    if (cubiertas.has(b)) donde = i + 1;
-  });
-  return [...quedan.slice(0, donde), ...nuevas, ...quedan.slice(donde)];
+  const orden = (b: string) => ORDEN_BASES.indexOf(b);
+  const salida = [...quedan];
+  // Cada base nueva va antes de la primera base de casilla que en el orden de la misa viene después (la
+  // 2.ª lectura antes del evangelio); si no hay ninguna, detrás de la última base de casilla (o al principio).
+  for (const b of nuevas) {
+    const antesDe = salida.findIndex((x) => cubiertas.has(x) && orden(x) > orden(b));
+    if (antesDe !== -1) {
+      salida.splice(antesDe, 0, b);
+      continue;
+    }
+    let donde = 0;
+    salida.forEach((x, i) => {
+      if (cubiertas.has(x)) donde = i + 1;
+    });
+    salida.splice(donde, 0, b);
+  }
+  return salida;
 }
 
 export type Portada = 'ninguna' | 'fiesta' | 'evento';
@@ -188,7 +206,8 @@ export function formularioDeTipo(borrador: object, id: string, comunes: TipoComu
       textoGracias: '',
       imagen: undefined,
       portada: 'ninguna',
-      casillas: { ...Object.fromEntries(CASILLAS_PROPIO.map((c) => [c.id, false])), persona: true },
+      // Un tipo nuevo empieza con los rótulos de una misa (celebrante, 1.ª lectura, salmo y evangelio).
+      casillas: Object.fromEntries(CASILLAS_PROPIO.map((c) => [c.id, CASILLAS_NUEVO.includes(c.id)])),
       base: {},
     };
   }

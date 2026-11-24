@@ -3103,6 +3103,161 @@ grupo('tipos propios: opcionales', () => {
   });
 });
 
+grupo('validarConfig: estilo de pantallas, tamaños y encuadre', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    c.galeria = [{ id: 'taller', src: 'medios/taller.png', alt: 'El taller' }];
+    cambios(c);
+    return c;
+  };
+  const ok = (cambios) => p.validarConfig(copia(cambios)).ok;
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+  const inicio = (extra) => (c) => { c.pantallas = { inicio: Object.assign({ modo: 'personalizada', imagen: 'patrono' }, extra) }; };
+
+  prueba('los tres campos válidos pasan', () => {
+    assert.ok(ok((c) => {
+      c.estiloPantallas = { letraTitulo: 'cinzel', letraFrase: 'vibes', logo: 'grande' };
+      c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', fondo: { tipo: 'imagen', imagen: 'taller' },
+        tamanos: { titulo: 'grande', frase: 'chico' },
+        encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 0, y: 100, zoom: 200 } } } };
+    }));
+    assert.ok(ok((c) => { c.estiloPantallas = { letraFrase: 'oswald' }; }));
+    assert.ok(ok((c) => { c.estiloPantallas = {}; }));
+    assert.ok(ok(inicio({ encuadre: { imagen: { de: 'galeria:taller', x: 50, y: 50, zoom: 100 } } })));
+  });
+  prueba('estiloPantallas: valores inválidos dan su mensaje', () => {
+    assert.match(errs((c) => { c.estiloPantallas = { letraTitulo: 'vibes' }; }), /La letra del título \(estiloPantallas\.letraTitulo\) debe ser una de: montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { letraFrase: 'comic' }; }), /La letra de la frase \(estiloPantallas\.letraFrase\) debe ser una de: vibes, montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { logo: 'enorme' }; }), /El tamaño del logo \(estiloPantallas\.logo\) debe ser uno de: chico, normal, grande/);
+    assert.match(errs((c) => { c.estiloPantallas = 'grande'; }), /El estilo de las pantallas \(estiloPantallas\) debe ser un objeto/);
+    assert.match(errs((c) => { c.estiloPantallas = { otro: 1 }; }), /estiloPantallas\.otro/);
+  });
+  prueba('tamanos: valores inválidos', () => {
+    assert.match(errs(inicio({ tamanos: { titulo: 'gigante' } })), /pantallas\.inicio\.tamanos\.titulo/);
+    assert.match(errs(inicio({ tamanos: { otro: 'grande' } })), /pantallas\.inicio\.tamanos\.otro/);
+    assert.match(errs(inicio({ tamanos: 'grande' })), /pantallas\.inicio\.tamanos/);
+    assert.ok(ok((c) => { c.pantallas = { horarios: { modo: 'personalizada', tamanos: { titulo: 'grande' } } }; }));
+  });
+  prueba('encuadre: valores inválidos', () => {
+    const enc = (v) => errs(inicio({ encuadre: { imagen: v } }));
+    assert.match(enc({ x: 50, y: 50, zoom: 100 }), /Falta la foto del encuadre \(pantallas\.inicio\.encuadre\.imagen\.de\)/);
+    assert.match(enc({ de: 'patrono', x: 101, y: 50, zoom: 100 }), /pantallas\.inicio\.encuadre\.imagen\.x\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: -1, zoom: 100 }), /encuadre\.imagen\.y\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 99 }), /encuadre\.imagen\.zoom\) debe ser un entero de 100 a 200/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 201 }), /encuadre\.imagen\.zoom/);
+    assert.match(enc({ de: 'patrono', x: 50.5, y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'patrono', y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'galeria:noexiste', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) no está en la galería/);
+    assert.match(enc({ de: 'otra', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) debe ser una de/);
+    assert.match(errs(inicio({ encuadre: { fondo: { de: 'noexiste', x: 50, y: 50, zoom: 100 } } })), /encuadre\.fondo\.de\) no está en la galería/);
+    assert.match(errs(inicio({ encuadre: { otro: {} } })), /pantallas\.inicio\.encuadre\.otro/);
+    assert.match(errs(inicio({ encuadre: { imagen: 'patrono' } })), /pantallas\.inicio\.encuadre\.imagen\) debe ser un objeto/);
+  });
+});
+
+grupo('pantallas: estilo, tamaños y encuadre', () => {
+  const cargarP = (cambios) => {
+    const cfg = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    cfg.galeria = [{ id: 'taller', src: 'medios/taller.png', alt: 'El taller' }];
+    if (cambios) cambios(cfg);
+    return cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, cfg);
+  };
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  const ENC = { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 120 } };
+
+  prueba('sin bloques nuevos: estilo, tamaños y encuadre de siempre', () => {
+    const x = cargarP();
+    assert.deepEqual(plano(x.estiloPantallas()), { letraTitulo: 'montserrat', letraFrase: 'vibes', logo: 'normal' });
+    for (const v of ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento']) {
+      const a = x.ajustesDe(v);
+      assert.deepEqual(plano(a.tamanos), { titulo: 'normal', frase: 'normal' }, v);
+      assert.deepEqual(plano(a.encuadre), { imagen: null, fondo: null }, v);
+    }
+  });
+  prueba('estiloPantallas: completa lo que falta', () => {
+    const x = cargarP((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; });
+    assert.deepEqual(plano(x.estiloPantallas()), { letraTitulo: 'cinzel', letraFrase: 'vibes', logo: 'normal' });
+  });
+  prueba('personalizada: usa tamanos y encuadre', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', tamanos: { titulo: 'grande' }, encuadre: ENC } }; });
+    const a = x.ajustesDe('inicio');
+    assert.deepEqual(plano(a.tamanos), { titulo: 'grande', frase: 'normal' });
+    assert.deepEqual(plano(a.encuadre), ENC);
+  });
+  prueba('«Como viene» con tamanos y encuadre escritos: no se aplican, pero el estilo global sí', () => {
+    const x = cargarP((c) => {
+      c.estiloPantallas = { letraTitulo: 'oswald', logo: 'chico' };
+      c.pantallas = { inicio: { modo: 'como-viene', tamanos: { titulo: 'grande', frase: 'chico' }, encuadre: ENC } };
+    });
+    const a = x.ajustesDe('inicio');
+    assert.deepEqual(plano(a.tamanos), { titulo: 'normal', frase: 'normal' });
+    assert.deepEqual(plano(a.encuadre), { imagen: null, fondo: null });
+    assert.equal(x.estiloPantallas().letraTitulo, 'oswald');
+    assert.equal(x.estiloPantallas().logo, 'chico');
+  });
+  prueba('produccion y envivo: nunca tamanos ni encuadre', () => {
+    const x = cargarP((c) => { c.pantallas = { produccion: { modo: 'personalizada', tamanos: { titulo: 'grande' }, encuadre: ENC } }; });
+    assert.deepEqual(plano(x.ajustesDe('produccion').tamanos), { titulo: 'normal', frase: 'normal' });
+    assert.deepEqual(plano(x.ajustesDe('produccion').encuadre), { imagen: null, fondo: null });
+  });
+  prueba('fotoMostrada: sin imagen del patrono se ve la fachada, y no se encuadra como si fuera el patrono', () => {
+    const con = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(con.fotoMostrada({}, 'inicio'), 'patrono');
+    const sin = cargarP((c) => { delete c.patrono.imagen; c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(sin.fotoMostrada({}, 'inicio'), null);
+  });
+  prueba('encuadreVisto: solo con la misma foto', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', encuadre: ENC } }; });
+    assert.deepEqual(plano(x.encuadreVisto('inicio', 'imagen', 'patrono')), { x: 30, y: 70, zoom: 150 });
+    assert.equal(x.encuadreVisto('inicio', 'imagen', 'fachada'), null);
+    assert.equal(x.encuadreVisto('inicio', 'imagen', null), null);
+    assert.deepEqual(plano(x.encuadreVisto('inicio', 'fondo', 'galeria:taller')), { x: 10, y: 90, zoom: 120 });
+    assert.equal(x.encuadreVisto('inicio', 'fondo', 'galeria:otra'), null);
+    assert.equal(x.encuadreVisto('portada', 'imagen', 'patrono'), null);
+  });
+});
+
+/* ---------- La transición con la identidad de la parroquia (pantallas más opciones, Tarea 9) ---------- */
+
+grupo('transicion', () => {
+  const x = cargarCon(['transicion.js']);
+  const plano = (o) => JSON.parse(JSON.stringify(o));
+  prueba('coloresTransicion: de la paleta, del más claro al más oscuro', () => {
+    const p = x.paleta('#1155a4', '#0c3562');
+    const c = plano(x.coloresTransicion('#1155a4', '#0c3562'));
+    assert.equal(c.length, 4);
+    assert.equal(c[0], p.claro);
+    assert.equal(c[1], p.celeste);
+    assert.equal(c[2], '#1155a4');
+    assert.deepEqual(c[3], { de: '#0c3562', a: '#1155a4' });
+  });
+  prueba('coloresTransicion: San José da sus colores, no el azul', () => {
+    const c = plano(x.coloresTransicion('#8a1c2b', '#4b0f18'));
+    assert.equal(c[2], '#8a1c2b');
+    assert.deepEqual(c[3], { de: '#4b0f18', a: '#8a1c2b' });
+  });
+  prueba('sonidoTransicion: 96000 muestras por canal, pico 0,6 y siempre igual', () => {
+    const a = x.sonidoTransicion(48000, 2);
+    assert.equal(a.izq.length, 96000);
+    assert.equal(a.der.length, 96000);
+    let pico = 0;
+    for (let i = 0; i < 96000; i++) pico = Math.max(pico, Math.abs(a.izq[i]), Math.abs(a.der[i]));
+    assert.ok(Math.abs(pico - 0.6) <= 0.01, 'pico ' + pico);
+    const b = x.sonidoTransicion(48000, 2);
+    for (let i = 0; i < 96000; i += 997) {
+      assert.equal(a.izq[i], b.izq[i]);
+      assert.equal(a.der[i], b.der[i]);
+    }
+  });
+  prueba('versionesTransicion: la del patrono solo con su imagen', () => {
+    assert.deepEqual(plano(x.versionesTransicion(CONFIG_CIUDAD_ARCE)), ['logo', 'patrono']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { nombre: 'San José' } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({ patrono: { imagen: { src: '', alt: '' } } })), ['logo']);
+    assert.deepEqual(plano(x.versionesTransicion({})), ['logo']);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

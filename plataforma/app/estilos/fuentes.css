@@ -46,3 +46,5 @@
 @font-face { font-family: 'Merriweather'; font-weight: 700; font-display: swap; src: url('/fuentes/merriweather-latin-700-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Nunito'; font-weight: 800; font-display: swap; src: url('/fuentes/nunito-latin-800-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Oswald'; font-weight: 600; font-display: swap; src: url('/fuentes/oswald-latin-600-normal.woff2') format('woff2'); }
+/* La cursiva de las pantallas (Great Vibes), para la lista «Letra de la frase». */
+@font-face { font-family: 'Vibes'; font-weight: 400; font-display: swap; src: url('/fuentes/great-vibes-latin-400-normal.woff2') format('woff2'); }

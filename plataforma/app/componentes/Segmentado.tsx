@@ -11,7 +11,8 @@ export function Segmentado<T extends string>({
   nota,
 }: {
   etiqueta: string;
-  opciones: { valor: T; texto: string }[];
+  /** `deshabilitada`: solo esa opción no se puede elegir (por ejemplo, la transición con el patrono sin su imagen). */
+  opciones: { valor: T; texto: string; deshabilitada?: boolean }[];
   valor: T;
   onCambiar: (v: T) => void;
   /** Todos los botones quedan deshabilitados (por ejemplo, las esquinas con el diseño Minimal). */
@@ -32,7 +33,7 @@ export function Segmentado<T extends string>({
             type="button"
             className="pv-segmento"
             aria-pressed={o.valor === valor}
-            disabled={deshabilitado || undefined}
+            disabled={deshabilitado || o.deshabilitada || undefined}
             onClick={() => onCambiar(o.valor)}
           >
             {o.texto}

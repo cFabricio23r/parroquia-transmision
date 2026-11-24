@@ -8,6 +8,7 @@ import { Dialogo } from '../../app/componentes/Dialogo';
 import { PastillaContraste } from '../../app/componentes/PastillaContraste';
 import { Tabla } from '../../app/componentes/Tabla';
 import { ListaTipografias } from '../../app/componentes/ListaTipografias';
+import { DeslizadoresFoto, textoDeslizador } from '../../app/componentes/DeslizadoresFoto';
 import { Segmentado } from '../../app/componentes/Segmentado';
 import { CampoColorParroquia } from '../../app/editor/p/[slug]/rotulos/CampoColorParroquia';
 import { formatearRazon } from '../../lib/contraste';
@@ -170,6 +171,34 @@ describe('ListaTipografias (diseños de rótulo)', () => {
     expect(h).toMatch(/value="cinzel"[^>]*checked=""|checked=""[^>]*value="cinzel"/);
     expect(h).not.toMatch(/value="montserrat"[^>]*checked=""|checked=""[^>]*value="montserrat"/);
     expect(h).toContain('Cinzel (solemne)');
+  });
+  it('con `nombre`, los radios usan ese name (dos listas en la misma página no se pisan)', () => {
+    const h = html(<ListaTipografias etiqueta="Letra del título" nombre="pantallas-letra-titulo" opciones={opciones} familias={familias} valor="cinzel" onCambiar={nada} />);
+    expect((h.match(/name="pantallas-letra-titulo"/g) ?? []).length).toBe(2);
+    expect(h).not.toContain('rotulos-tipografia');
+  });
+});
+
+describe('DeslizadoresFoto (pantallas más opciones)', () => {
+  const h = html(<DeslizadoresFoto titulo="Mover la foto" valores={{ x: 30, y: 50, zoom: 150 }} onCambiar={nada} onVolver={nada} />);
+  it('un fieldset con su leyenda, tres rangos con sus límites y etiquetas visibles, y el botón', () => {
+    expect(h).toContain('Mover la foto</legend>');
+    expect((h.match(/type="range"/g) ?? []).length).toBe(3);
+    for (const e of ['Hacia los lados', 'Arriba / abajo', 'Acercar']) expect(h).toContain(`${e}</label>`);
+    expect(h).toMatch(/min="0" max="100"[^>]*value="30"/);
+    expect(h).toMatch(/min="0" max="100"[^>]*value="50"/);
+    expect(h).toMatch(/min="100" max="200"[^>]*value="150"/);
+    expect(h).toContain('Volver a como venía</button>');
+  });
+  it('aria-valuetext en palabras', () => {
+    expect(h).toContain('aria-valuetext="Más a la izquierda (30 %)"');
+    expect(h).toContain('aria-valuetext="Al medio"');
+    expect(h).toContain('aria-valuetext="Más cerca (150 %)"');
+    expect(textoDeslizador('x', 50)).toBe('Al centro');
+    expect(textoDeslizador('x', 80)).toBe('Más a la derecha (80 %)');
+    expect(textoDeslizador('y', 20)).toBe('Más arriba (20 %)');
+    expect(textoDeslizador('y', 90)).toBe('Más abajo (90 %)');
+    expect(textoDeslizador('zoom', 100)).toBe('Sin acercar');
   });
 });
 

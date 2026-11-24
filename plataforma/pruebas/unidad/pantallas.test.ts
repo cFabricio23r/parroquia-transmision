@@ -169,3 +169,91 @@ describe('aviso «Siempre la misma» sin imagen del patrono', () => {
     expect(avisoImagenPatrono({ pantallas: { inicio: { modo: 'como-viene', imagen: 'patrono' } } })).toEqual([]);
   });
 });
+
+describe('estilo de todas las pantallas, tamaños y encuadre (pantallas más opciones, Tarea 7)', async () => {
+  const m = await import('../../lib/editor/pantallas');
+
+  it('listas de opciones', () => {
+    expect(m.OPCIONES_TAMANO).toEqual([
+      { valor: 'chico', texto: 'Chico' },
+      { valor: 'normal', texto: 'Normal' },
+      { valor: 'grande', texto: 'Grande' },
+    ]);
+    expect(m.OPCIONES_LETRA_FRASE[0]).toEqual({ valor: 'vibes', texto: 'Great Vibes (la de hoy)' });
+    expect(m.OPCIONES_LETRA_FRASE).toHaveLength(10);
+    expect(m.OPCIONES_LETRA_FRASE[1].valor).toBe('montserrat');
+    expect(m.FAMILIA_LETRA_FRASE.vibes).toBe('Vibes');
+    expect(m.FAMILIA_LETRA_FRASE.cinzel).toBe('Cinzel');
+  });
+
+  it('conEstiloPantallas: pone la clave, quita la de siempre y devuelve undefined si queda vacío', () => {
+    expect(m.conEstiloPantallas(undefined, 'letraTitulo', 'cinzel')).toEqual({ letraTitulo: 'cinzel' });
+    expect(m.conEstiloPantallas(congelar({ letraTitulo: 'cinzel', logo: 'grande' }), 'letraTitulo', 'montserrat')).toEqual({ logo: 'grande' });
+    expect(m.conEstiloPantallas({ letraFrase: 'oswald' }, 'letraFrase', 'vibes')).toBeUndefined();
+    expect(m.conEstiloPantallas({ logo: 'chico' }, 'logo', 'normal')).toBeUndefined();
+    expect(m.conEstiloPantallas(congelar({ logo: 'chico' }), 'logo', 'grande')).toEqual({ logo: 'grande' });
+  });
+
+  it('tamanoDe y conTamano', () => {
+    expect(m.tamanoDe(undefined, 'titulo')).toBe('normal');
+    expect(m.tamanoDe({ tamanos: { frase: 'chico' } }, 'frase')).toBe('chico');
+    expect(m.conTamano(congelar({ imagen: 'patrono' }), 'titulo', 'grande')).toEqual({ imagen: 'patrono', tamanos: { titulo: 'grande' } });
+    expect(m.conTamano({ tamanos: { titulo: 'grande' } }, 'titulo', 'normal')).toEqual({});
+    expect(m.conTamano({ tamanos: { titulo: 'grande', frase: 'chico' } }, 'titulo', 'normal')).toEqual({ tamanos: { frase: 'chico' } });
+  });
+
+  it('fotoEncuadrable: solo fotos fijas, y nunca el arco de Evento', () => {
+    expect(m.fotoEncuadrable({}, 'imagen', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ imagen: 'automatica' }, 'imagen', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ imagen: 'logo' }, 'imagen', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ imagen: 'ninguna' }, 'imagen', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ imagen: 'santo' }, 'imagen', 'inicio')).toBe('santo');
+    expect(m.fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio')).toBe('patrono');
+    expect(m.fotoEncuadrable({ imagen: 'galeria:taller' }, 'imagen', 'avisos')).toBe('galeria:taller');
+    expect(m.fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'evento')).toBeNull();
+    expect(m.fotoEncuadrable({ fondo: { tipo: 'color', color: '#112233' } }, 'fondo', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ fondo: { tipo: 'imagen', imagen: 'taller' } }, 'fondo', 'evento')).toBe('galeria:taller');
+  });
+
+  it('encuadreDe: el guardado si es de la misma foto; si no, el de siempre', () => {
+    const p = { imagen: 'patrono', encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 } } };
+    expect(m.encuadreDe(p, 'imagen', 'inicio')).toEqual({ x: 30, y: 70, zoom: 150 });
+    expect(m.encuadreDe({ ...p, imagen: 'fachada' }, 'imagen', 'inicio')).toEqual({ x: 50, y: 20, zoom: 100 });
+    expect(m.encuadreDe({ fondo: { tipo: 'imagen', imagen: 'taller' } }, 'fondo', 'inicio')).toEqual({ x: 50, y: 50, zoom: 100 });
+  });
+
+  it('conEncuadre: guarda con su foto, y null lo borra', () => {
+    const con = m.conEncuadre(congelar({ imagen: 'patrono' }), 'imagen', { x: 30, y: 70, zoom: 150 }, 'inicio');
+    expect(con).toEqual({ imagen: 'patrono', encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 } } });
+    expect(m.conEncuadre(con, 'imagen', null, 'inicio')).toEqual({ imagen: 'patrono' });
+    const f = m.conEncuadre({ fondo: { tipo: 'imagen', imagen: 'taller' } }, 'fondo', { x: 10, y: 90, zoom: 100 }, 'inicio');
+    expect(f.encuadre).toEqual({ fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 100 } });
+    expect(m.conEncuadre({ imagen: 'logo' }, 'imagen', { x: 1, y: 1, zoom: 100 }, 'inicio')).toEqual({ imagen: 'logo' });
+  });
+
+  it('Review Focus 4: cambiar la foto borra su encuadre y deja el de la otra', () => {
+    const antes = {
+      inicio: {
+        modo: 'personalizada',
+        imagen: 'patrono',
+        fondo: { tipo: 'imagen', imagen: 'taller' },
+        encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 100 } },
+      },
+    };
+    const otraImagen = m.ponerEnPantalla(congelar(structuredClone(antes)), 'inicio', { imagen: 'fachada' });
+    expect((otraImagen.inicio as Record<string, unknown>).encuadre).toEqual({ fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 100 } });
+    const sinFondo = m.ponerEnPantalla(otraImagen, 'inicio', { fondo: undefined });
+    expect((sinFondo.inicio as Record<string, unknown>).encuadre).toBeUndefined();
+    const mismo = m.ponerEnPantalla(structuredClone(antes), 'inicio', { distribucion: 'derecha' });
+    expect((mismo.inicio as Record<string, unknown>).encuadre).toEqual(antes.inicio.encuadre);
+  });
+});
+
+describe('el patrono sin imagen no se encuadra (se ve la fachada)', () => {
+  it('fotoEncuadrable con conPatrono=false da null para el patrono, y sigue igual para otras fotos', async () => {
+    const { fotoEncuadrable } = await import('../../lib/editor/pantallas');
+    expect(fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio', false)).toBeNull();
+    expect(fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio', true)).toBe('patrono');
+    expect(fotoEncuadrable({ imagen: 'galeria:taller' }, 'imagen', 'inicio', false)).toBe('galeria:taller');
+  });
+});

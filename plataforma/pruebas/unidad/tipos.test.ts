@@ -118,22 +118,19 @@ describe('clave de un propio nuevo (Decisión 17)', () => {
 
 describe('casillas de rótulos (Decisión 20)', () => {
   it('orden visual y bases', () => {
-    expect(CASILLAS_PROPIO.map((c) => c.texto)).toEqual(['Persona', 'Misterio del rosario', 'Lectura', 'Oración', 'Lugar o estación', 'Libre']);
-    expect(CASILLAS_PROPIO.find((c) => c.id === 'lectura')?.bases).toEqual(['lectura1', 'salmo', 'lectura2', 'evangelio']);
+    expect(CASILLAS_PROPIO.map((c) => c.texto)).toEqual([
+      'Celebrante o persona', '1.ª lectura', 'Salmo', '2.ª lectura', 'Evangelio', 'Misterio del rosario', 'Oración', 'Lugar o estación', 'Libre',
+    ]);
+    // Una casilla por rótulo: las lecturas, el salmo y el evangelio ya no van juntos.
+    expect(CASILLAS_PROPIO.every((c) => c.bases.length === 1 && c.bases[0] === c.id)).toBe(true);
   });
 
   it('de casillas a rótulos, con lo que no está en ninguna al final', () => {
-    expect(rotulosDeCasillas({ persona: true, lectura: true, rosario: false, oracion: true, lugar: false, libre: true }, ['santisimo'])).toEqual([
-      'persona',
-      'lectura1',
-      'salmo',
-      'lectura2',
-      'evangelio',
-      'oracion',
-      'libre',
-      'santisimo',
-    ]);
-    expect(casillasDe(['salmo']).lectura).toBe(true);
+    expect(
+      rotulosDeCasillas({ persona: true, lectura1: true, salmo: true, lectura2: false, evangelio: true, rosario: false, oracion: true, lugar: false, libre: true }, ['santisimo']),
+    ).toEqual(['persona', 'lectura1', 'salmo', 'evangelio', 'oracion', 'libre', 'santisimo']);
+    expect(casillasDe(['salmo']).salmo).toBe(true);
+    expect(casillasDe(['salmo']).lectura1).toBe(false);
     expect(casillasDe(['salmo']).persona).toBe(false);
   });
 });
@@ -145,8 +142,8 @@ describe('formulario y aplicar', () => {
     expect(formularioDeTipo({}, 'nada', comunes)).toBeNull();
     const f = formularioDeTipo({}, 'nuevo', comunes)!;
     expect(f.clase).toBe('nuevo');
-    expect(f.casillas.persona).toBe(true);
-    expect(f.casillas.lectura).toBe(false);
+    // Un tipo nuevo empieza con los rótulos de una misa: celebrante, 1.ª lectura, salmo y evangelio.
+    expect(Object.entries(f.casillas).filter(([, v]) => v).map(([k]) => k)).toEqual(['persona', 'lectura1', 'salmo', 'evangelio']);
     const c = formularioDeTipo({ tipos: { ajustes: { horasanta: { ocultarRotulos: ['bendicion'] } } } }, 'horasanta', comunes)!;
     expect(c.clase).toBe('comun');
     expect(c.nombre).toBe('Hora Santa');
@@ -165,7 +162,7 @@ describe('formulario y aplicar', () => {
       nombre: 'Rosario de la aurora',
       nombrePanel: 'Rosario',
       portada: 'fiesta',
-      casillas: { persona: true, lectura: false, rosario: true, oracion: true, lugar: false, libre: true },
+      casillas: { persona: true, lectura1: false, salmo: false, lectura2: false, evangelio: false, rosario: true, oracion: true, lugar: false, libre: true },
     });
     const r = aplicarTipo(congelar({ apagados: ['procesion'] }), f, comunes, []);
     expect(r.clave).toBe('rosario-de-la-aurora');
@@ -192,13 +189,22 @@ describe('formulario y aplicar', () => {
     expect((aplicarTipo(tipos, f, comunes, ['v']).tipos!.propios as Record<string, unknown>[])[0].rotulos).toEqual(['evangelio', 'persona']);
   });
 
+  it('marcar «2.ª lectura» en un tipo nuevo la pone antes del evangelio (el orden de la misa)', () => {
+    const nuevoTipo = ['persona', 'lectura1', 'salmo', 'evangelio'];
+    expect(rotulosDeCasillas({ ...casillasDe(nuevoTipo), lectura2: true }, nuevoTipo)).toEqual(['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio']);
+    // una base sin casilla (santisimo) se queda en su lugar
+    const conSantisimo = ['persona', 'santisimo', 'lectura1', 'evangelio'];
+    expect(rotulosDeCasillas({ ...casillasDe(conSantisimo), salmo: true }, conSantisimo)).toEqual(['persona', 'santisimo', 'lectura1', 'salmo', 'evangelio']);
+  });
+
   it('una casilla que cambia toca solo sus bases y respeta el orden (ronda 2)', () => {
     const base = ['evangelio', 'santisimo', 'persona'];
     const marcadas = casillasDe(base);
     expect(rotulosDeCasillas(marcadas, base)).toEqual(base);
     expect(rotulosDeCasillas({ ...marcadas, oracion: true }, base)).toEqual(['evangelio', 'santisimo', 'persona', 'oracion']);
     expect(rotulosDeCasillas({ ...marcadas, persona: false }, base)).toEqual(['evangelio', 'santisimo']);
-    expect(rotulosDeCasillas({ ...marcadas, lectura: false }, base)).toEqual(['santisimo', 'persona']);
+    expect(rotulosDeCasillas({ ...marcadas, evangelio: false }, base)).toEqual(['santisimo', 'persona']);
+    expect(rotulosDeCasillas({ ...marcadas, salmo: true }, base)).toEqual(['salmo', 'evangelio', 'santisimo', 'persona']);
     const vacio = congelar({ propios: [{ clave: 'w', nombre: 'W', rotulos: [] }] });
     const g = { ...formularioDeTipo({ tipos: vacio }, 'w', comunes)!, nombrePanel: 'Doble' };
     expect((aplicarTipo(vacio, g, comunes, ['w']).tipos!.propios as Record<string, unknown>[])[0].rotulos).toEqual([]);

@@ -14,6 +14,7 @@ const vercel = JSON.parse(fs.readFileSync(path.join(raizRepo, 'vicaria', 'vercel
 const PAGINAS = [
   'comun.js', 'estilos.css', 'guardadas.js', 'panel.html', 'pantalla.html',
   'pantallas.js', 'parroquia.js', 'produccion.html', 'rotulos.html', 'tipos.js',
+  'transicion.html', 'transicion.js',
 ];
 const FUENTES = [
   'fuentes/cinzel-latin-700-normal.woff2',
@@ -102,12 +103,16 @@ describe('copiarVicaria', () => {
     });
   });
 
-  test('copia la transición del logo a app/transiciones/ y no la de la Virgen', () => {
+  test('la transición es la página de la parroquia: no copia videos y borra app/transiciones/ de antes', () => {
+    fs.mkdirSync(path.join(tmp, 'app', 'transiciones'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'app', 'transiciones', 'Transicion_2000ms_Logo.webm'), 'viejo');
+
     const copiadas = relativas(copiarVicaria(raizRepo, tmp));
 
-    expect(copiadas).toContain('app/transiciones/Transicion_2000ms_Logo.webm');
-    expect(existe('app/transiciones/Transicion_2000ms_Logo.webm')).toBe(true);
-    expect(existe('app/transiciones/Transicion_2000ms_Virgen.webm')).toBe(false);
+    expect(copiadas).toContain('vicaria/transicion.html');
+    expect(copiadas).toContain('vicaria/transicion.js');
+    expect(copiadas.filter((r) => r.endsWith('.webm'))).toEqual([]);
+    expect(existe('app/transiciones')).toBe(false);
   });
 
   test('borra un destino/obs/ viejo y lo viejo de destino/vicaria/', () => {
