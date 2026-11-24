@@ -252,6 +252,8 @@ const TIPOGRAFIAS = ['montserrat', 'lora', 'source-sans', 'cinzel', 'playfair', 
 const LETRAS_FRASE = ['vibes'].concat(TIPOGRAFIAS);
 /* Tamaños del logo de las pantallas y de sus textos. normal es el de siempre (y el que se usa si falta). */
 const TAMANOS = ['chico', 'normal', 'grande'];
+/* Los textos de cada pantalla (pantallas.<vista>.tamanos) pueden ir además «muy chico»; el logo, no. */
+const TAMANOS_TEXTO = ['muy-chico'].concat(TAMANOS);
 /* Diseños de rótulo: clasico es el de siempre (y el que se usa si falta). */
 const DISENOS_ROTULO = ['clasico', 'tarjeta', 'minimal', 'etiqueta'];
 /* Esquinas de los rótulos: los nombres del artboard F6 (Rectas, Suaves, Redondas) y, para que una configuración
@@ -331,6 +333,15 @@ function bloquePantalla(vista) {
   return b && typeof b === 'object' && b.modo === 'personalizada' ? b : null;
 }
 
+/* Letra y tamaño del nombre de Producción (pantallas.produccion personalizada). No sigue estiloPantallas:
+   Producción es su propia lámina. Sin elegir: Montserrat y normal, los de siempre. PARROQUIA se lee al llamarse. */
+function estiloProduccion() {
+  const b = bloquePantalla('produccion');
+  const l = b && b.letras && typeof b.letras === 'object' ? b.letras.titulo : undefined;
+  const t = b && b.tamanos && typeof b.tamanos === 'object' ? b.tamanos.titulo : undefined;
+  return { letra: TIPOGRAFIAS.includes(l) ? l : 'montserrat', tamano: TAMANOS_TEXTO.includes(t) ? t : 'normal' };
+}
+
 /* `id` debe ser el id de una imagen de la galería; ids = los ids válidos. */
 function _validarRefGaleria(id, campo, ids, errores) {
   if (typeof id !== 'string' || !ids.includes(id)) errores.push('La imagen (' + campo + ') no está en la galería (galeria).');
@@ -387,7 +398,8 @@ function _validarPantalla(pa, campo, ids, errores) {
         else _textoCorto(pa.textos[k], campo + '.textos.' + k, errores, false);
       }
     }
-  }  _validarTamanosYEncuadre(pa, campo, ids, errores);
+  }
+  _validarTamanosYEncuadre(pa, campo, ids, errores);
 }
 
 /* Claves de un objeto que no están en `validas`: cada una es un error «Ese valor no existe (campo.clave).». */
@@ -419,8 +431,17 @@ function _validarTamanosYEncuadre(pa, campo, ids, errores) {
     if (!_objeto(pa.tamanos)) errores.push('Los tamaños (' + ct + ') deben ser un objeto.');
     else {
       _clavesConocidas(pa.tamanos, ['titulo', 'frase'], ct, errores);
-      _unoDe(pa.tamanos.titulo, TAMANOS, ct + '.titulo', errores);
-      _unoDe(pa.tamanos.frase, TAMANOS, ct + '.frase', errores);
+      _unoDe(pa.tamanos.titulo, TAMANOS_TEXTO, ct + '.titulo', errores);
+      _unoDe(pa.tamanos.frase, TAMANOS_TEXTO, ct + '.frase', errores);
+    }
+  }
+  if (pa.letras !== undefined) {
+    const cl = campo + '.letras';
+    if (!_objeto(pa.letras)) errores.push('Las letras (' + cl + ') deben ser un objeto.');
+    else {
+      _clavesConocidas(pa.letras, ['titulo', 'frase'], cl, errores);
+      if (pa.letras.titulo !== undefined && !TIPOGRAFIAS.includes(pa.letras.titulo)) errores.push('La letra del título (' + cl + '.titulo) debe ser una de: ' + TIPOGRAFIAS.join(', ') + '.');
+      if (pa.letras.frase !== undefined && !LETRAS_FRASE.includes(pa.letras.frase)) errores.push('La letra de la frase (' + cl + '.frase) debe ser una de: ' + LETRAS_FRASE.join(', ') + '.');
     }
   }
   if (pa.encuadre !== undefined) {

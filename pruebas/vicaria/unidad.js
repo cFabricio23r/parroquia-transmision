@@ -4046,6 +4046,19 @@ grupo('validarConfig: estilo de pantallas, tamaños y encuadre', () => {
     assert.match(errs(inicio({ tamanos: 'grande' })), /pantallas\.inicio\.tamanos/);
     assert.ok(ok((c) => { c.pantallas = { horarios: { modo: 'personalizada', tamanos: { titulo: 'grande' } } }; }));
   });
+  prueba('letras por pantalla y «muy chico»: válidos pasan', () => {
+    assert.ok(ok(inicio({ letras: { titulo: 'lora', frase: 'vibes' }, tamanos: { titulo: 'muy-chico', frase: 'muy-chico' } })));
+    assert.ok(ok((c) => { c.pantallas = { produccion: { modo: 'personalizada', letras: { titulo: 'oswald' }, tamanos: { titulo: 'muy-chico' } } }; }));
+    assert.ok(ok(inicio({ letras: {} })));
+  });
+  prueba('letras por pantalla: valores inválidos', () => {
+    assert.match(errs(inicio({ letras: { titulo: 'vibes' } })), /La letra del título \(pantallas\.inicio\.letras\.titulo\) debe ser una de: montserrat/);
+    assert.match(errs(inicio({ letras: { frase: 'comic' } })), /La letra de la frase \(pantallas\.inicio\.letras\.frase\) debe ser una de: vibes, montserrat/);
+    assert.match(errs(inicio({ letras: { otro: 'lora' } })), /pantallas\.inicio\.letras\.otro/);
+    assert.match(errs(inicio({ letras: 'lora' })), /Las letras \(pantallas\.inicio\.letras\) deben ser un objeto/);
+    // «muy chico» es solo para textos: el logo sigue con chico, normal o grande
+    assert.match(errs((c) => { c.estiloPantallas = { logo: 'muy-chico' }; }), /estiloPantallas\.logo/);
+  });
   prueba('encuadre: valores inválidos', () => {
     const enc = (v) => errs(inicio({ encuadre: { imagen: v } }));
     assert.match(enc({ x: 50, y: 50, zoom: 100 }), /Falta la foto del encuadre \(pantallas\.inicio\.encuadre\.imagen\.de\)/);
@@ -4102,6 +4115,32 @@ grupo('pantallas: estilo, tamaños y encuadre', () => {
     assert.deepEqual(plano(a.encuadre), { imagen: null, fondo: null });
     assert.equal(x.estiloPantallas().letraTitulo, 'oswald');
     assert.equal(x.estiloPantallas().logo, 'chico');
+  });
+  prueba('estiloDe: la letra de la pantalla gana a la de todas; sin letras, la de todas', () => {
+    const x = cargarP((c) => {
+      c.estiloPantallas = { letraTitulo: 'cinzel', logo: 'grande' };
+      c.pantallas = { inicio: { modo: 'personalizada', letras: { titulo: 'lora', frase: 'oswald' } }, gracias: { modo: 'personalizada' } };
+    });
+    assert.deepEqual(plano(x.estiloDe('inicio')), { letraTitulo: 'lora', letraFrase: 'oswald', logo: 'grande' });
+    assert.deepEqual(plano(x.estiloDe('gracias')), plano(x.estiloPantallas()));
+    assert.deepEqual(plano(x.estiloDe('portada')), plano(x.estiloPantallas()));
+  });
+  prueba('estiloDe: «Como viene» no usa las letras escritas; una letra desconocida tampoco', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'como-viene', letras: { titulo: 'lora' } }, gracias: { modo: 'personalizada', letras: { titulo: 'comic' } } }; });
+    assert.equal(x.estiloDe('inicio').letraTitulo, 'montserrat');
+    assert.equal(x.estiloDe('gracias').letraTitulo, 'montserrat');
+  });
+  prueba('«muy chico» llega a ajustesDe', () => {
+    const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', tamanos: { titulo: 'muy-chico', frase: 'muy-chico' } } }; });
+    assert.deepEqual(plano(x.ajustesDe('inicio').tamanos), { titulo: 'muy-chico', frase: 'muy-chico' });
+  });
+  prueba('estiloProduccion: Montserrat y normal de siempre; no sigue el estilo de todas', () => {
+    const x = cargarP((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; });
+    assert.deepEqual(plano(x.estiloProduccion()), { letra: 'montserrat', tamano: 'normal' });
+    const y = cargarP((c) => { c.pantallas = { produccion: { modo: 'personalizada', letras: { titulo: 'oswald' }, tamanos: { titulo: 'muy-chico' } } }; });
+    assert.deepEqual(plano(y.estiloProduccion()), { letra: 'oswald', tamano: 'muy-chico' });
+    const z = cargarP((c) => { c.pantallas = { produccion: { modo: 'como-viene', letras: { titulo: 'oswald' } } }; });
+    assert.equal(z.estiloProduccion().letra, 'montserrat');
   });
   prueba('produccion y envivo: nunca tamanos ni encuadre', () => {
     const x = cargarP((c) => { c.pantallas = { produccion: { modo: 'personalizada', tamanos: { titulo: 'grande' }, encuadre: ENC } }; });

@@ -55,7 +55,7 @@ function ajustesDe(vista) {
 /* Tamaño del título y de la frase del bloque (o 'normal', el de siempre). */
 function _tamanosDe(b) {
   const t = b && b.tamanos && typeof b.tamanos === 'object' ? b.tamanos : {};
-  const uno = (v) => (TAMANOS.includes(v) ? v : 'normal');
+  const uno = (v) => (TAMANOS_TEXTO.includes(v) ? v : 'normal');
   return { titulo: uno(t.titulo), frase: uno(t.frase) };
 }
 
@@ -90,6 +90,17 @@ function estiloPantallas() {
     letraFrase: LETRAS_FRASE.includes(e.letraFrase) ? e.letraFrase : 'vibes',
     logo: TAMANOS.includes(e.logo) ? e.logo : 'normal'
   };
+}
+
+/* El estilo de UNA pantalla: el de todas (estiloPantallas) con las letras propias de la vista encima
+   (pantallas.<vista>.letras, solo si está personalizada). Una letra desconocida se ignora. */
+function estiloDe(vista) {
+  const e = estiloPantallas();
+  const b = bloquePantalla(vista);
+  const l = b && b.letras && typeof b.letras === 'object' ? b.letras : {};
+  if (TIPOGRAFIAS.includes(l.titulo)) e.letraTitulo = l.titulo;
+  if (LETRAS_FRASE.includes(l.frase)) e.letraFrase = l.frase;
+  return e;
 }
 
 /* El encuadre { x, y, zoom } de la foto `cual` ('imagen' o 'fondo') de la vista, solo si se hizo para la foto que
