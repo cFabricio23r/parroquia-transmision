@@ -1,7 +1,7 @@
 // La transición que arma el editor (pantallas más opciones, Tarea 10): el nombre del archivo y si el
 // navegador puede armarla. El video en sí se prueba en pruebas/navegador/transicion.mjs (Chrome real).
 import { afterEach, describe, expect, it } from 'vitest';
-import { nombreArchivoTransicion, puedeArmarTransicion } from '../../lib/editor/transicion';
+import { nombreArchivoTransicion, puedeArmarTransicion, versionElegida, versionesTransicion } from '../../lib/editor/transicion';
 
 describe('nombreArchivoTransicion', () => {
   it('Transicion_<slug>_Logo.webm y _Patrono.webm', () => {
@@ -28,5 +28,21 @@ describe('puedeArmarTransicion', () => {
       }
     };
     expect(await puedeArmarTransicion()).toBe(false);
+  });
+});
+
+describe('versionesTransicion', () => {
+  it('sin imagen del patrono, solo el logo', () => {
+    expect(versionesTransicion({})).toEqual(['logo']);
+    expect(versionesTransicion({ patrono: { nombre: 'San José' } })).toEqual(['logo']);
+    expect(versionesTransicion({ patrono: { imagen: { src: '' } } })).toEqual(['logo']);
+  });
+  it('con imagen del patrono, las dos', () => {
+    expect(versionesTransicion({ patrono: { imagen: { src: 'medios/patrono-1234abcd.png', alt: 'San José' } } })).toEqual(['logo', 'patrono']);
+  });
+  it('la versión elegida vuelve al logo si la del patrono no está', () => {
+    expect(versionElegida({}, 'patrono')).toBe('logo');
+    expect(versionElegida({ patrono: { imagen: { src: 'medios/p.png' } } }, 'patrono')).toBe('patrono');
+    expect(versionElegida({ patrono: { imagen: { src: 'medios/p.png' } } }, 'logo')).toBe('logo');
   });
 });

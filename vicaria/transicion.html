@@ -43,6 +43,9 @@ canvas{position:absolute;left:0;top:0;width:100vw;height:100vh;display:block}
   function cargarImagen(src) {
     if (!src) return Promise.resolve(null);
     var img = new Image();
+    // El logo del borrador viene del almacenamiento de Supabase (otro origen): sin esto el canvas queda
+    // contaminado y el editor no puede armar el video con sus cuadros.
+    img.crossOrigin = 'anonymous';
     img.src = src;
     return img.decode().then(function () { return img; }, function () { return null; });
   }

@@ -18,6 +18,18 @@ export const FRECUENCIA_SONIDO = 48000;
 const BITRATE_VIDEO = 6_000_000;
 const BITRATE_SONIDO = 128_000;
 
+/** Las versiones que se pueden armar: la del patrono solo con su imagen (la misma regla que vicaria/transicion.js). */
+export function versionesTransicion(borrador: object): VersionTransicion[] {
+  const patrono = (borrador as { patrono?: { imagen?: { src?: unknown } } }).patrono;
+  const src = patrono?.imagen?.src;
+  return typeof src === 'string' && src ? ['logo', 'patrono'] : ['logo'];
+}
+
+/** La versión elegida si se puede armar; si no, la del logo. */
+export function versionElegida(borrador: object, elegida: VersionTransicion): VersionTransicion {
+  return versionesTransicion(borrador).includes(elegida) ? elegida : 'logo';
+}
+
 /** «Transicion_<slug>_Logo.webm» o «Transicion_<slug>_Patrono.webm». */
 export function nombreArchivoTransicion(slug: string, version: VersionTransicion): string {
   return `Transicion_${slug}_${version === 'patrono' ? 'Patrono' : 'Logo'}.webm`;

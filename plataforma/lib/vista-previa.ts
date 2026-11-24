@@ -41,6 +41,7 @@ export const ESPERA_VISTA_PREVIA_MS = 400;
 /** La página de la parroquia que muestra la vista previa: `pantalla.html?tipo=…`, `rotulos.html` o `produccion.html`. */
 export function srcVistaPrevia(slug: string, vp: VistaPreviaSeccion): string {
   if (vp.pagina === 'pantalla') return `/${slug}/pantalla.html?tipo=${encodeURIComponent(vp.vista)}&vista-previa=1`;
+  if (vp.pagina === 'transicion') return `/${slug}/transicion.html?repetir=1&version=${encodeURIComponent(vp.vista)}&vista-previa=1`;
   return `/${slug}/${vp.pagina}.html?vista-previa=1`;
 }
 
@@ -111,6 +112,7 @@ export function configParaVistaPrevia(borrador: object, tipoFijo: string | undef
 export function tituloMarcoVistaPrevia(vp: VistaPreviaSeccion): string {
   let nombre: string;
   if (vp.pagina === 'produccion') nombre = NOMBRES_VISTAS.produccion;
+  else if (vp.pagina === 'transicion') nombre = 'Transición';
   else if (vp.pagina === 'rotulos') nombre = vp.estado?.rotulo === 'ninguno' ? NOMBRES_VISTAS.envivo : 'Rótulos';
   else if (vp.vista === 'portada' && vp.tipoFijo === 'evento') nombre = NOMBRES_VISTAS.evento;
   else nombre = NOMBRES_VISTAS[vp.vista] ?? vp.vista;

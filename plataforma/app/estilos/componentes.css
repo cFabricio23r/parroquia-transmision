@@ -389,3 +389,8 @@ button.pv-enlace {
 .pv-deslizador-etiqueta { font-size: 14px; }
 .pv-deslizador input[type='range'] { width: 100%; min-height: 24px; accent-color: var(--pv-primario); }
 
+/* Transición (pantallas más opciones, #3): el botón de descarga y cómo cargarla en OBS. */
+.pv-transicion-descarga { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 20px; }
+.pv-transicion-obs { margin-top: 28px; }
+.pv-transicion-obs ol { margin: 8px 0 12px; padding-left: 22px; line-height: 1.55; }
+.pv-transicion-obs li + li { margin-top: 4px; }

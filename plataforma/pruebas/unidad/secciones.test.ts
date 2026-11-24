@@ -3,11 +3,20 @@ import { BLOQUES, SECCIONES, VISTAS_EDITOR, hrefSeccion, seccion, seccionDeBloqu
 import { bloqueDeError, limpiarMensaje } from '../../lib/editor/errores';
 
 describe('catálogo de secciones', () => {
-  it('tiene las 12 secciones del menú en orden', () => {
+  it('tiene las 13 secciones del menú en orden', () => {
     expect(SECCIONES.map((s) => s.texto)).toEqual([
-      'Resumen', 'Identidad', 'Patrono y fiesta', 'Pantallas', 'Rótulos y estilo', 'Tipos de transmisión',
+      'Resumen', 'Identidad', 'Patrono y fiesta', 'Pantallas', 'Rótulos y estilo', 'Transición', 'Tipos de transmisión',
       'Galería', 'Horarios y redes', 'Avisos fijos', 'Transmisiones de la semana', 'App y transmisión', 'Publicar',
     ]);
+  });
+
+  it('«Transición» no edita el borrador: sin punto ni tarjeta, con la vista previa de la transición', () => {
+    expect(usaBorrador('transicion')).toBe(false);
+    expect(seccionDeRuta('/editor/p/x/transicion', 'x').id).toBe('transicion');
+    expect(vistaPreviaDeRuta('/editor/p/x/transicion', 'x')).toMatchObject({
+      vistaPrevia: { pagina: 'transicion', vista: 'logo', titulo: 'Vista previa · Transición' },
+      disposicion: 'dos-columnas',
+    });
   });
 
   it('«App y transmisión» va fuera del borrador (3c)', () => {

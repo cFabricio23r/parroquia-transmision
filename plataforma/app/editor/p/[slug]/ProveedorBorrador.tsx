@@ -14,6 +14,7 @@ import {
 import type { Bloque, IdSeccionBorrador } from '../../../../lib/editor/secciones';
 import { hoyIso } from '../../../../lib/fecha';
 import type { TipoComun } from '../../../../lib/validar-nucleo.mjs';
+import type { VersionTransicion } from '../../../../lib/editor/transicion';
 
 /** Una fila de «Versiones publicadas» (F12). Fecha y autor ya armados en el servidor: así no hay diferencias al hidratar. */
 export interface VersionPublicada {
@@ -64,6 +65,9 @@ export interface ContextoBorrador {
   /** Tipo elegido en «Ver con el tipo»: persiste entre secciones. */
   tipoVistaPrevia: string | null;
   elegirTipoVistaPrevia(t: string): void;
+  /** Versión de la transición que muestra la vista previa y se descarga (sección Transición). */
+  versionTransicion: VersionTransicion;
+  elegirVersionTransicion(v: VersionTransicion): void;
   /**
    * Formularios que todavía no entraron al borrador (por ejemplo «Editar aviso»): lo escrito se
    * recuerda aquí al cambiar de sección, y mientras esté sin guardar el encabezado dice «Sin guardar»
@@ -146,6 +150,7 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
   const [urls, setUrls] = useState(datos.urls);
   const [notaVistaPrevia, ponerNotaVistaPrevia] = useState<ReactNode>(null);
   const [tipoVistaPrevia, elegirTipoVistaPrevia] = useState<string | null>(null);
+  const [versionTransicion, elegirVersionTransicion] = useState<VersionTransicion>('logo');
   const [formularios, setFormularios] = useState<Record<string, FormularioPendiente>>({});
   const [vistaPreviaExtra, ponerVistaPreviaExtra] = useState<VistaPreviaExtra | null>(null);
   const salidas = useRef(new Map<string, SalidaProtegida>());
@@ -188,6 +193,8 @@ export function ProveedorBorrador({ datos, children }: { datos: DatosEditor; chi
     ponerNotaVistaPrevia,
     tipoVistaPrevia,
     elegirTipoVistaPrevia,
+    versionTransicion,
+    elegirVersionTransicion,
     formularios,
     vistaPreviaExtra,
     ponerVistaPreviaExtra,
