@@ -122,10 +122,24 @@ $('virgen').addEventListener('error', () => {
   const v = $('virgen');
   const r = respaldoDeImagen(v.getAttribute('src') || '');
   if (!r) { v.dataset.fallo = '1'; v.hidden = true; return; }
+  aplicarEncuadre(v, null);   // la de reserva no es la foto que se encuadró
   v.setAttribute('src', r.src);
   v.alt = r.alt;
   clasificarImagen(v);
 });
+
+/* Encuadre { x, y, zoom } de una foto en su marco: object-position para moverla y, al acercar, object-view-box
+   (recorta la foto alrededor del punto x, y antes de llenar el marco; el marco no cambia). null = el de siempre (CSS).
+   En un navegador sin object-view-box la foto se mueve pero no se acerca. */
+function aplicarEncuadre(img, e) {
+  if (!e) { img.style.removeProperty('object-position'); img.style.removeProperty('object-view-box'); return; }
+  img.style.setProperty('object-position', e.x + '% ' + e.y + '%');
+  if (e.zoom > 100) {
+    const k = 1 - 100 / e.zoom;
+    const r = (n) => Math.round(n * 1000) / 1000 + '%';
+    img.style.setProperty('object-view-box', 'inset(' + r(k * e.y) + ' ' + r(k * (100 - e.x)) + ' ' + r(k * (100 - e.y)) + ' ' + r(k * e.x) + ')');
+  } else img.style.removeProperty('object-view-box');
+}
 
 /* chispas de luz que suben despacio */
 (function () {
@@ -320,7 +334,9 @@ function pintar(s) {
     clasificarImagen(v);
     v.classList.remove('virgen-entra'); void v.offsetWidth; v.classList.add('virgen-entra');
   }
-  if (v.getAttribute('src') === src || !src) v.alt = im.alt;   // el alt se refresca en cada pintada (no si la imagen cayó a la fachada)
+  if (v.getAttribute('src') === src || !src) v.alt = im.alt;
+  // el encuadre solo va con la foto que se encuadró y que de verdad se ve (no la de reserva)
+  aplicarEncuadre(v, src && v.getAttribute('src') === src ? encuadreVisto(efectiva, 'imagen', fotoMostrada(s, efectiva)) : null);   // el alt se refresca en cada pintada (no si la imagen cayó a la fachada)
   // la portada de evento lleva el logo grande en su lugar; sin imagen (elección «ninguna» incluida) o con la imagen rota no se muestra nada
   v.hidden = esPortadaEvento || !v.getAttribute('src') || v.dataset.fallo === '1';
   $('p-aro').hidden = !esPortadaEvento;
@@ -486,6 +502,7 @@ function aplicarAjustes(vista) {
   const conImagen = a.fondo.tipo === 'imagen';
   if (conImagen) esc.classList.add('fondo-imagen');
   ponerImagen($('fondo-img'), conImagen ? a.fondo : null);
+  aplicarEncuadre($('fondo-img'), conImagen ? encuadreVisto(vista, 'fondo', 'galeria:' + bloquePantalla(vista).fondo.imagen) : null);
   if (a.distribucion === 'derecha' || a.distribucion === 'centro') esc.classList.add('dist-' + a.distribucion);
   ELEMENTOS_OCULTABLES.forEach((e) => { if (!visible(vista, e)) esc.classList.add('oculto-' + e); });
 }

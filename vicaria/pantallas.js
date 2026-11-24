@@ -62,7 +62,21 @@ function _tamanosDe(b) {
 /* El encuadre guardado de una foto ('imagen' o 'fondo') tal cual: { de, x, y, zoom }, o null. */
 function _encuadreGuardado(b, cual) {
   const e = b.encuadre && b.encuadre[cual];
-  return e && typeof e === 'object' && typeof e.de === 'string' ? { de: e.de, x: e.x, y: e.y, zoom: e.zoom } : null;
+  if (!e || typeof e !== 'object' || typeof e.de !== 'string') return null;
+  // el fondo puede nombrar la foto como en fondo.imagen («taller») o como «galeria:taller»: se guarda siempre así
+  const de = cual === 'fondo' && e.de.indexOf('galeria:') !== 0 ? 'galeria:' + e.de : e.de;
+  return { de: de, x: e.x, y: e.y, zoom: e.zoom };
+}
+
+/* La foto fija que muestra el arco de la vista, como la nombra el encuadre (`patrono`, `galeria:taller`), o null si
+   no hay una foto fija para encuadrar: el panel eligió otra imagen, es la del tipo (automatica), el logo, ninguna,
+   o una foto de la galería que ya no existe. Que la foto cargue lo comprueba quien la pinta. */
+function fotoMostrada(s, vista) {
+  if (s && s.imagen) return null;
+  const e = ajustesDe(vista).imagen;
+  if (e === 'automatica' || e === 'logo' || e === 'ninguna') return null;
+  if (e.indexOf('galeria:') === 0 && !imagenGaleria(e.slice(8))) return null;
+  return e;
 }
 
 /* El estilo de todas las pantallas (estiloPantallas), con los valores de siempre en lo que falta.

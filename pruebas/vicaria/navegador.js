@@ -2405,6 +2405,73 @@ async function casoEstiloPantallas() {
   await ctx.close();
 }
 
+/* Encuadre de las fotos (pantallas.<vista>.encuadre): solo con la misma foto que se ve. */
+async function casoEncuadre() {
+  console.log('Pantallas · mover y acercar las fotos');
+  fs.mkdirSync(path.join(CAPTURAS, 'encuadre'), { recursive: true });
+  const GAL = [{ id: 'taller', src: 'medios/fachada.jpg', alt: 'El taller' }, { id: 'rota', src: 'medios/no-existe.jpg', alt: 'Rota' }];
+  const abrirCon = async (inicio, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.galeria = GAL; c.pantallas = { inicio: Object.assign({ modo: 'personalizada' }, inicio) }; })));
+    const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`, 1920, 1080, estadoCA(Object.assign({ tipo: 'dominical' }, estado || {})));
+    await p.waitForLoadState('networkidle');
+    await p.waitForTimeout(1600);
+    return { ctx, p };
+  };
+  const mide = (p, sel) => p.evaluate((s) => {
+    const e = document.querySelector(s); const cs = getComputedStyle(e); const k = document.getElementById('escenario').getBoundingClientRect().width / 1920;
+    const b = e.getBoundingClientRect();
+    return { pos: cs.objectPosition, caja: cs.objectViewBox || 'none', w: Math.round(b.width / k), h: Math.round(b.height / k), visible: !e.hidden };
+  }, sel);
+  const ENC = { de: 'patrono', x: 30, y: 70, zoom: 150 };
+
+  let { ctx, p } = await abrirCon({ imagen: 'patrono' });
+  const sin = await mide(p, '#virgen');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'patrono', encuadre: { imagen: ENC } }));
+  let m = await mide(p, '#virgen');
+  igual(m.pos, '30% 70%', 'arco: la foto se mueve a 30 % 70 %');
+  revisar(m.caja !== 'none', 'arco: con zoom 150 la foto se acerca (object-view-box ' + m.caja + ')');
+  revisar(m.w === sin.w && m.h === sin.h, 'arco: el marco mide lo mismo (' + m.w + '×' + m.h + ' / ' + sin.w + '×' + sin.h + ')');
+  await captura(p, 'encuadre/arco_30_70_150');
+  await ctx.close();
+  igual(sin.pos, '50% 20%', 'arco sin encuadre: el de siempre');
+
+  // Review Focus 2: la foto que se ve no es la del encuadre
+  ({ ctx, p } = await abrirCon({ imagen: 'patrono', encuadre: { imagen: ENC } }, { imagen: 'fachada' }));
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'el panel eligió otra imagen: va con el encuadre de siempre');
+  igual(m.caja, 'none', 'el panel eligió otra imagen: sin acercar');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'galeria:rota', encuadre: { imagen: { de: 'galeria:rota', x: 10, y: 10, zoom: 200 } } }));
+  await p.waitForTimeout(600);
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'la foto no cargó y cayó a la fachada: encuadre de siempre');
+  igual(m.caja, 'none', 'la foto no cargó: sin acercar');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'galeria:taller', encuadre: { imagen: { de: 'galeria:taller', x: 10, y: 10, zoom: 120 } } }));
+  igual((await mide(p, '#virgen')).pos, '10% 10%', 'foto de la galería encuadrada');
+  await p.evaluate(() => { PARROQUIA = Object.assign({}, PARROQUIA, { galeria: [] }); aplicarParroquia(PARROQUIA); });
+  await p.waitForTimeout(400);
+  m = await mide(p, '#virgen');
+  igual(m.pos, '50% 20%', 'la foto ya no está en la galería: encuadre de siempre');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon({ imagen: 'logo', encuadre: { imagen: { de: 'logo', x: 0, y: 0, zoom: 200 } } }));
+  m = await mide(p, '#virgen');
+  igual(m.caja, 'none', 'con el logo en el arco no se acerca nada');
+  revisar(m.pos !== '0% 0%', 'con el logo en el arco no se mueve');
+  await ctx.close();
+
+  // Fondo de foto
+  ({ ctx, p } = await abrirCon({ fondo: { tipo: 'imagen', imagen: 'taller' }, encuadre: { fondo: { de: 'galeria:taller', x: 10, y: 90, zoom: 130 } } }));
+  m = await mide(p, '#fondo-img');
+  igual(m.pos, '10% 90%', 'fondo: la foto se mueve');
+  revisar(m.caja !== 'none', 'fondo: se acerca');
+  revisar(m.w === 1920 && m.h === 1080, 'fondo: sigue cubriendo 1920×1080 (' + m.w + '×' + m.h + ')');
+  await captura(p, 'encuadre/fondo');
+  await ctx.close();
+}
+
 /* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
 async function casoRotulosLugares() {
   console.log('Rótulos · lugares nuevos y EN VIVO');
@@ -2514,7 +2581,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2557,6 +2624,7 @@ async function casoTipografiasNuevas() {
     await casoClasicoIgual();
     await casoPantallasIgual();
     await casoEstiloPantallas();
+    await casoEncuadre();
     await casoTipografiasNuevas();
     await casoRotulosLugares();
     await casoRotulosDisenos();
