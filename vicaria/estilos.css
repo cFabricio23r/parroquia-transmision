@@ -49,8 +49,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 .texto{position:absolute;left:860px;right:90px;top:150px;bottom:230px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:22px}
 .pildora{background:#fff;color:var(--rey);font-weight:800;font-size:28px;letter-spacing:4px;padding:12px 30px;border-radius:999px;white-space:nowrap}
 .ceja{margin:6px 0 0;font-weight:700;font-size:24px;letter-spacing:7px;color:var(--tenue)}
-.titulo{margin:0;font-weight:900;font-size:104px;line-height:.95;letter-spacing:-2px;text-transform:uppercase}
-.cursiva{margin:4px 0 0;font-family:Vibes,cursive;font-size:54px;line-height:1.15;color:var(--velo);max-width:940px}
+.titulo{margin:0;font-weight:900;font-size:calc(104px * var(--escala-titulo,1));line-height:.95;letter-spacing:-2px;text-transform:uppercase}
+.cursiva{margin:4px 0 0;font-family:Vibes,cursive;font-size:calc(54px * var(--escala-frase,1));line-height:1.15;color:var(--velo);max-width:940px}
 .cuenta{display:flex;align-items:center;gap:16px;margin-top:6px;border:2px solid rgba(255,255,255,.7);border-radius:18px;padding:12px 26px 12px 14px}
 .cuenta b{background:#fff;color:var(--rey);border-radius:12px;min-width:78px;height:64px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:40px;padding:0 12px}
 .cuenta span{font-weight:700;font-size:26px;line-height:1.2}
@@ -73,7 +73,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 /* ---------- Avisos ---------- */
 .tarjeta{position:absolute;z-index:2;left:600px;right:80px;top:60px;bottom:200px;background:#fff;color:var(--oscuro);border-radius:36px;padding:44px 60px;display:flex;flex-direction:column;gap:24px}
 .tarjeta .cab{display:flex;align-items:center;justify-content:space-between}
-.tarjeta h1{margin:0;font-weight:900;font-size:84px;line-height:1;text-transform:uppercase;color:var(--rey)}
+.tarjeta h1{margin:0;font-weight:900;font-size:calc(84px * var(--escala-titulo,1));line-height:1;text-transform:uppercase;color:var(--rey)}
 .tarjeta .sub{font-weight:800;font-size:20px;letter-spacing:6px;color:var(--vivo)}
 .filas{display:flex;flex-direction:column;flex-grow:1;justify-content:flex-start;gap:18px;padding-top:6px}
 .fila{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:28px;align-items:center;padding:18px 26px;background:var(--velo);border-radius:20px}
@@ -255,7 +255,7 @@ body.avisos .escenario.dist-centro .virgen.logo,body.horarios .escenario.dist-ce
 
 /* La tarjeta de horarios se ubica igual que la de avisos */
 body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
-#v-horarios h1{font-size:64px}
+#v-horarios h1{font-size:calc(64px * var(--escala-titulo,1))}
 #v-horarios .envivo{white-space:nowrap}
 
 /* Estilo de rótulos de la parroquia (rotulos.html): se aplican como clases del escenario.

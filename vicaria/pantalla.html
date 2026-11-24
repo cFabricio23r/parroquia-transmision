@@ -36,8 +36,8 @@
   <!-- PORTADA 8 DE DICIEMBRE -->
   <div class="texto" id="v-portada" hidden style="gap:14px;top:140px">
     <p class="ceja" id="p-ceja" style="font-size:28px;letter-spacing:9px;margin:0"></p>
-    <p class="cursiva" id="p-cursiva" style="font-size:84px;line-height:1;margin:0"></p>
-    <h1 class="titulo" style="font-size:112px"><span class="brilla multilinea" id="p-titulo"></span></h1>
+    <p class="cursiva" id="p-cursiva" style="font-size:calc(84px * var(--escala-frase,1));line-height:1;margin:0"></p>
+    <h1 class="titulo" style="font-size:calc(112px * var(--escala-titulo,1))"><span class="brilla multilinea" id="p-titulo"></span></h1>
     <div class="dia8">
       <div class="caja" id="p-caja"><b id="p-caja-num">8</b><span id="p-caja-mes">DIC</span></div>
       <div style="display:flex;flex-direction:column;gap:6px">
@@ -53,8 +53,8 @@
   <!-- GRACIAS -->
   <div class="texto" id="v-gracias" hidden>
     <span class="pildora" id="g-pildora"></span>
-    <h1 class="titulo" style="font-size:88px;line-height:1;letter-spacing:-1px;margin-top:10px"><span class="brilla multilinea" id="g-titulo"></span></h1>
-    <p class="cursiva multilinea" style="font-size:60px" id="g-cursiva"></p>
+    <h1 class="titulo" style="font-size:calc(88px * var(--escala-titulo,1));line-height:1;letter-spacing:-1px;margin-top:10px"><span class="brilla multilinea" id="g-titulo"></span></h1>
+    <p class="cursiva multilinea" style="font-size:calc(60px * var(--escala-frase,1))" id="g-cursiva"></p>
     <p class="ceja" style="font-size:26px;letter-spacing:6px" id="g-ceja"></p>
     <div class="extra" hidden></div>   <!-- horarios y redes, solo si la pantalla los pide (mostrar) -->
   </div>
@@ -183,6 +183,34 @@ function seSale(caja, abajo = 0) {
   const fondo = Math.max(...hijos.map((e) => e.offsetTop + e.offsetHeight));
   return arriba < 0 || fondo > caja.clientHeight - abajo + 0.5;
 }
+/* Tamaño del título y de la frase (tamanos de la pantalla). Es un techo: si lo elegido no cabe, se achica.
+   1. Lo que se eligió más grande que lo normal vuelve hacia lo normal mientras algo se salga (a lo ancho o a lo alto):
+      el tamaño cede antes que el contenido, así «Grande» nunca hace que se quiten horarios o redes.
+   2. Una palabra más ancha que su cuadro (una letra ancha, un título largo): se achica bajo lo elegido.
+   3. En Inicio, Portada y Gracias sin caja de horarios ni redes (no hay otra cosa que achicar): también a lo alto.
+   Corre dentro de cada encaje (encajarExtra, encajarRedesAvisos, encajarHorarios), así reencajar lo repite al
+   cargar una fuente. */
+const ESCALAS_TAMANO = { chico: 0.85, normal: 1, grande: 1.15 };
+const ESCALA_MINIMA = 0.6;
+let tamanosVista = { titulo: 'normal', frase: 'normal' };
+function _anchoSeSale(v) {
+  return [...v.querySelectorAll('h1, .cursiva')].some((e) => e.offsetParent !== null && e.scrollWidth > e.clientWidth + 1);
+}
+function encajarTitulos(v) {
+  let t = ESCALAS_TAMANO[tamanosVista.titulo] || 1;
+  let f = ESCALAS_TAMANO[tamanosVista.frase] || 1;
+  const poner = () => { v.style.setProperty('--escala-titulo', String(t)); v.style.setProperty('--escala-frase', String(f)); };
+  const bajar = (x, piso) => Math.max(piso, Math.round((x - 0.05) * 100) / 100);
+  const abajo = parseFloat(getComputedStyle(v).paddingBottom) || 0;
+  const alto = () => seSale(v, abajo);
+  poner();
+  while ((t > 1 || f > 1) && (_anchoSeSale(v) || alto())) { t = t > 1 ? bajar(t, 1) : t; f = f > 1 ? bajar(f, 1) : f; poner(); }
+  while (_anchoSeSale(v) && (t > ESCALA_MINIMA || f > ESCALA_MINIMA)) { t = bajar(t, ESCALA_MINIMA); f = bajar(f, ESCALA_MINIMA); poner(); }
+  const extra = v.querySelector('.extra');
+  const sinExtras = v.classList.contains('texto') && (!extra || extra.hidden);
+  while (sinExtras && alto() && (t > ESCALA_MINIMA || f > ESCALA_MINIMA)) { t = bajar(t, ESCALA_MINIMA); f = bajar(f, ESCALA_MINIMA); poner(); }
+}
+
 /* Caja .extra de Inicio y Gracias dentro de su texto: si no cabe, se compacta; si aún no cabe, deja fuera
    horarios desde el final y, como último recurso, redes. Nunca saca el título del cuadro ni pisa la franja. */
 function encajarExtra(vistaEl, horarios, redes) {
@@ -191,6 +219,7 @@ function encajarExtra(vistaEl, horarios, redes) {
   caja.classList.remove('compacta');
   pintarExtra(caja, h, r);
   reencajar = () => encajarExtra(vistaEl, horarios, redes);
+  encajarTitulos(vistaEl);
   if (caja.hidden || !seSale(vistaEl)) return;
   caja.classList.add('compacta');
   pintarExtra(caja, h, r);
@@ -216,6 +245,7 @@ function encajarRedesAvisos(redes, compactaAntes) {
   reencajar = () => encajarRedesAvisos(redes, compactaAntes);
   const r = redes.slice();
   if (caja) { llenarRedes(caja, r); caja.hidden = !r.length; }
+  encajarTitulos(t);
   const abajo = parseFloat(getComputedStyle(t).paddingBottom) || 0;
   if (!compactaAntes && seSale(t, abajo)) filas.classList.add('compacta');
   if (!caja) return;
@@ -242,6 +272,7 @@ function encajarHorarios(filas, cajaRedes, redes) {
     encajarHorarios(filas, cajaRedes, redes);
   };
   const cabe = () => !seSale(t, abajo);
+  encajarTitulos(t);
   if (cabe()) return;
   filas.classList.add('compacta');
   if (cabe()) return;
@@ -277,6 +308,7 @@ function pintar(s) {
   const vistaCfg = esPortadaEvento && conBloqueEvento ? 'evento' : efectiva;
   const T = (clave) => textoDe(s, vistaCfg, clave);
   aplicarAjustes(vistaCfg);
+  tamanosVista = ajustesDe(vistaCfg).tamanos;
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
   const v = $('virgen');
@@ -349,6 +381,8 @@ function pintar(s) {
       $('p-sub').hidden = false;
       $('p-sub').textContent = T('portada_sub');
     }
+    encajarTitulos($('v-portada'));
+    reencajar = () => encajarTitulos($('v-portada'));
     firma = 'portada|' + s.tipo + '|' + src;
   }
   if (efectiva === 'gracias') {
@@ -425,6 +459,7 @@ function pintar(s) {
     // se ven exactamente como siempre.
     $('v-horarios').classList.remove(...CLASES_ENCAJE_HORARIOS);   // pintar siempre parte de la tarjeta sin encajar
     if (varias || horarios.some((h) => h.lugar)) encajarHorarios(filas, cajaRedes, redes);
+    else { encajarTitulos($('v-horarios')); reencajar = () => encajarTitulos($('v-horarios')); }
     firma = 'horarios|' + src + '|' + JSON.stringify([horarios, redes]);
   }
   // volver a animar la entrada cuando cambia la celebración (no al escribir cada letra)

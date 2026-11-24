@@ -2344,6 +2344,65 @@ async function casoEstiloPantallas() {
   const circuloAntes = await p.evaluate(() => { const e = document.querySelector('#a-logo img') || document.getElementById('a-logo'); return e.getBoundingClientRect().height; });
   await ctx.close();
   revisar(Math.abs(circulo - circuloAntes) < 0.5, 'avisos: el logo del círculo no cambia con logo grande');
+
+  // Tamaños de los textos (tamanos) y su techo
+  const tam = (p, sel) => p.evaluate((s) => parseFloat(getComputedStyle(document.querySelector(s)).fontSize), sel);
+  const cabe = (p, vistaSel) => p.evaluate((s) => {
+    const v = document.querySelector(s);
+    const anchos = [...v.querySelectorAll('h1, .cursiva')].filter((e) => e.offsetParent !== null).every((e) => e.scrollWidth <= e.clientWidth + 1);
+    return anchos && !seSale(v, parseFloat(getComputedStyle(v).paddingBottom) || 0);
+  }, vistaSel);
+  const pant = (vista, extra) => (c) => { c.pantallas = Object.assign({}, c.pantallas, { [vista]: Object.assign({ modo: 'personalizada' }, extra) }); };
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'grande', frase: 'chico' } }), 'inicio', { textos: { inicio_titulo: 'MISA', inicio_cursiva: 'Hoy' } }));
+  const tg = await tam(p, '#i-titulo'); const fc = await tam(p, '#i-cursiva');
+  revisar(Math.abs(tg - 104 * 1.15) <= 1, 'inicio título grande: 115 % de 104 (' + tg.toFixed(1) + ')');
+  revisar(Math.abs(fc - 54 * 0.85) <= 1, 'inicio frase chica: 85 % de 54 (' + fc.toFixed(1) + ')');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'chico' } }), 'inicio', { textos: { inicio_titulo: 'MISA' } }));
+  revisar(Math.abs(await tam(p, '#i-titulo') - 104 * 0.85) <= 1, 'inicio título chico: 85 % de 104');
+  await ctx.close();
+  const LARGO = 'PEREGRINACIÓN SOLEMNE CON LA IMAGEN DE NUESTRA SEÑORA DEL CARMEN POR TODA LA COLONIA';
+  ({ ctx, p } = await abrirCon(pant('inicio', { tamanos: { titulo: 'grande', frase: 'grande' } }), 'inicio', { textos: { inicio_titulo: LARGO } }));
+  const tl = await tam(p, '#i-titulo');
+  revisar(await cabe(p, '#v-inicio'), 'inicio grande con título largo: no se sale del cuadro');
+  revisar(tl <= 104 * 1.15 + 0.5, 'inicio grande con título largo: no pasa de grande (' + tl.toFixed(1) + ')');
+  await captura(p, 'estilo-pantallas/inicio_grande_largo');
+  await ctx.close();
+
+  // Review Focus 1: Gracias con 6 horarios y redes, «Grande» no quita horarios que con «Normal» se ven
+  const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const conExtras = (tamanos) => (c) => {
+    c.horarios = DIAS.map((d, i) => ({ dia: d, horas: [{ hora: (6 + i) + ':00 a. m.', nota: 'Misa con niños' }, { hora: (5 + i) + ':00 p. m.' }] }));
+    c.redes = [{ red: 'facebook', url: 'https://www.facebook.com/x', texto: '/Parroquia' }, { red: 'youtube', url: 'https://www.youtube.com/@x', texto: '@Parroquia' }, { red: 'whatsapp', url: 'https://wa.me/50300000000', texto: '0000-0000' }];
+    pant('gracias', Object.assign({ mostrar: ['horarios', 'redes'] }, tamanos ? { tamanos } : {}))(c);
+  };
+  const filas = (p) => p.evaluate(() => ({ h: document.querySelectorAll('#v-gracias .extra .hora').length, r: document.querySelectorAll('#v-gracias .extra .red').length }));
+  ({ ctx, p } = await abrirCon(conExtras(null), 'gracias'));
+  const fNormal = await filas(p);
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(conExtras({ titulo: 'grande', frase: 'grande' }), 'gracias'));
+  const fGrande = await filas(p);
+  revisar(fGrande.h === fNormal.h && fGrande.r === fNormal.r, 'gracias con 6 horarios: «Grande» muestra los mismos horarios y redes que «Normal» (' + JSON.stringify(fGrande) + ' / ' + JSON.stringify(fNormal) + ')');
+  revisar(await cabe(p, '#v-gracias'), 'gracias grande con horarios: no se sale');
+  await captura(p, 'estilo-pantallas/gracias_grande_horarios');
+  await ctx.close();
+
+  // Avisos: el título de la tarjeta crece y las filas siguen dentro
+  ({ ctx, p } = await abrirCon(pant('avisos', { tamanos: { titulo: 'grande' } }), 'avisos'));
+  revisar(Math.abs(await tam(p, '#a-titulo') - 84 * 1.15) <= 1, 'avisos título grande: 115 % de 84');
+  revisar(await cabe(p, '#v-avisos'), 'avisos grande: las filas siguen dentro de la tarjeta');
+  await ctx.close();
+
+  // Horarios (sin página en el editor; el campo se acepta en config.json)
+  ({ ctx, p } = await abrirCon(pant('horarios', { tamanos: { titulo: 'grande' } }), 'horarios'));
+  revisar(Math.abs(await tam(p, '#h-titulo') - 64 * 1.15) <= 1, 'horarios título grande: 115 % de 64 (' + (await tam(p, '#h-titulo')).toFixed(1) + ')');
+  await ctx.close();
+
+  // Review Focus 3: Cinzel la primera vez (contexto nuevo), título largo: se vuelve a medir al cargar la fuente
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; }, 'inicio', { textos: { inicio_titulo: 'EXTRAORDINARIAMENTE BIENAVENTURADOS LOS CONGREGADOS AQUÍ' } }));
+  revisar(await cabe(p, '#v-inicio'), 'Cinzel la primera vez, título de 56 caracteres: no se sale ni se corta');
+  await captura(p, 'estilo-pantallas/cinzel_largo');
+  await ctx.close();
 }
 
 /* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
