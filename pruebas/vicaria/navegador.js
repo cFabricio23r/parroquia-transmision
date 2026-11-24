@@ -2291,6 +2291,61 @@ async function casoPantallasIgual() {
   }
 }
 
+/* Estilo de todas las pantallas (estiloPantallas), tamaño de los textos (tamanos) y su techo. */
+async function casoEstiloPantallas() {
+  console.log('Pantallas · letras, logo y tamaños');
+  fs.mkdirSync(path.join(CAPTURAS, 'estilo-pantallas'), { recursive: true });
+  const abrirCon = async (cambios, tipo, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques(cambios)));
+    const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=${tipo}`, 1920, 1080, estadoCA(Object.assign({ tipo: 'dominical' }, estado || {})));
+    await p.waitForLoadState('networkidle');
+    await p.evaluate(() => document.fonts.ready);
+    await p.waitForTimeout(1200);
+    return { ctx, p };
+  };
+  const familia = (p, sel) => p.evaluate((s) => getComputedStyle(document.querySelector(s)).fontFamily, sel);
+  const alto = (p, sel) => p.evaluate((s) => document.querySelector(s).getBoundingClientRect().height / (document.getElementById('escenario').getBoundingClientRect().height / 1080), sel);
+
+  // Letras
+  let { ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel', letraFrase: 'oswald' }; }, 'inicio');
+  revisar((await familia(p, '#i-titulo')).startsWith('Cinzel'), 'letraTitulo cinzel: el título de Inicio va en Cinzel (' + await familia(p, '#i-titulo') + ')');
+  revisar((await familia(p, '#i-cursiva')).startsWith('Oswald'), 'letraFrase oswald: la frase va en Oswald');
+  revisar((await familia(p, '#i-ceja')).startsWith('Mont'), 'la ceja sigue en Montserrat');
+  revisar((await familia(p, '#i-pildora')).startsWith('Mont'), 'la píldora sigue en Montserrat');
+  revisar((await familia(p, '#t-marca')).startsWith('Mont'), 'la marca sigue en Montserrat');
+  igual(await p.evaluate(() => getComputedStyle(document.getElementById('i-titulo').parentNode).textTransform), 'uppercase', 'el título sigue en mayúsculas');
+  await captura(p, 'estilo-pantallas/cinzel_oswald_inicio');
+  await ctx.close();
+  for (const tipo of ['avisos', 'horarios']) {
+    ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; }, tipo));
+    const sel = tipo === 'avisos' ? '#a-titulo' : '#h-titulo';
+    revisar((await familia(p, sel)).startsWith('Cinzel'), tipo + ': el título de la tarjeta va en Cinzel');
+    await ctx.close();
+  }
+
+  // Logo
+  ({ ctx, p } = await abrirCon(() => {}, 'inicio'));
+  const normal = await alto(p, '#marca-logo');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'grande' }; }, 'inicio'));
+  const grande = await alto(p, '#marca-logo');
+  await captura(p, 'estilo-pantallas/logo_grande');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'chico' }; }, 'inicio'));
+  const chico = await alto(p, '#marca-logo');
+  await ctx.close();
+  revisar(Math.abs(normal - 70) < 1, 'logo normal: 70 px (' + normal.toFixed(1) + ')');
+  revisar(grande > 70 && chico < 70, 'logo grande más alto y chico más bajo (' + chico.toFixed(1) + ' / ' + grande.toFixed(1) + ')');
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { logo: 'grande' }; }, 'avisos'));
+  const circulo = await p.evaluate(() => { const e = document.querySelector('#a-logo img') || document.getElementById('a-logo'); return e.getBoundingClientRect().height; });
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(() => {}, 'avisos'));
+  const circuloAntes = await p.evaluate(() => { const e = document.querySelector('#a-logo img') || document.getElementById('a-logo'); return e.getBoundingClientRect().height; });
+  await ctx.close();
+  revisar(Math.abs(circulo - circuloAntes) < 0.5, 'avisos: el logo del círculo no cambia con logo grande');
+}
+
 /* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
 async function casoRotulosLugares() {
   console.log('Rótulos · lugares nuevos y EN VIVO');
@@ -2400,7 +2455,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2442,6 +2497,7 @@ async function casoTipografiasNuevas() {
     await casoLineaBase();
     await casoClasicoIgual();
     await casoPantallasIgual();
+    await casoEstiloPantallas();
     await casoTipografiasNuevas();
     await casoRotulosLugares();
     await casoRotulosDisenos();

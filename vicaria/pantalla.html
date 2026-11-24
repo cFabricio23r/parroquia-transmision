@@ -455,6 +455,18 @@ function aplicarAjustes(vista) {
   ELEMENTOS_OCULTABLES.forEach((e) => { if (!visible(vista, e)) esc.classList.add('oculto-' + e); });
 }
 
+/* estiloPantallas: clases letra-titulo-<clave>, letra-frase-<clave> y logo-chico|logo-grande en el escenario.
+   Los valores de siempre no ponen clase, así la pantalla queda idéntica a la de antes. */
+const CLASES_ESTILO = TIPOGRAFIAS.map((t) => 'letra-titulo-' + t).concat(LETRAS_FRASE.map((t) => 'letra-frase-' + t), ['logo-chico', 'logo-grande']);
+function aplicarEstiloPantallas() {
+  const esc = $('escenario');
+  const e = estiloPantallas();
+  esc.classList.remove(...CLASES_ESTILO);
+  if (e.letraTitulo !== 'montserrat') esc.classList.add('letra-titulo-' + e.letraTitulo);
+  if (e.letraFrase !== 'vibes') esc.classList.add('letra-frase-' + e.letraFrase);
+  if (e.logo !== 'normal') esc.classList.add('logo-' + e.logo);
+}
+
 /* Logo blanco de Avisos y Horarios en su círculo (F4:31): sin logo, o si no carga, el círculo entero se oculta. */
 function ponerLogoRedondo(id, im) {
   const img = $(id); const caja = $(id + '-caja');
@@ -471,6 +483,7 @@ function aplicarParroquia(c) {
   $('no-existe').hidden = !no;
   if (no) return;
   aplicarPaleta(c);
+  aplicarEstiloPantallas();
   ponerImagen($('fachada'), c.fachada);
   ponerImagen($('marca-logo'), c.logos && c.logos.blanco);
   ponerImagen($('aro-logo'), c.logos && c.logos.blanco);

@@ -410,3 +410,26 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 .escenario.diseno-etiqueta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .62s both}
 @keyframes pestanaEntra{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 @keyframes cajaEntra{from{clip-path:inset(-60px -60px 100% -60px)}to{clip-path:inset(-60px -60px -60px -60px)}}
+
+/* ===================== ESTILO DE LAS PANTALLAS (estiloPantallas) =====================
+   Sin clase: lo de siempre (Montserrat 900 en el título, Great Vibes en la frase, logo de 70 px). Las letras son las
+   mismas familias y pesos que los rótulos (.tipo-<clave> .rotulo .t). */
+.escenario.letra-titulo-lora .titulo,.escenario.letra-titulo-lora .tarjeta h1{font-family:Lora,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-source-sans .titulo,.escenario.letra-titulo-source-sans .tarjeta h1{font-family:SourceSans,Mont,sans-serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-cinzel .titulo,.escenario.letra-titulo-cinzel .tarjeta h1{font-family:Cinzel,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-playfair .titulo,.escenario.letra-titulo-playfair .tarjeta h1{font-family:Playfair,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-eb-garamond .titulo,.escenario.letra-titulo-eb-garamond .tarjeta h1{font-family:EBGaramond,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-merriweather .titulo,.escenario.letra-titulo-merriweather .tarjeta h1{font-family:Merriweather,Georgia,serif;font-weight:700;letter-spacing:0}
+.escenario.letra-titulo-nunito .titulo,.escenario.letra-titulo-nunito .tarjeta h1{font-family:Nunito,Mont,sans-serif;font-weight:800;letter-spacing:0}
+.escenario.letra-titulo-oswald .titulo,.escenario.letra-titulo-oswald .tarjeta h1{font-family:Oswald,Mont,sans-serif;font-weight:600;letter-spacing:0}
+.escenario.letra-frase-lora .cursiva{font-family:Lora,Georgia,serif;font-weight:700}
+.escenario.letra-frase-source-sans .cursiva{font-family:SourceSans,Mont,sans-serif;font-weight:700}
+.escenario.letra-frase-cinzel .cursiva{font-family:Cinzel,Georgia,serif;font-weight:700}
+.escenario.letra-frase-playfair .cursiva{font-family:Playfair,Georgia,serif;font-weight:700}
+.escenario.letra-frase-eb-garamond .cursiva{font-family:EBGaramond,Georgia,serif;font-weight:700}
+.escenario.letra-frase-merriweather .cursiva{font-family:Merriweather,Georgia,serif;font-weight:700}
+.escenario.letra-frase-nunito .cursiva{font-family:Nunito,Mont,sans-serif;font-weight:800}
+.escenario.letra-frase-oswald .cursiva{font-family:Oswald,Mont,sans-serif;font-weight:600}
+.escenario.letra-frase-montserrat .cursiva{font-family:Mont,sans-serif;font-weight:800}
+.escenario.logo-chico .marca img{height:54px}
+.escenario.logo-grande .marca img{height:90px}
