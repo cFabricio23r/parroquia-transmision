@@ -2052,6 +2052,41 @@ async function casoModoAppSinGuardadas() {
   await ctx2.close();
 }
 
+/* El rótulo Clásico (sin rotulos.diseno) tiene que verse igual al píxel que antes de los diseños de rótulo.
+   Con --grabar-clasico escribe las capturas de referencia en clasico-referencia/ (se graban una vez, sobre el código
+   sin cambios); sin la marca compara byte a byte y, si difiere, deja la captura nueva en capturas/vicaria/clasico-diferente/. */
+async function casoClasicoIgual() {
+  const grabar = process.argv.includes('--grabar-clasico');
+  console.log('Rótulo Clásico igual al de antes' + (grabar ? ' (grabando)' : ''));
+  const carpeta = path.join(__dirname, 'clasico-referencia');
+  const diferentes = path.join(CAPTURAS, 'clasico-diferente');
+  fs.mkdirSync(grabar ? carpeta : diferentes, { recursive: true });
+  for (const slug of [CA, SJ]) {
+    for (const posicion of ['izquierda', 'centro']) {
+      const nombre = slug + '_' + posicion + '.png';
+      const cfg = JSON.parse(JSON.stringify(CONFIG[slug]));
+      cfg.rotulos = Object.assign({}, cfg.rotulos, { posicion });
+      const ctx = await nuevoContexto();
+      await ctx.route(rutaConfig, servirConfig(cfg));
+      const p = await abrir(ctx, `/${slug}/rotulos.html`, 1920, 1080, async (pg) => {
+        await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+        await pg.addInitScript(([k, v]) => localStorage.setItem(k, v),
+          [`pev_${slug}_estado_v1`, JSON.stringify({ tipo: 'dominical', rotulo: 'persona', celebrante: 'Pbro. José Martínez' })]);
+      });
+      await p.waitForSelector('#rotulo.en');
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(1500);
+      const png = await p.screenshot({ animations: 'disabled' });
+      await ctx.close();
+      if (grabar) { fs.writeFileSync(path.join(carpeta, nombre), png); console.log('  grabada ' + nombre); continue; }
+      const ref = path.join(carpeta, nombre);
+      const igualA = fs.existsSync(ref) && Buffer.compare(fs.readFileSync(ref), png) === 0;
+      if (!igualA) fs.writeFileSync(path.join(diferentes, nombre), png);
+      revisar(igualA, 'Clásico ' + slug + ' ' + posicion + ': igual a la referencia' + (igualA ? '' : ' (nueva en capturas/vicaria/clasico-diferente/' + nombre + ')'));
+    }
+  }
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -2062,7 +2097,7 @@ async function casoModoAppSinGuardadas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2102,6 +2137,7 @@ async function casoModoAppSinGuardadas() {
     await casoDisenoRotulo();
     await casoDisenoProduccion();
     await casoLineaBase();
+    await casoClasicoIgual();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
