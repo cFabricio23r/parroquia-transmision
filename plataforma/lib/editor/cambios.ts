@@ -5,6 +5,7 @@ import { NOMBRES_REDES, unirLista } from './estados';
 import { iguales } from './fusion';
 import { disenoDe, nombreDiseno, nombreTipografia } from './rotulos';
 import { aFormaNueva } from './horarios';
+import { OPCIONES_LETRA_FRASE, OPCIONES_TAMANO } from './pantallas';
 import { NOMBRES_VISTAS, SECCIONES, type IdSeccion } from './secciones';
 
 export interface CambiosSeccion {
@@ -73,11 +74,24 @@ const ELEMENTOS: [string, string][] = [
   ['esquina', 'esquina'],
 ];
 
+const nombreTamano = (v: unknown) => (OPCIONES_TAMANO.find((o) => o.valor === v) ?? OPCIONES_TAMANO[1]).texto;
+const nombreLetraFrase = (v: unknown) => (OPCIONES_LETRA_FRASE.find((o) => o.valor === v) ?? OPCIONES_LETRA_FRASE[0]).texto.replace(/ \(.*\)$/, '');
+
+function estiloPantallas(p: Config, b: Config): string[] {
+  const a = obj(p.estiloPantallas);
+  const d = obj(b.estiloPantallas);
+  const frases: string[] = [];
+  if (distinto(a.letraTitulo, d.letraTitulo)) frases.push(`Letra del título: ${nombreTipografia(d.letraTitulo)}`);
+  if (distinto(a.letraFrase, d.letraFrase)) frases.push(`Letra de la frase: ${nombreLetraFrase(d.letraFrase)}`);
+  if (distinto(a.logo, d.logo)) frases.push(`Tamaño del logo: ${nombreTamano(d.logo)}`);
+  return frases;
+}
+
 function pantallas(p: Config, b: Config): string[] {
   const pp = obj(p.pantallas);
   const bp = obj(b.pantallas);
   const vistas = [...ORDEN_VISTAS, ...Object.keys({ ...pp, ...bp }).filter((v) => !ORDEN_VISTAS.includes(v))];
-  const frases: string[] = [];
+  const frases: string[] = estiloPantallas(p, b);
   for (const v of vistas) {
     const a = obj(pp[v]);
     const d = obj(bp[v]);
@@ -97,6 +111,9 @@ function pantallas(p: Config, b: Config): string[] {
     const visible = (c: Config, e: string) => (lista(c.mostrar).includes(e) ? 'mostrar' : lista(c.ocultar).includes(e) ? 'ocultar' : '');
     for (const [e, texto] of ELEMENTOS) if (visible(a, e) !== visible(d, e)) detalles.push(texto);
     if (distinto(a.textos, d.textos)) detalles.push('texto de arriba');
+    if (distinto(obj(a.tamanos).titulo, obj(d.tamanos).titulo)) detalles.push('tamaño del título');
+    if (distinto(obj(a.tamanos).frase, obj(d.tamanos).frase)) detalles.push('tamaño de la frase');
+    if (distinto(a.encuadre, d.encuadre)) detalles.push('foto movida');
     frases.push(`Pantalla de ${nombre}: ${detalles.length ? unirLista(detalles) : 'personalizada'}`);
   }
   return frases;

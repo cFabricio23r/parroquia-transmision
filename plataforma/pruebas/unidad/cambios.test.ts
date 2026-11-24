@@ -115,6 +115,21 @@ describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
   it('Fondo del rótulo', () => {
     expect(frases({ rotulos: {} }, { rotulos: { colorLado: 'oscuro' } })).toEqual(['Fondo del rótulo']);
   });
+  it('estilo de todas las pantallas', () => {
+    expect(frases({}, { estiloPantallas: { letraTitulo: 'cinzel', letraFrase: 'oswald', logo: 'grande' } })).toEqual([
+      'Letra del título: Cinzel',
+      'Letra de la frase: Oswald',
+      'Tamaño del logo: Grande',
+    ]);
+    expect(frases({ estiloPantallas: { letraFrase: 'oswald' } }, {})).toEqual(['Letra de la frase: Great Vibes']);
+  });
+  it('tamaños y foto movida en una pantalla', () => {
+    const antes = { inicio: { modo: 'personalizada', imagen: 'patrono' } };
+    const despues = {
+      inicio: { modo: 'personalizada', imagen: 'patrono', tamanos: { titulo: 'grande', frase: 'chico' }, encuadre: { imagen: { de: 'patrono', x: 1, y: 2, zoom: 100 } } },
+    };
+    expect(frases({ pantallas: antes }, { pantallas: despues })).toEqual(['Pantalla de Inicio: tamaño del título, tamaño de la frase y foto movida']);
+  });
   it('Capa EN VIVO con EN VIVO oculto', () => {
     expect(frases({}, { pantallas: { envivo: { modo: 'personalizada', ocultar: ['envivo'] } } })).toEqual(['Pantalla de Capa EN VIVO: EN VIVO']);
   });

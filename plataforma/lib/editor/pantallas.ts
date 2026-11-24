@@ -2,6 +2,7 @@
 // vistas que el editor ofrece y las ayudas puras que escriben `pantallas.<vista>` sin perder lo que
 // el editor no muestra (`chispas`, `rayos`, `imagen: 'santo'`, `pantallas.horarios`…). Sin React.
 import { imagenesDe, nombreDeImagen } from './galeria';
+import { FAMILIA_TIPOGRAFIA, OPCIONES_TIPOGRAFIA } from './rotulos';
 import { NOMBRES_VISTAS } from './secciones';
 
 export type Elemento = 'marca' | 'cuenta' | 'franja' | 'envivo' | 'redes' | 'horarios';
@@ -145,9 +146,21 @@ export function ponerEnPantalla(pantallas: unknown, vista: string, cambio: Objet
     if (v === undefined) delete p[k];
     else p[k] = v;
   }
+  if ('imagen' in cambio || 'fondo' in cambio) limpiarEncuadre(p, vista);
   p.modo = 'personalizada';
   todas[vista] = p;
   return todas;
+}
+
+/* Review Focus 4: el encuadre se hizo para una foto; si la pantalla ya muestra otra (o ninguna), se borra. */
+function limpiarEncuadre(p: Objeto, vista: string): void {
+  if (!esObjeto(p.encuadre)) return;
+  const e: Objeto = { ...p.encuadre };
+  for (const cual of ['imagen', 'fondo'] as const) {
+    if (e[cual] !== undefined && objeto(e[cual]).de !== fotoEncuadrable(p, cual, vista)) delete e[cual];
+  }
+  if (Object.keys(e).length) p.encuadre = e;
+  else delete p.encuadre;
 }
 
 /** «Volver a como venía»: quita la vista; sin ninguna vista, `undefined` (se quita el bloque). */
@@ -226,4 +239,90 @@ export function avisoImagenPatrono(borrador: object): { vista: string; nombre: s
 /** Opciones de «¿Cuál foto?»: las imágenes de la galería, por id. */
 export function opcionesFondoGaleria(borrador: object): { valor: string; texto: string }[] {
   return imagenesDe(objeto(borrador).galeria).map((im) => ({ valor: im.id, texto: nombreDeImagen(im) }));
+}
+
+/* ---- Pantallas más opciones (spec 2026-11-24): letras, tamaños y encuadre de la foto ---- */
+
+export const OPCIONES_TAMANO = [
+  { valor: 'chico', texto: 'Chico' },
+  { valor: 'normal', texto: 'Normal' },
+  { valor: 'grande', texto: 'Grande' },
+];
+/** La letra de la frase: la cursiva de hoy (Great Vibes) y las mismas tipografías de los rótulos. */
+export const OPCIONES_LETRA_FRASE = [{ valor: 'vibes', texto: 'Great Vibes (la de hoy)' }, ...OPCIONES_TIPOGRAFIA];
+export const FAMILIA_LETRA_FRASE: Record<string, string> = { vibes: 'Vibes', ...FAMILIA_TIPOGRAFIA };
+
+export type ClaveEstilo = 'letraTitulo' | 'letraFrase' | 'logo';
+const ESTILO_DE_SIEMPRE: Record<ClaveEstilo, string> = { letraTitulo: 'montserrat', letraFrase: 'vibes', logo: 'normal' };
+
+/** `estiloPantallas` con `clave` cambiada; el valor de siempre quita la clave y, sin claves, `undefined` (se quita el bloque). */
+export function conEstiloPantallas(estilo: unknown, clave: ClaveEstilo, valor: string): Objeto | undefined {
+  const o: Objeto = { ...objeto(estilo) };
+  if (valor === ESTILO_DE_SIEMPRE[clave]) delete o[clave];
+  else o[clave] = valor;
+  return Object.keys(o).length ? o : undefined;
+}
+
+export type CualTamano = 'titulo' | 'frase';
+
+export function tamanoDe(p: object | undefined, cual: CualTamano): string {
+  const t = objeto(objeto(p).tamanos)[cual];
+  return typeof t === 'string' ? t : 'normal';
+}
+
+/** El bloque con `tamanos.<cual>` cambiado; `normal` quita la clave y `tamanos` si queda vacío. */
+export function conTamano(p: object | undefined, cual: CualTamano, valor: string): Objeto {
+  const o: Objeto = { ...objeto(p) };
+  const t: Objeto = { ...objeto(o.tamanos) };
+  if (valor === 'normal') delete t[cual];
+  else t[cual] = valor;
+  if (Object.keys(t).length) o.tamanos = t;
+  else delete o.tamanos;
+  return o;
+}
+
+export type CualFoto = 'imagen' | 'fondo';
+export interface Encuadre {
+  x: number;
+  y: number;
+  zoom: number;
+}
+const ENCUADRE_DE_SIEMPRE: Record<CualFoto, Encuadre> = { imagen: { x: 50, y: 20, zoom: 100 }, fondo: { x: 50, y: 50, zoom: 100 } };
+const SIN_FOTO_FIJA = [undefined, 'automatica', 'logo', 'ninguna', 'santo'];
+
+/**
+ * La foto que se puede mover, como la nombra el encuadre (`patrono`, `galeria:taller`), o null: la imagen es la del
+ * tipo, el logo, ninguna o la del santo (cambia cada día), el fondo no es una foto, o es el arco de Evento.
+ */
+export function fotoEncuadrable(p: object | undefined, cual: CualFoto, vista: string): string | null {
+  const o = objeto(p);
+  if (cual === 'fondo') {
+    const f = objeto(o.fondo);
+    return f.tipo === 'imagen' && typeof f.imagen === 'string' && f.imagen ? `galeria:${f.imagen}` : null;
+  }
+  if (vista === 'evento') return null;
+  const im = o.imagen;
+  return typeof im === 'string' && !SIN_FOTO_FIJA.includes(im) ? im : null;
+}
+
+/** El encuadre guardado si es de la foto que se ve; si no, el de siempre (arco 50/20/100, fondo 50/50/100). */
+export function encuadreDe(p: object | undefined, cual: CualFoto, vista: string): Encuadre {
+  const de = fotoEncuadrable(p, cual, vista);
+  const e = objeto(objeto(objeto(p).encuadre)[cual]);
+  if (de === null || e.de !== de) return { ...ENCUADRE_DE_SIEMPRE[cual] };
+  const n = (v: unknown, d: number) => (typeof v === 'number' ? v : d);
+  const s = ENCUADRE_DE_SIEMPRE[cual];
+  return { x: n(e.x, s.x), y: n(e.y, s.y), zoom: n(e.zoom, s.zoom) };
+}
+
+/** El bloque con el encuadre de `cual` guardado para la foto que se ve; `null` («Volver a como venía») lo quita. */
+export function conEncuadre(p: object | undefined, cual: CualFoto, valores: Encuadre | null, vista: string): Objeto {
+  const o: Objeto = { ...objeto(p) };
+  const e: Objeto = { ...objeto(o.encuadre) };
+  const de = fotoEncuadrable(o, cual, vista);
+  if (valores === null || de === null) delete e[cual];
+  else e[cual] = { de, x: valores.x, y: valores.y, zoom: valores.zoom };
+  if (Object.keys(e).length) o.encuadre = e;
+  else delete o.encuadre;
+  return o;
 }

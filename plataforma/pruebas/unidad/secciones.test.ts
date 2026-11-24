@@ -30,6 +30,8 @@ describe('catálogo de secciones', () => {
     }
     expect(seccionDeBloque('redes')).toBe('horarios-y-redes');
     expect(seccionDeBloque('fiesta')).toBe('patrono');
+    expect(seccionDeBloque('estiloPantallas')).toBe('pantallas');
+    expect(BLOQUES).toContain('estiloPantallas');
   });
 
   it('encuentra la sección de una ruta', () => {

@@ -26,6 +26,7 @@ export type Bloque =
   | 'fiesta'
   | 'galeria'
   | 'pantallas'
+  | 'estiloPantallas'
   | 'rotulos'
   | 'tipos'
   | 'horarios'
@@ -44,6 +45,7 @@ export const BLOQUES: readonly Bloque[] = [
   'fiesta',
   'galeria',
   'pantallas',
+  'estiloPantallas',
   'rotulos',
   'tipos',
   'horarios',
@@ -99,7 +101,7 @@ export const SECCIONES: readonly Seccion[] = [
     },
     disposicion: 'dos-columnas',
   },
-  { id: 'pantallas', texto: 'Pantallas', ruta: 'pantallas', bloques: ['pantallas'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
+  { id: 'pantallas', texto: 'Pantallas', ruta: 'pantallas', bloques: ['pantallas', 'estiloPantallas'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'rotulos', texto: 'Rótulos y estilo', ruta: 'rotulos', bloques: ['rotulos'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'tipos', texto: 'Tipos de transmisión', ruta: 'tipos', bloques: ['tipos'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   { id: 'galeria', texto: 'Galería', ruta: 'galeria', bloques: ['galeria'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
