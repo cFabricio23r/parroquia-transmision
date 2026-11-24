@@ -1,8 +1,9 @@
 // La raíz de la app (plan 3a, Tarea 16): decide qué se muestra según la fase de la sesión.
 // - `cargando`: el fondo; `entrar`, `elegir`, `sin-parroquias`, `sin-acceso` y `error-almacen`: las
 //   pantallas de acceso; `lista`: la app de transmisión, con la parroquia elegida.
-// - Corre los momentos del sincronizador: 'abrir' una vez por proceso (con la parroquia lista y con
-//   red, o cuando vuelve la red), y los que pide App ('antes-de-iniciar' y 'al-terminar').
+// - Corre los momentos del sincronizador: 'abrir' una vez por cada entrada a `lista` con una
+//   parroquia (con red, o cuando vuelve la red; ver sincronizar/abrir.ts), y los que pide App
+//   ('antes-de-iniciar' y 'al-terminar').
 // Nada de acá escribe en console.* ni toca la contraseña o los tokens.
 import { useFonts } from 'expo-font';
 import * as Network from 'expo-network';
@@ -30,6 +31,7 @@ import Entrar from './pantallas/acceso/Entrar';
 import { crearClientePlataforma, type ClientePlataforma } from './plataforma/cliente';
 import { controlSesion } from './sesion/control';
 import { guardiaEnVivo } from './sesion/guardia';
+import { crearControlAbrir } from './sincronizar/abrir';
 import { limpiezas, sincronizador, type ContextoSincronizar, type Momento } from './sincronizar/sincronizar';
 
 // El splash del sistema queda hasta que carguen las fuentes (antes estaba en App.tsx).
@@ -63,7 +65,7 @@ if (config.ok) {
 
 /** Lo que se sabe de la red: si no se sabe, se supone que hay (como el aviso de App). */
 let hayRed = true;
-let abrirCorrio = false;
+const controlAbrir = crearControlAbrir();
 
 /** El contexto para sincronizar ahora, o null sin red o sin parroquia. */
 function contextoAhora(): Omit<ContextoSincronizar, 'momento'> | null {
@@ -88,8 +90,9 @@ if (config.ok) {
 function correrMomento(m: Momento): Promise<unknown> | void {
   const base = contextoAhora();
   if (!base) return;
-  if (m === 'abrir') abrirCorrio = true;
-  return sincronizador.sincronizar(m, base);
+  const correr = () => sincronizador.sincronizar(m, base);
+  // 'abrir' va en fila: si la de otra parroquia sigue en vuelo, esta espera y corre la suya.
+  return m === 'abrir' ? controlAbrir.correr(base.parroquia.id, correr) : correr();
 }
 
 export default function Raiz() {
@@ -123,19 +126,22 @@ export default function Raiz() {
     if (!enLista && orientacionAcceso) fijarOrientacion(orientacionAcceso).catch(() => undefined);
   }, [enLista, orientacionAcceso]);
 
-  // 'abrir': una vez por proceso, con la parroquia lista y con red.
-  const enListaRef = useRef(enLista);
-  enListaRef.current = enLista;
+  // 'abrir': una vez por cada entrada a `lista` con una parroquia, con red. Al salir de `lista`
+  // (cerrar sesión, sesión vencida, Elegir otra) se olvida: lo bajado pudo haberse borrado.
+  const parroquiaId = enLista ? estado.parroquia?.id ?? null : null;
+  const parroquiaIdRef = useRef(parroquiaId);
+  parroquiaIdRef.current = parroquiaId;
   useEffect(() => {
-    if (enLista && !abrirCorrio) correrMomento('abrir');
-  }, [enLista]);
+    if (parroquiaId === null) controlAbrir.olvidar();
+    else if (controlAbrir.debeCorrer(parroquiaId)) correrMomento('abrir');
+  }, [parroquiaId]);
 
-  // La red: si vuelve y 'abrir' todavía no corrió, corre ahora.
+  // La red: si vuelve y 'abrir' todavía no corrió para esta entrada, corre ahora.
   useEffect(() => {
     let vigente = true;
     const alCambiar = (s: Network.NetworkState) => {
       hayRed = aHayRed(s);
-      if (vigente && hayRed && enListaRef.current && !abrirCorrio) correrMomento('abrir');
+      if (vigente && hayRed && controlAbrir.debeCorrer(parroquiaIdRef.current)) correrMomento('abrir');
     };
     Network.getNetworkStateAsync().then(alCambiar, () => undefined);
     const r = Network.addNetworkStateListener(alCambiar);
