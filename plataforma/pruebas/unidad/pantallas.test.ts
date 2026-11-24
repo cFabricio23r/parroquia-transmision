@@ -194,6 +194,36 @@ describe('estilo de todas las pantallas, tamaños y encuadre (pantallas más opc
     expect(m.conEstiloPantallas(congelar({ logo: 'chico' }), 'logo', 'grande')).toEqual({ logo: 'grande' });
   });
 
+  it('tamaños de texto: «Muy chico» primero; el logo sigue con tres', () => {
+    expect(m.OPCIONES_TAMANO_TEXTO.map((o) => o.texto)).toEqual(['Muy chico', 'Chico', 'Normal', 'Grande']);
+    expect(m.OPCIONES_TAMANO_TEXTO[0].valor).toBe('muy-chico');
+    expect(m.OPCIONES_TAMANO).toHaveLength(3);
+  });
+
+  it('letras por pantalla: qué pantallas tienen cuáles', () => {
+    expect(m.LETRAS_DE_VISTA.inicio).toEqual(['titulo', 'frase']);
+    expect(m.LETRAS_DE_VISTA.gracias).toEqual(['titulo', 'frase']);
+    expect(m.LETRAS_DE_VISTA.avisos).toEqual(['titulo']);
+    expect(m.LETRAS_DE_VISTA.horarios).toBeUndefined();
+    expect(m.LETRAS_DE_VISTA.produccion).toEqual(['titulo']);
+    expect(m.LETRAS_DE_VISTA.envivo).toBeUndefined();
+    expect(m.OPCIONES_LETRA_TITULO_VISTA[0]).toEqual({ valor: '', texto: 'Como las demás pantallas' });
+    expect(m.OPCIONES_LETRA_TITULO_VISTA).toHaveLength(10);
+    expect(m.OPCIONES_LETRA_FRASE_VISTA[0]).toEqual({ valor: '', texto: 'Como las demás pantallas' });
+    expect(m.OPCIONES_LETRA_FRASE_VISTA).toHaveLength(11);
+  });
+
+  it('letraDe y conLetra: el valor «de siempre» quita la clave y letras vacío', () => {
+    expect(m.letraDe(undefined, 'titulo', '')).toBe('');
+    expect(m.letraDe({ letras: { frase: 'oswald' } }, 'frase', '')).toBe('oswald');
+    expect(m.letraDe({}, 'titulo', 'montserrat')).toBe('montserrat');
+    expect(m.conLetra(congelar({ imagen: 'patrono' }), 'titulo', 'lora', '')).toEqual({ imagen: 'patrono', letras: { titulo: 'lora' } });
+    expect(m.conLetra({ letras: { titulo: 'lora' } }, 'titulo', '', '')).toEqual({});
+    expect(m.conLetra({ letras: { titulo: 'lora', frase: 'oswald' } }, 'titulo', '', '')).toEqual({ letras: { frase: 'oswald' } });
+    // Producción: «de siempre» es Montserrat
+    expect(m.conLetra({ letras: { titulo: 'oswald' } }, 'titulo', 'montserrat', 'montserrat')).toEqual({});
+  });
+
   it('tamanoDe y conTamano', () => {
     expect(m.tamanoDe(undefined, 'titulo')).toBe('normal');
     expect(m.tamanoDe({ tamanos: { frase: 'chico' } }, 'frase')).toBe('chico');

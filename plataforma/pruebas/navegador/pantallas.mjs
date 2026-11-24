@@ -300,6 +300,7 @@ try {
     'debajo, la línea de a qué alcanza',
   );
   revisar(await bloque.getByText('Producción y la capa EN VIVO no cambian.').isVisible(), 'y que Producción y EN VIVO no cambian');
+  revisar(await bloque.getByText('Cada pantalla puede tener su propia letra y tamaño en su editor.', { exact: false }).isVisible(), 'y que cada pantalla puede cambiar su letra');
   const letraTitulo = bloque.getByRole('group', { name: 'Letra del título', exact: true });
   await letraTitulo.getByRole('radio', { name: /^Cinzel/ }).check();
   await esperarGuardado(p4);
@@ -328,7 +329,7 @@ try {
   console.log('Pantallas más opciones · Tamaño de los textos');
   await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/inicio`);
   for (const g of ['Tamaño del título', 'Tamaño de la frase']) {
-    igual(JSON.stringify(await p4.getByRole('group', { name: g, exact: true }).locator('button').allInnerTexts()), JSON.stringify(['Chico', 'Normal', 'Grande']), `Inicio tiene «${g}»`);
+    igual(JSON.stringify(await p4.getByRole('group', { name: g, exact: true }).locator('button').allInnerTexts()), JSON.stringify(['Muy chico', 'Chico', 'Normal', 'Grande']), `Inicio tiene «${g}»`);
     igual(await apretado(p4, g), 'Normal', `«${g}» empieza en Normal`);
   }
   await p4.getByRole('group', { name: 'Tamaño del título', exact: true }).getByRole('button', { name: 'Grande' }).click();
@@ -338,6 +339,36 @@ try {
   await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/avisos`);
   igual(await p4.getByRole('group', { name: 'Tamaño del título', exact: true }).count(), 1, 'Avisos tiene «Tamaño del título»');
   igual(await p4.getByRole('group', { name: 'Tamaño de la frase', exact: true }).count(), 0, 'y no «Tamaño de la frase»');
+
+  console.log('Letra y tamaño por pantalla');
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/inicio`);
+  const letraTituloPv = p4.getByRole('group', { name: 'Letra del título', exact: true });
+  igual(await letraTituloPv.count(), 1, 'Inicio tiene «Letra del título»');
+  igual(await p4.getByRole('group', { name: 'Letra de la frase', exact: true }).count(), 1, 'Inicio tiene «Letra de la frase»');
+  revisar(await letraTituloPv.getByRole('radio', { name: 'Como las demás pantallas' }).isChecked(), '«Letra del título» empieza en «Como las demás pantallas»');
+  await letraTituloPv.getByRole('radio', { name: 'Lora' }).check();
+  await esperarGuardado(p4);
+  const cl9 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio?.letras?.titulo === 'lora');
+  revisar(iguales(cl9.pantallas?.inicio?.letras, { titulo: 'lora' }), `«Lora» guarda letras.titulo (${JSON.stringify(cl9.pantallas?.inicio)})`);
+  await letraTituloPv.getByRole('radio', { name: 'Como las demás pantallas' }).check();
+  await esperarGuardado(p4);
+  const cl10 = await esperarEnBase(E.id, (c) => c.pantallas?.inicio && !c.pantallas.inicio.letras);
+  revisar(!cl10.pantallas.inicio.letras, '«Como las demás pantallas» quita letras');
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/avisos`);
+  igual(await p4.getByRole('group', { name: 'Letra del título', exact: true }).count(), 1, 'Avisos tiene «Letra del título»');
+  igual(await p4.getByRole('group', { name: 'Letra de la frase', exact: true }).count(), 0, 'Avisos no tiene «Letra de la frase»');
+  await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/produccion`);
+  const letraNombre = p4.getByRole('group', { name: 'Letra del nombre', exact: true });
+  revisar(await letraNombre.getByRole('radio', { name: 'Montserrat' }).isChecked(), 'Producción: «Letra del nombre» empieza en Montserrat');
+  igual(await letraNombre.getByRole('radio', { name: 'Como las demás pantallas' }).count(), 0, 'Producción no ofrece «Como las demás pantallas»');
+  await p4.getByRole('group', { name: 'Tamaño del nombre', exact: true }).getByRole('button', { name: 'Muy chico' }).click();
+  await esperarGuardado(p4);
+  const cl11 = await esperarEnBase(E.id, (c) => c.pantallas?.produccion?.tamanos?.titulo === 'muy-chico');
+  revisar(cl11.pantallas.produccion.modo === 'personalizada', 'Producción «Muy chico» guarda tamanos.titulo');
+  await letraNombre.getByRole('radio', { name: 'Oswald' }).check();
+  await esperarGuardado(p4);
+  await esperarEnBase(E.id, (c) => c.pantallas?.produccion?.letras?.titulo === 'oswald');
+  revisar(true, 'Producción «Oswald» guarda letras.titulo');
 
   console.log('Pantallas más opciones · Mover la foto');
   await p4.goto(`${BASE}/editor/p/${E.slug}/pantallas/inicio`);

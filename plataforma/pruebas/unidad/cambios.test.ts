@@ -130,6 +130,11 @@ describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
     };
     expect(frases({ pantallas: antes }, { pantallas: despues })).toEqual(['Pantalla de Inicio: tamaño del título, tamaño de la frase y foto movida']);
   });
+  it('letras de una pantalla', () => {
+    const antes = { inicio: { modo: 'personalizada' } };
+    const despues = { inicio: { modo: 'personalizada', letras: { titulo: 'lora', frase: 'oswald' }, tamanos: { titulo: 'muy-chico' } } };
+    expect(frases({ pantallas: antes }, { pantallas: despues })).toEqual(['Pantalla de Inicio: tamaño del título, letra del título y letra de la frase']);
+  });
   it('Capa EN VIVO con EN VIVO oculto', () => {
     expect(frases({}, { pantallas: { envivo: { modo: 'personalizada', ocultar: ['envivo'] } } })).toEqual(['Pantalla de Capa EN VIVO: EN VIVO']);
   });

@@ -5,7 +5,7 @@ import { NOMBRES_REDES, unirLista } from './estados';
 import { iguales } from './fusion';
 import { disenoDe, nombreDiseno, nombreTipografia } from './rotulos';
 import { aFormaNueva } from './horarios';
-import { OPCIONES_LETRA_FRASE, OPCIONES_TAMANO } from './pantallas';
+import { OPCIONES_LETRA_FRASE, OPCIONES_TAMANO_TEXTO } from './pantallas';
 import { NOMBRES_VISTAS, SECCIONES, type IdSeccion } from './secciones';
 
 export interface CambiosSeccion {
@@ -74,7 +74,7 @@ const ELEMENTOS: [string, string][] = [
   ['esquina', 'esquina'],
 ];
 
-const nombreTamano = (v: unknown) => (OPCIONES_TAMANO.find((o) => o.valor === v) ?? OPCIONES_TAMANO[1]).texto;
+const nombreTamano = (v: unknown) => (OPCIONES_TAMANO_TEXTO.find((o) => o.valor === v) ?? OPCIONES_TAMANO_TEXTO[2]).texto;
 const nombreLetraFrase = (v: unknown) => (OPCIONES_LETRA_FRASE.find((o) => o.valor === v) ?? OPCIONES_LETRA_FRASE[0]).texto.replace(/ \(.*\)$/, '');
 
 function estiloPantallas(p: Config, b: Config): string[] {
@@ -113,6 +113,8 @@ function pantallas(p: Config, b: Config): string[] {
     if (distinto(a.textos, d.textos)) detalles.push('texto de arriba');
     if (distinto(obj(a.tamanos).titulo, obj(d.tamanos).titulo)) detalles.push('tamaño del título');
     if (distinto(obj(a.tamanos).frase, obj(d.tamanos).frase)) detalles.push('tamaño de la frase');
+    if (distinto(obj(a.letras).titulo, obj(d.letras).titulo)) detalles.push('letra del título');
+    if (distinto(obj(a.letras).frase, obj(d.letras).frase)) detalles.push('letra de la frase');
     if (distinto(a.encuadre, d.encuadre)) detalles.push('foto movida');
     frases.push(`Pantalla de ${nombre}: ${detalles.length ? unirLista(detalles) : 'personalizada'}`);
   }

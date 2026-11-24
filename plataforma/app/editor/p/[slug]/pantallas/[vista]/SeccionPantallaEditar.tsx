@@ -11,11 +11,17 @@ import { MENSAJE_HEX, RE_HEX } from '../../../../../../lib/editor/imagen';
 import {
   conEncuadre,
   conInterruptor,
+  conLetra,
   conTamano,
   encendido,
+  letraDe,
+  LETRAS_DE_VISTA,
+  OPCIONES_LETRA_FRASE_VISTA,
+  OPCIONES_LETRA_TITULO_VISTA,
+  FAMILIA_LETRA_FRASE,
   encuadreDe,
   fotoEncuadrable,
-  OPCIONES_TAMANO,
+  OPCIONES_TAMANO_TEXTO,
   tamanoDe,
   type CualFoto,
   type CualTamano,
@@ -41,7 +47,9 @@ import { CampoTexto } from '../../../../../componentes/CampoTexto';
 import { DeslizadoresFoto } from '../../../../../componentes/DeslizadoresFoto';
 import { Dialogo } from '../../../../../componentes/Dialogo';
 import { Interruptor } from '../../../../../componentes/Interruptor';
+import { ListaTipografias } from '../../../../../componentes/ListaTipografias';
 import { Segmentado } from '../../../../../componentes/Segmentado';
+import { FAMILIA_TIPOGRAFIA, OPCIONES_TIPOGRAFIA } from '../../../../../../lib/editor/rotulos';
 import { CabezaSeccion } from '../../CabezaSeccion';
 import { Migas } from '../../Migas';
 import { useBorrador, useNotaVistaPrevia } from '../../ProveedorBorrador';
@@ -70,13 +78,14 @@ const OPCIONES_DISTRIBUCION = [
   { valor: 'centro', texto: 'Centrado' },
 ];
 
-/** Los tamaños de texto de cada pantalla (spec: Avisos no tiene frase; Producción y EN VIVO, ninguno). */
+/** Los tamaños de texto de cada pantalla (Avisos no tiene frase; Producción, solo el nombre; EN VIVO, ninguno; Horarios no está en el editor). */
 const TAMANOS_DE_VISTA: Record<string, { cual: CualTamano; etiqueta: string }[]> = {
   inicio: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   portada: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   evento: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   gracias: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   avisos: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }],
+  produccion: [{ cual: 'titulo', etiqueta: 'Tamaño del nombre' }],
 };
 
 /** El color de «Color liso» al elegirlo: el oscuro de la parroquia si se lee con blanco; si no, #0c3562. */
@@ -265,11 +274,29 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
         <Segmentado
           key={t.cual}
           etiqueta={t.etiqueta}
-          opciones={OPCIONES_TAMANO}
+          opciones={OPCIONES_TAMANO_TEXTO}
           valor={tamanoDe(p, t.cual)}
           onCambiar={(valor) => poner({ tamanos: conTamano(p, t.cual, valor).tamanos })}
         />
       ))}
+
+      {(LETRAS_DE_VISTA[vista] ?? []).map((cual) => {
+        // Producción no sigue el estilo de todas las pantallas: su letra de siempre es Montserrat.
+        const enProduccion = vista === 'produccion';
+        const deSiempre = enProduccion ? 'montserrat' : '';
+        const titulo = cual === 'titulo';
+        return (
+          <ListaTipografias
+            key={cual}
+            etiqueta={enProduccion ? 'Letra del nombre' : titulo ? 'Letra del título' : 'Letra de la frase'}
+            nombre={`pantalla-letra-${cual}`}
+            opciones={enProduccion ? OPCIONES_TIPOGRAFIA : titulo ? OPCIONES_LETRA_TITULO_VISTA : OPCIONES_LETRA_FRASE_VISTA}
+            familias={titulo ? FAMILIA_TIPOGRAFIA : FAMILIA_LETRA_FRASE}
+            valor={letraDe(p, cual, deSiempre)}
+            onCambiar={(valor) => poner({ letras: conLetra(p, cual, valor, deSiempre).letras })}
+          />
+        );
+      })}
 
       {v.textos.map((t) => (
         <CampoTexto

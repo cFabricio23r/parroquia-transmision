@@ -21,7 +21,7 @@ import { MiniaturaPantalla } from './MiniaturaPantalla';
 
 export const TEXTO_PANTALLAS = 'Cada una viene lista con tu identidad. Personaliza solo las que quieras.';
 export const ALCANCE_ESTILO =
-  'La letra del título cambia Inicio, Portada, Evento, Gracias, Avisos y Horarios; el tamaño del logo, las que llevan el logo arriba a la izquierda (Inicio, Portada, Evento y Gracias). Producción y la capa EN VIVO no cambian.';
+  'La letra del título cambia Inicio, Portada, Evento, Gracias, Avisos y Horarios; el tamaño del logo, las que llevan el logo arriba a la izquierda (Inicio, Portada, Evento y Gracias). Producción y la capa EN VIVO no cambian. Cada pantalla puede tener su propia letra y tamaño en su editor.';
 
 const objeto = (v: unknown): Record<string, unknown> => (v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
