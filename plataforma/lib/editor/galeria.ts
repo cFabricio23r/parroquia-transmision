@@ -106,7 +106,14 @@ export function quitarImagen(config: object, id: string): Partial<Record<'galeri
   const nuevasPantallas: Objeto = {};
   for (const [v, pa] of Object.entries(pantallas)) {
     const o = objeto(pa);
-    if (o.imagen !== ref && objeto(o.fondo).imagen !== id) {
+    // El encuadre nombra la foto como `galeria:<id>` (el fondo también puede venir como `<id>` a secas).
+    const encuadre = objeto(o.encuadre);
+    const deEsta = (cual: string) => {
+      const de = objeto(encuadre[cual]).de;
+      return de === ref || (cual === 'fondo' && de === id);
+    };
+    const encuadreCambia = deEsta('imagen') || deEsta('fondo');
+    if (o.imagen !== ref && objeto(o.fondo).imagen !== id && !encuadreCambia) {
       nuevasPantallas[v] = pa;
       continue;
     }
@@ -114,6 +121,15 @@ export function quitarImagen(config: object, id: string): Partial<Record<'galeri
     const copia: Objeto = { ...o };
     if (copia.imagen === ref) delete copia.imagen;
     if (objeto(copia.fondo).imagen === id) delete copia.fondo;
+    // Sin esto el encuadre queda nombrando una foto que no está: no se puede publicar, y sin la foto no hay
+    // deslizadores con qué quitarlo.
+    if (encuadreCambia) {
+      const e: Objeto = { ...encuadre };
+      if (deEsta('imagen')) delete e.imagen;
+      if (deEsta('fondo')) delete e.fondo;
+      if (Object.keys(e).length) copia.encuadre = e;
+      else delete copia.encuadre;
+    }
     nuevasPantallas[v] = copia;
   }
   if (pantallasCambian) cambios.pantallas = nuevasPantallas;

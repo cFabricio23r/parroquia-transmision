@@ -76,6 +76,8 @@ function fotoMostrada(s, vista) {
   const e = ajustesDe(vista).imagen;
   if (e === 'automatica' || e === 'logo' || e === 'ninguna') return null;
   if (e.indexOf('galeria:') === 0 && !imagenGaleria(e.slice(8))) return null;
+  // Sin imagen del patrono se ve la fachada (imagenDe): no se encuadra como si fuera el patrono.
+  if (e === 'patrono' && !(PARROQUIA.patrono && PARROQUIA.patrono.imagen && PARROQUIA.patrono.imagen.src)) return null;
   return e;
 }
 

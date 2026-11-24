@@ -248,3 +248,12 @@ describe('estilo de todas las pantallas, tamaños y encuadre (pantallas más opc
     expect((mismo.inicio as Record<string, unknown>).encuadre).toEqual(antes.inicio.encuadre);
   });
 });
+
+describe('el patrono sin imagen no se encuadra (se ve la fachada)', () => {
+  it('fotoEncuadrable con conPatrono=false da null para el patrono, y sigue igual para otras fotos', async () => {
+    const { fotoEncuadrable } = await import('../../lib/editor/pantallas');
+    expect(fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio', false)).toBeNull();
+    expect(fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio', true)).toBe('patrono');
+    expect(fotoEncuadrable({ imagen: 'galeria:taller' }, 'imagen', 'inicio', false)).toBe('galeria:taller');
+  });
+});

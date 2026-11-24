@@ -140,8 +140,10 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
     const nuevo = conInterruptor(p, e, valor);
     poner({ ocultar: nuevo.ocultar, mostrar: nuevo.mostrar });
   };
+  const imagenPatrono = (borrador.patrono as { imagen?: { src?: unknown } } | undefined)?.imagen?.src;
+  const conImagenPatrono = typeof imagenPatrono === 'string' && imagenPatrono !== '';
   const deslizadores = (cual: CualFoto, titulo: string) =>
-    fotoEncuadrable(p, cual, vista) !== null && (
+    fotoEncuadrable(p, cual, vista, conImagenPatrono) !== null && (
       <DeslizadoresFoto
         titulo={titulo}
         valores={encuadreDe(p, cual, vista)}

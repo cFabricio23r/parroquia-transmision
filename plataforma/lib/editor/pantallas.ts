@@ -294,7 +294,7 @@ const SIN_FOTO_FIJA = [undefined, 'automatica', 'logo', 'ninguna'];
  * La foto que se puede mover, como la nombra el encuadre (`patrono`, `galeria:taller`), o null: la imagen es la del
  * tipo, el logo o ninguna, el fondo no es una foto, o es el arco de Evento (lleva siempre el logo).
  */
-export function fotoEncuadrable(p: object | undefined, cual: CualFoto, vista: string): string | null {
+export function fotoEncuadrable(p: object | undefined, cual: CualFoto, vista: string, conPatrono = true): string | null {
   const o = objeto(p);
   if (cual === 'fondo') {
     const f = objeto(o.fondo);
@@ -302,6 +302,8 @@ export function fotoEncuadrable(p: object | undefined, cual: CualFoto, vista: st
   }
   if (vista === 'evento') return null;
   const im = o.imagen;
+  // Sin imagen del patrono la pantalla muestra la fachada: no hay foto del patrono que mover.
+  if (im === 'patrono' && !conPatrono) return null;
   return typeof im === 'string' && !SIN_FOTO_FIJA.includes(im) ? im : null;
 }
 

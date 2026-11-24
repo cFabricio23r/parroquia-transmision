@@ -3201,6 +3201,12 @@ grupo('pantallas: estilo, tamaños y encuadre', () => {
     assert.deepEqual(plano(x.ajustesDe('produccion').tamanos), { titulo: 'normal', frase: 'normal' });
     assert.deepEqual(plano(x.ajustesDe('produccion').encuadre), { imagen: null, fondo: null });
   });
+  prueba('fotoMostrada: sin imagen del patrono se ve la fachada, y no se encuadra como si fuera el patrono', () => {
+    const con = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(con.fotoMostrada({}, 'inicio'), 'patrono');
+    const sin = cargarP((c) => { delete c.patrono.imagen; c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', encuadre: ENC } }; });
+    assert.equal(sin.fotoMostrada({}, 'inicio'), null);
+  });
   prueba('encuadreVisto: solo con la misma foto', () => {
     const x = cargarP((c) => { c.pantallas = { inicio: { modo: 'personalizada', encuadre: ENC } }; });
     assert.deepEqual(plano(x.encuadreVisto('inicio', 'imagen', 'patrono')), { x: 30, y: 70, zoom: 150 });

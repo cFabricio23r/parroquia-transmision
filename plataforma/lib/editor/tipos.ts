@@ -155,11 +155,23 @@ export function rotulosDeCasillas(marcadas: Record<string, boolean>, anteriores:
   const quedan = antes.filter((b, i, a) => !quitar.has(b) && a.indexOf(b) === i);
   const nuevas = ORDEN_BASES.filter((b) => agregar.has(b) && !quedan.includes(b));
   const cubiertas = new Set(CASILLAS_PROPIO.flatMap((c) => c.bases));
-  let donde = 0;
-  quedan.forEach((b, i) => {
-    if (cubiertas.has(b)) donde = i + 1;
-  });
-  return [...quedan.slice(0, donde), ...nuevas, ...quedan.slice(donde)];
+  const orden = (b: string) => ORDEN_BASES.indexOf(b);
+  const salida = [...quedan];
+  // Cada base nueva va antes de la primera base de casilla que en el orden de la misa viene después (la
+  // 2.ª lectura antes del evangelio); si no hay ninguna, detrás de la última base de casilla (o al principio).
+  for (const b of nuevas) {
+    const antesDe = salida.findIndex((x) => cubiertas.has(x) && orden(x) > orden(b));
+    if (antesDe !== -1) {
+      salida.splice(antesDe, 0, b);
+      continue;
+    }
+    let donde = 0;
+    salida.forEach((x, i) => {
+      if (cubiertas.has(x)) donde = i + 1;
+    });
+    salida.splice(donde, 0, b);
+  }
+  return salida;
 }
 
 export type Portada = 'ninguna' | 'fiesta' | 'evento';
