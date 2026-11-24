@@ -3103,6 +3103,59 @@ grupo('tipos propios: opcionales', () => {
   });
 });
 
+grupo('validarConfig: estilo de pantallas, tamaños y encuadre', () => {
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    c.galeria = [{ id: 'taller', src: 'medios/taller.png', alt: 'El taller' }];
+    cambios(c);
+    return c;
+  };
+  const ok = (cambios) => p.validarConfig(copia(cambios)).ok;
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores).join(' | ');
+  const inicio = (extra) => (c) => { c.pantallas = { inicio: Object.assign({ modo: 'personalizada', imagen: 'patrono' }, extra) }; };
+
+  prueba('los tres campos válidos pasan', () => {
+    assert.ok(ok((c) => {
+      c.estiloPantallas = { letraTitulo: 'cinzel', letraFrase: 'vibes', logo: 'grande' };
+      c.pantallas = { inicio: { modo: 'personalizada', imagen: 'patrono', fondo: { tipo: 'imagen', imagen: 'taller' },
+        tamanos: { titulo: 'grande', frase: 'chico' },
+        encuadre: { imagen: { de: 'patrono', x: 30, y: 70, zoom: 150 }, fondo: { de: 'galeria:taller', x: 0, y: 100, zoom: 200 } } } };
+    }));
+    assert.ok(ok((c) => { c.estiloPantallas = { letraFrase: 'oswald' }; }));
+    assert.ok(ok((c) => { c.estiloPantallas = {}; }));
+    assert.ok(ok(inicio({ encuadre: { imagen: { de: 'galeria:taller', x: 50, y: 50, zoom: 100 } } })));
+  });
+  prueba('estiloPantallas: valores inválidos dan su mensaje', () => {
+    assert.match(errs((c) => { c.estiloPantallas = { letraTitulo: 'vibes' }; }), /La letra del título \(estiloPantallas\.letraTitulo\) debe ser una de: montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { letraFrase: 'comic' }; }), /La letra de la frase \(estiloPantallas\.letraFrase\) debe ser una de: vibes, montserrat/);
+    assert.match(errs((c) => { c.estiloPantallas = { logo: 'enorme' }; }), /El tamaño del logo \(estiloPantallas\.logo\) debe ser uno de: chico, normal, grande/);
+    assert.match(errs((c) => { c.estiloPantallas = 'grande'; }), /El estilo de las pantallas \(estiloPantallas\) debe ser un objeto/);
+    assert.match(errs((c) => { c.estiloPantallas = { otro: 1 }; }), /estiloPantallas\.otro/);
+  });
+  prueba('tamanos: valores inválidos', () => {
+    assert.match(errs(inicio({ tamanos: { titulo: 'gigante' } })), /pantallas\.inicio\.tamanos\.titulo/);
+    assert.match(errs(inicio({ tamanos: { otro: 'grande' } })), /pantallas\.inicio\.tamanos\.otro/);
+    assert.match(errs(inicio({ tamanos: 'grande' })), /pantallas\.inicio\.tamanos/);
+    assert.ok(ok((c) => { c.pantallas = { horarios: { modo: 'personalizada', tamanos: { titulo: 'grande' } } }; }));
+  });
+  prueba('encuadre: valores inválidos', () => {
+    const enc = (v) => errs(inicio({ encuadre: { imagen: v } }));
+    assert.match(enc({ x: 50, y: 50, zoom: 100 }), /Falta la foto del encuadre \(pantallas\.inicio\.encuadre\.imagen\.de\)/);
+    assert.match(enc({ de: 'patrono', x: 101, y: 50, zoom: 100 }), /pantallas\.inicio\.encuadre\.imagen\.x\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: -1, zoom: 100 }), /encuadre\.imagen\.y\) debe ser un entero de 0 a 100/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 99 }), /encuadre\.imagen\.zoom\) debe ser un entero de 100 a 200/);
+    assert.match(enc({ de: 'patrono', x: 50, y: 50, zoom: 201 }), /encuadre\.imagen\.zoom/);
+    assert.match(enc({ de: 'patrono', x: 50.5, y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'patrono', y: 50, zoom: 100 }), /encuadre\.imagen\.x/);
+    assert.match(enc({ de: 'galeria:noexiste', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) no está en la galería/);
+    assert.match(enc({ de: 'otra', x: 50, y: 50, zoom: 100 }), /encuadre\.imagen\.de\) debe ser una de/);
+    assert.match(errs(inicio({ encuadre: { fondo: { de: 'noexiste', x: 50, y: 50, zoom: 100 } } })), /encuadre\.fondo\.de\) no está en la galería/);
+    assert.match(errs(inicio({ encuadre: { otro: {} } })), /pantallas\.inicio\.encuadre\.otro/);
+    assert.match(errs(inicio({ encuadre: { imagen: 'patrono' } })), /pantallas\.inicio\.encuadre\.imagen\) debe ser un objeto/);
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');
