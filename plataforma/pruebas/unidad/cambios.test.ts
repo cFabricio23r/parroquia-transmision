@@ -104,6 +104,14 @@ describe('cambiosEntre', () => {
 
 describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
   const frases = (pub: object, bor: object) => cambiosEntre({ ...base, ...pub }, { ...base, ...bor }, nombresTipos).flatMap((s) => s.frases);
+  it('diseño, posición y tipografía nuevos', () => {
+    expect(frases({ rotulos: {} }, { rotulos: { diseno: 'tarjeta', posicion: 'derecha', tipografia: 'nunito' } })).toEqual([
+      'Diseño de rótulos: Tarjeta',
+      'Tipografía de rótulos: Nunito',
+      'Posición de rótulos: abajo a la derecha',
+    ]);
+    expect(frases({ rotulos: { posicion: 'derecha' } }, { rotulos: { posicion: 'arriba-derecha' } })).toEqual(['Posición de rótulos: arriba a la derecha']);
+  });
   it('Fondo del rótulo', () => {
     expect(frases({ rotulos: {} }, { rotulos: { colorLado: 'oscuro' } })).toEqual(['Fondo del rótulo']);
   });

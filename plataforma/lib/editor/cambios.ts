@@ -3,6 +3,7 @@
 // antes de comparar. La igualdad no mira el orden de claves (jsonb).
 import { NOMBRES_REDES, unirLista } from './estados';
 import { iguales } from './fusion';
+import { disenoDe, nombreDiseno, nombreTipografia } from './rotulos';
 import { aFormaNueva } from './horarios';
 import { NOMBRES_VISTAS, SECCIONES, type IdSeccion } from './secciones';
 
@@ -101,16 +102,18 @@ function pantallas(p: Config, b: Config): string[] {
   return frases;
 }
 
-const TIPOGRAFIAS: Record<string, string> = { montserrat: 'Montserrat', lora: 'Lora', 'source-sans': 'Source Sans' };
 const ESQUINAS: Record<string, string> = { rectas: 'rectas', suaves: 'suaves', redondas: 'redondas', redondeadas: 'suaves' };
+const POSICIONES: Record<string, string> = { centro: 'al centro', derecha: 'abajo a la derecha', 'arriba-derecha': 'arriba a la derecha' };
 
 function rotulos(p: Config, b: Config): string[] {
   const a = obj(p.rotulos);
   const d = obj(b.rotulos);
   const frases: string[] = [];
-  const tipo = (r: Config) => TIPOGRAFIAS[String(r.tipografia)] ?? 'Montserrat';
+  const tipo = (r: Config) => nombreTipografia(r.tipografia);
+  const dis = (r: Config) => nombreDiseno(disenoDe(r));
   const esq = (r: Config) => ESQUINAS[String(r.esquinas)] ?? 'suaves';
-  const pos = (r: Config) => (r.posicion === 'centro' ? 'al centro' : 'abajo a la izquierda');
+  const pos = (r: Config) => POSICIONES[String(r.posicion)] ?? 'abajo a la izquierda';
+  if (dis(a) !== dis(d)) frases.push(`Diseño de rótulos: ${dis(d)}`);
   if (tipo(a) !== tipo(d)) frases.push(`Tipografía de rótulos: ${tipo(d)}`);
   if (esq(a) !== esq(d)) frases.push(`Esquinas de rótulos: ${esq(d)}`);
   if (distinto(a.colorLado, d.colorLado)) frases.push('Fondo del rótulo');
