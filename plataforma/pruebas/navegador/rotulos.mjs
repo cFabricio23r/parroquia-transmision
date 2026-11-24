@@ -182,6 +182,23 @@ try {
   revisar(!(await pd.getByLabel('Fondo del rótulo').isDisabled()), 'de vuelta en Clásico, «Fondo del rótulo» se puede usar');
   revisar(d5.rotulos?.esquinas === 'rectas' && d5.rotulos?.colorLado === 'oscuro', 'y la base conserva esquinas y colorLado');
 
+  console.log('Diseños · Minimal con un fondo que ya no sirve (review final 7)');
+  const M = await prepararParroquia({
+    config: { ...CONFIG_BASE, colores: { principal: '#8a1c2b', oscuro: '#4b0f18' }, rotulos: { diseno: 'minimal', colorLado: 'acento' } },
+  });
+  const pm = await nuevaPagina(M.correo);
+  await pm.goto(`${BASE}/editor/p/${M.slug}/rotulos`);
+  revisar(
+    await pm.getByText('Falta el color de acento en Identidad. Elige otro color.').isVisible(),
+    'con Minimal, el error de «Fondo del rótulo» se sigue viendo',
+  );
+  revisar(!(await pm.getByLabel('Fondo del rótulo').isDisabled()), 'y el campo se puede cambiar sin salir de Minimal');
+  await pm.getByLabel('Fondo del rótulo').selectOption({ label: '#4b0f18 (oscuro)' });
+  await esperarGuardado(pm);
+  const m1 = await esperarEnBase(M.id, (c) => c.rotulos?.colorLado === 'oscuro');
+  igual(m1.rotulos?.colorLado, 'oscuro', 'elegir otro lo arregla');
+  revisar(await pm.getByLabel('Fondo del rótulo').isDisabled(), 'ya sin error, el campo vuelve a quedar deshabilitado');
+
   console.log('F6 · Config viejo');
   const V = await prepararParroquia({ config: { ...CONFIG_BASE, rotulos: { esquinas: 'redondeadas' } } });
   const pv = await nuevaPagina(V.correo);

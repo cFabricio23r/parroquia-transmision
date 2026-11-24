@@ -50,7 +50,10 @@ export function SeccionRotulos() {
   const nota = notaAcento(colores, diseno);
   // Minimal no usa esquinas ni fondo: se deshabilitan, pero lo guardado no se borra (si se vuelve a otro diseño, sigue ahí).
   const conEsquinas = usaCampo(diseno, 'esquinas');
-  const conFondo = usaCampo(diseno, 'colorLado');
+  // Con un error (por ejemplo, el acento se borró en Identidad) el campo se ve y se puede cambiar igual: si no, la
+  // validación no deja publicar y no hay cómo arreglarlo sin salir de Minimal.
+  const errorFondo = errorColorRotulo(colores, r.colorLado);
+  const conFondo = usaCampo(diseno, 'colorLado') || errorFondo !== null;
   const [cargos, setCargos] = useState<string | null>(null);
   const [errorCargos, setErrorCargos] = useState<string | undefined>();
 
@@ -88,7 +91,7 @@ export function SeccionRotulos() {
           etiqueta="Fondo del rótulo"
           opciones={opcionesColorRotulo(colores, 'colorLado', r.colorLado)}
           valor={texto(r.colorLado)}
-          error={conFondo ? errorColorRotulo(colores, r.colorLado) : null}
+          error={errorFondo}
           deshabilitado={!conFondo}
           nota={conFondo ? undefined : NOTA_MINIMAL}
           onCambiar={(v) => poner('colorLado', v || undefined)}
