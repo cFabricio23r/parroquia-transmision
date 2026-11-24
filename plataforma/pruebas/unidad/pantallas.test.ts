@@ -207,7 +207,7 @@ describe('estilo de todas las pantallas, tamaños y encuadre (pantallas más opc
     expect(m.fotoEncuadrable({ imagen: 'automatica' }, 'imagen', 'inicio')).toBeNull();
     expect(m.fotoEncuadrable({ imagen: 'logo' }, 'imagen', 'inicio')).toBeNull();
     expect(m.fotoEncuadrable({ imagen: 'ninguna' }, 'imagen', 'inicio')).toBeNull();
-    expect(m.fotoEncuadrable({ imagen: 'santo' }, 'imagen', 'inicio')).toBeNull();
+    expect(m.fotoEncuadrable({ imagen: 'santo' }, 'imagen', 'inicio')).toBe('santo');
     expect(m.fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'inicio')).toBe('patrono');
     expect(m.fotoEncuadrable({ imagen: 'galeria:taller' }, 'imagen', 'avisos')).toBe('galeria:taller');
     expect(m.fotoEncuadrable({ imagen: 'patrono' }, 'imagen', 'evento')).toBeNull();

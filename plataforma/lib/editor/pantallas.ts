@@ -288,11 +288,11 @@ export interface Encuadre {
   zoom: number;
 }
 const ENCUADRE_DE_SIEMPRE: Record<CualFoto, Encuadre> = { imagen: { x: 50, y: 20, zoom: 100 }, fondo: { x: 50, y: 50, zoom: 100 } };
-const SIN_FOTO_FIJA = [undefined, 'automatica', 'logo', 'ninguna', 'santo'];
+const SIN_FOTO_FIJA = [undefined, 'automatica', 'logo', 'ninguna'];
 
 /**
  * La foto que se puede mover, como la nombra el encuadre (`patrono`, `galeria:taller`), o null: la imagen es la del
- * tipo, el logo, ninguna o la del santo (cambia cada día), el fondo no es una foto, o es el arco de Evento.
+ * tipo, el logo o ninguna, el fondo no es una foto, o es el arco de Evento (lleva siempre el logo).
  */
 export function fotoEncuadrable(p: object | undefined, cual: CualFoto, vista: string): string | null {
   const o = objeto(p);
