@@ -12,7 +12,7 @@ const raizRepo = path.resolve(__dirname, '..', '..');
 const vercel = JSON.parse(fs.readFileSync(path.join(raizRepo, 'vicaria', 'vercel.json'), 'utf8'));
 
 const PAGINAS = [
-  'comun.js', 'estilos.css', 'guardadas.js', 'panel.html', 'pantalla.html',
+  'comun.js', 'estilos.css', 'guardadas-nucleo.js', 'guardadas-sync.js', 'guardadas.js', 'nube-cliente.js', 'nube.js', 'panel.html', 'pantalla.html',
   'pantallas.js', 'parroquia.js', 'produccion.html', 'rotulos.html', 'tipos.js',
   'transicion.html', 'transicion.js',
 ];

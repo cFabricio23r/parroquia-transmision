@@ -1,12 +1,12 @@
 /* Transmisiones guardadas: el panel guarda el estado de una transmisión con un nombre
    (por ejemplo «Hora Santa jueves») para cargarla otra semana. Se carga solo en panel.html,
-   después de parroquia.js, tipos.js y comun.js.
-   Cada Guardada = { id, nombre, tipo, guardadaEn, usadaEn, datos }.
+   después de parroquia.js, tipos.js, comun.js y guardadas-nucleo.js.
+   Cada Guardada = { id, nombre, tipo, guardadaEn, usadaEn, actualizadoEn, datos }.
    `datos` es una copia del estado SIN el rótulo al aire (rotulo, rotuloHasta, rotuloDesde):
    cargar una transmisión nunca deja un rótulo en pantalla. */
 
 const CLAVE_GUARDADAS = claveDe('guardadas_v1');   // pev_<slug>_guardadas_v1: cada parroquia tiene las suyas
-const CAMPOS_DE_AIRE = ['rotulo', 'rotuloHasta', 'rotuloDesde'];
+const CAMPOS_DE_AIRE = GUARDADAS.CAMPOS_DE_AIRE;   // vienen del núcleo (guardadas-nucleo.js se carga antes)
 
 const copiaProfunda = (x) => JSON.parse(JSON.stringify(x));
 const mismoNombre = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
@@ -28,10 +28,13 @@ function leerTodo() {
 }
 
 /* Lista guardada, de la más usada a la menos usada. Si lo guardado no se puede leer o no es una lista,
-   devuelve []. Las entradas rotas no se muestran (pero se conservan en el almacén al escribir). */
+   devuelve []. Las entradas rotas no se muestran (pero se conservan en el almacén al escribir).
+   Las guardadas de antes de la nube no traen actualizadoEn: se completa con el mayor entre guardadaEn y
+   usadaEn, para que la fusión y la primera subida comparen números. */
 function leerGuardadas() {
   return leerTodo().items
     .filter(esGuardadaValida)
+    .map((g) => (typeof g.actualizadoEn === 'number' ? g : Object.assign({}, g, { actualizadoEn: Math.max(g.guardadaEn || 0, g.usadaEn || 0) })))
     .sort((a, b) => (b.usadaEn || 0) - (a.usadaEn || 0) || (b.guardadaEn || 0) - (a.guardadaEn || 0));
 }
 
@@ -46,36 +49,76 @@ function escribirGuardadas(validas) {
   } catch (e) { return false; }
 }
 
+/* Qué dice la fila: «Usada …» si se cargó alguna vez, «Guardada …» si nunca. Al guardar (y en la nube)
+   usadaEn arranca igual a guardadaEn, así que «se cargó» es que usadaEn sea posterior. → { palabra, cuando } */
+function usoDeGuardada(g) {
+  const guardadaEn = g.guardadaEn || 0;
+  if (typeof g.usadaEn === 'number' && g.usadaEn > guardadaEn) return { palabra: 'Usada', cuando: g.usadaEn };
+  return { palabra: 'Guardada', cuando: guardadaEn || g.usadaEn || 0 };
+}
+
 /* ¿Ya hay una guardada con ese nombre? (sin importar mayúsculas ni espacios de los lados) */
 function existeGuardada(nombre) {
   return leerGuardadas().some((g) => mismoNombre(g.nombre, nombre));
 }
 
-/* Un id nuevo: la hora en base 36; si ya existe (dos en el mismo milisegundo), sube de a uno. */
-function idNuevo(lista) {
-  let n = Date.now();
-  while (lista.some((g) => g.id === n.toString(36))) n++;
-  return n.toString(36);
+/* ---------- Cola de cambios pendientes de subir a la nube ----------
+   Pendiente = { op: 'guardar'|'borrar'|'usar', id, cuando (ms), rechazado? }. Las reglas de la cola
+   (qué reemplaza a qué) viven en GUARDADAS.anotar; aquí solo se lee y se escribe. */
+const CLAVE_PENDIENTES = claveDe('guardadas_pendientes_v1');
+const OPS_PENDIENTES = ['guardar', 'borrar', 'usar'];
+const esPendienteValido = (p) => !!p && typeof p === 'object' && OPS_PENDIENTES.includes(p.op) && typeof p.id === 'string' && typeof p.cuando === 'number';
+
+/* La cola guardada; si no se puede leer o no es una lista devuelve [], y se ignoran las entradas rotas. */
+function leerPendientes() {
+  try {
+    const lista = JSON.parse(localStorage.getItem(CLAVE_PENDIENTES) || '[]');
+    return Array.isArray(lista) ? lista.filter(esPendienteValido) : [];
+  } catch (e) { return []; }
+}
+
+/* true si quedó escrita. */
+function escribirPendientes(pendientes) {
+  try { localStorage.setItem(CLAVE_PENDIENTES, JSON.stringify(pendientes)); return true; } catch (e) { return false; }
+}
+
+/* Escribe la lista que llega de la fusión con la nube (conserva las entradas rotas, como escribirGuardadas). */
+function reemplazarGuardadas(lista) {
+  return escribirGuardadas(lista);
+}
+
+/* Escribe la lista nueva y anota el pendiente. Si la cola no se puede escribir, devuelve la lista a como
+   estaba: un cambio que no se puede subir no se queda a medias. true si quedó todo. */
+function escribirYAnotar(previa, nueva, pendiente) {
+  if (!escribirGuardadas(nueva)) return false;
+  if (escribirPendientes(GUARDADAS.anotar(leerPendientes(), pendiente))) return true;
+  escribirGuardadas(previa);
+  return false;
 }
 
 /* Guarda el estado `s` con ese nombre. Si ya hay una con el mismo nombre (sin importar mayúsculas
-   ni espacios de los lados), la reemplaza. Un nombre vacío no se guarda: devuelve null. */
+   ni espacios de los lados), la reemplaza. Un nombre vacío no se guarda: devuelve null.
+   Si ya hay GUARDADAS.LIMITE y el nombre es nuevo, devuelve { error: 'limite' } y no escribe nada.
+   Anota un pendiente «guardar». */
 function guardarTransmision(nombre, s) {
   nombre = String(nombre || '').trim();
   if (!nombre) return null;
   const datos = copiaProfunda(s);
   CAMPOS_DE_AIRE.forEach((c) => { delete datos[c]; });
   const lista = leerGuardadas();
+  const previa = lista.find((g) => mismoNombre(g.nombre, nombre));
+  if (!previa && lista.length >= GUARDADAS.LIMITE) return { error: 'limite' };
   const ahora = Date.now();
   const tipo = (typeof ordenTipos === 'function' ? ordenTipos() : ['dominical']).includes(datos.tipo) ? datos.tipo : 'dominical';
-  const previa = lista.find((g) => mismoNombre(g.nombre, nombre));
-  const guardada = { id: previa ? previa.id : idNuevo(lista), nombre, tipo, guardadaEn: ahora, usadaEn: ahora, datos };
-  return escribirGuardadas(previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada)) ? guardada : null;
+  const guardada = { id: previa ? previa.id : GUARDADAS.idNuevo(ahora, Math.random), nombre, tipo, guardadaEn: ahora, usadaEn: ahora, actualizadoEn: ahora, datos };
+  const nueva = previa ? lista.map((g) => (g === previa ? guardada : g)) : lista.concat(guardada);
+  return escribirYAnotar(lista, nueva, { op: 'guardar', id: guardada.id, cuando: ahora }) ? guardada : null;
 }
 
 /* El estado de una guardada, listo para el panel: completo (los estados viejos se migran),
-   con el tipo en TIPOS y sin rótulo al aire. Marca la guardada como usada ahora.
-   Si el id no existe devuelve null. (`actual` no se usa: se carga la transmisión entera.) */
+   con el tipo en TIPOS y sin rótulo al aire. Marca la guardada como usada ahora (usadaEn, sin tocar
+   actualizadoEn) y anota un pendiente «usar». Si el id no existe devuelve null.
+   (`actual` no se usa: se carga la transmisión entera.) */
 function cargarTransmision(id, actual) {
   const lista = leerGuardadas();
   const guardada = lista.find((g) => g.id === id);
@@ -84,23 +127,28 @@ function cargarTransmision(id, actual) {
   estado.rotulo = 'ninguno';
   estado.rotuloHasta = 0;
   guardada.usadaEn = Date.now();
-  escribirGuardadas(lista);
+  if (escribirGuardadas(lista)) escribirPendientes(GUARDADAS.anotar(leerPendientes(), { op: 'usar', id, cuando: guardada.usadaEn }));
   return estado;
 }
 
-/* Copia con el nombre «{nombre} (copia)». Si ese nombre ya existe, queda «(copia 2)», «(copia 3)»… */
+/* Copia con el nombre «{nombre} (copia)». Si ese nombre ya existe, queda «(copia 2)», «(copia 3)»…
+   Con GUARDADAS.LIMITE guardadas devuelve { error: 'limite' }. Anota un pendiente «guardar». */
 function duplicarTransmision(id) {
   const lista = leerGuardadas();
   const origen = lista.find((g) => g.id === id);
   if (!origen) return null;
-  let nombre = origen.nombre + ' (copia)';
-  for (let n = 2; lista.some((g) => mismoNombre(g.nombre, nombre)); n++) nombre = origen.nombre + ' (copia ' + n + ')';
+  if (lista.length >= GUARDADAS.LIMITE) return { error: 'limite' };
+  const nombre = GUARDADAS.nombreLibre(origen.nombre, lista.map((g) => g.nombre));
   const ahora = Date.now();
-  const copia = { id: idNuevo(lista), nombre, tipo: origen.tipo, guardadaEn: ahora, usadaEn: ahora, datos: copiaProfunda(origen.datos) };
-  return escribirGuardadas(lista.concat(copia)) ? copia : null;
+  const copia = { id: GUARDADAS.idNuevo(ahora, Math.random), nombre, tipo: origen.tipo, guardadaEn: ahora, usadaEn: ahora, actualizadoEn: ahora, datos: copiaProfunda(origen.datos) };
+  return escribirYAnotar(lista, lista.concat(copia), { op: 'guardar', id: copia.id, cuando: ahora }) ? copia : null;
 }
 
-/* true si quedó borrada; false si el navegador no dejó escribir. */
+/* true si quedó borrada; false si el navegador no dejó escribir. Es un borrado blando en local: la entrada
+   sale de la lista y se anota un pendiente «borrar» (la nube conserva la baja). */
 function borrarTransmision(id) {
-  return escribirGuardadas(leerGuardadas().filter((g) => g.id !== id));
+  const lista = leerGuardadas();
+  const nueva = lista.filter((g) => g.id !== id);
+  if (nueva.length === lista.length) return escribirGuardadas(nueva);
+  return escribirYAnotar(lista, nueva, { op: 'borrar', id, cuando: Date.now() });
 }

@@ -213,3 +213,42 @@ describe('nombres inválidos', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 });
+
+describe('código de PostgREST y rpc (misas listas, Tarea 6)', () => {
+  it('un 409 con code 23505 lleva el codigo', async () => {
+    const { f } = fetchFalso(() => respuesta(409, { code: '23505', message: 'duplicate key' }));
+    const r = await cliente(f).upsert(SESION, 'guardadas', [{ id: 'x' }], 'parroquia_id,id');
+    expect(r).toEqual({ ok: false, error: { tipo: 'servidor', estado: 409, codigo: '23505' } });
+  });
+
+  it('un 4xx sin code no inventa codigo', async () => {
+    const { f } = fetchFalso(() => respuesta(400, 'nada'));
+    const r = await cliente(f).upsert(SESION, 'guardadas', [{ id: 'x' }], 'parroquia_id,id');
+    expect(r).toEqual({ ok: false, error: { tipo: 'servidor', estado: 400 } });
+  });
+
+  it('rpc manda los argumentos por POST a /rest/v1/rpc/<función>', async () => {
+    const { f, llamadas } = fetchFalso(() => respuesta(204));
+    const r = await cliente(f).rpc(SESION, 'usar_guardada', { p_parroquia: 'p1', p_id: 'g1', p_cuando: '2026-11-23T10:00:00.000Z' });
+    expect(r).toEqual({ ok: true, valor: null });
+    expect(llamadas[0].url).toBe('https://ref.supabase.co/rest/v1/rpc/usar_guardada');
+    expect(llamadas[0].init.method).toBe('POST');
+    expect(JSON.parse(String(llamadas[0].init.body))).toEqual({ p_parroquia: 'p1', p_id: 'g1', p_cuando: '2026-11-23T10:00:00.000Z' });
+    const h = cabeceras(llamadas[0].init);
+    expect(h.apikey).toBe(CLAVE);
+    expect(h.authorization).toBe('Bearer TOKEN-ACCESO-FALSO-1111');
+    expect(h['content-type']).toBe('application/json');
+  });
+
+  it('rpc da los mismos errores que el resto de PostgREST', async () => {
+    expect(await cliente(fetchFalso(() => respuesta(401)).f).rpc(SESION, 'usar_guardada', {})).toEqual({ ok: false, error: { tipo: 'sesion-invalida' } });
+    expect(await cliente(fetchFalso(() => respuesta(503)).f).rpc(SESION, 'usar_guardada', {})).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
+    expect(await cliente(fetchFalso(() => respuesta(429)).f).rpc(SESION, 'usar_guardada', {})).toEqual({ ok: false, error: { tipo: 'servidor', estado: 429 } });
+  });
+
+  it('rpc con un nombre raro lanza sin llamar a fetch', async () => {
+    const { f, mock } = fetchFalso(() => respuesta(204));
+    await expect(cliente(f).rpc(SESION, 'a/b', {})).rejects.toThrow('Consulta inválida.');
+    expect(mock).not.toHaveBeenCalled();
+  });
+});

@@ -81,7 +81,8 @@ function copiarVicaria(raizRepo, destino) {
 }
 
 // El núcleo de la semana dentro de la app (plan 3b, Decisión 1): copia
-// vicaria/semana.js byte a byte a `destinoSrc/generado/semana.js` y escribe
+// vicaria/semana.js byte a byte a `destinoSrc/generado/semana.js` (y
+// vicaria/guardadas-nucleo.js a `destinoSrc/generado/guardadas-nucleo.js`) y escribe
 // `destinoSrc/generado/tipos-comunes.json`, los campos de los tipos comunes
 // (tipos.js corrido en un vm y pasado por SEMANA.tiposParaCampos).
 function generarNucleo(raizRepo, destinoSrc) {
@@ -91,6 +92,8 @@ function generarNucleo(raizRepo, destinoSrc) {
   fs.mkdirSync(salida, { recursive: true });
   const textoSemana = fs.readFileSync(path.join(origen, 'semana.js'));
   fs.writeFileSync(path.join(salida, 'semana.js'), textoSemana);
+  // El núcleo de las misas listas (vicaria/guardadas-nucleo.js), también byte a byte.
+  fs.copyFileSync(path.join(origen, 'guardadas-nucleo.js'), path.join(salida, 'guardadas-nucleo.js'));
 
   const contexto = vm.createContext({});
   vm.runInContext(
@@ -120,5 +123,5 @@ if (require.main === module) {
   const copiadas = copiarVicaria(raizRepo, destino);
   console.log(`copiar-vicaria: ${copiadas.length} archivos copiados a ${destino}`);
   generarNucleo(raizRepo, path.join(__dirname, '..', 'src'));
-  console.log('copiar-vicaria: núcleo de la semana en src/generado');
+  console.log('copiar-vicaria: núcleos de la semana y de las guardadas en src/generado');
 }

@@ -283,7 +283,7 @@ async function casoDireccionesRaras() {
   for (const ruta of [`/Ciudad-Arce/pantalla.html`, `/no-existe/pantalla.html`, `/no-existe/panel.html`, `/no-existe/rotulos.html`, `/no-existe/produccion.html`]) {
     const p = await abrir(ctx, ruta, ruta.includes('panel') ? 360 : 1920, ruta.includes('panel') ? 800 : 1080);
     await p.waitForSelector('#no-existe', { state: 'visible' });
-    igual((await texto(p, '#no-existe')).trim(), 'Esta parroquia no existe, revisa el link', ruta + ': «Esta parroquia no existe, revisa el link»');
+    igual((await texto(p, '#no-existe')).trim(), 'Esta parroquia no existe, revisá el link', ruta + ': «Esta parroquia no existe, revisá el link»');
     const cuerpo = await p.innerText('body');
     revisar(!/Inmaculada|San José/.test(cuerpo), ruta + ': sin datos de ninguna parroquia');
     revisar((await claves(p)).filter((k) => !k.startsWith('pev_')).length === 0, ruta + ': sin claves ajenas a pev_');
@@ -2018,44 +2018,499 @@ async function casoFaltasIguales() {
   }
 }
 
-/* 3b: en la app (modo-app) el panel no tiene Guardadas; en la PC sí. */
-async function casoModoAppSinGuardadas() {
-  console.log('3b · Sin Guardadas en modo-app');
-  const sembrar = (p) => p.addInitScript(([ca]) => {
-    localStorage.setItem('pev_' + ca + '_panel_hoja', 'guardadas');
-    localStorage.setItem('pev_' + ca + '_guardadas_v1', JSON.stringify([{ id: 'g1', nombre: 'Hora Santa jueves', tipo: 'horasanta', guardadaEn: 1, usadaEn: 1, datos: { tipo: 'horasanta' } }]));
-  }, [CA]);
-  const visible = (p, sel) => p.evaluate((s) => {
-    const el = document.querySelector(s);
-    if (!el) return false;
-    for (let n = el; n; n = n.parentElement) {
-      const cs = getComputedStyle(n);
-      if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+/* ---------- Misas listas: siempre a la vista en Preparar, y sincronizadas con la nube ----------
+   La nube se simula con context.route() sobre *.supabase.co: ninguna prueba habla con Supabase de verdad. */
+const PAR_PRUEBA = '11111111-1111-4111-8111-111111111111';
+const CLAVE_CA = (n) => 'pev_' + CA + '_' + n;
+
+const visibleEn = (p, sel) => p.evaluate((s) => {
+  const el = document.querySelector(s);
+  if (!el) return false;
+  for (let n = el; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (n.hidden || cs.display === 'none' || cs.visibility === 'hidden') return false;
+  }
+  return el.getBoundingClientRect().width > 0;
+}, sel);
+
+const guardadaPrueba = (id, nombre, usadaEn, extra) => Object.assign({ id, nombre, tipo: 'horasanta', guardadaEn: usadaEn, usadaEn, actualizadoEn: usadaEn, datos: { tipo: 'horasanta', celebrante: 'Pbro. ' + nombre } }, extra);
+const filaPrueba = (id, nombre, ms) => ({ id, parroquia_id: PAR_PRUEBA, nombre, tipo: 'dominical', datos: { tipo: 'dominical' }, guardada_en: new Date(ms).toISOString(), usada_en: new Date(ms).toISOString(), actualizado_en: new Date(ms).toISOString(), actualizado_desde: 'app', borrada_en: null });
+
+/* Siembra localStorage una sola vez por pestaña (addInitScript corre también al recargar). */
+function sembrarPanel(p, valores) {
+  return p.addInitScript((v) => {
+    if (sessionStorage.getItem('__sembrado')) return;
+    sessionStorage.setItem('__sembrado', '1');
+    for (const [k, x] of Object.entries(v)) localStorage.setItem(k, typeof x === 'string' ? x : JSON.stringify(x));
+  }, valores);
+}
+const sesionPrueba = () => ({ [CLAVE_CA('sesion_nube_v1')]: { access: 'acc-prueba', refresh: 'ref-prueba', vence: Date.now() + 3600000 } });
+const yaMigrado = () => ({ [CLAVE_CA('guardadas_migradas_v1')]: { cuando: 1, cantidad: 0 } });
+
+/* Nube falsa para un contexto: contesta Auth y PostgREST como Supabase (con CORS) y anota lo que recibe. */
+async function nubeDePrueba(ctx, filas = [], opciones = {}) {
+  const n = { filas: filas.map((f) => Object.assign({}, f)), subidas: [], usos: [], pedidos: [] };
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'apikey, authorization, content-type, prefer', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+  await ctx.route((u) => /\.supabase\.co$/.test(u.hostname), async (route) => {
+    const q = route.request();
+    const u = new URL(q.url());
+    if (q.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    n.pedidos.push(q.method() + ' ' + u.pathname);
+    const json = (status, cuerpo) => route.fulfill({ status, headers: Object.assign({ 'Content-Type': 'application/json' }, cors), body: cuerpo === undefined ? '' : JSON.stringify(cuerpo) });
+    if (u.pathname === '/auth/v1/token') {
+      const b = q.postDataJSON();
+      if (opciones.demoraToken) await new Promise((r) => setTimeout(r, opciones.demoraToken));
+      if (opciones.estadoToken) return json(opciones.estadoToken, {});
+      if (b.password !== 'clave-buena') return json(400, { error_code: 'invalid_credentials' });
+      return json(200, { access_token: 'acc-prueba', refresh_token: 'ref-prueba', expires_in: 3600, user: { email: b.email } });
     }
-    return el.getBoundingClientRect().width > 0;
-  }, sel);
-
-  const ctx = await nuevoContexto();
-  const app = await abrir(ctx, `/${CA}/panel.html?modo=app`, 360, 640, sembrar);
-  await app.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
-  await app.waitForTimeout(300);
-  for (const sel of ['#tab-guardadas', '#hoja-guardadas', '#sec-rapidas', '#guardar-esta']) igual(await visible(app, sel), false, 'modo-app: ' + sel + ' no se ve');
-  igual(await app.evaluate(() => document.getElementById('hoja-preparar').classList.contains('activa')), true, 'modo-app: con la hoja Guardadas recordada abre Preparar');
-  const medidas = await app.evaluate(() => {
-    const a = document.getElementById('tab-preparar').getBoundingClientRect();
-    const b = document.getElementById('tab-vivo').getBoundingClientRect();
-    const fila = document.querySelector('.pestanas').getBoundingClientRect();
-    return { a: a.width, b: b.width, total: b.right - a.left, fila: fila.width };
+    if (u.pathname === '/rest/v1/parroquias') return json(200, [{ id: PAR_PRUEBA }]);
+    if (u.pathname === '/rest/v1/guardadas' && q.method() === 'GET') return json(200, n.filas);
+    if (u.pathname === '/rest/v1/guardadas' && q.method() === 'POST') {
+      const fila = q.postDataJSON()[0];
+      n.subidas.push(fila);
+      if (opciones.demoraSubida) await new Promise((r) => setTimeout(r, opciones.demoraSubida));
+      if (opciones.estadoSubida) return json(opciones.estadoSubida, { code: 'x' });
+      const i = n.filas.findIndex((x) => x.id === fila.id);
+      if (i >= 0) n.filas[i] = fila; else n.filas.push(fila);
+      return json(201);
+    }
+    if (u.pathname === '/rest/v1/rpc/usar_guardada') { n.usos.push(q.postDataJSON()); return json(204); }
+    return json(404, {});
   });
-  revisar(Math.abs(medidas.a - medidas.b) <= 1, 'modo-app: las dos pestañas miden lo mismo (' + medidas.a + ' y ' + medidas.b + ')');
-  revisar(Math.abs(medidas.total - medidas.fila) <= 2, 'modo-app: las dos pestañas llenan la fila (' + medidas.total + ' de ' + medidas.fila + ')');
-  await ctx.close();
+  return n;
+}
 
-  const ctx2 = await nuevoContexto();
-  const pc = await abrir(ctx2, `/${CA}/panel.html`, 360, 640, sembrar);
-  await pc.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
-  igual(await visible(pc, '#tab-guardadas'), true, 'en la PC la pestaña Guardadas se ve');
-  await ctx2.close();
+async function abrirPanelListas(ctx, valores, { ancho = 420, alto = 900, app = false } = {}) {
+  const p = await abrir(ctx, `/${CA}/panel.html${app ? '?modo=app' : ''}`, ancho, alto, (pg) => sembrarPanel(pg, valores));
+  await p.waitForSelector('[data-tipo="dominical"]', { state: 'attached' });
+  return p;
+}
+const nombresListas = (p) => p.$$eval('#listas .rapida .nom', (els) => els.map((e) => e.textContent));
+async function esperarTexto(p, sel, texto, ms = 6000) {
+  try { await p.waitForFunction(([s, t]) => ((document.querySelector(s) || {}).textContent || '').trim() === t, [sel, texto], { timeout: ms }); } catch (e) {}
+  return ((await p.textContent(sel)) || '').trim();
+}
+
+/* Alto de cada control visible de `sel`: todos deben medir 44 px o más. */
+async function revisar44(p, sel, prefijo) {
+  for (const b of await p.locator(sel).all()) {
+    const caja = await b.boundingBox();
+    if (caja) revisar(caja.height >= 44, (prefijo || '') + 'control de 44 px o más: ' + ((await b.getAttribute('aria-label')) || (await b.textContent()).trim()) + ' (' + caja.height + ')');
+  }
+}
+const TXT_VACIA = 'Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión…» y después «Guardar»; va a quedar acá.';
+
+async function casoMisasListas() {
+  console.log('Misas listas en Preparar');
+
+  console.log(' · Preparar muestra Misas listas sin apretar Cambiar');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000), guardadaPrueba('bbbb2', 'Domingo 30', 3000)] });
+    igual(await visibleEn(p, '#preparar-datos #sec-listas'), true, 'la sección está en la vista de datos de Preparar');
+    igual(await visibleEn(p, '#elegir'), false, 'sin apretar Cambiar');
+    igual(((await p.textContent('#sec-listas h3')) || '').trim(), 'Misas listas', 'el título dice «Misas listas»');
+    igual((await nombresListas(p)).join('|'), 'Domingo 30|Hora Santa jueves', 'muestra las guardadas, la más usada primero');
+    igual(await p.evaluate(() => !!document.getElementById('sec-rapidas')), false, 'Elegir ya no repite la lista rápida');
+    igual(await p.evaluate(() => { const r = document.getElementById('revision'); const l = document.getElementById('sec-listas'); return !!l && !!(r.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING); }), true, 'va debajo de la revisión');
+    for (const b of await p.locator('#listas button').all()) {
+      const caja = await b.boundingBox();
+      revisar(caja.height >= 44, 'botón de la lista de 44 px o más: ' + (await b.getAttribute('aria-label')) + ' (' + caja.height + ')');
+    }
+    await revisar44(p, '#entrar, #ver-todas', 'PC: ');
+    igual(((await p.textContent('#tab-guardadas')) || '').trim(), 'Misas listas', 'la pestaña se llama «Misas listas»');
+    igual(((await p.textContent('#titulo-guardadas')) || '').trim(), 'Misas listas', 'y su título también');
+    revisar(((await p.textContent('#listas .rapida .meta')) || '').startsWith('Guardada '), 'una misa que nunca se cargó dice «Guardada …» (' + (await p.textContent('#listas .rapida .meta')) + ')');
+    igual(await p.getAttribute('#estado-sync', 'role').catch(() => null), 'status', 'la línea de estado tiene role="status"');
+    igual(nube.pedidos.length, 0, 'sin sesión no se pide nada a la nube');
+    await ctx.close();
+  }
+
+  console.log(' · muestra 5 y Ver todas las misas listas abre la pestaña');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const siete = [1, 2, 3, 4, 5, 6, 7].map((i) => guardadaPrueba('misa' + i, 'Misa ' + i, i * 1000));
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: siete });
+    igual((await nombresListas(p)).join('|'), 'Misa 7|Misa 6|Misa 5|Misa 4|Misa 3', 'hasta 5, de la más usada a la menos usada');
+    igual(((await p.textContent('#ver-todas')) || '').trim(), 'Ver todas las misas listas', 'el enlace dice «Ver todas las misas listas»');
+    await p.click('#ver-todas', { timeout: 3000 }).catch(() => {});
+    igual(await p.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, '«Ver todas las misas listas» abre la pestaña');
+    igual(await p.locator('#lista-guardadas .guardada').count(), 7, 'y ahí están las 7');
+    await ctx.close();
+
+    const ctx2 = await nuevoContexto();
+    await nubeDePrueba(ctx2);
+    const vacio = await abrirPanelListas(ctx2, {});
+    igual(((await vacio.textContent('#listas-vacia').catch(() => '')) || '').trim(), TXT_VACIA, 'sin guardadas lo dice');
+    igual(await visibleEn(vacio, '#listas-vacia'), true, 'y el mensaje se ve');
+    igual(await vacio.evaluate(() => { const m = document.getElementById('listas-vacia'); return !!m && !m.closest('[role=list]'); }), true, 'el mensaje no va dentro de role="list"');
+    igual(await vacio.evaluate(() => [...document.querySelectorAll('[role=list]')].filter((l) => l.getClientRects().length && !l.children.length).length), 0, 'no queda a la vista una lista vacía');
+    await vacio.click('[data-hoja="guardadas"]');
+    igual(((await vacio.textContent('#lista-guardadas')) || '').trim(), 'Todavía no hay misas listas. Escribí un nombre arriba y apretá Guardar.', 'la pestaña vacía lo dice de vos');
+    await vacio.fill('#guardar-nombre', '');
+    await vacio.click('#guardar-boton');
+    igual(((await vacio.textContent('#estado-guardadas')) || '').trim(), 'Escribí un nombre para guardarla.', 'sin nombre lo pide de vos');
+    await vacio.click('[data-hoja="preparar"]');
+    igual(await visibleEn(vacio, '#preparar-datos #guardar-esta'), true, '«Guardar esta transmisión…» está a la vista en Preparar');
+    await ctx2.close();
+  }
+
+  console.log(' · sin sesión muestra Entrá para ver también las del celular');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, {});
+    igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular', 3000).catch(() => ''), 'Entrá para ver también las del celular', 'la línea de estado invita a entrar');
+    igual(await visibleEn(p, '#entrar'), true, 'con el botón a la vista');
+    igual(((await p.textContent('#entrar').catch(() => '')) || '').trim(), 'Entrar con mi cuenta', 'el botón dice «Entrar con mi cuenta»');
+    igual(nube.pedidos.length, 0, 'y no se pidió nada a la nube');
+    await ctx.close();
+  }
+
+  console.log(' · entrar sube las locales y muestra Se guardaron 2 misas de esta computadora en la nube');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [], { demoraToken: 600 });
+    // guardadas de antes de la nube: sin pendientes ni actualizadoEn
+    const viejas = [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000, { actualizadoEn: undefined }), guardadaPrueba('bbbb2', 'Domingo 30', 3000, { actualizadoEn: undefined })];
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: viejas });
+    await p.click('#entrar', { timeout: 3000 });
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), true, '«Entrar» abre el diálogo');
+    igual(await p.getAttribute('#entrar-correo', 'autocomplete'), 'username', 'el correo lleva autocomplete="username"');
+    igual(await p.getAttribute('#entrar-clave', 'type'), 'password', 'la contraseña va tapada');
+    igual(await p.getAttribute('#entrar-clave', 'autocomplete'), 'current-password', 'la contraseña lleva autocomplete="current-password"');
+    igual(((await p.textContent('#entrar-titulo')) || '').trim(), 'Entrar con la cuenta del editor web', 'el título del diálogo');
+    igual(await p.evaluate(() => { const d = document.getElementById('dialogo-entrar'); const t = document.getElementById(d.getAttribute('aria-labelledby') || ''); const a = document.getElementById(d.getAttribute('aria-describedby') || ''); return [t && t.textContent.trim(), a && a.textContent.trim()].join(' | '); }),
+      'Entrar con la cuenta del editor web | ¿Olvidaste la clave? Pedísela a quien administra el editor web.', 'el diálogo se nombra con el título y se describe con la ayuda (aria-describedby)');
+    await revisar44(p, '#dialogo-entrar button', 'PC, diálogo de entrar: ');
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'mala');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-error', 'Correo o contraseña incorrectos'), 'Correo o contraseña incorrectos', 'con la contraseña mala lo dice');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-boton', 'Entrando…', 500), 'Entrando…', 'mientras entra, el botón dice «Entrando…»');
+    igual(await esperarTexto(p, '#estado-sync', 'Se guardaron 2 misas de esta computadora en la nube'), 'Se guardaron 2 misas de esta computadora en la nube', 'al entrar sube las de esta computadora y lo dice');
+    igual(((await p.textContent('#entrar-boton')) || '').trim(), 'Entrar', 'y el botón vuelve a decir «Entrar»');
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), false, 'el diálogo se cierra');
+    igual(nube.subidas.map((f) => f.id).sort().join('|'), 'aaaa1|bbbb2', 'subieron las dos');
+    igual(nube.subidas.every((f) => f.actualizado_desde === 'panel' && f.parroquia_id === PAR_PRUEBA), true, 'como «panel», a la parroquia');
+    igual(await p.inputValue('#entrar-clave'), '', 'la contraseña no queda escrita');
+    igual(await visibleEn(p, '#entrar'), false, 'con sesión ya no se ofrece «Entrar»');
+    await p.click('[data-hoja="guardadas"]');
+    igual(await visibleEn(p, '#salir'), true, '«Salir» está en la pestaña Misas listas');
+    await p.click('#salir');
+    igual(await esperarTexto(p, '#estado-sync', 'Entrá para ver también las del celular'), 'Entrá para ver también las del celular', 'al salir vuelve a invitar a entrar');
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('sesion_nube_v1')), null, 'y la sesión se borró');
+    igual((await nombresListas(p)).length, 2, 'las guardadas locales se quedan');
+    await ctx.close();
+  }
+
+  console.log(' · una guardada que llega de la nube aparece en la lista');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [filaPrueba('cel01', 'Del celular', Date.now() - 60000)]);
+    const p = await abrirPanelListas(ctx, Object.assign(sesionPrueba(), yaMigrado()));
+    try { await p.waitForSelector('#listas .rapida', { timeout: 6000 }); } catch (e) {}
+    igual((await nombresListas(p)).join('|'), 'Del celular', 'la del celular se ve en Preparar');
+    igual(await esperarTexto(p, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'la línea dice «Sincronizado»');
+    revisar(nube.pedidos.includes('GET /rest/v1/guardadas'), 'se bajó la lista de la nube');
+    await p.evaluate(() => { window.__cambiosSync = 0; new MutationObserver((m) => { window.__cambiosSync += m.length; }).observe(document.getElementById('estado-sync'), { childList: true, characterData: true, subtree: true }); });
+    await p.evaluate(async () => { await sincronizarGuardadas(); await sincronizarGuardadas(); });
+    await p.waitForTimeout(300);
+    igual(await p.evaluate(() => window.__cambiosSync), 0, 'dos sincronizaciones más sin cambios no reescriben «Sincronizado» (no se vuelve a anunciar)');
+    await ctx.close();
+  }
+
+  console.log(' · la sesión vencida que el servidor rechaza dice Se cerró tu sesión');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const vencida = { [CLAVE_CA('sesion_nube_v1')]: { access: 'acc-viejo', refresh: 'ref-viejo', vence: Date.now() - 1000 } };
+    const p = await abrirPanelListas(ctx, Object.assign(vencida, yaMigrado()));
+    igual(await esperarTexto(p, '#estado-sync', 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.'), 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.', 'lo dice en la línea de estado');
+    igual(await visibleEn(p, '#entrar'), true, 'y ofrece «Entrar con mi cuenta»');
+    await ctx.close();
+  }
+
+  console.log(' · Cargar con cambios pide confirmación en el diálogo del panel');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000), guardadaPrueba('bbbb2', 'Domingo 30', 3000)] });
+    const nativas = [];
+    p.on('dialog', (d) => { nativas.push(d.message()); d.dismiss(); });
+    const estado = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}'), CLAVE_CA('estado_v1'));
+    const sel = (nombre) => `#listas button[aria-label="Cargar «${nombre}»"]`;
+    const cargar = async (nombre) => { await p.click(sel(nombre), { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(300); };
+    const abierto = () => p.evaluate(() => document.getElementById('dialogo-confirmar') ? document.getElementById('dialogo-confirmar').open : false);
+    const foco = () => p.evaluate(() => (document.activeElement && (document.activeElement.getAttribute('aria-label') || document.activeElement.id)) || '');
+    const celebranteGuia = async () => { const e = await estado(); return (e.rotulosTexto || {}).guia && e.rotulosTexto.guia.t; };
+    await cargar('Domingo 30');
+    // la primera vez no hay con qué comparar (concern 1 de la Tarea 5): puede preguntar
+    if (await abierto()) { await p.click('#confirmar-si'); await p.waitForTimeout(300); }
+    igual((await estado()).celebrante, 'Pbro. Domingo 30', 'Cargar carga la guardada');
+    igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y la línea de estado dice «Cargada: Domingo 30»');
+    revisar(((await p.textContent(sel('Domingo 30') + ' >> xpath=..')) || '').includes('Usada hoy'), 'la cargada dice «Usada hoy»');
+    await cargar('Hora Santa jueves');
+    igual(await abierto(), false, 'recién cargada (sin cambios) carga directo, sin preguntar');
+    igual((await estado()).celebrante, 'Pbro. Hora Santa jueves', 'y carga la otra');
+    igual(await foco(), 'Cargar «Hora Santa jueves»', 'cargada directo, el foco queda en ese «Cargar»');
+    await p.fill('#rot-guia-t', 'Juan cambiado');
+    await p.waitForTimeout(500);
+    await cargar('Domingo 30');
+    igual(await abierto(), true, 'con cambios abre el diálogo del panel');
+    igual(((await p.textContent('#confirmar-pregunta').catch(() => '')) || '').trim(), 'Lo que cambiaste y no guardaste se va a perder. ¿Cargar Domingo 30 de todas formas?', 'con el texto aprobado');
+    igual(((await p.textContent('#confirmar-si').catch(() => '')) || '').trim() + ' / ' + ((await p.textContent('#confirmar-volver').catch(() => '')) || '').trim(), 'Cargar igual / Volver', 'y los botones «Cargar igual» y «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra al diálogo, en «Volver»');
+    await revisar44(p, '#dialogo-confirmar button', 'PC, diálogo de cargar: ');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    igual(await abierto(), false, 'Esc cierra el diálogo');
+    igual(await celebranteGuia(), 'Juan cambiado', 'Esc cuenta como «Volver»: no carga nada');
+    igual(await foco(), 'Cargar «Domingo 30»', 'y el foco vuelve al botón que lo abrió');
+    await cargar('Domingo 30');
+    await p.click('#confirmar-volver', { timeout: 3000 }).catch(() => {});
+    await p.waitForTimeout(200);
+    igual(await celebranteGuia(), 'Juan cambiado', '«Volver» no carga nada');
+    igual(await foco(), 'Cargar «Domingo 30»', 'y devuelve el foco al botón');
+    await cargar('Domingo 30');
+    await p.click('#confirmar-si', { timeout: 3000 }).catch(() => {});
+    await p.waitForTimeout(300);
+    igual((await estado()).celebrante, 'Pbro. Domingo 30', '«Cargar igual» carga');
+    igual(await esperarTexto(p, '#estado-sync', 'Cargada: Domingo 30', 1000), 'Cargada: Domingo 30', 'y dice «Cargada: Domingo 30»');
+    igual(await foco(), 'Cargar «Domingo 30»', 'el foco vuelve al «Cargar» de esa misa');
+    igual(nativas.length, 0, 'nunca aparece un confirm() del navegador');
+    await ctx.close();
+  }
+
+  console.log(' · entrar: el servidor falla, el botón siempre se repone, el error vacío no deja hueco');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [], { estadoToken: 503 });
+    const p = await abrirPanelListas(ctx, {});
+    await p.click('#entrar', { timeout: 3000 });
+    igual(await p.evaluate(() => { const e = document.getElementById('entrar-error'); return e.textContent === '' && e.getClientRects().length === 0; }), true, 'el error vacío no ocupa lugar');
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-error', 'No se pudo entrar. Probá de nuevo en un rato.'), 'No se pudo entrar. Probá de nuevo en un rato.', 'con un 503 lo dice (hay red)');
+    igual(await p.evaluate(() => document.getElementById('entrar-error').getClientRects().length > 0), true, 'y el error se ve');
+    // entrar que no termina: al cerrar y volver a abrir, el botón está repuesto
+    await p.evaluate(() => { window.entrarGuardadas = () => new Promise(() => {}); });
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    igual(await esperarTexto(p, '#entrar-boton', 'Entrando…', 1000), 'Entrando…', 'mientras entra dice «Entrando…»');
+    await p.click('#entrar-cancelar');
+    await p.click('#entrar', { timeout: 3000 });
+    igual(((await p.textContent('#entrar-boton')) || '').trim() + ' ' + (await p.isDisabled('#entrar-boton')), 'Entrar false', 'al volver a abrir, el botón dice «Entrar» y está habilitado');
+    igual(await p.evaluate(() => document.getElementById('entrar-error').textContent), '', 'y sin el error anterior');
+    // entrar que falla con una excepción: el botón se repone igual (finally)
+    await p.evaluate(() => { window.entrarGuardadas = () => Promise.reject(new Error('roto a propósito')); });
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    await p.waitForTimeout(300);
+    igual(((await p.textContent('#entrar-boton')) || '').trim() + ' ' + (await p.isDisabled('#entrar-boton')), 'Entrar false', 'si entrar se rompe, el botón vuelve a «Entrar» y se habilita');
+    igual(((await p.textContent('#entrar-error')) || '').trim(), 'No se pudo entrar. Probá de nuevo en un rato.', 'y lo dice como un error del servidor');
+    igual(errores.filter((e) => e.includes('roto a propósito')).length, 0, 'la excepción no queda sin atender en la página');
+    await ctx.close();
+  }
+
+  console.log(' · Reemplazar y Borrar preguntan en el diálogo del panel');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, { [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)] });
+    const nativas = [];
+    p.on('dialog', (d) => { nativas.push(d.message()); d.dismiss(); });
+    const abierto = () => p.evaluate(() => document.getElementById('dialogo-confirmar').open);
+    const foco = () => p.evaluate(() => (document.activeElement && (document.activeElement.getAttribute('aria-label') || document.activeElement.id)) || '');
+    const nombres = () => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]').map((g) => g.nombre), CLAVE_CA('guardadas_v1'));
+    const textos = async () => ((await p.textContent('#confirmar-pregunta')) || '').trim() + ' | ' + ((await p.textContent('#confirmar-si')) || '').trim() + ' / ' + ((await p.textContent('#confirmar-volver')) || '').trim();
+    await p.click('[data-hoja="guardadas"]');
+    await p.fill('#guardar-nombre', 'hora santa jueves');
+    await p.click('#guardar-boton');
+    igual(await abierto(), true, 'un nombre que ya existe abre el diálogo del panel');
+    igual(await textos(), 'Ya existe «hora santa jueves». ¿Reemplazarla? | Reemplazar / Volver', 'con la pregunta de siempre y «Reemplazar» / «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra en «Volver»');
+    await revisar44(p, '#dialogo-confirmar button', 'PC, diálogo de reemplazar: ');
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(200);
+    igual(await abierto(), false, 'Esc lo cierra');
+    igual((await nombres()).join('|'), 'Hora Santa jueves', 'Esc no reemplaza');
+    igual(await foco(), 'guardar-boton', 'y el foco vuelve a «Guardar»');
+    await p.click('#guardar-boton');
+    await p.click('#confirmar-si');
+    await p.waitForTimeout(200);
+    igual((await nombres()).join('|'), 'hora santa jueves', '«Reemplazar» reemplaza');
+    igual(await foco(), 'guardar-boton', 'y el foco vuelve a «Guardar»');
+    const borrar = '#lista-guardadas button[aria-label="Borrar «hora santa jueves»"]';
+    await p.click(borrar);
+    igual(await abierto(), true, '«Borrar» abre el diálogo del panel');
+    igual(await textos(), '¿Borrar «hora santa jueves»? | Borrar / Volver', 'con «Borrar» / «Volver»');
+    igual(await foco(), 'confirmar-volver', 'el foco entra en «Volver»');
+    await p.click('#confirmar-volver');
+    await p.waitForTimeout(200);
+    igual((await nombres()).length, 1, '«Volver» no borra');
+    igual(await foco(), 'Borrar «hora santa jueves»', 'y el foco vuelve a ese «Borrar»');
+    await p.click(borrar);
+    await p.click('#confirmar-si');
+    await p.waitForTimeout(200);
+    igual((await nombres()).length, 0, '«Borrar» borra');
+    igual(await foco(), 'titulo-guardadas', 'y el foco va al título de la lista');
+    igual(nativas.length, 0, 'nunca aparece un confirm() del navegador');
+    await ctx.close();
+  }
+
+  console.log(' · en modo app se ve la pestaña Misas listas y no el aviso de Entrar');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx);
+    const valores = Object.assign({ [CLAVE_CA('panel_hoja')]: 'guardadas', [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)] }, sesionPrueba());
+    const app = await abrirPanelListas(ctx, valores, { ancho: 844, alto: 390, app: true });
+    await app.waitForTimeout(800);
+    for (const sel of ['#tab-guardadas', '#hoja-guardadas']) igual(await visibleEn(app, sel), true, 'modo-app: ' + sel + ' se ve');
+    igual(await app.evaluate(() => document.getElementById('hoja-guardadas').classList.contains('activa')), true, 'modo-app: abre la hoja Misas listas recordada');
+    igual(((await app.textContent('#tab-guardadas')) || '').trim(), 'Misas listas', 'modo-app: la pestaña se llama «Misas listas» (con el mismo id)');
+    for (const sel of ['#entrar', '#salir', '#dialogo-entrar']) igual(await visibleEn(app, sel), false, 'modo-app: ' + sel + ' no se ve');
+    revisar(!(await app.textContent('body')).includes('Entrá para ver'), 'modo-app: no invita a entrar');
+    igual(nube.pedidos.length, 0, 'modo-app: el panel no habla con la nube (aunque haya una sesión guardada)');
+    await app.click('[data-hoja="preparar"]');
+    igual(await visibleEn(app, '#sec-listas'), true, 'modo-app: Misas listas se ve en Preparar');
+    igual(await visibleEn(app, '#guardar-esta'), true, 'modo-app: #guardar-esta se ve');
+    igual((await nombresListas(app)).join('|'), 'Hora Santa jueves', 'modo-app: con la guardada');
+    for (const b of await app.locator('#listas button, #guardar-esta, [data-hoja]').all()) {
+      const caja = await b.boundingBox();
+      if (caja) revisar(caja.height >= 44, 'modo-app: botón de 44 px o más (' + ((await b.getAttribute('aria-label')) || (await b.textContent()).trim()) + ': ' + caja.height + ')');
+    }
+    const medidas = await app.evaluate(() => [...document.querySelectorAll('.pestanas [data-hoja]')].map((b) => b.getBoundingClientRect().width));
+    revisar(medidas.length === 3 && Math.max(...medidas) - Math.min(...medidas) <= 1, 'modo-app: las tres pestañas miden lo mismo (' + medidas.join(', ') + ')');
+    await ctx.close();
+
+    const ctx2 = await nuevoContexto();
+    await nubeDePrueba(ctx2);
+    const pc = await abrirPanelListas(ctx2, {});
+    igual(await visibleEn(pc, '#tab-guardadas'), true, 'en la PC la pestaña Misas listas se ve');
+    await ctx2.close();
+  }
+
+  console.log(' · dos paneles abiertos suben el pendiente una sola vez');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [], { demoraSubida: 400 });
+    const valores = Object.assign({
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }]
+    }, sesionPrueba(), yaMigrado());
+    const [a, b] = await Promise.all([abrirPanelListas(ctx, valores), abrirPanelListas(ctx, valores)]);
+    await a.waitForTimeout(8000);   // el que encuentra el candado vuelve a probar a los 5 s
+    igual(nube.subidas.length, 1, 'el pendiente subió una sola vez');
+    igual(await a.evaluate((k) => localStorage.getItem(k), CLAVE_CA('guardadas_pendientes_v1')), '[]', 'y la cola quedó vacía');
+    igual(await esperarTexto(b, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'el otro panel también queda «Sincronizado»');
+    igual(await esperarTexto(a, '#estado-sync', 'Sincronizado'), 'Sincronizado', 'y el primero también');
+    await ctx.close();
+  }
+
+  const TXT_RECH_1 = '1 misa no se pudo guardar en la nube. Sigue en esta computadora.';
+  const TXT_RECH_2 = '2 misas no se pudieron guardar en la nube. Siguen en esta computadora.';
+  const TXT_FILA_RECH = 'No se guardó en la nube';
+  const metaDe = (p, sel, nombre) => p.evaluate(([s, n]) => {
+    const f = [...document.querySelectorAll(s)].find((x) => x.querySelector('.nom') && x.querySelector('.nom').textContent === n);
+    return f ? f.querySelector('.meta').textContent : null;
+  }, [sel, nombre]);
+
+  console.log(' · una misa que la nube rechazó se ve: en su fila y en la línea, en lugar de Sincronizado');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [filaPrueba('bbbb2', 'Domingo 30', Date.now() - 60000)]);
+    const valores = Object.assign({
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000, rechazado: true }]
+    }, sesionPrueba(), yaMigrado());
+    const p = await abrirPanelListas(ctx, valores);
+    try { await p.waitForFunction(() => document.querySelectorAll('#listas .rapida').length === 2, null, { timeout: 6000 }); } catch (e) {}
+    igual((await nombresListas(p)).length, 2, 'ya se sincronizó (llegó la de la nube)');
+    igual(await esperarTexto(p, '#estado-sync', TXT_RECH_1), TXT_RECH_1, 'la línea lo dice en singular');
+    igual(await p.evaluate(() => document.getElementById('estado-sync').classList.contains('aviso-sync')), true, 'como aviso');
+    igual(await metaDe(p, '#listas .rapida', 'Hora Santa jueves'), TXT_FILA_RECH, 'la fila rechazada dice «No se guardó en la nube»');
+    revisar(((await metaDe(p, '#listas .rapida', 'Domingo 30')) || '').startsWith('Guardada '), 'la otra sigue diciendo «Guardada …»');
+    revisar(((await metaDe(p, '#lista-guardadas .guardada', 'Hora Santa jueves')) || '').endsWith(TXT_FILA_RECH), 'también en la pestaña Misas listas');
+    await p.evaluate(() => { window.__cambiosSync = 0; new MutationObserver((m) => { window.__cambiosSync += m.length; }).observe(document.getElementById('estado-sync'), { childList: true, characterData: true, subtree: true }); });
+    await p.evaluate(async () => { await sincronizarGuardadas(); await sincronizarGuardadas(); });
+    await p.waitForTimeout(300);
+    igual(await p.evaluate(() => window.__cambiosSync), 0, 'dos sincronizaciones más no reescriben el aviso');
+    // otra más rechazada: el plural (la cola cambia sin que cambie la lista)
+    await p.evaluate(([kl, kp]) => {
+      const l = JSON.parse(localStorage.getItem(kl)); const g = Object.assign({}, l[0], { id: 'cccc3', nombre: 'Novena' });
+      localStorage.setItem(kl, JSON.stringify(l.concat(g)));
+      localStorage.setItem(kp, JSON.stringify(JSON.parse(localStorage.getItem(kp)).concat({ op: 'guardar', id: 'cccc3', cuando: 3000, rechazado: true })));
+      return sincronizarGuardadas();
+    }, [CLAVE_CA('guardadas_v1'), CLAVE_CA('guardadas_pendientes_v1')]);
+    igual(await esperarTexto(p, '#estado-sync', TXT_RECH_2), TXT_RECH_2, 'con dos, en plural');
+    await ctx.close();
+  }
+
+  console.log(' · en la app, lo rechazado que marca lo nativo también se ve');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const valores = {
+      [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)],
+      [CLAVE_CA('guardadas_pendientes_v1')]: [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }]
+    };
+    const app = await abrirPanelListas(ctx, valores, { ancho: 844, alto: 390, app: true });
+    igual(((await app.textContent('#estado-sync')) || '').trim(), '', 'modo-app: sin rechazadas la línea no dice nada');
+    // lo que hace scriptPonerGuardadas (app/src/guardadas/puente.ts): marca la cola y llama a pintarGuardadas
+    await app.evaluate((kp) => { localStorage.setItem(kp, JSON.stringify([{ op: 'guardar', id: 'aaaa1', cuando: 2000, rechazado: true }])); window.pintarGuardadas(); }, CLAVE_CA('guardadas_pendientes_v1'));
+    igual(await esperarTexto(app, '#estado-sync', TXT_RECH_1, 1000), TXT_RECH_1, 'modo-app: la línea lo dice');
+    igual(await metaDe(app, '#listas .rapida', 'Hora Santa jueves'), TXT_FILA_RECH, 'modo-app: y la fila también');
+    await ctx.close();
+  }
+
+  console.log(' · un 403 de la nube cierra la sesión y deja la cola (no rechaza)');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx, [], { estadoSubida: 403 });
+    const pend = [{ op: 'guardar', id: 'aaaa1', cuando: 2000 }];
+    const p = await abrirPanelListas(ctx, Object.assign({ [CLAVE_CA('guardadas_v1')]: [guardadaPrueba('aaaa1', 'Hora Santa jueves', 2000)], [CLAVE_CA('guardadas_pendientes_v1')]: pend }, sesionPrueba(), yaMigrado()));
+    igual(await esperarTexto(p, '#estado-sync', 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.'), 'Se cerró tu sesión. Entrá de nuevo para ver las del celular.', 'dice que se cerró la sesión');
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('guardadas_pendientes_v1')), JSON.stringify(pend), 'la cola queda igual, sin rechazado');
+    revisar(((await metaDe(p, '#listas .rapida', 'Hora Santa jueves')) || '').startsWith('Guardada '), 'y la fila no dice «No se guardó»');
+    await ctx.close();
+  }
+
+  console.log(' · Cancelar mientras entra: la sesión que llega después no queda');
+  {
+    const ctx = await nuevoContexto();
+    const nube = await nubeDePrueba(ctx, [], { demoraToken: 800 });
+    const p = await abrirPanelListas(ctx, {});
+    await p.click('#entrar', { timeout: 3000 });
+    await p.fill('#entrar-correo', 'coordinador@ejemplo.org');
+    await p.fill('#entrar-clave', 'clave-buena');
+    await p.click('#entrar-boton');
+    await p.click('#entrar-cancelar');
+    await p.waitForTimeout(1500);
+    igual(await p.evaluate((k) => localStorage.getItem(k), CLAVE_CA('sesion_nube_v1')), null, 'no queda la sesión');
+    igual(await visibleEn(p, '#entrar'), true, '«Entrar con mi cuenta» sigue a la vista');
+    igual(await p.evaluate(() => document.getElementById('dialogo-entrar').open), false, 'el diálogo sigue cerrado');
+    igual(((await p.textContent('#estado-sync')) || '').trim(), 'Entrá para ver también las del celular', 'y la línea sigue invitando a entrar');
+    revisar(!nube.pedidos.includes('GET /rest/v1/guardadas'), 'no sincronizó');
+    await ctx.close();
+  }
+
+  console.log(' · Salir deja el foco en el título de Misas listas');
+  {
+    const ctx = await nuevoContexto();
+    await nubeDePrueba(ctx);
+    const p = await abrirPanelListas(ctx, Object.assign(sesionPrueba(), yaMigrado()));
+    await p.click('[data-hoja="guardadas"]');
+    await p.click('#salir');
+    igual(await p.evaluate(() => document.activeElement && document.activeElement.id), 'titulo-guardadas', 'el foco va a #titulo-guardadas');
+    await ctx.close();
+  }
 }
 
 /* Los tres diseños nuevos (Tarjeta, Minimal, Etiqueta): colores, contraste, entrada y salida, cambio en vivo y nombre largo. */
@@ -2678,7 +3133,7 @@ async function casoTransicion() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas, casoTransicion };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2726,7 +3181,7 @@ async function casoTransicion() {
     await casoRotulosLugares();
     await casoRotulosDisenos();
     await casoFaltasIguales();
-    await casoModoAppSinGuardadas();
+    await casoMisasListas();
     await casoTransicion();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

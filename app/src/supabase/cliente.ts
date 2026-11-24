@@ -25,7 +25,8 @@ export type ErrorSupabase =
   | { tipo: 'muchos-intentos' }
   | { tipo: 'sesion-invalida' }
   | { tipo: 'permiso' }
-  | { tipo: 'servidor'; estado: number };
+  /** `codigo`: el `code` del cuerpo de PostgREST, si vino (23505 nombre repetido, P0001…). */
+  | { tipo: 'servidor'; estado: number; codigo?: string };
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: ErrorSupabase };
 
@@ -36,6 +37,8 @@ export interface ClienteSupabase {
   seleccionar<T>(sesion: SesionSupabase, tabla: string, consulta: Readonly<Record<string, string>>): Promise<Resultado<T[]>>;
   /** POST /rest/v1/<tabla>?on_conflict=<conflicto>, con Prefer: resolution=merge-duplicates,return=representation. */
   upsert<T>(sesion: SesionSupabase, tabla: string, filas: readonly object[], conflicto: string): Promise<Resultado<T[]>>;
+  /** POST /rest/v1/rpc/<funcion> con `args` en el cuerpo. El valor es el cuerpo leído como JSON (null si vino vacío). */
+  rpc(sesion: SesionSupabase, funcion: string, args: object): Promise<Resultado<unknown>>;
 }
 
 export const PLAZO_POR_DEFECTO_MS = 20_000;
@@ -155,7 +158,11 @@ export function crearClienteSupabase(o: {
     if (r === null || r.estado >= 500) return falla({ tipo: 'sin-conexion' });
     if (r.estado === 401) return falla({ tipo: 'sesion-invalida' });
     if (r.estado === 403) return falla({ tipo: 'permiso' });
-    if (r.estado < 200 || r.estado >= 300) return falla({ tipo: 'servidor', estado: r.estado });
+    if (r.estado < 200 || r.estado >= 300) {
+      const cuerpo = leerJson(r.texto);
+      const codigo = esObjeto(cuerpo) && typeof cuerpo.code === 'string' ? cuerpo.code : undefined;
+      return falla(codigo === undefined ? { tipo: 'servidor', estado: r.estado } : { tipo: 'servidor', estado: r.estado, codigo });
+    }
     return null;
   }
 
@@ -217,6 +224,23 @@ export function crearClienteSupabase(o: {
         plazoMs,
       );
       return errorRest<T[]>(r) ?? filasDe<T>(r!);
+    },
+
+    async rpc(sesion, funcion, args) {
+      if (!RE_NOMBRE.test(funcion)) throw new Error('Consulta inválida.');
+      const r = await pedirConPlazo(
+        f,
+        base + '/rest/v1/rpc/' + funcion,
+        {
+          method: 'POST',
+          headers: { ...cabecerasRest(sesion), 'content-type': 'application/json' },
+          body: JSON.stringify(args),
+        },
+        plazoMs,
+      );
+      const e = errorRest<unknown>(r);
+      if (e) return e;
+      return { ok: true, valor: leerJson(r!.texto) ?? null };
     },
   };
 }

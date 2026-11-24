@@ -357,3 +357,25 @@ El editor muestra las pantallas dentro de un `iframe` del mismo origen con `?vis
 - [ ] Todas las imágenes existen en `medios/` y tienen `alt`.
 - [ ] Los colores se leen con texto blanco.
 - [ ] El panel de la parroquia abre sin avisos de error.
+
+## Misas listas y «Entrar» en el panel de OBS
+
+Esto no es del `config.json`: es una ayuda para quien usa el panel.
+
+**Qué son.** Las «Misas listas» son las transmisiones que ya preparaste y guardaste. Salen siempre a la vista en **Preparar** (las 5 más usadas; «Ver todas las misas listas» abre la pestaña «Misas listas»), sin apretar «Cambiar». Al abrir Preparar sigue apareciendo la última misa que usó ese aparato. Cada una dice «Usada hoy», «Usada ayer»… si ya la cargaste, o «Guardada hoy»… si todavía no.
+
+**Cargar una misa lista.** Apretá **Cargar**. Si cambiaste algo que no guardaste, el panel te pregunta antes: «Lo que cambiaste y no guardaste se va a perder. ¿Cargar ‹nombre› de todas formas?». **Cargar igual** la carga; **Volver** (o Esc) te deja como estabas. Al cargar, la línea de estado dice «Cargada: ‹nombre›».
+
+**Cómo entrar en el panel de OBS.**
+
+1. En Preparar, apretá **Entrar con mi cuenta** (junto al estado de la lista; dice «Entrá para ver también las del celular»).
+2. Se abre «Entrar con la cuenta del editor web». Escribí el correo y la contraseña de la **misma cuenta del editor web** y apretá **Entrar** (mientras entra dice «Entrando…»). Tiene que ser una cuenta de esta parroquia: con otra, el panel avisa «Esta cuenta no es de esta parroquia». Si te olvidaste la clave, pedísela a quien administra el editor web.
+3. La sesión **se queda** en ese navegador de OBS y se renueva sola: no tenés que volver a entrar cada vez. Se pierde solo si apretás **Salir** o si el servidor la rechaza; en ese caso el panel avisa «Se cerró tu sesión. Entrá de nuevo para ver las del celular.». Salir no borra las misas de esta computadora.
+
+Con la sesión iniciada, la app y la PC ven **la misma lista**: lo que guardás o borrás en un lado aparece en el otro. Si dos personas cambian la misma misa, queda lo último que se guardó. Sin sesión el panel funciona como siempre, solo con las misas de esta computadora. La app no necesita «Entrar»: sincroniza sola.
+
+**Las misas guardadas antes.** La primera vez que entrás en un panel de OBS, las misas guardadas en ese navegador se suben solas y el panel avisa «Se guardaron N misas de esta computadora en la nube» (con una sola: «Se guardó 1 misa de esta computadora en la nube»). Las guardadas en el dominio viejo (`parroquia-transmision.vercel.app`) **no se pueden leer desde el nuevo**: no se suben solas. Para rescatarlas, abrí el panel viejo, apretá **Entrar** ahí con la misma cuenta, y se suben igual. Lo mismo vale para otro navegador u otra computadora: las guardadas de cada uno suben cuando entrás en ese.
+
+**«Sin conexión. Ves las misas guardadas en esta computadora.»** Significa que el panel no pudo hablar con la nube, así que te muestra las misas de este aparato. No se pierde nada: lo que guardás o borrás queda anotado en la computadora y **se sube solo cuando vuelve la conexión** (el panel reintenta cada 2 minutos y al recuperar internet).
+
+**«No se pudo sincronizar. Se vuelve a intentar solo.»** Hay internet, pero la nube no contestó bien (está ocupada o falló un momento). Tampoco se pierde nada: el panel vuelve a probar solo.

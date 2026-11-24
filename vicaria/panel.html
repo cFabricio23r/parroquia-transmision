@@ -23,7 +23,7 @@ button{font:inherit;font-weight:800;font-size:14px;border:2px solid transparent;
 button:hover{background:#1d4377}
 button:disabled{background:var(--apagado);color:var(--suave);cursor:default}
 :focus-visible{outline:3px solid var(--foco);outline-offset:2px}
-input[type=text],input[type=number],input[type=date],textarea,select{width:100%;background:var(--campo);color:var(--texto);border:1px solid var(--borde);border-radius:9px;padding:10px;font:inherit;font-weight:500;font-size:14px;min-height:44px}
+input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],textarea,select{width:100%;background:var(--campo);color:var(--texto);border:1px solid var(--borde);border-radius:9px;padding:10px;font:inherit;font-weight:500;font-size:14px;min-height:44px}
 input[type=date]{color-scheme:dark}
 input.falta{border:2px solid var(--ambar)}
 textarea{resize:vertical}
@@ -148,9 +148,10 @@ label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;
 .modo-app .rot .nom{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modo-app .rot .prev{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modo-app .rot .est{display:none}
-/* En la app, las transmisiones las prepara la web (etapa 3b): sin Guardadas. abrir() no deja abrir esa hoja. */
-.modo-app #tab-guardadas,.modo-app #hoja-guardadas,.modo-app #sec-rapidas,.modo-app #guardar-esta{display:none!important}
-.modo-app .pestanas{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* En la app se ven Guardadas y «Misas listas», pero no Entrar ni Salir: la app sincroniza de forma nativa
+   (el panel nunca recibe la sesión). */
+.modo-app #entrar,.modo-app #sec-cuenta,.modo-app #dialogo-entrar{display:none!important}
+.modo-app #sec-listas h3{display:block}
 
 /* interruptores (botones role=switch: sin campos en la hoja En vivo) */
 .interruptor{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;padding:4px 0;font-weight:700;font-size:14px;text-align:left;width:100%}
@@ -190,6 +191,19 @@ details label{margin-bottom:9px}
 .enlace:hover{background:transparent;text-decoration:underline}
 .estado-guardadas{font-size:12px;font-weight:700;color:var(--verde-texto);min-height:16px}
 .estado-guardadas.error{color:var(--ambar)}
+/* misas listas en Preparar */
+#listas{display:flex;flex-direction:column;gap:8px}
+.linea-sync{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.estado-sync{font-size:12px;font-weight:700;color:var(--suave);flex:1;min-width:0}
+.estado-sync.aviso-sync{color:var(--ambar)}
+dialog{background:var(--caja);color:var(--texto);border:1px solid var(--borde);border-radius:12px;padding:16px;width:min(360px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog form{display:flex;flex-direction:column;gap:10px}
+dialog h2{margin:0;font-size:16px;font-weight:800}
+.botones-dialogo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+dialog p{margin:0;font-size:14px;line-height:1.45}
+#listas-vacia{margin:0}
+#entrar-error:empty{display:none}   /* sin error no deja un hueco en el formulario */
 .guardado{position:fixed;right:10px;bottom:8px;background:#178a52;color:#fff;font-weight:800;padding:5px 10px;border-radius:7px;opacity:0;transition:opacity .3s;font-size:12px}
 .guardado.si{opacity:1}
 
@@ -208,7 +222,7 @@ details label{margin-bottom:9px}
 :root:not(.modo-app) .pestanas button:hover{color:var(--suave-boton)}
 :root:not(.modo-app) button:disabled{background:var(--apagado);border-color:var(--borde);color:var(--suave)}
 :root:not(.modo-app) :focus-visible{outline:2px solid var(--foco);outline-offset:1px}
-:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
+:root:not(.modo-app) :is(input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],textarea,select){background:#3C404D;border:1px solid var(--campo-borde);border-radius:4px;padding:4px 8px;font-weight:400;font-size:12px;min-height:28px}
 :root:not(.modo-app) :is(input,textarea,select):focus{background:var(--fondo);border-color:var(--elegido)}
 :root:not(.modo-app) :is(input,textarea)::placeholder{color:var(--suave);opacity:1}
 :root:not(.modo-app) input.falta{border:2px solid var(--ambar)}
@@ -318,12 +332,21 @@ details label{margin-bottom:9px}
 :root:not(.modo-app) .enlace{color:var(--texto);text-decoration:underline;font-size:12px;font-weight:400}
 :root:not(.modo-app) .enlace:hover{background:transparent;text-decoration-thickness:2px}
 :root:not(.modo-app) .estado-guardadas{font-size:11px;font-weight:600}
+:root:not(.modo-app) .estado-sync{font-size:11px;font-weight:600}
+/* como en la lista de Guardadas, los botones de «Misas listas» miden 44 px (restricción de accesibilidad del plan) */
+:root:not(.modo-app) #listas button{min-height:44px}
+:root:not(.modo-app) dialog{border-radius:4px;padding:12px}
+:root:not(.modo-app) dialog h2{font-size:13px;font-weight:600}
+/* «Entrar con mi cuenta», «Ver todas las misas listas» y los botones de los diálogos miden 44 px también en la PC
+   (restricción de accesibilidad del plan) */
+:root:not(.modo-app) :is(#entrar,#ver-todas,.botones-dialogo button){min-height:44px}
+:root:not(.modo-app) dialog p{font-size:12.5px}
 :root:not(.modo-app) .guardado{background:#1E8528;font-weight:600;padding:4px 8px;border-radius:4px;font-size:11px}
 </style>
 </head>
 <body>
 
-<div class="no-existe-panel" id="no-existe" role="alert">Esta parroquia no existe, revisa el link</div>
+<div class="no-existe-panel" id="no-existe" role="alert">Esta parroquia no existe, revisá el link</div>
 
 <div class="arriba">
   <p class="parroquia-nombre" id="nombre-parroquia"></p>
@@ -343,7 +366,7 @@ details label{margin-bottom:9px}
   <div class="pestanas" role="tablist">
     <button type="button" role="tab" id="tab-preparar" data-hoja="preparar" aria-controls="hoja-preparar" aria-selected="true">Preparar</button>
     <button type="button" role="tab" id="tab-vivo" data-hoja="vivo" aria-controls="hoja-vivo" aria-selected="false">En vivo</button>
-    <button type="button" role="tab" id="tab-guardadas" data-hoja="guardadas" aria-controls="hoja-guardadas" aria-selected="false">Guardadas</button>
+    <button type="button" role="tab" id="tab-guardadas" data-hoja="guardadas" aria-controls="hoja-guardadas" aria-selected="false">Misas listas</button>
   </div>
 </div>
 
@@ -355,12 +378,7 @@ details label{margin-bottom:9px}
     <div class="seccion">
       <h3>¿Qué vamos a transmitir?</h3>
       <div class="tipos" id="tipos"></div>
-      <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después puede cambiar cualquier dato.</span>
-    </div>
-    <div class="seccion" id="sec-rapidas" hidden>
-      <h3>O cargar una guardada</h3>
-      <div id="rapidas" style="display:flex;flex-direction:column;gap:10px"></div>
-      <button type="button" class="enlace" id="ver-guardadas">Ver todas las guardadas</button>
+      <span class="ayuda">Al elegir un tipo, las pantallas, la imagen y los rótulos se ajustan solos. Después podés cambiar cualquier dato.</span>
     </div>
     <button type="button" class="primario" id="continuar">Continuar</button>
   </div>
@@ -378,6 +396,18 @@ details label{margin-bottom:9px}
 
     <div class="revision" id="revision" role="status"></div>
 
+    <!-- Misas listas: siempre a la vista, sin apretar Cambiar -->
+    <div class="seccion" id="sec-listas">
+      <h3 id="listas-titulo">Misas listas</h3>
+      <div class="linea-sync">
+        <span class="estado-sync" id="estado-sync" role="status"></span>
+        <button type="button" class="secundario" id="entrar" hidden>Entrar con mi cuenta</button>
+      </div>
+      <div id="listas" role="list" aria-labelledby="listas-titulo"></div>
+      <p class="ayuda" id="listas-vacia" hidden>Todavía no hay misas listas. Cuando termines de preparar una, apretá «Guardar esta transmisión…» y después «Guardar»; va a quedar acá.</p>
+      <button type="button" class="enlace" id="ver-todas">Ver todas las misas listas</button>
+    </div>
+
     <div class="seccion" id="sec-datos">
       <h3>Datos de la transmisión</h3>
       <div class="dia" id="caja-dia">
@@ -394,7 +424,7 @@ details label{margin-bottom:9px}
 
     <div class="seccion">
       <h3 id="campos-titulo">Rótulos</h3>
-      <span class="ayuda">Lo gris es el texto automático: sale así si deja la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
+      <span class="ayuda">Lo gris es el texto automático: sale así si dejás la casilla vacía. Lo que empieza con «Ej.:» es solo un ejemplo y no sale.</span>
       <div id="campos-rotulos" style="display:flex;flex-direction:column;gap:10px"></div>
       <datalist id="cargos"></datalist>
       <button type="button" class="secundario" id="limpiar-lecturas">Borrar lecturas (para la próxima misa)</button>
@@ -432,7 +462,7 @@ details label{margin-bottom:9px}
 
     <details id="det-textos">
       <summary>Textos de las pantallas</summary>
-      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si deja la casilla vacía. Enter = nueva línea.</div>
+      <div class="ayuda" style="margin-bottom:8px">Lo gris es el texto automático: sale así si dejás la casilla vacía. Enter = nueva línea.</div>
       <label>Frase de la franja inferior<input type="text" id="frase"></label>
       <label>Texto de la barra sobre la cámara<input type="text" id="barraTexto"></label>
       <label>Línea bajo los rótulos<input type="text" id="parroquia"></label>
@@ -473,10 +503,41 @@ details label{margin-bottom:9px}
     <span class="estado-guardadas" id="estado-guardadas" role="status"></span>
   </div>
   <div class="seccion" id="sec-guardadas">
-    <h3 id="titulo-guardadas" tabindex="-1">Transmisiones guardadas</h3>
+    <h3 id="titulo-guardadas" tabindex="-1">Misas listas</h3>
     <div id="lista-guardadas" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
+  <div class="seccion" id="sec-cuenta" hidden>
+    <span class="ayuda">Las misas listas se comparten con el celular.</span>
+    <button type="button" class="secundario" id="salir">Salir</button>
+  </div>
 </section>
+
+<!-- Entrar con la cuenta del editor web (solo en la PC) -->
+<dialog id="dialogo-entrar" aria-labelledby="entrar-titulo" aria-describedby="entrar-ayuda">
+  <form id="form-entrar">
+    <h2 id="entrar-titulo">Entrar con la cuenta del editor web</h2>
+    <label>Correo<input type="email" id="entrar-correo" autocomplete="username" required></label>
+    <label>Contraseña<input type="password" id="entrar-clave" autocomplete="current-password" required></label>
+    <span class="estado-guardadas error" id="entrar-error" role="alert"></span>
+    <div class="botones-dialogo">
+      <button type="button" class="secundario" id="entrar-cancelar">Cancelar</button>
+      <button type="submit" class="primario" id="entrar-boton">Entrar</button>
+    </div>
+    <p class="ayuda" id="entrar-ayuda">¿Olvidaste la clave? Pedísela a quien administra el editor web.</p>
+  </form>
+</dialog>
+
+<!-- Confirmación propia del panel (cargar con cambios sin guardar, reemplazar, borrar): confirm() no está
+     verificado en el dock de OBS. El texto y el botón de «sí» los pone confirmarEnPanel(). -->
+<dialog id="dialogo-confirmar" role="alertdialog" aria-labelledby="confirmar-pregunta">
+  <form method="dialog">
+    <p id="confirmar-pregunta"></p>
+    <div class="botones-dialogo">
+      <button type="submit" class="secundario" id="confirmar-volver" value="volver">Volver</button>
+      <button type="submit" class="primario" id="confirmar-si" value="si"></button>
+    </div>
+  </form>
+</dialog>
 
 <div class="guardado" id="guardado" role="status">Guardado ✓</div>
 
@@ -484,7 +545,11 @@ details label{margin-bottom:9px}
 <script src="tipos.js"></script>
 <script src="comun.js"></script>
 <script src="pantallas.js"></script>
+<script src="guardadas-nucleo.js"></script>
 <script src="guardadas.js"></script>
+<script src="nube.js"></script>
+<script src="nube-cliente.js"></script>
+<script src="guardadas-sync.js"></script>
 <script>
 /* Modo app: la app Android carga este panel con ?modo=app (o window.modoApp = true) para verlo compacto. */
 if (new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true) document.documentElement.classList.add('modo-app');
@@ -554,7 +619,6 @@ function guardarPronto() { clearTimeout(esperaT); esperaT = setTimeout(guardar, 
 const HOJAS = ['preparar', 'vivo', 'guardadas'];
 function abrir(h) {
   if (!HOJAS.includes(h)) h = 'preparar';   // un nombre viejo guardado (avisos, textos…) abre Preparar
-  if (h === 'guardadas' && document.documentElement.classList.contains('modo-app')) h = 'preparar';   // en la app no hay Guardadas
   document.querySelectorAll('[data-hoja]').forEach(b => b.setAttribute('aria-selected', b.dataset.hoja === h ? 'true' : 'false'));
   document.querySelectorAll('.hoja').forEach(x => x.classList.toggle('activa', x.id === 'hoja-' + h));
   try { localStorage.setItem(claveDe('panel_hoja'), h); } catch (e) {}
@@ -842,6 +906,7 @@ function esControl(el) {
 document.addEventListener('keydown', (e) => {
   if (PARROQUIA_NO_EXISTE) return;
   const t = e.target;
+  if (t.closest && t.closest('dialog')) return;   // en un diálogo (Entrar o una confirmación), Esc solo lo cierra
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) { if (e.key === 'Escape') t.blur(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { ocultar(); e.preventDefault(); return; }
@@ -859,6 +924,7 @@ document.addEventListener('keydown', (e) => {
 /* ---------- transmisiones guardadas ---------- */
 let nombreEscrito = false;   // el voluntario ya tocó el nombre: no se le pisa con la sugerencia
 const nombreSugerido = () => tipoDe(s).nombre + ' ' + fechaCorta(fechaTransmision());
+const AVISO_LIMITE = 'Llegaste a 50 misas listas. Borrá alguna para guardar otra.';
 function avisoGuardadas(texto, error) { const e = $('estado-guardadas'); e.textContent = texto; e.classList.toggle('error', !!error); }
 
 /* «hoy», «ayer», «hace 7 días»… (por días de calendario) */
@@ -876,7 +942,48 @@ function haceCuanto(ms) {
 const nombreTipo = (clave) => tipoDe({ tipo: clave }).nombre;
 const ultimoUso = (g) => g.usadaEn || g.guardadaEn || 0;
 
-function cargarGuardada(id) {
+/* «Cargar» de una fila. Con cambios que no están en ninguna misa lista, antes pregunta en el diálogo propio;
+   al cerrarlo, el foco vuelve al botón que lo abrió (o al «Cargar» de esa misa en la lista que se ve). */
+function cargarGuardada(id, boton) {
+  const g = leerGuardadas().find((x) => x.id === id);
+  if (!g) { pintarGuardadas(); return; }
+  const foco = () => botonCargarDe(id, boton);
+  if (!hayCambiosSinGuardar(s)) { hacerCarga(id); enfocar(foco()); return; }
+  confirmarEnPanel('Lo que cambiaste y no guardaste se va a perder. ¿Cargar ' + g.nombre + ' de todas formas?', 'Cargar igual',
+    () => hacerCarga(id), foco);
+}
+
+/* Confirmación propia del panel. Abre el diálogo con el foco en «Volver» (lo que no pierde nada). Esc lo cierra
+   sin valor: cuenta como «Volver». Al cerrar, si se apretó el botón de «sí» corre alSi(), y el foco va a lo
+   que devuelva foco(siSeHizo): el botón que lo abrió, o el que lo reemplaza si la lista se repintó. */
+const dialogoConfirmar = $('dialogo-confirmar');
+let confirmacion = null;   // { alSi, foco } mientras el diálogo está abierto
+function confirmarEnPanel(pregunta, textoSi, alSi, foco) {
+  confirmacion = { alSi, foco };
+  $('confirmar-pregunta').textContent = pregunta;
+  $('confirmar-si').textContent = textoSi;
+  dialogoConfirmar.returnValue = '';
+  dialogoConfirmar.showModal();
+  $('confirmar-volver').focus();
+}
+dialogoConfirmar.addEventListener('close', () => {
+  const c = confirmacion;
+  confirmacion = null;
+  if (!c) return;
+  const si = dialogoConfirmar.returnValue === 'si';
+  if (si) c.alSi();
+  enfocar(c.foco(si));
+});
+const enfocar = (el) => { if (el && el.focus) el.focus(); };
+/* El botón `previo` si todavía se ve; si no (la lista se repintó), el de esa misa en las listas a la vista. */
+function botonDe(selector, id, previo) {
+  const seVe = (b) => b && b.isConnected && b.getClientRects().length > 0;
+  if (seVe(previo)) return previo;
+  return [...document.querySelectorAll(selector)].find((b) => b.dataset.id === id && seVe(b)) || null;
+}
+const botonCargarDe = (id, previo) => botonDe('#listas button, #lista-guardadas .cargar', id, previo);
+function hacerCarga(id) {
+  const g = leerGuardadas().find((x) => x.id === id);
   const estado = cargarTransmision(id, s);
   if (!estado) { pintarGuardadas(); return; }
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -886,29 +993,67 @@ function cargarGuardada(id) {
   guardar();                        // las pantallas se enteran
   llenar();
   nombreEscrito = false;
+  anotarFirmaGuardada(s);
   pintarGuardadas();
   verEleccion(false);
   abrir('preparar');
+  avisarCargada(g.nombre);
+  programarSincronizacionGuardadas();
 }
-function guardarActual() {
+/* «Guardar» (o Enter en el nombre). Si el nombre ya existe, pregunta antes en el diálogo del panel; el foco vuelve
+   a lo que lo abrió. */
+function guardarActual(abridor) {
   const campo = $('guardar-nombre');
   const nombre = campo.value.trim();
-  if (!nombre) { avisoGuardadas('Escriba un nombre para guardarla.'); campo.focus(); return; }
+  if (!nombre) { avisoGuardadas('Escribí un nombre para guardarla.'); campo.focus(); return; }
   const existia = existeGuardada(nombre);
-  if (existia && !confirm('Ya existe «' + nombre + '». ¿Reemplazarla?')) return;
-  if (!guardarTransmision(nombre, s)) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
+  if (!existia) { guardarConNombre(nombre, false); return; }
+  confirmarEnPanel('Ya existe «' + nombre + '». ¿Reemplazarla?', 'Reemplazar', () => guardarConNombre(nombre, true), () => abridor || $('guardar-boton'));
+}
+function guardarConNombre(nombre, existia) {
+  const guardada = guardarTransmision(nombre, s);
+  if (guardada && guardada.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
+  if (!guardada) { avisoGuardadas('No se pudo guardar en este navegador.', true); return; }
   nombreEscrito = false;
+  anotarFirmaGuardada(s);
   avisoGuardadas((existia ? 'Reemplazada: «' : 'Guardada: «') + nombre + '»');
   pintarGuardadas();
+  programarSincronizacionGuardadas();
 }
+/* Una fila de «Misas listas»: nombre, cuándo se usó (o se guardó, si nunca se cargó) y «Cargar». Si la nube
+   la rechazó (`rechazadas`, los ids), en lugar de cuándo dice «No se guardó en la nube». */
+function pintarRapidas(caja, lista, rechazadas) {
+  caja.textContent = '';
+  lista.forEach(g => {
+    const fila = nuevo('div', 'rapida'); fila.setAttribute('role', 'listitem');
+    const txt = nuevo('div', 'txt');
+    const uso = usoDeGuardada(g);
+    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', rechazadas.has(g.id) ? TEXTO_FILA_RECHAZADA : uso.palabra + ' ' + haceCuanto(uso.cuando)));
+    const b = nuevo('button', '', 'Cargar'); b.type = 'button'; b.dataset.id = g.id;
+    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
+    b.addEventListener('click', () => cargarGuardada(g.id, b));
+    fila.append(txt, b);
+    caja.append(fila);
+  });
+}
+/* Se repinta solo si cambió algo que se ve (la sincronización llama esto seguido). También la llama la app
+   (scriptPonerGuardadas) después de marcar la cola: la línea de estado se revisa siempre. */
+let firmaPintadas = null;
 function pintarGuardadas() {
+  refrescarLineaSync();
   const lista = leerGuardadas();
+  const rechazadas = idsRechazadasGuardadas();
+  const firma = JSON.stringify([lista, [...rechazadas].sort(), new Date().toDateString(), firmaTipos]);
+  if (firma === firmaPintadas) return;
+  firmaPintadas = firma;
   const caja = $('lista-guardadas'); caja.textContent = '';
-  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay transmisiones guardadas. Escriba un nombre arriba y apriete Guardar.'));
+  if (!lista.length) caja.append(nuevo('span', 'ayuda', 'Todavía no hay misas listas. Escribí un nombre arriba y apretá Guardar.'));
   lista.forEach(g => {
     const fila = nuevo('div', 'guardada');
     const info = nuevo('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px';
-    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · usada ' + haceCuanto(ultimoUso(g))));
+    const uso = usoDeGuardada(g);
+    const cuando = rechazadas.has(g.id) ? TEXTO_FILA_RECHAZADA : uso.palabra.toLowerCase() + ' ' + haceCuanto(uso.cuando);
+    info.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', nombreTipo(g.tipo) + ' · ' + cuando));
     info.title = 'Última vez: ' + new Date(ultimoUso(g)).toLocaleDateString('es');
     const acciones = nuevo('div', 'acciones');
     const boton = (clase, texto, accion) => {
@@ -918,51 +1063,125 @@ function pintarGuardadas() {
       return b;
     };
     acciones.append(
-      boton('cargar', 'Cargar', () => cargarGuardada(g.id)),
+      boton('cargar', 'Cargar', (e) => cargarGuardada(g.id, e.currentTarget)),
       boton('duplicar', 'Duplicar', () => {
         const copia = duplicarTransmision(g.id);
         pintarGuardadas();
+        if (copia && copia.error === 'limite') { avisoGuardadas(AVISO_LIMITE, true); return; }
         if (!copia) { avisoGuardadas('No se pudo duplicar en este navegador.', true); return; }
+        programarSincronizacionGuardadas();
         avisoGuardadas('Duplicada: «' + copia.nombre + '»');
         const nuevoCargar = [...$('lista-guardadas').querySelectorAll('.cargar')].find(b => b.dataset.id === copia.id);
         if (nuevoCargar) nuevoCargar.focus();
       }),
-      boton('borrar', 'Borrar', () => {
-        if (!confirm('¿Borrar «' + g.nombre + '»?')) return;
-        const borrada = borrarTransmision(g.id);
-        avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
-        pintarGuardadas();
-        $('titulo-guardadas').focus();
+      boton('borrar', 'Borrar', (e) => {
+        const abridor = e.currentTarget;
+        confirmarEnPanel('¿Borrar «' + g.nombre + '»?', 'Borrar', () => {
+          const borrada = borrarTransmision(g.id);
+          if (borrada) programarSincronizacionGuardadas();
+          avisoGuardadas(borrada ? 'Borrada: «' + g.nombre + '»' : 'No se pudo borrar en este navegador.', !borrada);
+          pintarGuardadas();
+        }, (si) => (si ? $('titulo-guardadas') : botonDe('#lista-guardadas .borrar', g.id, abridor)));
       })
     );
     fila.append(info, acciones);
     caja.append(fila);
   });
 
-  /* «O cargar una guardada» en Elegir: las 2 más usadas */
-  const rapidas = $('rapidas'); rapidas.textContent = '';
-  $('sec-rapidas').hidden = !lista.length;
-  lista.slice(0, 2).forEach(g => {
-    const fila = nuevo('div', 'rapida');
-    const txt = nuevo('div', 'txt');
-    txt.append(nuevo('span', 'nom', g.nombre), nuevo('span', 'meta', 'Usada ' + haceCuanto(ultimoUso(g))));
-    const b = nuevo('button', '', 'Cargar'); b.type = 'button';
-    b.setAttribute('aria-label', 'Cargar «' + g.nombre + '»');
-    b.addEventListener('click', () => cargarGuardada(g.id));
-    fila.append(txt, b);
-    rapidas.append(fila);
-  });
+  /* «Misas listas» en Preparar: las 5 más usadas */
+  pintarRapidas($('listas'), lista.slice(0, 5), rechazadas);
+  $('listas').hidden = !lista.length;          // vacía, la lista no se anuncia: el mensaje va fuera de role=list
+  $('listas-vacia').hidden = !!lista.length;
+  $('ver-todas').hidden = !lista.length;
 }
 $('guardar-nombre').addEventListener('input', () => { nombreEscrito = true; avisoGuardadas(''); });
-$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual(); e.preventDefault(); } });
-$('guardar-boton').addEventListener('click', guardarActual);
-$('ver-guardadas').addEventListener('click', () => abrir('guardadas'));
+$('guardar-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { guardarActual($('guardar-nombre')); e.preventDefault(); } });
+$('guardar-boton').addEventListener('click', () => guardarActual($('guardar-boton')));
+$('ver-todas').addEventListener('click', () => abrir('guardadas'));
 $('guardar-esta').addEventListener('click', () => {
   abrir('guardadas');
   if (!nombreEscrito) $('guardar-nombre').value = nombreSugerido();
   $('guardar-nombre').focus(); $('guardar-nombre').select();
 });
-window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS) pintarGuardadas(); });
+window.addEventListener('storage', (e) => { if (e.key === CLAVE_GUARDADAS || e.key === CLAVE_PENDIENTES) pintarGuardadas(); });
+
+/* ---------- misas listas en la nube (solo en la PC; la app sincroniza de forma nativa) ---------- */
+function pintarSesion() {
+  const con = haySesionGuardadas();
+  $('entrar').hidden = con || document.documentElement.classList.contains('modo-app');
+  $('sec-cuenta').hidden = !con;
+}
+const ESTADOS_AVISO = ['sin-conexion', 'error-servidor', 'sesion-cerrada'];
+const MUESTRA_CARGADA_MS = 5000;
+let ultimoSync = { estado: '', texto: '', aviso: false };   // estado '': todavía nada (en la app, siempre)
+let cargadaHasta = 0, cargadaT = null;
+/* La línea tiene role="status": reescribirla con el mismo texto la vuelve a anunciar, así que solo se toca si cambia. */
+function ponerLineaSync(texto, aviso) {
+  const el = $('estado-sync');
+  if (el.textContent !== texto) el.textContent = texto;
+  el.classList.toggle('aviso-sync', !!aviso);
+}
+/* Lo que dice la línea: el estado de la sincronización. Si hay misas que la nube rechazó y lo demás está bien
+   («Sincronizado», o nada todavía, que en la app es siempre), en su lugar dice cuántas. */
+function lineaSync() {
+  const tranquila = ultimoSync.estado === '' || (ultimoSync.estado === 'ok' && ultimoSync.texto === TEXTO_SYNC.ok);
+  const n = tranquila ? idsRechazadasGuardadas().size : 0;
+  return n ? { texto: textoRechazadas(n), aviso: true } : ultimoSync;
+}
+function refrescarLineaSync() {
+  if (Date.now() < cargadaHasta) return;   // «Cargada: …» se queda unos segundos; después vuelve el estado
+  const l = lineaSync();
+  ponerLineaSync(l.texto, l.aviso);
+}
+function estadoSync(estado, texto) {
+  ultimoSync = { estado, texto, aviso: ESTADOS_AVISO.includes(estado) };
+  pintarSesion();
+  pintarGuardadas();   // una fila pudo pasar a rechazada sin que cambie la lista; también revisa la línea
+}
+function avisarCargada(nombre) {
+  ponerLineaSync('Cargada: ' + nombre, false);
+  cargadaHasta = Date.now() + MUESTRA_CARGADA_MS;
+  clearTimeout(cargadaT);
+  cargadaT = setTimeout(() => { cargadaHasta = 0; refrescarLineaSync(); }, MUESTRA_CARGADA_MS);
+}
+const dialogoEntrar = $('dialogo-entrar');
+function reponerBotonEntrar() {
+  $('entrar-boton').disabled = false;
+  $('entrar-boton').textContent = 'Entrar';
+}
+$('entrar').addEventListener('click', () => {
+  $('entrar-error').textContent = '';
+  reponerBotonEntrar();   // un intento anterior que no terminó no lo deja en «Entrando…»
+  dialogoEntrar.showModal();
+  $('entrar-correo').focus();
+});
+$('entrar-cancelar').addEventListener('click', () => dialogoEntrar.close());
+let intentoEntrar = 0;   // cerrar el diálogo (Cancelar, Esc) deja viejo el intento en curso: su resultado no cuenta
+dialogoEntrar.addEventListener('close', () => { intentoEntrar++; $('entrar-clave').value = ''; });   // la contraseña no queda escrita
+$('form-entrar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const boton = $('entrar-boton');
+  if (boton.disabled) return;
+  boton.disabled = true;
+  boton.textContent = 'Entrando…';
+  $('entrar-error').textContent = '';
+  const intento = intentoEntrar;
+  const vigente = () => intento === intentoEntrar && dialogoEntrar.open;
+  let r;
+  try {
+    r = await entrarGuardadas($('entrar-correo').value, $('entrar-clave').value, vigente);
+  } catch (err) {
+    r = { ok: false, texto: 'No se pudo entrar. Probá de nuevo en un rato.' };
+  } finally {
+    reponerBotonEntrar();
+  }
+  if (r.cancelado || !vigente()) return;   // se cerró el diálogo mientras entraba: entrarGuardadas borró la sesión
+  if (!r.ok) { $('entrar-error').textContent = r.texto; $('entrar-clave').focus(); return; }
+  dialogoEntrar.close();
+  pintarSesion();
+  ($('ver-todas').hidden ? $('cambiar-tipo') : $('ver-todas')).focus();   // «Entrar» ya no está: el foco no se pierde
+});
+$('salir').addEventListener('click', () => { salirGuardadas(); pintarSesion(); $('titulo-guardadas').focus(); });   // «Salir» se oculta: el foco no se pierde
 
 /* ---------- pintar el panel ---------- */
 function llenar() {
@@ -1149,6 +1368,12 @@ aplicarParroquia(PARROQUIA);
 alCambiarParroquia(aplicarParroquia);
 vigilarParroquia();
 pintarGuardadas();
+iniciarSincronizacionGuardadas({
+  alEstado: estadoSync,
+  alCambiarLista: pintarGuardadas,
+  enVivo: () => $('hoja-vivo').classList.contains('activa')   // sin sincronización periódica con En vivo abierta
+});
+pintarSesion();
 </script>
 </body>
 </html>
