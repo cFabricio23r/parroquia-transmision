@@ -5,7 +5,9 @@ import {
   BASE,
   camposSinEtiqueta,
   CONFIG_BASE,
+  elegirColor,
   entrar,
+  espiarSelector,
   esperarEnBase,
   esperarGuardado,
   igual,
@@ -13,6 +15,7 @@ import {
   limpiar,
   prepararParroquia,
   revisar,
+  selectoresAbiertos,
   terminar,
   VIEWPORT,
 } from './lib/editor.mjs';
@@ -204,6 +207,7 @@ try {
     config: { ...CONFIG_BASE, galeria: [{ id: 'img-virgen', src: 'medios/virgen.png', alt: 'Virgen', nombre: 'Virgen del Rosario' }] },
   });
   const p2 = await nuevaPagina(R.correo);
+  await espiarSelector(p2);
   await p2.goto(`${BASE}/editor/p/${R.slug}/pantallas/inicio`);
   await p2.getByRole('button', { name: 'Siempre la misma' }).click();
   await esperarGuardado(p2);
@@ -241,10 +245,19 @@ try {
   await esperarGuardado(p2);
   c4 = await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.tipo === 'color');
   revisar(iguales(c4.pantallas?.inicio?.fondo, { tipo: 'color', color: '#4b0f18' }), `«Color liso» escribe el oscuro (${JSON.stringify(c4.pantallas?.inicio?.fondo)})`);
-  await p2.getByLabel('Color del fondo').fill('#ffff00');
+  await p2.getByLabel('Color del fondo', { exact: true }).fill('#ffff00');
   revisar(await p2.getByText('El texto blanco no se lee sobre este color. Elige uno más oscuro.').isVisible(), 'un color claro muestra el error');
   await p2.waitForTimeout(1500);
   igual((await leerConfig(R.id)).pantallas?.inicio?.fondo?.color, '#4b0f18', 'y la base sigue con el oscuro');
+  await p2.getByRole('button', { name: 'Elegir color del fondo' }).click();
+  igual((await selectoresAbiertos(p2)).at(-1)?.campo, 'pantalla-color', '«Elegir color del fondo» abre el selector');
+  await elegirColor(p2, 'pantalla-color', '#123456');
+  igual(await p2.getByLabel('Color del fondo', { exact: true }).inputValue(), '#123456', 'elegir un color oscuro lo pone en el texto');
+  await esperarGuardado(p2);
+  revisar(
+    iguales((await esperarEnBase(R.id, (c) => c.pantallas?.inicio?.fondo?.color === '#123456')).pantallas?.inicio?.fondo, { tipo: 'color', color: '#123456' }),
+    'y se guarda igual que escrito a mano',
+  );
   igual((await camposSinEtiqueta(p2)).length, 0, 'todo campo tiene etiqueta (con los selects a la vista)');
 
   console.log('F5 · Config viejo');
