@@ -2234,6 +2234,63 @@ async function casoClasicoIgual() {
   }
 }
 
+/* Compara dos PNG del mismo tamaño en una página: cuántos píxeles difieren poco (> 8 en algún canal) y mucho (> 32). */
+async function difPixeles(a, b) {
+  const pg = await browser.newPage();
+  const r = await pg.evaluate(async ([x, y]) => {
+    const leer = async (b64) => { const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode();
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d');
+      g.drawImage(im, 0, 0); return g.getImageData(0, 0, im.width, im.height).data; };
+    const p = await leer(x), q = await leer(y);
+    if (p.length !== q.length) return { leves: Infinity, fuertes: Infinity };
+    let leves = 0, fuertes = 0;
+    for (let i = 0; i < p.length; i += 4) {
+      const m = Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]), Math.abs(p[i + 3] - q[i + 3]));
+      if (m > 32) fuertes++; else if (m > 8) leves++;
+    }
+    return { leves, fuertes };
+  }, [a.toString('base64'), b.toString('base64')]);
+  await pg.close();
+  return r;
+}
+
+/* Las pantallas sin estiloPantallas, tamanos ni encuadre tienen que verse igual al píxel que antes de esta obra.
+   Con --grabar-pantallas escribe las capturas de referencia en pantallas-referencia/ (una vez, sobre el código sin
+   cambios); sin la marca compara byte a byte y, si difiere, deja la nueva en capturas/vicaria/pantallas-diferente/. */
+async function casoPantallasIgual() {
+  const grabar = process.argv.includes('--grabar-pantallas');
+  console.log('Pantallas iguales a las de antes' + (grabar ? ' (grabando)' : ''));
+  const carpeta = path.join(__dirname, 'pantallas-referencia');
+  const diferentes = path.join(CAPTURAS, 'pantallas-diferente');
+  fs.mkdirSync(grabar ? carpeta : diferentes, { recursive: true });
+  for (const slug of [CA, SJ]) {
+    for (const tipo of ['inicio', 'portada', 'gracias', 'avisos', 'horarios']) {
+      const nombre = slug + '_' + tipo + '.png';
+      const ctx = await nuevoContexto();
+      const p = await abrir(ctx, `/${slug}/pantalla.html?tipo=${tipo}`, 1920, 1080, async (pg) => {
+        await pg.clock.setFixedTime(new Date('2026-11-15T10:00:00'));
+        await pg.addInitScript(([k, v]) => localStorage.setItem(k, v),
+          [`pev_${slug}_estado_v1`, JSON.stringify({ tipo: 'dominical' })]);
+        // Las chispas usan Math.random: con una semilla fija salen siempre en el mismo lugar.
+        await pg.addInitScript(() => { let s = 7; Math.random = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; }; });
+      });
+      await p.waitForLoadState('networkidle');
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(1800);
+      const png = await p.screenshot({ animations: 'disabled' });
+      await ctx.close();
+      if (grabar) { fs.writeFileSync(path.join(carpeta, nombre), png); console.log('  grabada ' + nombre); continue; }
+      const ref = path.join(carpeta, nombre);
+      // Byte a byte no sirve acá: el borde suavizado de los rayos y del arco cambia unos pocos píxeles (≤ 12/255)
+      // entre corridas. Se acepta ese ruido; un cambio real (letra, tamaño, posición) mueve miles de píxeles.
+      const d = fs.existsSync(ref) ? await difPixeles(fs.readFileSync(ref), png) : null;
+      const igualA = !!d && d.fuertes === 0 && d.leves <= 200;
+      if (!igualA) fs.writeFileSync(path.join(diferentes, nombre), png);
+      revisar(igualA, 'Pantalla ' + slug + ' ' + tipo + ': igual a la referencia' + (igualA ? '' : ' (' + (d ? d.fuertes + ' píxeles muy distintos, ' + d.leves + ' leves' : 'sin referencia') + '; nueva en capturas/vicaria/pantallas-diferente/' + nombre + ')'));
+    }
+  }
+}
+
 /* Lugares nuevos del rótulo (abajo a la derecha, arriba a la derecha) y la cajita «EN VIVO», que comparte la esquina de arriba. */
 async function casoRotulosLugares() {
   console.log('Rótulos · lugares nuevos y EN VIVO');
@@ -2343,7 +2400,7 @@ async function casoTipografiasNuevas() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2384,6 +2441,7 @@ async function casoTipografiasNuevas() {
     await casoDisenoProduccion();
     await casoLineaBase();
     await casoClasicoIgual();
+    await casoPantallasIgual();
     await casoTipografiasNuevas();
     await casoRotulosLugares();
     await casoRotulosDisenos();
