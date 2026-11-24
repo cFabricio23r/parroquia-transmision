@@ -176,6 +176,9 @@ function estiloRotulos() {
   const colorLado = colorDe(r.colorLado, colores);
   const linea = colorDe(r.colorLinea, colores);
   const lineaFinal = linea || colorDe('acento', colores);
+  // Sin línea elegida ni acento, la línea es var(--celeste) de la paleta: lineaClara se mide contra ese color.
+  const lineaVista = lineaFinal
+    || (colores && typeof colores.principal === 'string' ? paleta(colores.principal, colores.oscuro).celeste : null);
   return {
     tipografia: TIPOGRAFIAS.includes(r.tipografia) ? r.tipografia : 'montserrat',
     // el nombre del diseño (R3): 'redondeadas' de una configuración vieja se ve como 'suaves'; sin valor, 'suaves'
@@ -185,7 +188,7 @@ function estiloRotulos() {
     colorLado,
     colorLinea: lineaFinal,
     ladoClaro: colorLado !== null && contraste('#ffffff', colorLado) < 3,
-    lineaClara: lineaFinal !== null && contraste('#ffffff', lineaFinal) < 3,
+    lineaClara: lineaVista !== null && contraste('#ffffff', lineaVista) < 3,
     logoEsquina: r.logoEsquina !== false
   };
 }

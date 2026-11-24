@@ -2100,6 +2100,19 @@ async function casoRotulosDisenos() {
   igual(m.kColor, BLANCO, 'tarjeta: sobre una línea oscura, el texto de la píldora va blanco');
   await ctx.close();
 
+  // Review final 2: la primera vez que aparece una tipografía nueva, la fuente todavía no cargó y ajustarTexto mide con la
+  // de reserva. Al cargar, el nombre se vuelve a medir: queda del mismo tamaño que al volver a pintar, y no se corta.
+  ({ ctx, r } = await abrirCon({ tipografia: 'cinzel' }, { celebrante: 'Que te alaben, Señor, todos los pueblos, que todos los pueblos te alaben' }));
+  const medida = await r.evaluate(async () => {
+    const t = document.getElementById('r-t');
+    const antes = { tam: t.style.fontSize, corta: t.scrollWidth > t.clientWidth + 1 };
+    pintar(leerEstado());
+    return { antes, despues: t.style.fontSize };
+  });
+  igual(medida.antes.tam, medida.despues, 'cinzel: con la fuente ya cargada, el nombre se midió de nuevo');
+  revisar(!medida.antes.corta, 'cinzel: el nombre largo no se corta la primera vez');
+  await ctx.close();
+
   // Minimal
   ({ ctx, r } = await abrirCon({ diseno: 'minimal', esquinas: 'redondas' }));
   m = await css(r);
@@ -2124,6 +2137,15 @@ async function casoRotulosDisenos() {
   const cajaYPestana = await r.evaluate(() => { const a = document.getElementById('rotulo').getBoundingClientRect(); const k = document.getElementById('r-k').getBoundingClientRect(); return k.top >= a.top - 1 && k.bottom <= document.querySelector('#rotulo .cuerpo').getBoundingClientRect().top + 1; });
   revisar(cajaYPestana, 'etiqueta: la pestaña va encima de la caja y dentro del rótulo');
   await captura(r, 'disenos/etiqueta_izquierda');
+  // Review final 3: «primero entra la pestaña y después se despliega la caja». A los 150 ms (la caja empieza a los
+  // 220 ms) la pestaña ya se ve: el clip-path de la caja no la tapa (clip-path también corta el hit-test).
+  const pestanaPrimero = await r.evaluate(() => {
+    for (const a of document.getAnimations()) { a.pause(); a.currentTime = 150; }
+    const k = document.getElementById('r-k').getBoundingClientRect();
+    const el = document.elementFromPoint(k.left + k.width / 2, k.top + k.height / 2);
+    return !!(el && el.closest('#r-k'));
+  });
+  revisar(pestanaPrimero, 'etiqueta: a los 150 ms la pestaña ya se ve, antes que la caja');
   await ctx.close();
   ({ ctx, r } = await abrirCon({ diseno: 'etiqueta', colorLado: 'blanco', colorLinea: 'principal' }));
   m = await css(r);

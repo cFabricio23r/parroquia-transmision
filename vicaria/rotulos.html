@@ -59,7 +59,18 @@ function ponerTexto(c, animar) {
       if (animar) { el.classList.remove('cambia'); void el.offsetWidth; el.classList.add('cambia'); }
     }
   });
-  ajustarTexto($('r-t'), 1390, c.chico ? 46 : (TAMANO_NOMBRE[estiloRotulos().tipografia] || 52), 28);
+  const t = $('r-t');
+  const medir = () => ajustarTexto(t, 1390, c.chico ? 46 : (TAMANO_NOMBRE[estiloRotulos().tipografia] || 52), 28);
+  medir();
+  // La primera vez que se usa una tipografía, la fuente todavía no cargó y se midió con la de reserva: al cargar se
+  // vuelve a medir (si el texto sigue siendo el mismo), para que un nombre largo no quede cortado ni chico.
+  if (document.fonts && document.fonts.load) {
+    const cs = getComputedStyle(t);
+    const texto = t.textContent;
+    document.fonts.load(cs.fontWeight + ' 40px ' + cs.fontFamily, texto).then(() => {
+      if (t.textContent === texto) medir();
+    }, () => {});
+  }
 }
 
 function entrar(tipo, c) {

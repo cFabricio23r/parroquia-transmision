@@ -409,4 +409,4 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 .escenario.diseno-etiqueta .rotulo.en .t{animation:textoEntra .5s cubic-bezier(.2,.8,.2,1) .5s both}
 .escenario.diseno-etiqueta .rotulo.en .s{animation:textoEntra .45s cubic-bezier(.2,.8,.2,1) .62s both}
 @keyframes pestanaEntra{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-@keyframes cajaEntra{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(-60px -60px -60px -60px)}}
+@keyframes cajaEntra{from{clip-path:inset(-60px -60px 100% -60px)}to{clip-path:inset(-60px -60px -60px -60px)}}

@@ -2516,6 +2516,13 @@ grupo('pantallas: lógica del rediseño', () => {
     assert.equal(cargarP((cfg) => { cfg.rotulos = { posicion: 'arriba-derecha' }; }).estiloRotulos().posicion, 'arriba-derecha');
     assert.equal(cargarP((cfg) => { cfg.rotulos = { colorLinea: 'oscuro' }; }).estiloRotulos().lineaClara, false);
   });
+  prueba('estiloRotulos: sin colorLinea ni acento, lineaClara mira el celeste de la paleta (review final 1)', () => {
+    const x = cargarP((cfg) => { cfg.colores = { principal: '#00796b', oscuro: '#00332e' }; delete cfg.rotulos; });
+    assert.equal(x.estiloRotulos().colorLinea, null, 'la línea sigue siendo la de hoy (var(--celeste))');
+    assert.equal(x.estiloRotulos().lineaClara, true, 'blanco sobre el celeste de #00796b no llega a 3:1');
+    const y = cargarP((cfg) => { cfg.colores = { principal: '#0c3562', oscuro: '#061a31' }; delete cfg.rotulos; });
+    assert.equal(y.estiloRotulos().lineaClara, false, 'un principal oscuro deja el celeste oscuro');
+  });
   prueba('estiloRotulos: con acento y sin colorLinea, la línea es el acento', () => {
     const x = cargarP((cfg) => { cfg.colores.acento = '#d9a441'; });
     assert.equal(x.estiloRotulos().colorLinea, '#d9a441');
