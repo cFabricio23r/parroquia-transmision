@@ -9,8 +9,16 @@ import { contraste, MIN_CONTRASTE } from '../../../../../../lib/contraste';
 import { avisosDePantallas } from '../../../../../../lib/editor/estados';
 import { MENSAJE_HEX, RE_HEX } from '../../../../../../lib/editor/imagen';
 import {
+  conEncuadre,
   conInterruptor,
+  conTamano,
   encendido,
+  encuadreDe,
+  fotoEncuadrable,
+  OPCIONES_TAMANO,
+  tamanoDe,
+  type CualFoto,
+  type CualTamano,
   fondoGaleriaInicial,
   imagenFijaInicial,
   opcionesFondoGaleria,
@@ -30,6 +38,7 @@ import { CajaRevisar } from '../../../../../componentes/CajaRevisar';
 import { CampoColor } from '../../../../../componentes/CampoColor';
 import { CampoSelect } from '../../../../../componentes/CampoSelect';
 import { CampoTexto } from '../../../../../componentes/CampoTexto';
+import { DeslizadoresFoto } from '../../../../../componentes/DeslizadoresFoto';
 import { Dialogo } from '../../../../../componentes/Dialogo';
 import { Interruptor } from '../../../../../componentes/Interruptor';
 import { Segmentado } from '../../../../../componentes/Segmentado';
@@ -60,6 +69,15 @@ const OPCIONES_DISTRIBUCION = [
   { valor: 'izquierda', texto: 'Imagen a la izquierda' },
   { valor: 'centro', texto: 'Centrado' },
 ];
+
+/** Los tamaños de texto de cada pantalla (spec: Avisos no tiene frase; Producción y EN VIVO, ninguno). */
+const TAMANOS_DE_VISTA: Record<string, { cual: CualTamano; etiqueta: string }[]> = {
+  inicio: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
+  portada: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
+  evento: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
+  gracias: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
+  avisos: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }],
+};
 
 /** El color de «Color liso» al elegirlo: el oscuro de la parroquia si se lee con blanco; si no, #0c3562. */
 function colorInicial(colores: unknown): string {
@@ -122,6 +140,15 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
     const nuevo = conInterruptor(p, e, valor);
     poner({ ocultar: nuevo.ocultar, mostrar: nuevo.mostrar });
   };
+  const deslizadores = (cual: CualFoto, titulo: string) =>
+    fotoEncuadrable(p, cual, vista) !== null && (
+      <DeslizadoresFoto
+        titulo={titulo}
+        valores={encuadreDe(p, cual, vista)}
+        onCambiar={(valores) => poner({ encuadre: conEncuadre(p, cual, valores, vista).encuadre })}
+        onVolver={() => poner({ encuadre: conEncuadre(p, cual, null, vista).encuadre })}
+      />
+    );
   const escribir = (clave: string, valor: string) => {
     setTextos((t) => ({ ...t, [clave]: valor }));
     poner({ textos: ponerTexto(p, clave, valor).textos });
@@ -172,6 +199,7 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
                 }}
               />
             )}
+            {deslizadores('fondo', 'Mover la foto del fondo')}
             {sinFotos && opcionFondo(p) !== 'galeria' && (
               <p className="pv-nota-campo" role="status">
                 {MENSAJE_SIN_FOTOS}{' '}
@@ -193,6 +221,7 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
                 ))}
               </CampoSelect>
             )}
+            {deslizadores('imagen', 'Mover la foto')}
             <CajaRevisar problemas={avisosDePantallas(borrador, vista)} />
           </div>
           <Segmentado
@@ -229,6 +258,16 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
           </div>
         ))}
       </section>
+
+      {(TAMANOS_DE_VISTA[vista] ?? []).map((t) => (
+        <Segmentado
+          key={t.cual}
+          etiqueta={t.etiqueta}
+          opciones={OPCIONES_TAMANO}
+          valor={tamanoDe(p, t.cual)}
+          onCambiar={(valor) => poner({ tamanos: conTamano(p, t.cual, valor).tamanos })}
+        />
+      ))}
 
       {v.textos.map((t) => (
         <CampoTexto
