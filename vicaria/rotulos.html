@@ -42,6 +42,9 @@ function contenido(s) {
   return r ? r.texto : null;
 }
 
+/* Tamaño del nombre según la tipografía, para que todas se vean del mismo alto. Montserrat es 52; Lora, 54 (F6:24). */
+const TAMANO_NOMBRE = { lora: 54, cinzel: 46, playfair: 54, 'eb-garamond': 58, merriweather: 48, nunito: 52, oswald: 58 };
+
 /* ----- máquina de animación del rótulo ----- */
 const R = $('rotulo');
 let mostrando = null;      // tipo de rótulo que está en pantalla
@@ -56,7 +59,7 @@ function ponerTexto(c, animar) {
       if (animar) { el.classList.remove('cambia'); void el.offsetWidth; el.classList.add('cambia'); }
     }
   });
-  ajustarTexto($('r-t'), 1390, c.chico ? 46 : (estiloRotulos().tipografia === 'lora' ? 54 : 52), 28);   // Lora: 54 (F6:24)
+  ajustarTexto($('r-t'), 1390, c.chico ? 46 : (TAMANO_NOMBRE[estiloRotulos().tipografia] || 52), 28);
 }
 
 function entrar(tipo, c) {

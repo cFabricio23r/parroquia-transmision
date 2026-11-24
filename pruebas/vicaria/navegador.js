@@ -2087,6 +2087,39 @@ async function casoClasicoIgual() {
   }
 }
 
+/* Las seis tipografías nuevas del nombre del rótulo: se aplican con la clase tipo-<clave> y la fuente propia carga. */
+async function casoTipografiasNuevas() {
+  console.log('Rótulos · seis tipografías nuevas');
+  const FAMILIAS = { cinzel: 'Cinzel', playfair: 'Playfair', 'eb-garamond': 'EBGaramond', merriweather: 'Merriweather', nunito: 'Nunito', oswald: 'Oswald' };
+  fs.mkdirSync(path.join(CAPTURAS, 'tipografias'), { recursive: true });
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, servirConfig(conBloques(() => {})));
+  const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'semana', rotulo: 'persona', celebrante: 'Pbro. José Martínez', mostrarEnVivo: true }));
+  await r.waitForSelector('#rotulo.en');
+  await r.waitForTimeout(1800);   // que termine la entrada (y el brillo) antes de la primera captura
+  for (const [clave, familia] of Object.entries(FAMILIAS)) {
+    await r.evaluate((t) => { PARROQUIA = Object.assign({}, PARROQUIA, { rotulos: { tipografia: t } }); aplicarParroquia(PARROQUIA); }, clave);
+    const m = await r.evaluate(async (fam) => {
+      await document.fonts.ready;
+      const t = document.getElementById('r-t');
+      await document.fonts.load(getComputedStyle(t).fontWeight + ' 52px ' + fam);
+      return {
+        familia: getComputedStyle(t).fontFamily,
+        cargada: [...document.fonts].some((f) => f.family.replace(/["']/g, '') === fam && f.status === 'loaded'),
+        clases: [...document.getElementById('escenario').classList].filter((x) => /^tipo-/.test(x)).join(' '),
+        cortado: t.scrollWidth > t.clientWidth
+      };
+    }, familia);
+    revisar(new RegExp('^"?' + familia + '"?').test(m.familia), clave + ': la font-family del nombre empieza con ' + familia + ' (' + m.familia + ')');
+    revisar(m.cargada, clave + ': la fuente ' + familia + ' está cargada');
+    igual(m.clases, 'tipo-' + clave, clave + ': clase en el escenario');
+    revisar(!m.cortado, clave + ': el nombre no se corta');
+    await r.waitForTimeout(300);
+    await captura(r, 'tipografias/' + clave);
+  }
+  await ctx.close();
+}
+
 /* ---------- Programa ---------- */
 
 (async () => {
@@ -2097,7 +2130,7 @@ async function casoClasicoIgual() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
+    const casos = { casoClasicoIgual, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoModoAppSinGuardadas };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -2138,6 +2171,7 @@ async function casoClasicoIgual() {
     await casoDisenoProduccion();
     await casoLineaBase();
     await casoClasicoIgual();
+    await casoTipografiasNuevas();
     await casoFaltasIguales();
     await casoModoAppSinGuardadas();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();

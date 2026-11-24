@@ -7,6 +7,12 @@
 /* Tipografías de los rótulos (rotulos.tipografia). Licencias en fuentes/LICENCIAS.md. */
 @font-face{font-family:Lora;src:url(fuentes/lora-latin-700-normal.woff2) format('woff2');font-weight:700}
 @font-face{font-family:SourceSans;src:url(fuentes/source-sans-3-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Cinzel;src:url(fuentes/cinzel-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Playfair;src:url(fuentes/playfair-display-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:EBGaramond;src:url(fuentes/eb-garamond-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Merriweather;src:url(fuentes/merriweather-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:Nunito;src:url(fuentes/nunito-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:Oswald;src:url(fuentes/oswald-latin-600-normal.woff2) format('woff2');font-weight:600}
 
 :root{
   --oscuro:#0c3562; --rey:#1155a4; --medio:#157ec1; --celeste:#3d9be0; --claro:#8cc0ef; --palido:#e6f1fb; --rojo:#dd0300;
@@ -261,9 +267,16 @@ body.horarios .virgen.logo{left:70px;bottom:400px;width:420px;height:auto}
 .esquinas-redondas .rotulo{border-radius:48px}
 .esquinas-redondas .capa-logo{border-radius:36px}
 .esquinas-redondas .barra{border-radius:32px}
-/* Tipografía del nombre del rótulo: Lora («clásica») o Source Sans («sencilla»), en 700. */
+/* Tipografía del nombre del rótulo (rotulos.tipografia): Lora («clásica») o Source Sans («sencilla»), en 700, y las de abajo. */
 .tipo-lora .rotulo .t{font-family:Lora,Georgia,serif;font-weight:700;font-size:54px;line-height:1.08}
 .tipo-source-sans .rotulo .t{font-family:SourceSans,Mont,sans-serif;font-weight:700}
+/* Las seis de los diseños de rótulo. El tamaño de cada una lo pone rotulos.html (TAMANO_NOMBRE), para que todas se vean del mismo alto. */
+.tipo-cinzel .rotulo .t{font-family:Cinzel,Georgia,serif;font-weight:700;line-height:1.1}
+.tipo-playfair .rotulo .t{font-family:Playfair,Georgia,serif;font-weight:700;line-height:1.08}
+.tipo-eb-garamond .rotulo .t{font-family:EBGaramond,Georgia,serif;font-weight:700;line-height:1.05}
+.tipo-merriweather .rotulo .t{font-family:Merriweather,Georgia,serif;font-weight:700;line-height:1.12}
+.tipo-nunito .rotulo .t{font-family:Nunito,Mont,sans-serif;font-weight:800}
+.tipo-oswald .rotulo .t{font-family:Oswald,Mont,sans-serif;font-weight:600;line-height:1.1}
 
 /* ================= Rediseño =================
    Acento: solo con colores.acento (clase con-acento en <html>); sin él, la franja se ve como siempre. */
