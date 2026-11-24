@@ -117,13 +117,19 @@ export interface CasillaPropio {
 
 /** Decisión 20, en el orden del DOM (la grilla de 2 columnas se lee por filas). */
 export const CASILLAS_PROPIO: CasillaPropio[] = [
-  { id: 'persona', texto: 'Persona', bases: ['persona'] },
+  { id: 'persona', texto: 'Celebrante o persona', bases: ['persona'] },
+  { id: 'lectura1', texto: '1.ª lectura', bases: ['lectura1'] },
+  { id: 'salmo', texto: 'Salmo', bases: ['salmo'] },
+  { id: 'lectura2', texto: '2.ª lectura', bases: ['lectura2'] },
+  { id: 'evangelio', texto: 'Evangelio', bases: ['evangelio'] },
   { id: 'rosario', texto: 'Misterio del rosario', bases: ['rosario'] },
-  { id: 'lectura', texto: 'Lectura', bases: ['lectura1', 'salmo', 'lectura2', 'evangelio'] },
   { id: 'oracion', texto: 'Oración', bases: ['oracion'] },
   { id: 'lugar', texto: 'Lugar o estación', bases: ['lugar'] },
   { id: 'libre', texto: 'Libre', bases: ['libre'] },
 ];
+
+/** Las casillas marcadas al crear un tipo propio. */
+const CASILLAS_NUEVO = ['persona', 'lectura1', 'salmo', 'evangelio'];
 
 /** El orden en que se escriben las bases. */
 const ORDEN_BASES = ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario', 'oracion', 'lugar', 'libre'];
@@ -188,7 +194,8 @@ export function formularioDeTipo(borrador: object, id: string, comunes: TipoComu
       textoGracias: '',
       imagen: undefined,
       portada: 'ninguna',
-      casillas: { ...Object.fromEntries(CASILLAS_PROPIO.map((c) => [c.id, false])), persona: true },
+      // Un tipo nuevo empieza con los rótulos de una misa (celebrante, 1.ª lectura, salmo y evangelio).
+      casillas: Object.fromEntries(CASILLAS_PROPIO.map((c) => [c.id, CASILLAS_NUEVO.includes(c.id)])),
       base: {},
     };
   }
