@@ -204,7 +204,7 @@ function seSale(caja, abajo = 0) {
    3. En Inicio, Portada y Gracias sin caja de horarios ni redes (no hay otra cosa que achicar): también a lo alto.
    Corre dentro de cada encaje (encajarExtra, encajarRedesAvisos, encajarHorarios), así reencajar lo repite al
    cargar una fuente. */
-const ESCALAS_TAMANO = { chico: 0.85, normal: 1, grande: 1.15 };
+const ESCALAS_TAMANO = { 'muy-chico': 0.7, chico: 0.85, normal: 1, grande: 1.15 };
 const ESCALA_MINIMA = 0.6;
 let tamanosVista = { titulo: 'normal', frase: 'normal' };
 function _anchoSeSale(v) {
@@ -322,6 +322,7 @@ function pintar(s) {
   const vistaCfg = esPortadaEvento && conBloqueEvento ? 'evento' : efectiva;
   const T = (clave) => textoDe(s, vistaCfg, clave);
   aplicarAjustes(vistaCfg);
+  aplicarEstiloPantallas(vistaCfg);
   tamanosVista = ajustesDe(vistaCfg).tamanos;
   ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
@@ -510,9 +511,10 @@ function aplicarAjustes(vista) {
 /* estiloPantallas: clases letra-titulo-<clave>, letra-frase-<clave> y logo-chico|logo-grande en el escenario.
    Los valores de siempre no ponen clase, así la pantalla queda idéntica a la de antes. */
 const CLASES_ESTILO = TIPOGRAFIAS.map((t) => 'letra-titulo-' + t).concat(LETRAS_FRASE.map((t) => 'letra-frase-' + t), ['logo-chico', 'logo-grande']);
-function aplicarEstiloPantallas() {
+function aplicarEstiloPantallas(v) {
   const esc = $('escenario');
-  const e = estiloPantallas();
+  // El de todas, con las letras propias de la pantalla que se pinta de verdad (vistaCfg de pintar) encima.
+  const e = estiloDe(v || vista);
   esc.classList.remove(...CLASES_ESTILO);
   if (e.letraTitulo !== 'montserrat') esc.classList.add('letra-titulo-' + e.letraTitulo);
   if (e.letraFrase !== 'vibes') esc.classList.add('letra-frase-' + e.letraFrase);

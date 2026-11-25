@@ -265,6 +265,43 @@ export function conEstiloPantallas(estilo: unknown, clave: ClaveEstilo, valor: s
 
 export type CualTamano = 'titulo' | 'frase';
 
+/** Los tamaños de los textos de cada pantalla: además «Muy chico» (70 %). El logo sigue con OPCIONES_TAMANO. */
+export const OPCIONES_TAMANO_TEXTO = [{ valor: 'muy-chico', texto: 'Muy chico' }, ...OPCIONES_TAMANO];
+
+/* ---- Letra por pantalla (spec 2026-11-24 letra-por-pantalla): pantallas.<vista>.letras ---- */
+
+export type CualLetra = 'titulo' | 'frase';
+/** Qué letras puede cambiar cada pantalla. Avisos no tiene frase; Producción, solo el nombre. Horarios no está en el editor. */
+export const LETRAS_DE_VISTA: Record<string, CualLetra[]> = {
+  inicio: ['titulo', 'frase'],
+  portada: ['titulo', 'frase'],
+  evento: ['titulo', 'frase'],
+  gracias: ['titulo', 'frase'],
+  avisos: ['titulo'],
+  produccion: ['titulo'],
+};
+const COMO_LAS_DEMAS = { valor: '', texto: 'Como las demás pantallas' };
+/** Las letras de una pantalla: «Como las demás pantallas» (el estilo de todas) o una propia. */
+export const OPCIONES_LETRA_TITULO_VISTA = [COMO_LAS_DEMAS, ...OPCIONES_TIPOGRAFIA];
+export const OPCIONES_LETRA_FRASE_VISTA = [COMO_LAS_DEMAS, ...OPCIONES_LETRA_FRASE];
+
+/** La letra `cual` del bloque, o `deSiempre` ('' = como las demás; 'montserrat' en Producción). */
+export function letraDe(p: object | undefined, cual: CualLetra, deSiempre: string): string {
+  const l = objeto(objeto(p).letras)[cual];
+  return typeof l === 'string' ? l : deSiempre;
+}
+
+/** El bloque con `letras.<cual>` cambiada; `deSiempre` quita la clave y `letras` si queda vacío. */
+export function conLetra(p: object | undefined, cual: CualLetra, valor: string, deSiempre: string): Objeto {
+  const o: Objeto = { ...objeto(p) };
+  const l: Objeto = { ...objeto(o.letras) };
+  if (valor === deSiempre) delete l[cual];
+  else l[cual] = valor;
+  if (Object.keys(l).length) o.letras = l;
+  else delete o.letras;
+  return o;
+}
+
 export function tamanoDe(p: object | undefined, cual: CualTamano): string {
   const t = objeto(objeto(p).tamanos)[cual];
   return typeof t === 'string' ? t : 'normal';

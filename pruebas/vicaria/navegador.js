@@ -2748,6 +2748,114 @@ async function casoPantallasIgual() {
 }
 
 /* Estilo de todas las pantallas (estiloPantallas), tamaño de los textos (tamanos) y su techo. */
+/* Letra y tamaño por pantalla (spec 2026-11-24 letra-por-pantalla). */
+async function casoLetraPorPantalla() {
+  console.log('Pantallas · letra y tamaño de cada pantalla, y el nombre de Producción que entra');
+  fs.mkdirSync(path.join(CAPTURAS, 'letra-por-pantalla'), { recursive: true });
+  const abrirCon = async (cambios, ruta, estado) => {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques(cambios)));
+    const p = await abrir(ctx, `/${CA}/${ruta}`, 1920, 1080, estadoCA(Object.assign({ tipo: 'dominical' }, estado || {})));
+    await p.waitForLoadState('networkidle');
+    await p.evaluate(() => document.fonts.ready);
+    await p.waitForTimeout(1200);
+    return { ctx, p };
+  };
+  const familia = (p, sel) => p.evaluate((s) => getComputedStyle(document.querySelector(s)).fontFamily, sel);
+  const letraTam = (p, sel) => p.evaluate((s) => parseFloat(getComputedStyle(document.querySelector(s)).fontSize), sel);
+  const caja = (p, sel) => p.evaluate((s) => {
+    const k = document.getElementById('escenario').getBoundingClientRect();
+    const r = document.querySelector(s).getBoundingClientRect();
+    const e = k.width / 1920;
+    return { izq: (r.left - k.left) / e, der: (r.right - k.left) / e, ancho: r.width / e };
+  }, sel);
+
+  // La letra de Inicio gana a la de todas; Gracias sigue con la de todas.
+  const conLetras = (c) => {
+    c.estiloPantallas = { letraTitulo: 'cinzel' };
+    c.pantallas = { inicio: { modo: 'personalizada', letras: { titulo: 'lora', frase: 'oswald' } }, gracias: { modo: 'personalizada' } };
+  };
+  let { ctx, p } = await abrirCon(conLetras, 'pantalla.html?tipo=inicio');
+  revisar((await familia(p, '#i-titulo')).startsWith('Lora'), 'Inicio con letras.titulo lora: el título va en Lora (' + await familia(p, '#i-titulo') + ')');
+  revisar((await familia(p, '#i-cursiva')).startsWith('Oswald'), 'Inicio con letras.frase oswald: la frase va en Oswald');
+  await captura(p, 'letra-por-pantalla/inicio_lora');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(conLetras, 'pantalla.html?tipo=gracias'));
+  const tituloGracias = await p.evaluate(() => { const t = document.querySelector('#v-gracias .titulo'); return t ? getComputedStyle(t).fontFamily : ''; });
+  revisar(tituloGracias.startsWith('Cinzel'), 'Gracias sin letras propias: sigue con la de todas (Cinzel) (' + tituloGracias + ')');
+  await ctx.close();
+
+  // La letra es la de la pantalla que se pinta de verdad (revisión C1): dominical no tiene portada y pinta Inicio;
+  // la portada de un evento usa el bloque `evento`.
+  const conTres = (c) => {
+    c.pantallas = {
+      inicio: { modo: 'personalizada', letras: { titulo: 'oswald' } },
+      portada: { modo: 'personalizada', letras: { titulo: 'cinzel' } },
+      evento: { modo: 'personalizada', letras: { titulo: 'lora' } },
+    };
+  };
+  ({ ctx, p } = await abrirCon(conTres, 'pantalla.html?tipo=portada'));
+  revisar((await familia(p, '#i-titulo')).startsWith('Oswald'), 'Portada de un domingo (pinta Inicio): la letra de Inicio (' + await familia(p, '#i-titulo') + ')');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon(conTres, 'pantalla.html?tipo=portada', { tipo: 'evento', evento: 'Concierto', fecha: '2026-12-20', lugar: 'Atrio' }));
+  const tituloEvento = await p.evaluate(() => { const t = document.querySelector('#v-portada .titulo'); return t ? getComputedStyle(t).fontFamily : ''; });
+  revisar(tituloEvento.startsWith('Lora'), 'Portada de un evento: la letra del bloque evento (' + tituloEvento + ')');
+  await ctx.close();
+
+  // «Muy chico»: el título de Inicio queda al 70 %.
+  ({ ctx, p } = await abrirCon(() => {}, 'pantalla.html?tipo=inicio'));
+  const normalInicio = await letraTam(p, '#i-titulo');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.pantallas = { inicio: { modo: 'personalizada', tamanos: { titulo: 'muy-chico' } } }; }, 'pantalla.html?tipo=inicio'));
+  const muyChico = await letraTam(p, '#i-titulo');
+  await ctx.close();
+  revisar(Math.abs(muyChico / normalInicio - 0.7) < 0.02, 'muy-chico: el título de Inicio al 70 % (' + muyChico.toFixed(1) + ' de ' + normalInicio.toFixed(1) + ')');
+
+  // Producción: un nombre largo entra, en los dos estilos; uno corto queda igual que siempre.
+  const largo = (c) => { c.pantallas = { produccion: { modo: 'personalizada', textos: { prod_nombre: 'Parroquia Vianney Comunicaciones' } } }; };
+  for (const estilo of ['azul', 'claro']) {
+    ({ ctx, p } = await abrirCon(largo, 'produccion.html?estilo=' + estilo));
+    const b = await caja(p, '#' + estilo + ' .grande');
+    revisar(b.izq >= 0 && b.der <= 1920, estilo + ': el nombre largo entra en la pantalla (' + b.izq.toFixed(0) + '–' + b.der.toFixed(0) + ')');
+    const lineas = await p.evaluate((s) => { const g = document.querySelector(s); return Math.round(g.getBoundingClientRect().height / parseFloat(getComputedStyle(g).lineHeight)); }, '#' + estilo + ' .grande');
+    igual(lineas, 1, estilo + ': el nombre largo va en una línea');
+    await captura(p, 'letra-por-pantalla/produccion_largo_' + estilo);
+    await ctx.close();
+  }
+  // Con una letra que carga después (Cinzel, ancha) y Grande, el nombre largo igual entra (revisión I1).
+  ({ ctx, p } = await abrirCon((c) => {
+    c.pantallas = { produccion: { modo: 'personalizada', letras: { titulo: 'cinzel' }, tamanos: { titulo: 'grande' }, textos: { prod_nombre: 'Parroquia Vianney Comunicaciones' } } };
+  }, 'produccion.html?estilo=azul'));
+  let bc = await caja(p, '#azul .grande');
+  revisar(bc.izq >= 0 && bc.der <= 1920, 'Cinzel grande: el nombre largo entra (' + bc.izq.toFixed(0) + '–' + bc.der.toFixed(0) + ')');
+  await ctx.close();
+  // Un nombre larguísimo (el nombre completo de la parroquia) tampoco se sale: pasa a dos líneas (revisión I2).
+  for (const estilo of ['azul', 'claro']) {
+    ({ ctx, p } = await abrirCon((c) => {
+      c.pantallas = { produccion: { modo: 'personalizada', textos: { prod_nombre: 'Parroquia Inmaculada Concepción de María de Ciudad Arce, La Libertad' } } };
+    }, 'produccion.html?estilo=' + estilo));
+    bc = await caja(p, '#' + estilo + ' .grande');
+    revisar(bc.izq >= 0 && bc.der <= 1920, estilo + ': el nombre larguísimo entra (' + bc.izq.toFixed(0) + '–' + bc.der.toFixed(0) + ')');
+    await captura(p, 'letra-por-pantalla/produccion_larguisimo_' + estilo);
+    await ctx.close();
+  }
+  ({ ctx, p } = await abrirCon(() => {}, 'produccion.html?estilo=azul'));
+  igual(await letraTam(p, '#azul .grande'), 128, 'Producción sin cambios: el nombre corto sigue a 128 px');
+  revisar((await familia(p, '#azul .grande')).startsWith('Mont'), 'Producción sin cambios: Montserrat');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => {
+    c.estiloPantallas = { letraTitulo: 'cinzel' };
+    c.pantallas = { produccion: { modo: 'personalizada', letras: { titulo: 'oswald' }, tamanos: { titulo: 'muy-chico' } } };
+  }, 'produccion.html?estilo=azul'));
+  revisar((await familia(p, '#azul .grande')).startsWith('Oswald'), 'Producción con letras.titulo oswald: el nombre va en Oswald');
+  revisar(Math.abs(await letraTam(p, '#azul .grande') - 128 * 0.7) < 1, 'Producción muy-chico: el nombre a 70 % (' + (await letraTam(p, '#azul .grande')).toFixed(1) + ')');
+  revisar((await familia(p, '#azul .ceja')).startsWith('Mont'), 'Producción: la ceja sigue en Montserrat');
+  await ctx.close();
+  ({ ctx, p } = await abrirCon((c) => { c.estiloPantallas = { letraTitulo: 'cinzel' }; }, 'produccion.html?estilo=azul'));
+  revisar((await familia(p, '#azul .grande')).startsWith('Mont'), 'Producción no sigue la letra de todas las pantallas');
+  await ctx.close();
+}
+
 async function casoEstiloPantallas() {
   console.log('Pantallas · letras, logo y tamaños');
   fs.mkdirSync(path.join(CAPTURAS, 'estilo-pantallas'), { recursive: true });
@@ -3133,7 +3241,7 @@ async function casoTransicion() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -3183,6 +3291,7 @@ async function casoTransicion() {
     await casoFaltasIguales();
     await casoMisasListas();
     await casoTransicion();
+    await casoLetraPorPantalla();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
