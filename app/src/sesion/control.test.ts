@@ -68,6 +68,7 @@ async function guardarTodo(almacen: AlmacenSesion, s: SesionSupabase | null, p: 
   if (s) await almacen.guardarSesion(s);
   if (p) await almacen.guardarParroquia(p);
   await almacen.guardarCuenta(CUENTA);
+  if (s) await almacen.guardarDueno(s.usuarioId); // el celular ya es de esa cuenta
   jest.clearAllMocks();
 }
 
@@ -115,6 +116,73 @@ describe('cargar', () => {
     await esperar();
     expect(control.tienda.obtener()).toMatchObject({ fase: 'lista', parroquia: B });
     expect(await almacen.leerParroquia()).toEqual(B);
+  });
+});
+
+const TODO = { tipo: 'todo' };
+const vecesTodo = (l: { limpiar: jest.Mock }) => l.limpiar.mock.calls.filter(([a]) => a?.tipo === 'todo').length;
+
+describe('dueño al cargar', () => {
+  it('con sesión de X y dueño Y limpia todo una vez y guarda X', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await guardarTodo(almacen, SESION, A);
+    await almacen.guardarDueno('u-otro');
+    await control.cargar();
+    expect(limpiezas.limpiar).toHaveBeenCalledWith(TODO);
+    expect(vecesTodo(limpiezas)).toBe(1);
+    expect(await almacen.leerDueno()).toBe('u-1');
+  });
+
+  it('con sesión de X y dueño X no limpia', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await guardarTodo(almacen, SESION, A);
+    await almacen.guardarDueno('u-1');
+    await control.cargar();
+    expect(vecesTodo(limpiezas)).toBe(0);
+  });
+
+  it('con sesión y sin dueño (celular actualizado) limpia una vez', async () => {
+    const { control, almacen, limpiezas, mem } = armar();
+    await guardarTodo(almacen, SESION, A);
+    delete mem[LLAVES.dueno];
+    await control.cargar();
+    await control.cargar();
+    expect(vecesTodo(limpiezas)).toBe(1);
+    expect(await almacen.leerDueno()).toBe('u-1');
+  });
+
+  it('sin sesión no limpia ni guarda dueño', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await control.cargar();
+    expect(vecesTodo(limpiezas)).toBe(0);
+    expect(almacen.guardarDueno).not.toHaveBeenCalled();
+  });
+
+  it('si leer el dueño rechaza, se toma como distinto', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await guardarTodo(almacen, SESION, A);
+    (almacen.leerDueno as jest.Mock).mockRejectedValueOnce(new Error('keystore'));
+    await control.cargar();
+    expect(vecesTodo(limpiezas)).toBe(1);
+  });
+});
+
+describe('dueño al entrar', () => {
+  it('con otra cuenta limpia todo y guarda su dueño', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await control.cargar();
+    await almacen.guardarDueno('u-otro');
+    await control.entrar('ana@x.com', 'clave-de-prueba-123');
+    expect(vecesTodo(limpiezas)).toBe(1);
+    expect(await almacen.leerDueno()).toBe('u-1');
+  });
+
+  it('con la misma cuenta del dueño no limpia', async () => {
+    const { control, almacen, limpiezas } = armar();
+    await control.cargar();
+    await almacen.guardarDueno('u-1');
+    await control.entrar('ana@x.com', 'clave-de-prueba-123');
+    expect(vecesTodo(limpiezas)).toBe(0);
   });
 });
 

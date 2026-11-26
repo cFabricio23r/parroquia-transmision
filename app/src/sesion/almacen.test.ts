@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe('LLAVES', () => {
-  it('son las seis de 3a', () => {
+  it('son las seis de 3a más el dueño', () => {
     expect(Object.values(LLAVES).sort()).toEqual(
       [
         'pev_app_acceso_v1',
@@ -40,6 +40,7 @@ describe('LLAVES', () => {
         'pev_app_parroquia_v1',
         'pev_app_parroquias_v1',
         'pev_app_cuenta_v1',
+        'pev_app_dueno_v1',
       ].sort(),
     );
   });
@@ -133,13 +134,27 @@ describe('cuenta', () => {
   });
 });
 
+describe('dueño', () => {
+  it('guardar y leer devuelve lo mismo; sin dueño da null', async () => {
+    expect(await almacenSesion.leerDueno()).toBeNull();
+    await almacenSesion.guardarDueno('u-1');
+    expect(await almacenSesion.leerDueno()).toBe('u-1');
+  });
+
+  it('un valor vacío se lee como null', async () => {
+    almacen.pev_app_dueno_v1 = '';
+    expect(await almacenSesion.leerDueno()).toBeNull();
+  });
+});
+
 describe('borrarTodo', () => {
-  it('borra las seis llaves y no toca parroquia_ajustes_v1', async () => {
+  it('borra todas las llaves (incluido el dueño) y no toca parroquia_ajustes_v1', async () => {
     almacen.parroquia_ajustes_v1 = '{"clave":"FB-123-abc"}';
     await almacenSesion.guardarSesion(SESION);
     await almacenSesion.guardarParroquia(PARROQUIA);
     await almacenSesion.guardarParroquias([PARROQUIA]);
     await almacenSesion.guardarCuenta(CUENTA);
+    await almacenSesion.guardarDueno('u-1');
     await almacenSesion.borrarTodo();
     expect(Object.keys(almacen)).toEqual(['parroquia_ajustes_v1']);
   });

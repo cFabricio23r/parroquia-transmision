@@ -21,6 +21,8 @@ export const LLAVES = {
   parroquia: 'pev_app_parroquia_v1',
   parroquias: 'pev_app_parroquias_v1',
   cuenta: 'pev_app_cuenta_v1',
+  /** Id de la cuenta a la que pertenece lo guardado en el celular. */
+  dueno: 'pev_app_dueno_v1',
 } as const;
 
 export interface AlmacenSesion {
@@ -34,6 +36,8 @@ export interface AlmacenSesion {
   guardarParroquias(l: readonly ParroquiaApp[]): Promise<void>;
   leerCuenta(): Promise<Cuenta | null>;
   guardarCuenta(c: Cuenta): Promise<void>;
+  leerDueno(): Promise<string | null>;
+  guardarDueno(usuarioId: string): Promise<void>;
   borrarTodo(): Promise<void>;
 }
 
@@ -141,6 +145,15 @@ export function crearAlmacen(store: StoreSeguro): AlmacenSesion {
         LLAVES.cuenta,
         JSON.stringify({ usuarioId: c.usuarioId, correo: c.correo, nombre: c.nombre, esAdmin: c.esAdmin }),
       );
+    },
+
+    async leerDueno() {
+      const v = await store.getItemAsync(LLAVES.dueno);
+      return textoNoVacio(v) ? v : null;
+    },
+
+    async guardarDueno(usuarioId) {
+      await store.setItemAsync(LLAVES.dueno, usuarioId);
     },
 
     async borrarTodo() {

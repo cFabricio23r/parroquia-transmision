@@ -62,6 +62,23 @@ export function crearControlSesion(d: {
     await almacen.borrarParroquia();
   }
 
+  /**
+   * Lo guardado en el celular tiene que ser de la cuenta que está adentro: si el dueño anotado
+   * no es esta cuenta (o no hay, o no se pudo leer), se limpia todo y se anota a esta cuenta.
+   * Es local: no usa la red.
+   */
+  async function asegurarDueno(usuarioId: string) {
+    let actual: string | null = null;
+    try {
+      actual = await almacen.leerDueno();
+    } catch {
+      // Si no se puede leer, se toma como distinto.
+    }
+    if (actual === usuarioId) return;
+    await limpiezas.limpiar({ tipo: 'todo' });
+    await almacen.guardarDueno(usuarioId);
+  }
+
   let esperandoFin = false;
 
   const tienda = crearTiendaSesion((antes, despues) => {
@@ -115,6 +132,7 @@ export function crearControlSesion(d: {
       let leido: Extract<EventoSesion, { tipo: 'cargada' }>;
       try {
         const s = await sesion.cargar();
+        if (s !== null) await asegurarDueno(s.usuarioId);
         const [parroquia, parroquias, cuenta] = await Promise.all([
           almacen.leerParroquia(),
           almacen.leerParroquias(),
@@ -133,6 +151,7 @@ export function crearControlSesion(d: {
       const r = await cliente.entrar(correo, clave);
       if (!r.ok) return { error: r.error };
       await sesion.guardar(r.valor);
+      await asegurarDueno(r.valor.usuarioId);
       const cuenta = await leerCuenta(sesion, cliente);
       const lista = cuenta.ok ? await leerParroquias(sesion, cliente) : null;
       if (!cuenta.ok || !lista || !lista.ok) {
