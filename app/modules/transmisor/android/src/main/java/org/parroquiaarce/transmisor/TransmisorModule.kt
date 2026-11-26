@@ -204,6 +204,8 @@ class TransmisorModule : Module() {
       val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
       Copias.olvidarParroquia()
       Motor.terminar()
+      // Sin esto, la próxima cuenta recibiría el estado del panel de la anterior al cargar sus escenas.
+      Capa.olvidarEstado()
       Capa.liberar()
       WebStorage.getInstance().deleteAllData()
       CookieManager.getInstance().apply {
