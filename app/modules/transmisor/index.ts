@@ -156,6 +156,12 @@ export function fijarBitrate(kbps: number): Promise<void> {
   return Promise.resolve().then(() => Modulo.fijarBitrate(kbps));
 }
 
+/** Brillo de la ventana, de 0 a 1; -1 vuelve al del sistema. Sin actividad no hace nada. */
+export function fijarBrillo(nivel: number): Promise<void> {
+  // Dentro de una promesa: con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto.
+  return Promise.resolve().then(() => Modulo.fijarBrillo(nivel));
+}
+
 /**
  * Avisa con un mensaje en español si el servicio en primer plano no pudo arrancar: la transmisión
  * sigue, pero se congela si la app pasa a segundo plano (review M4).

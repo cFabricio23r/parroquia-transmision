@@ -34,6 +34,8 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   ponerZoom(nivel: number): Promise<void>;
   /** Cambia el bitrate de video en vivo (kbps); no hace nada si no se transmite. */
   fijarBitrate(kbps: number): Promise<void>;
+  /** Brillo de la ventana (0 a 1; -1 = el del sistema). Sin actividad no hace nada. */
+  fijarBrillo(nivel: number): Promise<void>;
   /** Archivo nuevo del registro (deja los últimos 10). */
   abrirRegistro(nombre: string, encabezado: string): Promise<void>;
   anotarRegistro(linea: string): Promise<void>;

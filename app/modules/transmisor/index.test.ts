@@ -13,6 +13,7 @@ function cargar() {
     rangoZoom: jest.fn(() => Promise.resolve({ min: 1, max: 8 })),
     ponerZoom: jest.fn((_nivel: number) => Promise.resolve()),
     fijarBitrate: jest.fn((_kbps: number) => Promise.resolve()),
+    fijarBrillo: jest.fn((_nivel: number) => Promise.resolve()),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
@@ -523,5 +524,23 @@ describe('addZonasListener (Tarea 9i)', () => {
     emitirZonas({ top: Number.NaN, bottom: 0, left: 0, right: 0 });
     emitirZonas({ bottom: 0, left: 0, right: 0 } as unknown as Zonas);
     expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe('fijarBrillo (Tarea 3 del plan de rendimiento)', () => {
+  it('pasa el nivel al nativo tal cual', async () => {
+    const { api, modulo } = cargar();
+    await api.fijarBrillo(0.1);
+    expect(modulo.fijarBrillo).toHaveBeenCalledWith(0.1);
+  });
+
+  it('con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto', async () => {
+    const { api, modulo } = cargar();
+    delete (modulo as Record<string, unknown>).fijarBrillo;
+    let r: Promise<void> | undefined;
+    expect(() => {
+      r = api.fijarBrillo(0.1);
+    }).not.toThrow();
+    await expect(r).rejects.toBeInstanceOf(TypeError);
   });
 });

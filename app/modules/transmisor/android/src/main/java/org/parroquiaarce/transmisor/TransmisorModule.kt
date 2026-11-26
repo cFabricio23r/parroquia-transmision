@@ -89,6 +89,18 @@ class TransmisorModule : Module() {
       Motor.fijarBitrate(kbps)
     }.runOnQueue(Queues.MAIN)
 
+    // Brillo de la ventana (Tarea 3 del plan de rendimiento): la app lo baja a 0.1 tras 30 s sin
+    // tocar al aire y vuelve con -1.0 (BRIGHTNESS_OVERRIDE_NONE, el del sistema). Sin actividad no
+    // hace nada.
+    AsyncFunction("fijarBrillo") { nivel: Double ->
+      val actividad = appContext.currentActivity
+      if (actividad != null) {
+        val atributos = actividad.window.attributes
+        atributos.screenBrightness = nivel.toFloat()
+        actividad.window.attributes = atributos
+      }
+    }.runOnQueue(Queues.MAIN)
+
     // Transición del logo a otra escena; resuelve al terminar (unos 2 s).
     AsyncFunction("cambiarEscena") { escena: String, promise: Promise ->
       Capa.cambiarEscena(

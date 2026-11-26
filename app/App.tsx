@@ -21,6 +21,7 @@ import {
   actualizarEstado,
   anotarRegistro,
   fijarBitrate,
+  fijarBrillo,
   cerrarRegistro,
   addServicioListener,
   medir,
@@ -45,6 +46,7 @@ import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES } from './src/componentes/tema';
 import { validar, type Calidad } from './src/ajustes/ajustes';
+import { crearAtenuador, unaVezPorToque } from './src/estado/brillo';
 import { KBPS, escalonPedido, siguienteEscalon, type Escalon } from './src/estado/termico';
 import { ajustesParroquia, leerAjustesDe } from './src/ajustes/ajustesParroquia';
 import { alCambiarAjustes } from './src/ajustes/descarga';
@@ -351,6 +353,19 @@ export default function App(p: {
       () => setRangoDeZoom(null),
     );
   }, [alAire]);
+
+  // Brillo bajo al aire (Tarea 3): a los 30 s sin tocar baja; el toque que despierta se traga.
+  const atenuador = useMemo(() => crearAtenuador((n) => fijarBrillo(n).catch(() => undefined)), []);
+  useEffect(() => atenuador.soltar, [atenuador]);
+  useEffect(() => {
+    atenuador.activar(alAire);
+  }, [atenuador, alAire]);
+  // onTouchStart y onStartShouldSetResponderCapture pueden llegar en cualquier orden para el mismo
+  // toque. Los dos pasan por `unaVezPorToque`: tocar() corre una sola vez por toque y la captura
+  // devuelve su resultado (true = el toque solo despertó la pantalla, no llega a ningún botón).
+  // onTouchStart queda para los toques que no pasan por la negociación del responder (por ejemplo
+  // un segundo dedo con otro hijo ya respondiendo): igual reinician la espera.
+  const tocarUnaVez = useMemo(() => unaVezPorToque(() => atenuador.tocar()), [atenuador]);
 
   const cambiarZoom = useCallback((z: number) => {
     setZoom(z);
@@ -674,7 +689,13 @@ export default function App(p: {
   });
 
   return (
-    <View style={estilos.raiz}>
+    <View
+      style={estilos.raiz}
+      onTouchStart={(e) => {
+        tocarUnaVez(e.nativeEvent.timestamp);
+      }}
+      onStartShouldSetResponderCapture={(e) => tocarUnaVez(e.nativeEvent.timestamp)}
+    >
       {/* El orden de estos hijos no cambia nunca: la vista previa y el panel siguen montados al girar. */}
       <View style={[estilos.lienzo, lugares.lienzo]}>
         <VistaTransmisor style={[estilos.vista, lugares.vista]} />
