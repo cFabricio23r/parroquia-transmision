@@ -8,7 +8,11 @@ export const BAJO = 0.1;
 /** Vuelve al brillo que eligió el sistema. */
 export const SISTEMA = -1;
 
-export function crearAtenuador(aplicar: (nivel: number) => void): {
+export function crearAtenuador(
+  aplicar: (nivel: number) => void,
+  /** Avisa cada vez que la pantalla pasa a atenuada (true) o deja de estarlo (false). */
+  alCambiar: (atenuado: boolean) => void = () => undefined,
+): {
   /** true al entrar al aire, false al salir (vuelve a SISTEMA). */
   activar(b: boolean): void;
   /** Devuelve true si el toque solo despertó la pantalla (estaba atenuada). */
@@ -31,6 +35,7 @@ export function crearAtenuador(aplicar: (nivel: number) => void): {
       temporizador = null;
       atenuado = true;
       aplicar(BAJO);
+      alCambiar(true);
     }, ESPERA_MS);
   };
 
@@ -41,8 +46,10 @@ export function crearAtenuador(aplicar: (nivel: number) => void): {
       if (b) {
         armar();
       } else {
+        const estaba = atenuado;
         atenuado = false;
         aplicar(SISTEMA);
+        if (estaba) alCambiar(false);
       }
     },
     tocar() {
@@ -50,6 +57,7 @@ export function crearAtenuador(aplicar: (nivel: number) => void): {
       if (atenuado) {
         atenuado = false;
         aplicar(SISTEMA);
+        alCambiar(false);
         armar();
         return true;
       }
@@ -57,25 +65,8 @@ export function crearAtenuador(aplicar: (nivel: number) => void): {
       return false;
     },
     soltar() {
+      // No restaura el brillo: el de la ventana es por actividad y muere con ella.
       cancelar();
     },
-  };
-}
-
-/**
- * Envuelve `tocar` para que cuente una sola vez por toque. En React Native `onTouchStart` y
- * `onStartShouldSetResponderCapture` pueden llegar en cualquier orden para el mismo toque, y un
- * segundo `tocar()` devolvería false (ya despierta) y dejaría pasar el toque que había que tragar.
- * Se reconoce el toque por la marca de tiempo del evento; sin marca no se puede deduplicar y cada
- * llamada cuenta.
- */
-export function unaVezPorToque(tocar: () => boolean): (marca: number | undefined) => boolean {
-  let ultimaMarca: number | undefined;
-  let ultimoResultado = false;
-  return (marca) => {
-    if (marca !== undefined && marca === ultimaMarca) return ultimoResultado;
-    ultimaMarca = marca;
-    ultimoResultado = tocar();
-    return ultimoResultado;
   };
 }

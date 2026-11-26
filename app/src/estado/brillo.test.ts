@@ -1,11 +1,12 @@
-import { BAJO, ESPERA_MS, SISTEMA, crearAtenuador, unaVezPorToque } from './brillo';
+import { BAJO, ESPERA_MS, SISTEMA, crearAtenuador } from './brillo';
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
 function crear() {
   const aplicar = jest.fn<void, [number]>();
-  return { aplicar, a: crearAtenuador(aplicar) };
+  const alCambiar = jest.fn<void, [boolean]>();
+  return { aplicar, alCambiar, a: crearAtenuador(aplicar, alCambiar) };
 }
 
 describe('crearAtenuador', () => {
@@ -91,24 +92,26 @@ describe('crearAtenuador', () => {
     jest.advanceTimersByTime(ESPERA_MS * 2);
     expect(aplicar).not.toHaveBeenCalled();
   });
-});
 
-describe('unaVezPorToque', () => {
-  it('llama a tocar una sola vez por toque, venga primero la captura o el onTouchStart', () => {
-    const tocar = jest.fn().mockReturnValueOnce(true).mockReturnValue(false);
-    const f = unaVezPorToque(tocar);
-    expect(f(100)).toBe(true);
-    expect(f(100)).toBe(true); // el mismo toque por la otra vía: mismo resultado, sin llamar de nuevo
-    expect(tocar).toHaveBeenCalledTimes(1);
-    expect(f(200)).toBe(false); // otro toque
-    expect(tocar).toHaveBeenCalledTimes(2);
+  it('alCambiar avisa true al atenuar y false al despertar o al salir del aire', () => {
+    const { alCambiar, a } = crear();
+    a.activar(true);
+    expect(alCambiar).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(ESPERA_MS);
+    expect(alCambiar).toHaveBeenLastCalledWith(true);
+    a.tocar();
+    expect(alCambiar).toHaveBeenLastCalledWith(false);
+    jest.advanceTimersByTime(ESPERA_MS);
+    expect(alCambiar).toHaveBeenLastCalledWith(true);
+    a.activar(false);
+    expect(alCambiar).toHaveBeenLastCalledWith(false);
+    expect(alCambiar).toHaveBeenCalledTimes(4);
   });
 
-  it('sin marca de tiempo no deduplica: cada llamada cuenta como un toque', () => {
-    const tocar = jest.fn().mockReturnValue(false);
-    const f = unaVezPorToque(tocar);
-    f(undefined);
-    f(undefined);
-    expect(tocar).toHaveBeenCalledTimes(2);
+  it('activar(false) sin atenuar no avisa', () => {
+    const { alCambiar, a } = crear();
+    a.activar(true);
+    a.activar(false);
+    expect(alCambiar).not.toHaveBeenCalled();
   });
 });
