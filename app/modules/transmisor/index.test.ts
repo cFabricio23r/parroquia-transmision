@@ -12,6 +12,7 @@ function cargar() {
     medirAvisos: jest.fn(() => Promise.resolve({ termico: 2, temperatura: 40, fpsVideo: 30, bateria: { nivel: 70, escala: 100, estado: 3, enchufe: 0 } })),
     rangoZoom: jest.fn(() => Promise.resolve({ min: 1, max: 8 })),
     ponerZoom: jest.fn((_nivel: number) => Promise.resolve()),
+    fijarBitrate: jest.fn((_kbps: number) => Promise.resolve()),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
@@ -325,6 +326,14 @@ describe('zoom (Tarea 9g)', () => {
     await expect(api.rangoZoom()).resolves.toEqual({ min: 1, max: 8 });
     await api.ponerZoom(2.5);
     expect(modulo.ponerZoom).toHaveBeenCalledWith(2.5);
+  });
+});
+
+describe('fijarBitrate (Tarea 2 del plan de rendimiento)', () => {
+  it('pasa los kbps al nativo tal cual', async () => {
+    const { api, modulo } = cargar();
+    await api.fijarBitrate(1800);
+    expect(modulo.fijarBitrate).toHaveBeenCalledWith(1800);
   });
 });
 

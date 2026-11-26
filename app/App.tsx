@@ -20,6 +20,7 @@ import {
   abrirRegistro,
   actualizarEstado,
   anotarRegistro,
+  fijarBitrate,
   cerrarRegistro,
   addServicioListener,
   medir,
@@ -44,6 +45,7 @@ import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES } from './src/componentes/tema';
 import { validar, type Calidad } from './src/ajustes/ajustes';
+import { KBPS, escalonPedido, siguienteEscalon, type Escalon } from './src/estado/termico';
 import { ajustesParroquia, leerAjustesDe } from './src/ajustes/ajustesParroquia';
 import { alCambiarAjustes } from './src/ajustes/descarga';
 import { controlSesion } from './src/sesion/control';
@@ -135,7 +137,7 @@ const tienda = orq.tienda;
 
 // Lo último que se sabe de la batería y la subida, para el registro de rendimiento.
 // App lo actualiza en cada render; el registrador lo lee cada 30 s. Nunca lleva la clave.
-const ultimo: UltimoDePantalla = { bateria: null, cargando: null, mbps: null };
+const ultimo: UltimoDePantalla = { bateria: null, cargando: null, mbps: null, kbpsPedido: null };
 
 const registrador = crearRegistrador({
   // El armado de la muestra está en registro.ts, con tests (review M10).
@@ -505,12 +507,26 @@ export default function App(p: {
 
   // Estado térmico, temperatura y nivel de la batería, y fps del video, cada 10 s. La batería se lee
   // del nativo y no del aviso de expo-battery, que en Android solo llega cerca del 15 % (Tarea 9h).
+  // Bitrate escalonado por calor: solo al aire. Los refs dejan al ciclo (que se arma una vez) leer lo último.
+  const alAireRef = useRef(false);
+  alAireRef.current = alAire;
+  const calidadRef = useRef<Calidad | undefined>(undefined);
+  calidadRef.current = calidad;
+  const escalonRef = useRef<{ escalon: Escalon; desdeMs: number }>({ escalon: 0, desdeMs: 0 });
   useEffect(() => {
     const leer = () =>
       medirAvisos().then(
         (m) => {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
+          const cal = calidadRef.current;
+          if (alAireRef.current && cal) {
+            const antes = escalonRef.current;
+            const ahora = siguienteEscalon(antes, escalonPedido(m), Date.now());
+            escalonRef.current = ahora;
+            ultimo.kbpsPedido = KBPS[cal][ahora.escalon];
+            if (ahora.escalon !== antes.escalon) fijarBitrate(ultimo.kbpsPedido).catch(() => undefined);
+          }
           setFpsVideo(m.fpsVideo ?? null);
           const b = leerBateria(m.bateria);
           setBateria(b.nivel);
@@ -584,6 +600,9 @@ export default function App(p: {
     guardiaEnVivo.fijar(alAire);
     fijarEnVivo(alAire).catch(() => undefined);
     if (!alAire) {
+      // Al salir del aire, el bitrate vuelve al escalón 0 (la próxima vista se prepara con el base).
+      escalonRef.current = { escalon: 0, desdeMs: 0 };
+      ultimo.kbpsPedido = null;
       setConfirmar(false);
       if (estabaAlAire.current) {
         panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);

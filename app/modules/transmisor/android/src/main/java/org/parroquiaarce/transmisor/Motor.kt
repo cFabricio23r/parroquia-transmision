@@ -64,6 +64,8 @@ object Motor : ConnectChecker {
   private var muestrasFps = 0
   // Contexto de la app (para el servicio y el estado térmico). Se guarda en prepararVista.
   private var contexto: Context? = null
+  // Bitrate base (bps) que eligió prepararVista; solo para el registro y el contexto.
+  private var bitrateBase = 0
 
   /** Últimos fps que informó RootEncoder (uno por segundo). Para el registro de rendimiento. */
   @Volatile var fpsVideo: Int? = null
@@ -120,6 +122,7 @@ object Motor : ConnectChecker {
       throw IllegalStateException("No se pudo preparar la cámara o el micrófono.")
     }
     elegirMicrofono(ctx, s, microfono)
+    bitrateBase = bitrate
     preparado = true
     Log.w(TAG, "preparado ${ancho}x$alto ${bitrate / 1000} kbps mic=$microfono")
     arrancarVistaSiSePuede()
@@ -306,6 +309,18 @@ object Motor : ConnectChecker {
       c.setZoom(nivel.toFloat().coerceIn(r.lower, r.upper))
     } catch (e: Exception) {
       Log.w(TAG, "no se pudo poner el zoom: ${e.javaClass.simpleName}")
+    }
+  }
+
+  /** Cambia el bitrate del video en vivo (kbps). Sin transmisión no hace nada: prepararVista fija el base. */
+  fun fijarBitrate(kbps: Int) {
+    val s = stream ?: return
+    if (!s.isStreaming) return
+    try {
+      s.setVideoBitrateOnFly(kbps * 1000)
+      Log.w(TAG, "bitrate $kbps kbps (base ${bitrateBase / 1000})")
+    } catch (e: Exception) {
+      Log.w(TAG, "no se pudo cambiar el bitrate: ${e.javaClass.simpleName}")
     }
   }
 

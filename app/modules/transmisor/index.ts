@@ -150,6 +150,11 @@ export function ponerZoom(nivel: number): Promise<void> {
   return Modulo.ponerZoom(nivel);
 }
 
+/** Cambia el bitrate de video en vivo, en kbps. No hace nada si no se está transmitiendo. */
+export function fijarBitrate(kbps: number): Promise<void> {
+  return Modulo.fijarBitrate(kbps);
+}
+
 /**
  * Avisa con un mensaje en español si el servicio en primer plano no pudo arrancar: la transmisión
  * sigue, pero se congela si la app pasa a segundo plano (review M4).

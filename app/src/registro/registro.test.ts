@@ -26,17 +26,18 @@ const MEDIDA: Medida = {
   conexion: 'conectado',
   mbps: 2.46,
   escena: 'camara',
+  kbpsPedido: 1800,
 };
 
 describe('lineaRegistro', () => {
   it('el encabezado nombra cada campo, en orden', () => {
     expect(ENCABEZADO_REGISTRO).toBe(
-      'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena',
+      'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena,kbps_pedido',
     );
   });
 
   it('tiene todos los campos, en el orden del encabezado', () => {
-    expect(lineaRegistro(MEDIDA)).toBe('2026-11-06 14:03:30,2,41.3,73,si,30.0,30.0,612,conectado,2.5,camara');
+    expect(lineaRegistro(MEDIDA)).toBe('2026-11-06 14:03:30,2,41.3,73,si,30.0,30.0,612,conectado,2.5,camara,1800');
     expect(lineaRegistro(MEDIDA).split(',')).toHaveLength(ENCABEZADO_REGISTRO.split(',').length);
   });
 
@@ -53,18 +54,19 @@ describe('lineaRegistro', () => {
       conexion: null,
       mbps: null,
       escena: null,
+      kbpsPedido: null,
     };
-    expect(lineaRegistro(vacia)).toBe('2026-01-02 03:04:05,,,,,,,,,,');
+    expect(lineaRegistro(vacia)).toBe('2026-01-02 03:04:05,,,,,,,,,,,');
   });
 
   it('sin cargar dice «no»; reconectando y escena gracias pasan tal cual', () => {
     expect(lineaRegistro({ ...MEDIDA, cargando: false, conexion: 'reconectando', escena: 'gracias' })).toBe(
-      '2026-11-06 14:03:30,2,41.3,73,no,30.0,30.0,612,reconectando,2.5,gracias',
+      '2026-11-06 14:03:30,2,41.3,73,no,30.0,30.0,612,reconectando,2.5,gracias,1800',
     );
   });
 
   it('la escena produccion pasa tal cual (Tarea 9d)', () => {
-    expect(lineaRegistro({ ...MEDIDA, escena: 'produccion' }).endsWith(',produccion')).toBe(true);
+    expect(lineaRegistro({ ...MEDIDA, escena: 'produccion' }).endsWith(',produccion,1800')).toBe(true);
   });
 
   it('nunca contiene la clave ni el servidor, aunque se los pasen por error', () => {
@@ -84,25 +86,26 @@ describe('lineaRegistro', () => {
       fpsVideo: CLAVE,
       memoriaMb: CLAVE,
       mbps: CLAVE,
+      kbpsPedido: CLAVE,
     } as unknown as Medida;
     const linea = lineaRegistro(mala);
     expect(linea).not.toContain(CLAVE);
     expect(linea).not.toContain('FB-');
     expect(linea).not.toContain('rtmp');
     expect(linea).not.toContain('facebook');
-    expect(linea).toBe('2026-11-06 14:03:30,,,,,,,,,,');
+    expect(linea).toBe('2026-11-06 14:03:30,,,,,,,,,,,');
   });
 
   it('una hora inválida queda vacía y no rompe la línea', () => {
     const linea = lineaRegistro({ ...MEDIDA, hora: new Date(Number.NaN) });
     expect(linea.startsWith(',')).toBe(true);
-    expect(linea.split(',')).toHaveLength(11);
+    expect(linea.split(',')).toHaveLength(12);
   });
 
   it('es una sola línea, sin saltos ni comas de más', () => {
     const linea = lineaRegistro({ ...MEDIDA, escena: 'a,b\nc' as unknown as Medida['escena'] });
     expect(linea).not.toMatch(/[\r\n]/);
-    expect(linea.split(',')).toHaveLength(11);
+    expect(linea.split(',')).toHaveLength(12);
   });
 });
 
@@ -260,7 +263,7 @@ describe('crearRegistrador', () => {
 
 describe('medidaDesde (review M10)', () => {
   const NATIVA = { termico: 1, temperatura: 38.4, memoriaMb: 500, fpsVideo: 30, fpsCapa: 29.5 };
-  const ULTIMO = { bateria: 0.6, cargando: true, mbps: 2.4 };
+  const ULTIMO = { bateria: 0.6, cargando: true, mbps: 2.4, kbpsPedido: 1800 };
   const AHORA = new Date(2026, 10, 6, 12, 0, 0);
 
   it('en_vivo: conectado, con los Mbps y la escena', () => {
@@ -276,6 +279,7 @@ describe('medidaDesde (review M10)', () => {
       conexion: 'conectado',
       mbps: 2.4,
       escena: 'camara',
+      kbpsPedido: 1800,
     });
   });
 

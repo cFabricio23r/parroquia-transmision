@@ -26,10 +26,12 @@ export type Medida = {
   conexion: Conexion | null;
   mbps: number | null;
   escena: Escena | null;
+  /** Bitrate de video que pidió el escalón térmico, kbps (null: aún no se pidió). */
+  kbpsPedido: number | null;
 };
 
 export const ENCABEZADO_REGISTRO =
-  'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena';
+  'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena,kbps_pedido';
 
 const CONEXIONES: readonly string[] = ['conectado', 'reconectando', 'cortado'];
 const ESCENAS: readonly string[] = ESCENAS_VALIDAS;
@@ -70,6 +72,7 @@ export function lineaRegistro(m: Medida): string {
     deLista(m.conexion, CONEXIONES),
     num(m.mbps, 1),
     deLista(m.escena, ESCENAS),
+    num(m.kbpsPedido, 0),
   ].join(',');
 }
 
@@ -158,7 +161,7 @@ export type MedidaDelNativo = {
 };
 
 /** Lo último que sabe la pantalla de la batería y la subida. */
-export type UltimoDePantalla = { bateria: number | null; cargando: boolean | null; mbps: number | null };
+export type UltimoDePantalla = { bateria: number | null; cargando: boolean | null; mbps: number | null; kbpsPedido: number | null };
 
 /**
  * Arma la muestra del registro (review M10). La conexión sale de la fase: «conectado» solo en
@@ -184,6 +187,7 @@ export function medidaDesde(
     conexion,
     mbps: conexion === 'conectado' ? u.mbps : null,
     escena: estado.escena,
+    kbpsPedido: u.kbpsPedido,
   };
 }
 

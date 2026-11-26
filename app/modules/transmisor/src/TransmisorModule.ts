@@ -32,6 +32,8 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   rangoZoom(): Promise<{ min: number; max: number } | null>;
   /** Pone el zoom; el nativo lo deja dentro del rango. */
   ponerZoom(nivel: number): Promise<void>;
+  /** Cambia el bitrate de video en vivo (kbps); no hace nada si no se transmite. */
+  fijarBitrate(kbps: number): Promise<void>;
   /** Archivo nuevo del registro (deja los últimos 10). */
   abrirRegistro(nombre: string, encabezado: string): Promise<void>;
   anotarRegistro(linea: string): Promise<void>;

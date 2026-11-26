@@ -84,6 +84,11 @@ class TransmisorModule : Module() {
       Motor.ponerZoom(nivel)
     }.runOnQueue(Queues.MAIN)
 
+    // Cambia el bitrate de video en vivo (baja solo con el calor); sin transmisión no hace nada.
+    AsyncFunction("fijarBitrate") { kbps: Int ->
+      Motor.fijarBitrate(kbps)
+    }.runOnQueue(Queues.MAIN)
+
     // Transición del logo a otra escena; resuelve al terminar (unos 2 s).
     AsyncFunction("cambiarEscena") { escena: String, promise: Promise ->
       Capa.cambiarEscena(
