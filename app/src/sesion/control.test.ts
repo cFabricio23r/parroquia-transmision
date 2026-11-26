@@ -186,6 +186,22 @@ describe('dueño al entrar', () => {
   });
 });
 
+describe('dueño al entrar con la lectura fallida', () => {
+  it('si no puede leer la lista no limpia ni guarda el dueño', async () => {
+    const { almacen } = almacenEnMemoria();
+    const cl = clienteFalso({ parroquias: () => ({ ok: false, error: { tipo: 'sin-conexion' } }) });
+    const limpiezas = limpiezasFalsas();
+    const control = crearControlSesion({ cliente: cl.cliente, almacen, guardia: crearGuardia(), limpiezas, sincronizador: crearSincronizador() });
+    await control.cargar();
+    await almacen.guardarDueno('u-otro');
+    (almacen.guardarDueno as jest.Mock).mockClear();
+    expect(await control.entrar('ana@x.com', 'clave-de-prueba-123')).toEqual({ error: { tipo: 'sin-conexion' } });
+    expect(vecesTodo(limpiezas)).toBe(0);
+    expect(almacen.guardarDueno).not.toHaveBeenCalled();
+    expect(await almacen.leerDueno()).toBe('u-otro');
+  });
+});
+
 describe('entrar', () => {
   it('con incorrectos devuelve el error y no guarda nada', async () => {
     const { almacen } = almacenEnMemoria();

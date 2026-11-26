@@ -151,7 +151,6 @@ export function crearControlSesion(d: {
       const r = await cliente.entrar(correo, clave);
       if (!r.ok) return { error: r.error };
       await sesion.guardar(r.valor);
-      await asegurarDueno(r.valor.usuarioId);
       const cuenta = await leerCuenta(sesion, cliente);
       const lista = cuenta.ok ? await leerParroquias(sesion, cliente) : null;
       if (!cuenta.ok || !lista || !lista.ok) {
@@ -163,6 +162,9 @@ export function crearControlSesion(d: {
         }
         return { error: !cuenta.ok ? cuenta.error : lista!.ok ? { tipo: 'servidor', estado: 0 } : lista!.error };
       }
+      // Recién con el login completo se mira el dueño: si algo falló, no se toca lo de la cuenta anterior.
+      // Tras un cierre de sesión no queda dueño, así que cada entrada limpia de nuevo (a propósito, es idempotente).
+      await asegurarDueno(r.valor.usuarioId);
       await almacen.guardarCuenta(cuenta.valor);
       await almacen.guardarParroquias(lista.valor);
       const anterior = tienda.obtener().parroquia;
