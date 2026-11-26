@@ -17,6 +17,7 @@ function cargar() {
     prepararVista: jest.fn(() => Promise.resolve()),
     cambiarEscena: jest.fn((_escena: string) => Promise.resolve()),
     actualizarEstado: jest.fn((_json: string) => Promise.resolve()),
+    limpiarTodo: jest.fn(() => Promise.resolve()),
     addListener: jest.fn((nombre: string, cb: (n: never) => void) => {
       if (nombre === 'onServicio') alServicio = cb as (n: { ok: boolean }) => void;
       else if (nombre === 'onZonas') alZonas = cb as (n: Zonas) => void;
@@ -253,6 +254,34 @@ describe('actualizarEstado', () => {
     api.actualizarEstado('{"a":2}');
     api.actualizarEstado('{"a":1}');
     expect(modulo.actualizarEstado.mock.calls.map((c) => c[0])).toEqual(['{"a":1}', '{"a":2}', '{"a":1}']);
+  });
+});
+
+describe('limpiarTodo', () => {
+  it('limpiarTodo llama al nativo y olvida el último estado', async () => {
+    const { api, modulo } = cargar();
+    api.actualizarEstado('{"a":1}');
+    await api.limpiarTodo();
+    api.actualizarEstado('{"a":1}');
+    expect(modulo.limpiarTodo).toHaveBeenCalledTimes(1);
+    expect(modulo.actualizarEstado).toHaveBeenCalledTimes(2);
+  });
+
+  it('después de limpiarTodo la misma escena se vuelve a pedir', async () => {
+    const { api, modulo } = cargar();
+    await api.cambiarEscena('inicio');
+    await api.limpiarTodo();
+    await api.cambiarEscena('inicio');
+    expect(modulo.cambiarEscena).toHaveBeenCalledTimes(2);
+  });
+
+  it('limpiarTodo rechaza si el nativo rechaza y no olvida', async () => {
+    const { api, modulo } = cargar();
+    modulo.limpiarTodo.mockImplementationOnce(() => Promise.reject(new Error('EN_VIVO')));
+    api.actualizarEstado('{"a":1}');
+    await expect(api.limpiarTodo()).rejects.toThrow('EN_VIVO');
+    api.actualizarEstado('{"a":1}');
+    expect(modulo.actualizarEstado).toHaveBeenCalledTimes(1);
   });
 });
 

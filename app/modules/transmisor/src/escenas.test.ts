@@ -195,4 +195,12 @@ describe('crearColaEscenas', () => {
     expect(ejecutar).toHaveBeenCalledTimes(1);
     expect(cola.actual()).toBe('camara');
   });
+
+  it('olvidar hace que el próximo pedido de la misma escena vaya al nativo', async () => {
+    const { cola, ejecutar } = armar('camara');
+    cola.olvidar();
+    void cola.pedir('camara');
+    await vaciar();
+    expect(ejecutar).toHaveBeenCalledTimes(1);
+  });
 });

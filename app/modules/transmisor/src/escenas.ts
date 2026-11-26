@@ -10,6 +10,8 @@ export type ColaEscenas = {
   pedir(escena: Escena): Promise<void>;
   /** La escena que se ve ahora (la última transición terminada bien); null si no se sabe. */
   actual(): Escena | null;
+  /** Olvida la escena actual (tras limpiar la capa): el próximo pedido va al nativo. No toca una transición en curso. */
+  olvidar(): void;
 };
 
 export function crearColaEscenas(
@@ -80,5 +82,8 @@ export function crearColaEscenas(
       });
     },
     actual: () => actual,
+    olvidar() {
+      actual = null;
+    },
   };
 }

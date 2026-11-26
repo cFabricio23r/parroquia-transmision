@@ -115,6 +115,16 @@ export function actualizarEstado(json: string): void {
   Modulo.actualizarEstado(json).catch(() => undefined);
 }
 
+/**
+ * Deja la capa sin nada de la cuenta anterior (estado del panel y escena). Rechaza si el nativo
+ * rechaza (p. ej. en vivo); en ese caso no se olvida nada.
+ */
+export async function limpiarTodo(): Promise<void> {
+  await Promise.resolve().then(() => Modulo.limpiarTodo());
+  ultimoEstado = null;
+  cola.olvidar();
+}
+
 // --- Tarea 9: avisos, registro de rendimiento y No molestar ---
 
 export type { MedidaAvisos, MedidaNativa } from './src/TransmisorModule';
