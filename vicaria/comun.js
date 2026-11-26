@@ -1,3 +1,12 @@
+/* Modo app: la capa corre en el WebView del teléfono (Capa.kt agrega ?modo=app). Mismo criterio que panel.html.
+   La clase va en <html> lo antes posible, para que estilos.css apague las animaciones sin fin desde el primer pintado.
+   OBS no pasa modo=app: allí nada cambia. */
+const MODO_APP = (() => {
+  try { return new URLSearchParams(location.search).get('modo') === 'app' || window.modoApp === true; }
+  catch (e) { return false; }   // sin navegador (pruebas de unidad en vm): no es modo app
+})();
+if (MODO_APP) document.documentElement.classList.add('modo-app');
+
 /* Estado compartido entre el panel (dock) y las fuentes de navegador de OBS.
    Todo funciona dentro de OBS: se comparte por localStorage y BroadcastChannel,
    sin websockets ni internet.

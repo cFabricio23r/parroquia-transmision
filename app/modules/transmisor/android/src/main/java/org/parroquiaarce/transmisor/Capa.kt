@@ -69,8 +69,11 @@ object Capa {
     val slug = Copias.slug
     if (origen == null || slug == null) throw sinParroquia()
     val pagina = if (nombre == "produccion") PAGINAS_PRODUCCION.getValue(estiloProduccion) else PAGINAS.getValue(nombre)
-    return "$origen/$slug/$pagina"
+    return "$origen/$slug/${conModoApp(pagina)}"
   }
+
+  /** Agrega `modo=app` (con `?` o `&` según la página ya traiga consulta): la capa apaga sus animaciones sin fin. */
+  private fun conModoApp(pagina: String) = pagina + (if ('?' in pagina) "&" else "?") + "modo=app"
 
   private fun sinParroquia() = CodedException("SIN_PARROQUIA", "Falta elegir la parroquia.", null)
   private var estiloProduccion = "azul"
@@ -85,7 +88,7 @@ object Capa {
     val origen = Copias.origen
     val slug = Copias.slug
     if (origen == null || slug == null) throw sinParroquia()
-    return "$origen/$slug/transicion.html"
+    return "$origen/$slug/${conModoApp("transicion.html")}"
   }
 
   private val h = Handler(Looper.getMainLooper())

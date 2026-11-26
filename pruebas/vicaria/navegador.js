@@ -3233,6 +3233,46 @@ async function casoTransicion() {
   }
 }
 
+/* Modo app: sin animaciones sin fin (el teléfono las paga en batería y calor); OBS (sin modo=app) queda igual. */
+async function casoModoAppSinAnimaciones() {
+  console.log('Modo app: sin animaciones sin fin');
+  const ctx = await nuevoContexto();
+  const infinitas = (p, sel) => p.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el) return 'no existe';
+    const cs = getComputedStyle(el);
+    const nombres = cs.animationName.split(',').map((x) => x.trim());
+    const cuentas = cs.animationIterationCount.split(',').map((x) => x.trim());
+    return nombres.some((n, i) => n !== 'none' && cuentas[i] === 'infinite');
+  }, sel);
+  const estilo = (p, sel, prop) => p.evaluate(([s, k]) => { const el = document.querySelector(s); return el ? getComputedStyle(el)[k] : null; }, [sel, prop]);
+
+  const app = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio&modo=app`);
+  await app.waitForTimeout(600);
+  revisar(await app.evaluate(() => document.documentElement.classList.contains('modo-app')), 'modo=app pone la clase modo-app en <html>');
+  revisar(await app.evaluate(() => typeof MODO_APP !== 'undefined' && MODO_APP === true), 'MODO_APP es true con modo=app');
+  for (const sel of ['.fachada', '.brillo', '.rayos', '.virgen', '.cuenta b', '.titulo .brilla']) {
+    igual(await infinitas(app, sel), false, `modo app: ${sel} sin animación infinita`);
+  }
+  igual(await estilo(app, '.chispa', 'display'), 'none', 'modo app: .chispa con display none');
+  igual(await estilo(app, '.titulo .brilla', 'animationName'), 'none', 'modo app: .brilla sin destello');
+  igual(await estilo(app, '.titulo .brilla', 'color'), 'rgb(255, 255, 255)', 'modo app: .brilla con color sólido (el texto se ve)');
+  igual(await estilo(app, '.titulo .brilla', 'backgroundImage'), 'none', 'modo app: .brilla sin degradado');
+  const entra = await estilo(app, '.virgen-entra', 'animationName');
+  revisar(entra === 'virgenEntra', 'modo app: .virgen-entra conserva virgenEntra y no tiene flota (era ' + entra + ')');
+
+  const rot = await abrir(ctx, `/${CA}/rotulos.html?modo=app`);
+  await rot.waitForTimeout(400);
+  igual(await infinitas(rot, '.envivo i'), false, 'modo app: .envivo i sin latido infinito');
+
+  const obs = await abrir(ctx, `/${CA}/pantalla.html?tipo=inicio`);
+  await obs.waitForTimeout(400);
+  igual(await obs.evaluate(() => document.documentElement.classList.contains('modo-app')), false, 'sin modo=app no hay clase modo-app');
+  revisar((await estilo(obs, '.fachada', 'animationName')).includes('kenburns'), 'sin modo=app: .fachada sigue con kenburns (OBS no cambia)');
+  igual(await infinitas(obs, '.rayos'), true, 'sin modo=app: .rayos sigue girando');
+  await ctx.close();
+}
+
 (async () => {
   const servidor = crearServidor();
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
@@ -3241,7 +3281,7 @@ async function casoTransicion() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla, casoModoAppSinAnimaciones };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -3292,6 +3332,7 @@ async function casoTransicion() {
     await casoMisasListas();
     await casoTransicion();
     await casoLetraPorPantalla();
+    await casoModoAppSinAnimaciones();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
     console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e));
