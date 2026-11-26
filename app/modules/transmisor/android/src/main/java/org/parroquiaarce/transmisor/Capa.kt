@@ -19,7 +19,7 @@ import expo.modules.kotlin.exception.CodedException
 import org.json.JSONObject
 
 /*
- * La capa que va encima de la cámara: un contenedor de 1920×1080 con las WebViews de escena y,
+ * La capa que va encima de la cámara: un contenedor del tamaño de la transmisión (1280×720 o 1920×1080) con las WebViews de escena y,
  * arriba de todo, la de la transición. Se dibuja sobre el video con FiltroCapa.
  *
  * - Las escenas cargan las páginas de la parroquia elegida, `https://<plataforma>/<slug>/…` (etapa 3a).
@@ -37,8 +37,9 @@ import org.json.JSONObject
 @SuppressLint("StaticFieldLeak", "SetJavaScriptEnabled")
 object Capa {
   private const val TAG = "Transmisor"
-  private const val ANCHO = 1920
-  private const val ALTO = 1080
+  // Tamaño de la capa = tamaño de la transmisión (fijarTamano); 1920×1080 por defecto.
+  private var ancho = 1920
+  private var alto = 1080
 
   // Transición (transicion.html de la parroquia, versión «Solo el logo»): el logo tapa la pantalla a los 1000 ms.
   private const val CORTE_MS = 1000L
@@ -117,6 +118,22 @@ object Capa {
     filtro?.olvidarFps()
   }
 
+  /**
+   * Fija el tamaño de la capa (el de la transmisión). Sin capa solo se guarda. Con capa y otro tamaño,
+   * cambia los LayoutParams del contenedor y de cada vista y recarga, para que loadWithOverviewMode
+   * recalcule la escala. Hilo principal. En vivo no se llama: prepararVista rechaza antes.
+   */
+  fun fijarTamano(nuevoAncho: Int, nuevoAlto: Int) {
+    if (nuevoAncho == ancho && nuevoAlto == alto) return
+    ancho = nuevoAncho
+    alto = nuevoAlto
+    val c = contenedor ?: return
+    c.layoutParams = FrameLayout.LayoutParams(ancho, alto)
+    for (i in 0 until c.childCount) c.getChildAt(i).layoutParams = FrameLayout.LayoutParams(ancho, alto)
+    recargar()
+    Log.w(TAG, "capa: tamano ${ancho}x$alto")
+  }
+
   /** Crea el contenedor y las escenas fijas. Sin efecto si ya existe. */
   fun crear(actividad: Activity) {
     if (contenedor != null) return
@@ -126,12 +143,12 @@ object Capa {
     for (nombre in listOf("camara", "inicio")) agregarEscena(nombre)
     val t = nuevaWeb(actividad, "transicion")
     t.visibility = View.INVISIBLE
-    c.addView(t, FrameLayout.LayoutParams(ANCHO, ALTO))
+    c.addView(t, FrameLayout.LayoutParams(ancho, alto))
     t.loadUrl(urlTransicion())
     transicion = t
     mostrarSolo(actual)
     // Debajo del contenido de la ventana: existe y dibuja, pero no se ve en el celular.
-    (actividad.window.decorView as ViewGroup).addView(c, 0, FrameLayout.LayoutParams(ANCHO, ALTO))
+    (actividad.window.decorView as ViewGroup).addView(c, 0, FrameLayout.LayoutParams(ancho, alto))
     Log.w(TAG, "capa creada escena=$actual")
   }
 
@@ -329,7 +346,7 @@ object Capa {
     w.visibility = View.INVISIBLE
     // Debajo de la transición, que siempre queda arriba.
     val indice = transicion?.let { c.indexOfChild(it) }?.takeIf { it >= 0 } ?: c.childCount
-    c.addView(w, indice, FrameLayout.LayoutParams(ANCHO, ALTO))
+    c.addView(w, indice, FrameLayout.LayoutParams(ancho, alto))
     vistas[nombre] = w
     cargadas.remove(nombre)
     w.loadUrl(urlDe(nombre))

@@ -102,6 +102,9 @@ object Motor : ConnectChecker {
     return s
   }
 
+  /** true si hay una transmisión en curso. */
+  val transmitiendo: Boolean get() = stream?.isStreaming == true
+
   fun prepararVista(ctx: Context, calidad: String, microfono: String) {
     contexto = ctx.applicationContext
     val s = obtener(ctx)

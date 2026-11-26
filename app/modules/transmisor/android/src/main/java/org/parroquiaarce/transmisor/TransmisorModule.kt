@@ -59,7 +59,11 @@ class TransmisorModule : Module() {
     AsyncFunction("prepararVista") { calidad: String, microfono: String ->
       val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
       val actividad = appContext.currentActivity ?: throw IllegalStateException("Sin actividad.")
-      // La capa va antes que la vista previa: al arrancar el GL se le pone el filtro.
+      // En vivo no se cambia nada: Motor.prepararVista lo rechaza, pero la capa se toca antes.
+      if (Motor.transmitiendo) throw IllegalStateException("No se puede cambiar la calidad durante la transmisión.")
+      // La capa se renderiza al tamaño de la transmisión (no a 1080p fijo) y va antes que la vista previa:
+      // al arrancar el GL se le pone el filtro.
+      if (calidad == "1080p") Capa.fijarTamano(1920, 1080) else Capa.fijarTamano(1280, 720)
       Capa.crear(actividad)
       Motor.prepararVista(ctx, calidad, microfono)
     }.runOnQueue(Queues.MAIN)
