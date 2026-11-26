@@ -15,10 +15,11 @@ import { StyleSheet, View } from 'react-native';
 import App from '../App';
 import { almacenAjustes } from './ajustes/almacen';
 import { avisarCambioDeAjustes, registrarAjustes } from './ajustes/descarga';
-import { borrarCopia, borrarCopias, descargarCopia, fijarOrientacion } from '../modules/transmisor';
+import { borrarCopia, borrarCopias, descargarCopia, fijarOrientacion, limpiarTodo } from '../modules/transmisor';
 import { C, FUENTES } from './componentes/tema';
 import { useZonas } from './componentes/useZonas';
 import { obtenerConfig } from './config/compilacion';
+import { registrarLimpiezaCapa } from './capa/limpieza';
 import { avisarCambioDePaginas, registrarCopias } from './copias/copias';
 import { canalGuardadas } from './guardadas/puente';
 import { registrarGuardadas } from './guardadas/sincronizar';
@@ -86,6 +87,8 @@ function contextoAhora(): Omit<ContextoSincronizar, 'momento'> | null {
 if (config.ok) {
   registrarGuardadas(sincronizador, limpiezas, { canal: canalGuardadas, contexto: contextoAhora });
 }
+// La limpieza 'capa' va al final: libera la capa nativa al cerrar sesión (no depende de config).
+registrarLimpiezaCapa(limpiezas, { limpiarTodo });
 
 function correrMomento(m: Momento): Promise<unknown> | void {
   const base = contextoAhora();
