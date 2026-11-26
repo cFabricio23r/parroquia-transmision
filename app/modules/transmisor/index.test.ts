@@ -335,6 +335,16 @@ describe('fijarBitrate (Tarea 2 del plan de rendimiento)', () => {
     await api.fijarBitrate(1800);
     expect(modulo.fijarBitrate).toHaveBeenCalledWith(1800);
   });
+
+  it('con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto', async () => {
+    const { api, modulo } = cargar();
+    delete (modulo as Record<string, unknown>).fijarBitrate;
+    let r: Promise<void> | undefined;
+    expect(() => {
+      r = api.fijarBitrate(1800);
+    }).not.toThrow();
+    await expect(r).rejects.toBeInstanceOf(TypeError);
+  });
 });
 
 describe('fijarOrientacion (review m2 de la 9c)', () => {

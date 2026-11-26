@@ -508,11 +508,18 @@ export default function App(p: {
   // Estado térmico, temperatura y nivel de la batería, y fps del video, cada 10 s. La batería se lee
   // del nativo y no del aviso de expo-battery, que en Android solo llega cerca del 15 % (Tarea 9h).
   // Bitrate escalonado por calor: solo al aire. Los refs dejan al ciclo (que se arma una vez) leer lo último.
-  const alAireRef = useRef(false);
-  alAireRef.current = alAire;
+  // Solo con el stream corriendo (en_vivo o reconectando): en 'iniciando' el nativo ignora fijarBitrate.
+  const transmitiendoRef = useRef(false);
+  transmitiendoRef.current = estado.fase === 'en_vivo' || estado.fase === 'reconectando';
   const calidadRef = useRef<Calidad | undefined>(undefined);
   calidadRef.current = calidad;
   const escalonRef = useRef<{ escalon: Escalon; desdeMs: number }>({ escalon: 0, desdeMs: 0 });
+  // Fuera de en_vivo/reconectando el escalón vuelve a 0 (la próxima vista se prepara con el base).
+  useEffect(() => {
+    if (estado.fase === 'en_vivo' || estado.fase === 'reconectando') return;
+    escalonRef.current = { escalon: 0, desdeMs: 0 };
+    ultimo.kbpsPedido = null;
+  }, [estado.fase]);
   useEffect(() => {
     const leer = () =>
       medirAvisos().then(
@@ -520,7 +527,7 @@ export default function App(p: {
           setTermico(m.termico);
           setTemperatura(m.temperatura);
           const cal = calidadRef.current;
-          if (alAireRef.current && cal) {
+          if (transmitiendoRef.current && cal) {
             const antes = escalonRef.current;
             const ahora = siguienteEscalon(antes, escalonPedido(m), Date.now());
             escalonRef.current = ahora;
@@ -600,9 +607,6 @@ export default function App(p: {
     guardiaEnVivo.fijar(alAire);
     fijarEnVivo(alAire).catch(() => undefined);
     if (!alAire) {
-      // Al salir del aire, el bitrate vuelve al escalón 0 (la próxima vista se prepara con el base).
-      escalonRef.current = { escalon: 0, desdeMs: 0 };
-      ultimo.kbpsPedido = null;
       setConfirmar(false);
       if (estabaAlAire.current) {
         panelRef.current?.inyectar(SCRIPT_IR_A_PREPARAR);

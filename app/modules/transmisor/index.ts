@@ -152,7 +152,8 @@ export function ponerZoom(nivel: number): Promise<void> {
 
 /** Cambia el bitrate de video en vivo, en kbps. No hace nada si no se está transmitiendo. */
 export function fijarBitrate(kbps: number): Promise<void> {
-  return Modulo.fijarBitrate(kbps);
+  // Dentro de una promesa: con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto.
+  return Promise.resolve().then(() => Modulo.fijarBitrate(kbps));
 }
 
 /**
