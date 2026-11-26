@@ -50,6 +50,8 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   fijarEstiloFinal(estilo: EstiloFinal): Promise<void>;
   /** La plataforma y la parroquia de la capa y del panel (etapa 3a). Rechaza EN_VIVO con la copia congelada. */
   fijarParroquia(origen: string, slug: string): Promise<void>;
+  /** Cierre de sesión: olvida la parroquia, libera la capa y vacía el almacenamiento web. Rechaza EN_VIVO. */
+  limpiarTodo(): Promise<void>;
   /** Congela la copia guardada (en vivo) o la suelta. `iniciar` ya la congela. */
   fijarEnVivo(enVivo: boolean): Promise<void>;
   /** Baja las páginas y los medios a copias/<slug>/nueva/ y la cambia por la actual. Rechaza EN_VIVO si está congelada. */

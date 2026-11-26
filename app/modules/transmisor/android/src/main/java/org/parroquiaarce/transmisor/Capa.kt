@@ -209,7 +209,7 @@ object Capa {
   private fun urlDe(nombre: String): String = urls(nombre)
 
   /**
-   * Vuelve a cargar cada escena cargada: otra parroquia (fijarParroquia) o páginas nuevas en la
+   * Vuelve a cargar cada escena cargada y la transición: otra parroquia (fijarParroquia) o páginas nuevas en la
    * copia (recargarEscenas). La escena que se ve sigue siendo la misma.
    */
   fun recargar() {
@@ -218,7 +218,9 @@ object Capa {
       cargadas.remove(nombre)
       w.loadUrl(urlDe(nombre))
     }
-    Log.w(TAG, "capa: escenas recargadas")
+    // La transición también muestra el logo de la parroquia: sin esto quedaría el de la anterior.
+    transicion?.loadUrl(urlTransicion())
+    Log.w(TAG, "capa: escenas y transición recargadas")
   }
 
   /** Olvida el estado del panel: al cambiar de parroquia no se escribe el de la anterior. */

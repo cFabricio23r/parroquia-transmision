@@ -6,6 +6,9 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.WindowInsets
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.webkit.WebView
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.functions.Queues
@@ -192,6 +195,25 @@ class TransmisorModule : Module() {
       if (Copias.fijar(origen, slug) && Capa.creada) {
         Capa.olvidarEstado()
         Capa.recargar()
+      }
+    }.runOnQueue(Queues.MAIN)
+
+    // Cierre de sesión: no queda nada de la cuenta anterior. Rechaza EN_VIVO antes de tocar nada.
+    // Motor.terminar() es seguro sin transmisión (OnDestroy lo llama igual): corta el servicio y el zoom.
+    AsyncFunction("limpiarTodo") {
+      val ctx = appContext.reactContext ?: throw IllegalStateException("Sin contexto de Android.")
+      Copias.olvidarParroquia()
+      Motor.terminar()
+      Capa.liberar()
+      WebStorage.getInstance().deleteAllData()
+      CookieManager.getInstance().apply {
+        removeAllCookies(null)
+        flush()
+      }
+      // La caché HTTP es de todo el proceso: se vacía con un WebView temporal.
+      WebView(ctx).apply {
+        clearCache(true)
+        destroy()
       }
     }.runOnQueue(Queues.MAIN)
 

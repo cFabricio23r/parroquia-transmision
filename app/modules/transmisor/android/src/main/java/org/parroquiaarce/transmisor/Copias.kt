@@ -111,6 +111,15 @@ object Copias {
     }
   }
 
+  /** Olvida la plataforma y la parroquia (cierre de sesión). Lanza EN_VIVO con la copia congelada. */
+  fun olvidarParroquia() {
+    synchronized(this) {
+      if (congelada) throw enVivo()
+      origen = null
+      slug = null
+    }
+  }
+
   fun fijarEnVivo(b: Boolean) {
     synchronized(this) { congelada = b }
     Log.w(TAG, "copias: congelada=$b")
