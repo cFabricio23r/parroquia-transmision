@@ -20,8 +20,11 @@ export interface AlmacenAjustes {
   guardarMicrofono(m: Microfono): Promise<void>;
   /** Las tres llaves de la parroquia, y la saca del índice. */
   borrarParroquia(slug: string): Promise<void>;
-  /** Lo bajado (parroquia y clave) de cada slug del índice. Deja lo del celular y el micrófono. */
-  borrarBajadas(): Promise<void>;
+  /**
+   * Cierre de sesión: de cada slug del índice borra lo bajado, lo del celular y la clave; además el
+   * micrófono y el índice. No deja nada de la sesión anterior en el celular.
+   */
+  borrarTodo(): Promise<void>;
   /** parroquia_ajustes_v1 (spec, decisión 11). */
   borrarViejos(): Promise<void>;
 }
@@ -129,12 +132,15 @@ export function crearAlmacenAjustes(store: Store): AlmacenAjustes {
       const i = await indice();
       await store.setItemAsync(INDICE, JSON.stringify(i.filter((s) => s !== slug)));
     },
-    async borrarBajadas() {
+    async borrarTodo() {
       for (const s of await indice()) {
         const l = llavesDe(s);
         await store.deleteItemAsync(l.parroquia);
         await store.deleteItemAsync(l.clave);
+        await store.deleteItemAsync(l.celular);
       }
+      await store.deleteItemAsync(MICROFONO);
+      await store.deleteItemAsync(INDICE);
     },
     async borrarViejos() {
       await store.deleteItemAsync(VIEJA);

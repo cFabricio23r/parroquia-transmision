@@ -106,16 +106,17 @@ describe('dos parroquias', () => {
     expect([mapa[lb.parroquia], mapa[lb.clave], mapa[lb.celular]].every(Boolean)).toBe(true);
     expect(JSON.parse(mapa['pev_app_ajustes_slugs_v1'])).toEqual(['san-b']);
   });
-  it('borrarBajadas deja lo del celular y el micrófono', async () => {
+  it('borrarTodo borra lo bajado, lo del celular, el micrófono y el índice', async () => {
+    await a.guardarDeParroquia('san-a', P, K);
+    await a.guardarCelular('san-a', { servidor: 'rtmps://c/', clave: 'FB-CLAVE-FALSA-2222', calidad: '720p', claveParroquiaVista: null });
+    await a.guardarDeParroquia('san-b', P, K);
+    await a.guardarCelular('san-b', { calidad: '720p' });
     await a.guardarMicrofono('externo');
-    await a.borrarBajadas();
+    await a.borrarTodo();
     for (const s of ['san-a', 'san-b']) {
-      const l = llavesDe(s);
-      expect(mapa[l.parroquia]).toBeUndefined();
-      expect(mapa[l.clave]).toBeUndefined();
-      expect(mapa[l.celular]).toBeDefined();
+      expect(await a.leer(s)).toEqual({ parroquia: null, clave: null, celular: {}, microfono: 'celular' });
     }
-    expect(mapa['pev_app_microfono_v1']).toBeDefined();
+    expect(mapa['pev_app_ajustes_slugs_v1']).toBeUndefined();
   });
 });
 

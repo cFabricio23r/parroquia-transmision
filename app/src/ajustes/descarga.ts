@@ -74,7 +74,7 @@ export function crearTareaAjustes(d: DepsDescargaAjustes): TareaSincronizar {
 /** Registra la tarea 'ajustes-app' (después de 'paginas') y la limpieza 'ajustes'. */
 export function registrarAjustes(s: Sincronizador, l: Limpiezas, d: DepsDescargaAjustes): void {
   s.registrarTarea('ajustes-app', ['abrir', 'antes-de-iniciar'], crearTareaAjustes(d));
-  l.registrar('ajustes', (a) => (a.tipo === 'parroquia' ? d.almacen.borrarParroquia(a.parroquia.slug) : d.almacen.borrarBajadas()));
+  l.registrar('ajustes', (a) => (a.tipo === 'parroquia' ? d.almacen.borrarParroquia(a.parroquia.slug) : d.almacen.borrarTodo()));
 }
 
 const oyentes = new Set<(slug: string) => void>();

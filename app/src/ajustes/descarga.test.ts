@@ -180,13 +180,13 @@ describe('registrar', () => {
     const l = crearLimpiezas();
     const almacen = {
       borrarParroquia: jest.fn(async () => undefined),
-      borrarBajadas: jest.fn(async () => undefined),
+      borrarTodo: jest.fn(async () => undefined),
     } as unknown as AlmacenAjustes;
     registrarAjustes(s, l, { almacen, avisar: () => undefined });
     await l.limpiar({ tipo: 'parroquia', parroquia: PARROQUIA });
     expect(almacen.borrarParroquia).toHaveBeenCalledWith('ciudad-arce');
     await l.limpiar({ tipo: 'todo' });
-    expect(almacen.borrarBajadas).toHaveBeenCalledTimes(1);
+    expect(almacen.borrarTodo).toHaveBeenCalledTimes(1);
   });
   it('queda tercera, después de acceso y paginas', async () => {
     const s = crearSincronizador();
