@@ -8,6 +8,8 @@ import {
   crearOrquestador,
   type DepsOrquestador,
 } from './orquestador';
+import { PLAZO_CREAR_MS } from '../facebook/cliente';
+import { crearVivoFacebook } from '../facebook/vivo';
 import type { Escena } from './transmision';
 
 // Clave falsa: nunca una clave real en los tests.
@@ -407,35 +409,17 @@ describe('Facebook en vivo (pedirVivo / terminarVivo)', () => {
     await fin;
   });
 
-  it('con {error:true} y sin clave: abre Ajustes, no arranca y vuelve a preparando', async () => {
-    const { o, d, fin } = await conVivo(async () => ({ error: true }), {
-      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
-    });
-    await fin;
+  it('sin clave fija válida y con pedirVivo: abre Ajustes ya, sin pedir nada ni arrancar', async () => {
+    const pedirVivo = jest.fn(async (): Promise<Vivo> => VIVO);
+    const { o, d } = armar({ pedirVivo, leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })) });
+    await o.iniciar();
     expect(d.abrirAjustes).toHaveBeenCalledTimes(1);
+    expect(pedirVivo).not.toHaveBeenCalled();
     expect(d.iniciar).not.toHaveBeenCalled();
-    expect(d.avisar).not.toHaveBeenCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    expect(d.alArrancar).not.toHaveBeenCalled();
+    expect(d.cambiarEscena).not.toHaveBeenCalled();
+    expect(d.terminar).not.toHaveBeenCalled();
     expect(o.tienda.obtener().fase).toBe('preparando');
-  });
-
-  it('con null y sin clave: abre Ajustes como hoy', async () => {
-    const { o, d, fin } = await conVivo(async () => null, {
-      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
-    });
-    await fin;
-    expect(d.abrirAjustes).toHaveBeenCalledTimes(1);
-    expect(d.iniciar).not.toHaveBeenCalled();
-    expect(o.tienda.obtener().fase).toBe('preparando');
-  });
-
-  it('con un vivo y sin clave en Ajustes arranca igual (la clave fija no hace falta)', async () => {
-    const { d, fin, inicios } = await conVivo(async () => VIVO, {
-      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
-    });
-    expect(d.abrirAjustes).not.toHaveBeenCalled();
-    expect(d.iniciar).toHaveBeenCalledWith(VIVO.servidor, VIVO.clave);
-    inicios[0].resolver();
-    await fin;
   });
 
   it('con null usa los Ajustes como hoy, sin aviso', async () => {
@@ -525,5 +509,27 @@ describe('Facebook en vivo (pedirVivo / terminarVivo)', () => {
       await vaciar();
       expect(x.terminarVivo).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('Facebook colgado: tope de 8 s', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('destinos nunca responde: a los 8 s arranca con la clave fija y el aviso', async () => {
+    const vivo = crearVivoFacebook({
+      cliente: { destinos: () => new Promise<never>(() => {}), crear: jest.fn(), estado: jest.fn(), terminar: jest.fn() },
+      titulo: () => 't',
+    });
+    const { o, d, escenas } = armar({ pedirVivo: vivo.pedirVivo });
+    void o.iniciar();
+    await vaciar();
+    escenas[0].resolver();
+    await vaciar();
+    expect(d.iniciar).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(PLAZO_CREAR_MS);
+    await vaciar();
+    expect(d.avisar).toHaveBeenLastCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    expect(d.iniciar).toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
   });
 });

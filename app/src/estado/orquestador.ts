@@ -110,8 +110,7 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       d.avisar(MENSAJE_AJUSTES_ILEGIBLES);
       return;
     }
-    // Con Facebook directo la clave fija no hace falta: se revisa después, solo si se necesita.
-    if (!d.pedirVivo && !validar(a).ok) {
+    if (!validar(a).ok) {
       d.abrirAjustes();
       return;
     }
@@ -144,12 +143,6 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
         servidor = vivo.servidor;
         clave = vivo.clave;
         vivoId = vivo.id;
-      } else if (!validar(a).ok) {
-        // Sin vivo y sin clave fija: no hay con qué transmitir. Se vuelve a preparar y se abre Ajustes.
-        intento++;
-        tienda.despachar({ tipo: 'terminar_ahora' });
-        d.abrirAjustes();
-        return;
       } else if (vivo !== null) {
         d.avisar(MENSAJE_FACEBOOK_RESPALDO);
       }

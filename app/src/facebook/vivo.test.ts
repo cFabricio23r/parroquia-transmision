@@ -1,4 +1,5 @@
 import type { ClienteFacebook, Destinos, ResultadoFacebook, VivoCreado } from './cliente';
+import { PLAZO_CREAR_MS } from './cliente';
 import { crearVivoFacebook, extrasElegidos } from './vivo';
 
 const DESTINOS: Destinos = {
@@ -59,6 +60,41 @@ describe('pedirVivo', () => {
   it('crear falla (cualquier tipo): {error:true}', async () => {
     const { pedirVivo } = armar({ crear: jest.fn(async () => ({ ok: false as const, error: { tipo: 'sin-conexion' as const } })) });
     await expect(pedirVivo()).resolves.toEqual({ error: true });
+  });
+});
+
+describe('tope de 8 s', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('destinos nunca responde: a los 8 s da {error:true}', async () => {
+    const { pedirVivo } = armar({ destinos: jest.fn(() => new Promise<never>(() => {})) });
+    const r = jest.fn();
+    void pedirVivo().then(r);
+    jest.advanceTimersByTime(PLAZO_CREAR_MS - 1);
+    await Promise.resolve();
+    expect(r).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(r).toHaveBeenCalledWith({ error: true });
+  });
+
+  it('un crear que llega tarde se descarta y se cierra una vez', async () => {
+    let soltar!: (v: ResultadoFacebook<VivoCreado>) => void;
+    const { cliente, pedirVivo } = armar({ crear: jest.fn(() => new Promise<ResultadoFacebook<VivoCreado>>((res) => (soltar = res))) });
+    const r = jest.fn();
+    void pedirVivo().then(r);
+    await Promise.resolve();
+    await Promise.resolve();
+    jest.advanceTimersByTime(PLAZO_CREAR_MS);
+    await Promise.resolve();
+    expect(r).toHaveBeenCalledWith({ error: true });
+    soltar({ ok: true, valor: VIVO });
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(r).toHaveBeenCalledTimes(1);
+    expect(cliente.terminar).toHaveBeenCalledTimes(1);
+    expect(cliente.terminar).toHaveBeenCalledWith('v1');
   });
 });
 
