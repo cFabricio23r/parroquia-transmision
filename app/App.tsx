@@ -37,6 +37,7 @@ import {
   recargarEscenas,
   iniciar,
   ponerZoom,
+  silenciarMicrofono,
   prepararVista,
   rangoZoom,
   terminar,
@@ -237,6 +238,8 @@ export default function App(p: {
   // Zoom y pantalla completa (Tarea 9g).
   const [rangoDeZoom, setRangoDeZoom] = useState<RangoZoom | null>(null);
   const [zoom, setZoom] = useState(1);
+  // Micrófono silenciado al aire (2026-11-27). Al dejar el aire el nativo lo vuelve a abrir.
+  const [silenciado, setSilenciado] = useState(false);
   const [completa, setCompleta] = useState(false);
   const [hayRed, setHayRed] = useState(true);
   const [noMolestar, setNoMolestar] = useState<boolean | null>(null);
@@ -438,6 +441,7 @@ export default function App(p: {
     if (!alAire) {
       setCompleta(false);
       setZoom(1);
+      setSilenciado(false);
       return;
     }
     rangoZoom().then(
@@ -486,6 +490,13 @@ export default function App(p: {
   const cambiarZoom = useCallback((z: number) => {
     setZoom(z);
     ponerZoom(z).catch(() => undefined);
+  }, []);
+  // Solo cambia el botón si el nativo lo hizo: si falla, el botón no miente sobre el micrófono.
+  const cambiarSilencio = useCallback((si: boolean) => {
+    silenciarMicrofono(si).then(
+      () => setSilenciado(si),
+      () => undefined,
+    );
   }, []);
   // En Preparar la capa muestra la escena elegida en la tira, solo para verla. En Antes de iniciar
   // muestra Cámara (para encuadrar). En los dos el panel cree estar en Inicio, así no queda ningún
@@ -955,6 +966,8 @@ export default function App(p: {
               // El reloj solo se ve en pantalla completa; fuera de ella el valor fijo evita redibujar cada segundo.
               segundos={enCompleta ? estado.segundos : 0}
               fps={fpsVideo}
+              silenciado={silenciado}
+              onSilenciar={cambiarSilencio}
             />
           </View>
         ) : null}

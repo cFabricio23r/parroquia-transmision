@@ -38,6 +38,18 @@ object Motor : ConnectChecker {
   const val REINTENTOS = 24
   const val ESPERA_MS = 5000L
 
+  // Envío estable (2026-11-27, cortes de 0 Mbps con Starlink y datos móviles):
+  //  - la cola guarda ~20 s (video 30 + audio ~43 paquetes por segundo); la de RootEncoder trae 400 (~5 s)
+  //    y, llena, descarta cuadros: un corte corto de la red se veía como video cortado;
+  //  - se arranca en el mínimo de Facebook para la calidad (720p 1500, 1080p 3000 kbps) y se sube de a 10 %
+  //    cada 10 s sin congestión hasta el techo (el base, o el escalón térmico);
+  //  - con congestión se baja a 75 % del actual, nunca por debajo del piso, y se espera 10 s para volver a subir.
+  const val COLA_PAQUETES = 1500
+  private const val CONGESTION_PCT = 5f
+  private const val SUBIR_CADA_S = 10
+  private const val SUBIDA = 1.10
+  private const val BAJADA = 0.75
+
   // Si onDisconnect no llega tras stopStream, se libera igual a los 3 s.
   private const val MAX_CIERRE_MS = 3000L
 
@@ -66,6 +78,42 @@ object Motor : ConnectChecker {
   private var contexto: Context? = null
   // Bitrate base (bps) que eligió prepararVista; solo para el registro y el contexto.
   private var bitrateBase = 0
+  // Techo del bitrate adaptativo (bps): el base, o el que pidió el escalón térmico (fijarBitrate).
+  private var bitrateTecho = 0
+
+  // Bitrate de arranque y piso (bps) de la calidad elegida.
+  private var bitrateInicio = 0
+  private var bitratePiso = 0
+  // Segundos seguidos sin congestión desde el último cambio.
+  private var segundosSinCongestion = 0
+  // Bitrate (bps) que tiene el codificador ahora; solo para el registro. @Volatile: medir corre en otro hilo.
+  @Volatile private var bitrateActual = 0
+
+  /**
+   * Diagnóstico de los 0 Mbps (2026-11-27), para el registro: cuadros de video enviados y descartados
+   * desde la llamada anterior, paquetes en la cola y bitrate del codificador. Vacío sin transmisión.
+   * Pone en cero los contadores de RootEncoder (los únicos que los leen somos nosotros).
+   */
+  fun estadisticasEnvio(): Map<String, Any?> {
+    val s = stream ?: return emptyMap()
+    if (!s.isStreaming) return emptyMap()
+    return try {
+      val c = s.getStreamClient()
+      val enviados = c.getSentVideoFrames()
+      val descartados = c.getDroppedVideoFrames()
+      c.resetSentVideoFrames()
+      c.resetDroppedVideoFrames()
+      mapOf(
+        "videoEnviados" to enviados.toDouble(),
+        "videoDescartados" to descartados.toDouble(),
+        "cola" to c.getItemsInCache().toDouble(),
+        "kbpsCodificador" to bitrateActual / 1000.0,
+      )
+    } catch (e: Exception) {
+      Log.w(TAG, "sin estadisticas de envio: ${e.javaClass.simpleName}")
+      emptyMap()
+    }
+  }
 
   /** Últimos fps que informó RootEncoder (uno por segundo). Para el registro de rendimiento. */
   @Volatile var fpsVideo: Int? = null
@@ -118,7 +166,10 @@ object Motor : ConnectChecker {
     // 720p 1500–4000 kbps, 1080p 3000–6000 kbps; audio AAC 128 kbps, keyframe 2 s.
     val (ancho, alto, bitrate) =
       if (calidad == "1080p") Triple(1920, 1080, 4_500_000) else Triple(1280, 720, 2_500_000)
-    val video = s.prepareVideo(ancho, alto, bitrate, 30, 2, 0)
+    bitrateInicio = if (calidad == "1080p") 3_000_000 else 1_500_000
+    bitratePiso = if (calidad == "1080p") 2_000_000 else 1_000_000
+    // El codificador arranca en el bitrate de inicio; el adaptativo sube hasta el base si la red da.
+    val video = s.prepareVideo(ancho, alto, bitrateInicio, 30, 2, 0)
     val audio = s.prepareAudio(44100, true, 128_000)
     if (!video || !audio) {
       preparado = false
@@ -126,6 +177,8 @@ object Motor : ConnectChecker {
     }
     elegirMicrofono(ctx, s, microfono)
     bitrateBase = bitrate
+    bitrateTecho = bitrate
+    bitrateActual = bitrateInicio
     preparado = true
     Log.w(TAG, "preparado ${ancho}x$alto ${bitrate / 1000} kbps mic=$microfono")
     arrancarVistaSiSePuede()
@@ -207,6 +260,12 @@ object Motor : ConnectChecker {
     reintentoPendiente = false
     // Los fps de la transmisión anterior no pasan a la primera muestra de esta (review M7).
     olvidarFps()
+    bitrateTecho = bitrateBase
+    bitrateActual = bitrateInicio
+    segundosSinCongestion = 0
+    // La cola está vacía antes de startStream: agrandarla no puede fallar por lo que ya tiene.
+    runCatching { s.getStreamClient().resizeCache(COLA_PAQUETES) }
+      .onFailure { Log.w(TAG, "no se pudo agrandar la cola: ${it.javaClass.simpleName}") }
     Log.w(TAG, "iniciando transmision")
     // Con la app en primer plano y antes de salir al aire (Tarea 1, punto 7).
     contexto?.let { ServicioTransmision.arrancar(it) }
@@ -250,8 +309,9 @@ object Motor : ConnectChecker {
     // El servicio en primer plano se para siempre que se deja el aire (terminar o corte).
     contexto?.let { ServicioTransmision.parar(it) }
     olvidarFps()
-    // Al dejar el aire el zoom vuelve a 1× (Tarea 9g).
+    // Al dejar el aire el zoom vuelve a 1× (Tarea 9g) y el micrófono queda abierto (JS lo da por abierto).
     ponerZoom(1.0)
+    silenciarMicrofono(false)
     val s = stream ?: return true
     if (!s.isStreaming) return true
     cerrando = true
@@ -260,7 +320,7 @@ object Motor : ConnectChecker {
     // setVideoBitrateOnFly escribe el campo bitRate del codificador y stopStream → prepareEncoders lo reusa:
     // un bitrate bajado por calor pasaría a la próxima transmisión, y JS ya lo da por vuelto al base
     // (no vuelve a llamar a fijarBitrate si calidad y micrófono no cambiaron). Se restaura antes de parar.
-    if (bitrateBase > 0) runCatching { s.setVideoBitrateOnFly(bitrateBase) }
+    if (bitrateInicio > 0) runCatching { s.setVideoBitrateOnFly(bitrateInicio) }
     val ok = s.stopStream()
     // Sin vista previa, stopStream también para el GL y suelta los filtros.
     if (!s.isOnPreview) Capa.filtroPerdido()
@@ -319,16 +379,47 @@ object Motor : ConnectChecker {
     }
   }
 
+  /**
+   * Silencia o abre el micrófono. MicrophoneSource.mute() manda silencio en vez de cortar el audio
+   * (Facebook pide audio y video siempre). Sin micrófono de RootEncoder no hace nada.
+   */
+  fun silenciarMicrofono(si: Boolean) {
+    val mic = stream?.audioSource as? MicrophoneSource ?: return
+    if (si) mic.mute() else mic.unMute()
+    Log.w(TAG, "microfono silenciado=${mic.isMuted()}")
+  }
+
   /** Cambia el bitrate del video en vivo (kbps). Sin transmisión no hace nada: prepararVista fija el base. */
   fun fijarBitrate(kbps: Int) {
     val s = stream ?: return
     if (!s.isStreaming) return
     try {
-      s.setVideoBitrateOnFly(kbps * 1000)
+      bitrateTecho = kbps * 1000
+      // El escalón térmico es un techo: si el actual lo pasa, se baja ya; si no, el adaptativo sube hasta él.
+      if (bitrateActual > bitrateTecho) ponerBitrate(s, bitrateTecho)
       Log.w(TAG, "bitrate $kbps kbps (base ${bitrateBase / 1000})")
     } catch (e: Exception) {
       Log.w(TAG, "no se pudo cambiar el bitrate: ${e.javaClass.simpleName}")
     }
+  }
+
+  /** Una vez por segundo (onNewBitrate): baja con congestión, sube de a poco sin ella. */
+  private fun adaptar(s: RtmpStream) {
+    if (s.getStreamClient().hasCongestion(CONGESTION_PCT)) {
+      segundosSinCongestion = 0
+      val nuevo = maxOf(bitratePiso, (bitrateActual * BAJADA).toInt())
+      if (nuevo < bitrateActual) ponerBitrate(s, nuevo)
+      return
+    }
+    if (++segundosSinCongestion < SUBIR_CADA_S || bitrateActual >= bitrateTecho) return
+    segundosSinCongestion = 0
+    ponerBitrate(s, minOf(bitrateTecho, (bitrateActual * SUBIDA).toInt()))
+  }
+
+  private fun ponerBitrate(s: RtmpStream, bps: Int) {
+    s.setVideoBitrateOnFly(bps)
+    bitrateActual = bps
+    Log.w(TAG, "bitrate ${bps / 1000} kbps (techo ${bitrateTecho / 1000})")
   }
 
   private fun olvidarFps() {
@@ -402,6 +493,9 @@ object Motor : ConnectChecker {
   }
 
   override fun onNewBitrate(bitrate: Long) {
-    if (alAire && conectado) emitir("conectado", null, bitrate / 1000.0)
+    if (!alAire || !conectado) return
+    val s = stream
+    if (s != null && s.isStreaming) runCatching { adaptar(s) }
+    emitir("conectado", null, bitrate / 1000.0)
   }
 }

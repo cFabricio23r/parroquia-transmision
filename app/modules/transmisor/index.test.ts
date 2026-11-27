@@ -14,6 +14,7 @@ function cargar() {
     ponerZoom: jest.fn((_nivel: number) => Promise.resolve()),
     fijarBitrate: jest.fn((_kbps: number) => Promise.resolve()),
     fijarBrillo: jest.fn((_nivel: number) => Promise.resolve()),
+    silenciarMicrofono: jest.fn((_si: boolean) => Promise.resolve()),
     iniciar: jest.fn((_url: string, _clave: string) => Promise.resolve()),
     terminar: jest.fn(() => Promise.resolve()),
     prepararVista: jest.fn(() => Promise.resolve()),
@@ -540,6 +541,26 @@ describe('fijarBrillo (Tarea 3 del plan de rendimiento)', () => {
     let r: Promise<void> | undefined;
     expect(() => {
       r = api.fijarBrillo(0.1);
+    }).not.toThrow();
+    await expect(r).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe('silenciarMicrofono (2026-11-27)', () => {
+  it('pasa el pedido al nativo tal cual', async () => {
+    const { api, modulo } = cargar();
+    await api.silenciarMicrofono(true);
+    expect(modulo.silenciarMicrofono).toHaveBeenCalledWith(true);
+    await api.silenciarMicrofono(false);
+    expect(modulo.silenciarMicrofono).toHaveBeenLastCalledWith(false);
+  });
+
+  it('con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto', async () => {
+    const { api, modulo } = cargar();
+    delete (modulo as Record<string, unknown>).silenciarMicrofono;
+    let r: Promise<void> | undefined;
+    expect(() => {
+      r = api.silenciarMicrofono(true);
     }).not.toThrow();
     await expect(r).rejects.toBeInstanceOf(TypeError);
   });

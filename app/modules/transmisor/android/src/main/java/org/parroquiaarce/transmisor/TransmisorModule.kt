@@ -84,6 +84,11 @@ class TransmisorModule : Module() {
       Motor.rangoZoom()
     }.runOnQueue(Queues.MAIN)
 
+    // Silencia o abre el micrófono (2026-11-27): Facebook recibe silencio, el video sigue.
+    AsyncFunction("silenciarMicrofono") { si: Boolean ->
+      Motor.silenciarMicrofono(si)
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("ponerZoom") { nivel: Double ->
       Motor.ponerZoom(nivel)
     }.runOnQueue(Queues.MAIN)
@@ -134,7 +139,7 @@ class TransmisorModule : Module() {
         "memoriaMb" to Sistema.memoriaMb(),
         "fpsVideo" to Motor.fpsVideo,
         "fpsCapa" to Capa.fps(),
-      )
+      ) + Motor.estadisticasEnvio()
     }
 
     // Solo lo que usan los avisos (cada 10 s): sin Debug.getPss, que es lento (review M5).

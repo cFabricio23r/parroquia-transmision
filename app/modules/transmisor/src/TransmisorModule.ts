@@ -34,6 +34,8 @@ declare class TransmisorModule extends NativeModule<TransmisorModuleEvents> {
   ponerZoom(nivel: number): Promise<void>;
   /** Cambia el bitrate de video en vivo (kbps); no hace nada si no se transmite. */
   fijarBitrate(kbps: number): Promise<void>;
+  /** Silencia o abre el micrófono (2026-11-27). Al dejar el aire vuelve a quedar abierto. */
+  silenciarMicrofono(si: boolean): Promise<void>;
   /** Brillo de la ventana (0 a 1; -1 = el del sistema). Sin actividad no hace nada. */
   fijarBrillo(nivel: number): Promise<void>;
   /** Archivo nuevo del registro (deja los últimos 10). */
@@ -84,6 +86,11 @@ export type MedidaNativa = {
   memoriaMb: number | null;
   fpsVideo: number | null;
   fpsCapa: number | null;
+  /** Diagnóstico del envío (desde la muestra anterior); null sin transmisión. */
+  videoEnviados?: number | null;
+  videoDescartados?: number | null;
+  cola?: number | null;
+  kbpsCodificador?: number | null;
 };
 
 // Carga el módulo nativo «Transmisor» (solo Android).

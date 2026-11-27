@@ -28,10 +28,18 @@ export type Medida = {
   escena: Escena | null;
   /** Bitrate de video que pidió el escalón térmico, kbps (null: aún no se pidió). */
   kbpsPedido: number | null;
+  /** Cuadros de video enviados desde la muestra anterior (diagnóstico de los 0 Mbps, 2026-11-27). */
+  videoEnviados: number | null;
+  /** Cuadros de video descartados (cola llena) desde la muestra anterior. */
+  videoDescartados: number | null;
+  /** Paquetes esperando salir en la cola de envío. */
+  cola: number | null;
+  /** Bitrate de video que tiene el codificador ahora (lo baja el adaptativo), kbps. */
+  kbpsCodificador: number | null;
 };
 
 export const ENCABEZADO_REGISTRO =
-  'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena,kbps_pedido';
+  'hora,termico,temperatura_c,bateria_pct,cargando,fps_capa,fps_video,memoria_mb,conexion,mbps,escena,kbps_pedido,video_enviados,video_descartados,cola,kbps_codificador';
 
 const CONEXIONES: readonly string[] = ['conectado', 'reconectando', 'cortado'];
 const ESCENAS: readonly string[] = ESCENAS_VALIDAS;
@@ -73,6 +81,10 @@ export function lineaRegistro(m: Medida): string {
     num(m.mbps, 1),
     deLista(m.escena, ESCENAS),
     num(m.kbpsPedido, 0),
+    num(m.videoEnviados, 0),
+    num(m.videoDescartados, 0),
+    num(m.cola, 0),
+    num(m.kbpsCodificador, 0),
   ].join(',');
 }
 
@@ -158,6 +170,10 @@ export type MedidaDelNativo = {
   memoriaMb: number | null;
   fpsVideo: number | null;
   fpsCapa: number | null;
+  videoEnviados?: number | null;
+  videoDescartados?: number | null;
+  cola?: number | null;
+  kbpsCodificador?: number | null;
 };
 
 /** Lo último que sabe la pantalla de la batería y la subida. */
@@ -188,6 +204,10 @@ export function medidaDesde(
     mbps: conexion === 'conectado' ? u.mbps : null,
     escena: estado.escena,
     kbpsPedido: u.kbpsPedido,
+    videoEnviados: n.videoEnviados ?? null,
+    videoDescartados: n.videoDescartados ?? null,
+    cola: n.cola ?? null,
+    kbpsCodificador: n.kbpsCodificador ?? null,
   };
 }
 

@@ -156,6 +156,12 @@ export function fijarBitrate(kbps: number): Promise<void> {
   return Promise.resolve().then(() => Modulo.fijarBitrate(kbps));
 }
 
+/** Silencia (true) o vuelve a abrir (false) el micrófono al aire: Facebook recibe silencio, el video sigue. */
+export function silenciarMicrofono(si: boolean): Promise<void> {
+  // Dentro de una promesa: con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto.
+  return Promise.resolve().then(() => Modulo.silenciarMicrofono(si));
+}
+
 /** Brillo de la ventana, de 0 a 1; -1 vuelve al del sistema. Sin actividad no hace nada. */
 export function fijarBrillo(nivel: number): Promise<void> {
   // Dentro de una promesa: con un dev client viejo, sin la función nativa, rechaza en vez de tirar en el acto.
