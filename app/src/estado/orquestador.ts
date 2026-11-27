@@ -9,6 +9,7 @@ import {
   type EventoEstado,
 } from '../../modules/transmisor/src/eventos';
 import { validar, type Ajustes } from '../ajustes/ajustes';
+import type { EstadoVivo } from '../facebook/cliente';
 import { crearTienda, type Tienda } from './tienda';
 import type { Escena, EstadoTransmision } from './transmision';
 
@@ -21,8 +22,20 @@ export const MENSAJE_TERMINAR_LENTO =
 
 export const MENSAJE_FACEBOOK_RESPALDO = 'Facebook no respondió: se usa la clave de transmisión de la parroquia.';
 
+/** A los cuántos ms de pasar a en_vivo se pregunta una vez a Facebook qué páginas salieron. */
+export const ESPERA_REVISION_MS = 20_000;
+
 /** Lo que devuelve pedirVivo: el vivo creado, un error (se cae a la clave fija) o null (sin Facebook directo). */
-export type RespuestaVivo = { servidor: string; clave: string; id: string } | { error: true } | null;
+export type RespuestaVivo =
+  | { servidor: string; clave: string; id: string; principal?: string; extras?: string[] }
+  | { error: true }
+  | null;
+
+/** Lo que la pantalla muestra del vivo de Facebook: salio null = todavía sin revisar. */
+export interface VivoVisible {
+  principal: string;
+  extras: { nombre: string; salio: boolean | null }[];
+}
 
 export interface DepsOrquestador {
   leerAjustes(): Promise<Ajustes>;
@@ -40,6 +53,12 @@ export interface DepsOrquestador {
   pedirVivo?(): Promise<RespuestaVivo>;
   /** Cierra el vivo creado. Debe rechazar si no pudo, para que se reintente. */
   terminarVivo?(id: string): Promise<void>;
+  /** Pregunta cómo va el vivo (null si no se pudo saber). Nunca debe rechazar. */
+  estadoVivo?(id: string): Promise<EstadoVivo | null>;
+  /** Lo que se muestra del vivo en curso (null: nada). */
+  alFacebook?(vivo: VivoVisible | null): void;
+  /** El corte se dio por perdido y Facebook ya cerró el vivo: la pantalla muestra «Facebook cerró la transmisión». */
+  facebookCerro?(): void;
 }
 
 export interface Orquestador {
@@ -61,6 +80,54 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
   let ultimaConexion: Conexion | null = null;
   // El vivo de Facebook del arranque en curso; se cierra una sola vez al cortar.
   let vivoId: string | null = null;
+  let vivoVisible: VivoVisible | null = null;
+  // Lo del vivo recién creado: se muestra cuando de verdad sale al aire.
+  let pendienteVisible: VivoVisible | null = null;
+  let relojRevision: ReturnType<typeof setTimeout> | null = null;
+
+  function mostrar(v: VivoVisible | null) {
+    vivoVisible = v;
+    d.alFacebook?.(v);
+  }
+
+  function pararRevision() {
+    if (relojRevision !== null) clearTimeout(relojRevision);
+    relojRevision = null;
+  }
+
+  // Una sola vez, ESPERA_REVISION_MS después de pasar a en_vivo con un vivo de Facebook.
+  function programarRevision(id: string) {
+    if (relojRevision !== null || !d.estadoVivo) return;
+    relojRevision = setTimeout(() => {
+      void (async () => {
+        let r: EstadoVivo | null = null;
+        try {
+          r = (await d.estadoVivo?.(id)) ?? null;
+        } catch {
+          r = null;
+        }
+        // Ya terminó, o es otro vivo: no se toca lo mostrado. Sin respuesta: queda como estaba.
+        if (vivoId !== id || r === null || vivoVisible === null) return;
+        mostrar({ principal: vivoVisible.principal, extras: r.extras.map((e) => ({ nombre: e.nombre, salio: e.salio })) });
+      })();
+    }, ESPERA_REVISION_MS);
+  }
+
+  // Se perdió la señal con el vivo al aire. Antes de cerrarlo se pregunta a Facebook: si ya lo cerró
+  // él, la pantalla lo dice (el voluntario decide); si sigue activo o no se sabe, se cierra como siempre.
+  async function alPerderVivo(id: string): Promise<void> {
+    let r: EstadoVivo | null = null;
+    try {
+      r = (await d.estadoVivo?.(id)) ?? null;
+    } catch {
+      r = null;
+    }
+    if (r !== null && r.estado === 'terminado') {
+      d.facebookCerro?.();
+      return;
+    }
+    await cerrarVivo(id);
+  }
 
   // Dos intentos como máximo; nunca bloquea ni lanza.
   async function cerrarVivo(id: string): Promise<void> {
@@ -88,6 +155,8 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       tienda.despachar({ tipo: 'terminado' });
     };
     const espera = setTimeout(() => cerrar(true), ESPERA_TERMINAR_MS);
+    pararRevision();
+    if (vivoVisible !== null) mostrar(null);
     const id = vivoId;
     vivoId = null;
     if (id !== null && d.terminarVivo) void cerrarVivo(id);
@@ -121,6 +190,8 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
     const mio = ++intento;
     const vigente = () => mio === intento && tienda.obtener().fase === 'iniciando';
     ultimaConexion = null;
+    pararRevision();
+    pendienteVisible = null;
     d.alArrancar();
     // Primero la escena Inicio, para que lo primero que salga al aire no sea la cámara.
     await d.cambiarEscena('inicio').catch(() => undefined);
@@ -143,6 +214,10 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
         servidor = vivo.servidor;
         clave = vivo.clave;
         vivoId = vivo.id;
+        vivoVisible = null;
+        pendienteVisible = vivo.principal !== undefined
+          ? { principal: vivo.principal, extras: (vivo.extras ?? []).map((nombre) => ({ nombre, salio: null })) }
+          : null;
       } else if (vivo !== null) {
         d.avisar(MENSAJE_FACEBOOK_RESPALDO);
       }
@@ -179,10 +254,22 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
     },
     alEvento(e) {
       ultimaConexion = e.conexion;
-      if (e.conexion === 'conectado') tienda.despachar({ tipo: 'conectado' });
-      else if (e.conexion === 'reconectando') tienda.despachar({ tipo: 'reconectando' });
+      if (e.conexion === 'conectado') {
+        tienda.despachar({ tipo: 'conectado' });
+        const id = vivoId;
+        if (id !== null && tienda.obtener().fase === 'en_vivo') {
+          if (vivoVisible === null && pendienteVisible !== null) mostrar(pendienteVisible);
+          programarRevision(id);
+        }
+      } else if (e.conexion === 'reconectando') tienda.despachar({ tipo: 'reconectando' });
       else {
+        // Con el vivo al aire se pregunta a Facebook antes de cerrarlo: el id se retira de aquí
+        // para que el corte no lo cierre por su cuenta.
+        const enAire = tienda.obtener().fase === 'en_vivo' || tienda.obtener().fase === 'reconectando';
+        const perdido = enAire && d.estadoVivo && d.facebookCerro ? vivoId : null;
+        if (perdido !== null) vivoId = null;
         tienda.despachar({ tipo: 'cortado', mensaje: e.mensaje ?? MENSAJES.desconocido });
+        if (perdido !== null) void alPerderVivo(perdido);
         if (pideVolverAPreparar(e)) d.volverAPreparar();
       }
     },

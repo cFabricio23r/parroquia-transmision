@@ -32,6 +32,8 @@ interface Props {
   onVolverAPreparar: () => void;
   /** Vuelve a mostrar «Elegir transmisión» (plan 3b). */
   onVerSemana?: () => void;
+  /** Facebook directo (Tarea 10): con principal, la tira «SALE EN FACEBOOK» reemplaza a «clave guardada». */
+  tira?: { principal: string; extras: string | null; onCambiar: () => void } | null;
 }
 
 export default function AntesDeIniciar(p: Props) {
@@ -95,7 +97,7 @@ export default function AntesDeIniciar(p: Props) {
               {p.mensaje}
             </Text>
           ) : null}
-          {p.claveLista === true ? (
+          {p.claveLista === true && !p.tira ? (
             <Text style={[estilos.aviso, estilos.avisoBien]}>✓ Facebook: clave guardada</Text>
           ) : null}
           {p.claveLista === false ? (
@@ -130,6 +132,25 @@ export default function AntesDeIniciar(p: Props) {
             </View>
           ) : null}
         </View>
+        {p.tira ? (
+          <View style={estilos.tira} pointerEvents="box-none">
+            <View style={estilos.tiraTextos}>
+              <Text style={estilos.tiraEtiqueta}>SALE EN FACEBOOK</Text>
+              <Text style={estilos.tiraPrincipal} numberOfLines={2}>
+                {p.tira.principal}
+                {p.tira.extras ? <Text style={estilos.tiraExtras}>{` · y en ${p.tira.extras}`}</Text> : null}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar dónde sale en Facebook"
+              onPress={p.tira.onCambiar}
+              style={estilos.tiraBoton}
+            >
+              <Text style={estilos.volverTexto}>Cambiar</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <Pressable
@@ -161,6 +182,32 @@ const estilos = StyleSheet.create({
     justifyContent: 'space-between',
   },
   arriba: { gap: 6 },
+  // «SALE EN FACEBOOK», abajo de la vista previa, en on-media.
+  tira: {
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingLeft: 10,
+    paddingRight: 6,
+    borderRadius: 10,
+    backgroundColor: C.sobreVista,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  tiraTextos: { flex: 1, minWidth: 0 },
+  tiraEtiqueta: { fontFamily: F.extra, fontSize: 11, letterSpacing: 1.5, color: C.suave },
+  tiraPrincipal: { fontFamily: F.negrita, fontSize: 13, color: '#ffffff' },
+  tiraExtras: { fontFamily: F.semi, color: C.suave },
+  tiraBoton: {
+    minHeight: 44,
+    minWidth: 44,
+    borderRadius: 10,
+    backgroundColor: C.boton,
+    borderWidth: 1,
+    borderColor: C.borde,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
   filaArriba: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   volver: {
     minHeight: 44,

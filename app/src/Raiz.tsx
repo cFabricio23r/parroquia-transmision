@@ -21,6 +21,7 @@ import { useZonas } from './componentes/useZonas';
 import { obtenerConfig } from './config/compilacion';
 import { registrarLimpiezaCapa } from './capa/limpieza';
 import { avisarCambioDePaginas, registrarCopias } from './copias/copias';
+import { borrarElecciones, borrarEleccionesDe, registrarElecciones } from './facebook/elecciones';
 import { canalGuardadas } from './guardadas/puente';
 import { registrarGuardadas } from './guardadas/sincronizar';
 import { almacenSemana } from './semana/almacen';
@@ -89,6 +90,8 @@ if (config.ok) {
 }
 // La limpieza 'capa' va al final: libera la capa nativa al cerrar sesión (no depende de config).
 registrarLimpiezaCapa(limpiezas, { limpiarTodo });
+// Las casillas de Facebook de cada parroquia se borran con la limpieza de cuentas (Tarea 10).
+registrarElecciones(limpiezas, { borrarElecciones, borrarEleccionesDe });
 
 function correrMomento(m: Momento): Promise<unknown> | void {
   const base = contextoAhora();

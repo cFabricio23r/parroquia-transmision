@@ -15,12 +15,14 @@ interface Props {
   mensaje: string | null;
   /** Señal, batería, calor y red (Tarea 9). */
   avisos: Aviso[];
+  /** Facebook directo (Tarea 10): una chip verde con dónde sale y una ámbar por cada extra que no salió. */
+  facebook?: { verde: string | null; ambar: string[] };
   onEscena: (escena: Escena) => void;
   /** Pantalla completa (Tarea 9g): los avisos siguen el tamaño de la vista y no hay tira. */
   completa?: { ancho: number; alto: number } | null;
 }
 
-export default function EnVivo({ fase, escena, mensaje, avisos, onEscena, completa }: Props) {
+export default function EnVivo({ fase, escena, mensaje, avisos, facebook, onEscena, completa }: Props) {
   // El reducer solo cambia la escena estando al aire; en el resto la tira queda apagada.
   const tiraActiva = fase === 'en_vivo' || fase === 'reconectando';
   return (
@@ -36,6 +38,16 @@ export default function EnVivo({ fase, escena, mensaje, avisos, onEscena, comple
               {mensaje}
             </Text>
           ) : null}
+          {facebook?.verde ? (
+            <Text style={[estilos.aviso, estilos.avisoVerde]} accessibilityLiveRegion="polite">
+              {facebook.verde}
+            </Text>
+          ) : null}
+          {(facebook?.ambar ?? []).map((t) => (
+            <Text key={t} style={[estilos.aviso, estilos.avisoAmbar]} accessibilityLiveRegion="polite">
+              {t}
+            </Text>
+          ))}
         </View>
         {escena !== 'camara' ? (
           <Text style={[estilos.aviso, estilos.avisoOscuro]}>Cámara oculta · los rótulos se ven solo en «Cámara»</Text>
@@ -72,6 +84,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
   },
   avisoOscuro: { backgroundColor: 'rgba(6, 18, 36, 0.88)', color: C.texto },
+  avisoVerde: { backgroundColor: 'rgba(14, 51, 36, 0.92)', borderWidth: 1, borderColor: C.verde, color: '#8fe3b8' },
   avisoAmbar: { backgroundColor: C.ambarFondo, borderWidth: 1, borderColor: C.ambar, color: C.ambarTexto },
   abajo: { position: 'absolute', left: 0, bottom: 0, width: M.vistaAncho },
 });

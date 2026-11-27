@@ -64,16 +64,19 @@ import {
   type Medida,
   type UltimoDePantalla,
 } from './src/registro/registro';
-import { crearOrquestador, type Orquestador, type RespuestaVivo } from './src/estado/orquestador';
-import { crearClienteFacebook } from './src/facebook/cliente';
-import { crearVivoFacebook } from './src/facebook/vivo';
+import { crearOrquestador, type Orquestador, type RespuestaVivo, type VivoVisible } from './src/estado/orquestador';
+import { crearClienteFacebook, type ClienteFacebook, type Destinos, type EstadoVivo } from './src/facebook/cliente';
+import { guardarElecciones, leerElecciones } from './src/facebook/elecciones';
+import { chipsFacebook, crearVivoFacebook, extrasElegidos, resumenTira } from './src/facebook/vivo';
 import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './src/estado/orientacion';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
 import { limitarZoom, rangoValido, type RangoZoom } from './src/estado/zoom';
 import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar';
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
+import ElegirPaginas from './src/pantallas/ElegirPaginas';
 import EnVivo from './src/pantallas/EnVivo';
+import FacebookCerro from './src/pantallas/FacebookCerro';
 import Portada from './src/pantallas/Portada';
 import ElegirTransmision from './src/pantallas/semana/ElegirTransmision';
 import { almacenSemana } from './src/semana/almacen';
@@ -127,6 +130,10 @@ const pantalla = {
   // Facebook directo (Tarea 9): sin cliente listo, null = se usa la clave fija como hoy.
   pedirVivo: async (): Promise<RespuestaVivo> => null,
   terminarVivo: async (_id: string): Promise<void> => {},
+  estadoVivo: async (_id: string): Promise<EstadoVivo | null> => null,
+  // Lo que se muestra del vivo en curso y el diálogo «Facebook cerró la transmisión» (Tarea 10).
+  alFacebook: (_v: VivoVisible | null) => {},
+  facebookCerro: () => {},
 };
 
 const orq: Orquestador = crearOrquestador({
@@ -141,6 +148,9 @@ const orq: Orquestador = crearOrquestador({
   volverAPreparar: () => pantalla.volverAPreparar(),
   pedirVivo: () => pantalla.pedirVivo(),
   terminarVivo: (id) => pantalla.terminarVivo(id),
+  estadoVivo: (id) => pantalla.estadoVivo(id),
+  alFacebook: (v) => pantalla.alFacebook(v),
+  facebookCerro: () => pantalla.facebookCerro(),
 });
 const tienda = orq.tienda;
 
@@ -283,19 +293,53 @@ export default function App(p: {
   const tipoElegidoRef = useRef<string | null>(null);
   const nombreParroquiaRef = useRef(p.parroquia.nombre);
   nombreParroquiaRef.current = p.parroquia.nombre;
-  const vivoFacebook = useMemo(() => {
-    let cliente;
+  const clienteFacebook = useMemo((): ClienteFacebook | null => {
     try {
-      cliente = crearClienteFacebook({ origen: p.origen, slug, sesion: controlSesion.sesion });
+      return crearClienteFacebook({ origen: p.origen, slug, sesion: controlSesion.sesion });
     } catch {
-      cliente = null; // origen o slug inválidos: sin Facebook directo, se usa la clave fija
+      return null; // origen o slug inválidos: sin Facebook directo, se usa la clave fija
     }
-    if (!cliente) return { pedirVivo: async (): Promise<RespuestaVivo> => null, terminarVivo: async (_id: string) => {} };
-    return crearVivoFacebook({
-      cliente,
-      titulo: () => `${tipoElegidoRef.current ?? 'Transmisión'} · ${nombreParroquiaRef.current}`,
-    });
   }, [p.origen, slug]);
+  const vivoFacebook = useMemo(() => {
+    if (!clienteFacebook) {
+      return {
+        pedirVivo: async (): Promise<RespuestaVivo> => null,
+        terminarVivo: async (_id: string) => {},
+        estadoVivo: async (_id: string): Promise<EstadoVivo | null> => null,
+      };
+    }
+    return crearVivoFacebook({
+      cliente: clienteFacebook,
+      titulo: () => `${tipoElegidoRef.current ?? 'Transmisión'} · ${nombreParroquiaRef.current}`,
+      elecciones: () => leerElecciones(slug),
+    });
+  }, [clienteFacebook, slug]);
+
+  // Dónde sale en Facebook (Tarea 10): los destinos de la plataforma y las casillas guardadas.
+  // Se leen cada vez que se muestra Antes de iniciar; si fallan, no hay tira y se usa la clave fija.
+  const [destinosFb, setDestinosFb] = useState<Destinos | null>(null);
+  const [eleccionesFb, setEleccionesFb] = useState<string[] | null>(null);
+  const [paginasAbiertas, setPaginasAbiertas] = useState(false);
+  const [cerroFb, setCerroFb] = useState(false);
+  const [vivoFb, setVivoFb] = useState<VivoVisible | null>(null);
+  useEffect(() => {
+    setDestinosFb(null);
+    setEleccionesFb(null);
+  }, [slug]);
+  const enAntes = visible === 'antes';
+  useEffect(() => {
+    if (!enAntes || !clienteFacebook) return;
+    let vigente = true;
+    void (async () => {
+      const [d, e] = await Promise.all([clienteFacebook.destinos().catch(() => null), leerElecciones(slug)]);
+      if (!vigente) return;
+      setDestinosFb(d !== null && d.ok ? d.valor : null);
+      setEleccionesFb(e);
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [enAntes, clienteFacebook, slug]);
 
   // Plan 3b: «Elegir transmisión» sobre Antes de iniciar, y el seguimiento de la que está en uso.
   // Nada de esto corre en vivo: la capa solo se ve en 'antes' y el seguimiento guarda en el celular.
@@ -554,6 +598,9 @@ export default function App(p: {
   pantalla.volverAPreparar = volverAPreparar;
   pantalla.pedirVivo = vivoFacebook.pedirVivo;
   pantalla.terminarVivo = vivoFacebook.terminarVivo;
+  pantalla.estadoVivo = vivoFacebook.estadoVivo;
+  pantalla.alFacebook = setVivoFb;
+  pantalla.facebookCerro = () => setCerroFb(true);
 
   useEffect(() => {
     if (listo && parroquiaLista) void preparar(true);
@@ -770,6 +817,7 @@ export default function App(p: {
 
   if (!listo) return <View style={estilos.raiz} />;
 
+  const resumenFb = destinosFb ? resumenTira(destinosFb, eleccionesFb) : null;
   const errorVisible = estado.error !== null && estado.error !== errorSuperado ? estado.error : null;
   const mensajeAntes = errorVisible ?? aviso ?? avisoEscena;
 
@@ -830,6 +878,7 @@ export default function App(p: {
                 escena={estado.escena}
                 mensaje={mensajeVivo}
                 avisos={avisos}
+                facebook={chipsFacebook(vivoFb)}
                 onEscena={(escena) => tienda.despachar({ tipo: 'escena', escena })}
                 completa={enCompleta ? { ancho: lugares.vista.width, alto: lugares.vista.height } : null}
               />
@@ -844,6 +893,7 @@ export default function App(p: {
                 noMolestar={noMolestar}
                 onActivarNoMolestar={() => void abrirNoMolestar().catch(() => undefined)}
                 onIniciar={() => void orq.iniciar()}
+                tira={resumenFb ? { principal: resumenFb.principal, extras: resumenFb.extras, onCambiar: () => setPaginasAbiertas(true) } : null}
                 onAjustes={() => setEnAjustes(true)}
                 onPrepararOtraVez={volverAPreparar}
                 onVolverAPreparar={() => setListoParaIniciar(false)}
@@ -920,6 +970,29 @@ export default function App(p: {
         </View>
       ) : null}
 
+      {destinosFb?.principal ? (
+        <ElegirPaginas
+          visible={paginasAbiertas && !alAire}
+          principal={destinosFb.principal}
+          extras={destinosFb.extras}
+          elegidas={extrasElegidos(destinosFb, eleccionesFb)}
+          onCambiar={(ids) => {
+            setEleccionesFb(ids);
+            guardarElecciones(slug, ids).catch(() => undefined);
+          }}
+          onListo={() => setPaginasAbiertas(false)}
+          onCerrar={() => setPaginasAbiertas(false)}
+        />
+      ) : null}
+      <FacebookCerro
+        visible={cerroFb}
+        onTerminar={() => setCerroFb(false)}
+        // Único camino a un vivo nuevo: este toque (orq.iniciar crea el vivo de nuevo).
+        onIniciarNueva={() => {
+          setCerroFb(false);
+          void orq.iniciar();
+        }}
+      />
       <ConfirmarTerminar
         visible={confirmar && alAire}
         segundos={estado.segundos}

@@ -533,3 +533,168 @@ describe('Facebook colgado: tope de 8 s', () => {
     expect(d.iniciar).toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
   });
 });
+
+describe('Facebook: revisión a los 20 s y corte largo (Tarea 10)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const VIVO = {
+    servidor: 'rtmps://vivo.example:443/rtmp/',
+    clave: 'VIVO-PRUEBA-0000',
+    id: 'vivo-1',
+    principal: 'Ciudad Arce',
+    extras: ['Vicaría', 'Sector 3'],
+  };
+  const CONECTADO = { conexion: 'conectado', mbps: 2.5, mensaje: null, motivo: null } as const;
+  const CORTADO = { conexion: 'cortado', mbps: null, mensaje: 'Se perdió la señal.', motivo: null } as const;
+
+  async function alAire(extra: Partial<DepsOrquestador> = {}) {
+    const estadoVivo = jest.fn(async (_id: string) => ({
+      estado: 'activo' as const,
+      extras: [
+        { id: 'e1', nombre: 'Vicaría', salio: true },
+        { id: 'e2', nombre: 'Sector 3', salio: false },
+      ],
+    }));
+    const alFacebook = jest.fn();
+    const facebookCerro = jest.fn();
+    const terminarVivo = jest.fn(async (_id: string) => {});
+    const x = armar({
+      pedirVivo: jest.fn(async () => VIVO),
+      terminarVivo,
+      estadoVivo,
+      alFacebook,
+      facebookCerro,
+      ...extra,
+    });
+    const fin = x.o.iniciar();
+    await vaciar();
+    x.escenas[0].resolver();
+    await vaciar();
+    x.inicios[0].resolver();
+    await fin;
+    x.o.alEvento(CONECTADO);
+    return { ...x, estadoVivo, alFacebook, facebookCerro, terminarVivo };
+  }
+
+  it('al pasar a en_vivo muestra la principal y las extras pedidas, sin revisar todavía', async () => {
+    const x = await alAire();
+    expect(x.alFacebook).toHaveBeenLastCalledWith({
+      principal: 'Ciudad Arce',
+      extras: [
+        { nombre: 'Vicaría', salio: null },
+        { nombre: 'Sector 3', salio: null },
+      ],
+    });
+    expect(x.estadoVivo).not.toHaveBeenCalled();
+  });
+
+  it('a los 20 s llama una vez a estadoVivo(id) y publica quién salió', async () => {
+    const x = await alAire();
+    jest.advanceTimersByTime(19_999);
+    await vaciar();
+    expect(x.estadoVivo).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    await vaciar();
+    expect(x.estadoVivo).toHaveBeenCalledTimes(1);
+    expect(x.estadoVivo).toHaveBeenCalledWith('vivo-1');
+    expect(x.alFacebook).toHaveBeenLastCalledWith({
+      principal: 'Ciudad Arce',
+      extras: [
+        { nombre: 'Vicaría', salio: true },
+        { nombre: 'Sector 3', salio: false },
+      ],
+    });
+    // Una sola vez: otro «conectado» (tras reconectar) no vuelve a revisar.
+    x.o.alEvento({ conexion: 'reconectando', mbps: null, mensaje: null, motivo: null });
+    x.o.alEvento(CONECTADO);
+    jest.advanceTimersByTime(60_000);
+    await vaciar();
+    expect(x.estadoVivo).toHaveBeenCalledTimes(1);
+  });
+
+  it('si estadoVivo falla o no responde no inventa nada: queda como estaba', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => null) });
+    const antes = x.alFacebook.mock.calls.length;
+    jest.advanceTimersByTime(20_000);
+    await vaciar();
+    expect(x.alFacebook.mock.calls.length).toBe(antes);
+  });
+
+  it('terminar antes de los 20 s cancela la revisión y limpia lo mostrado', async () => {
+    const x = await alAire();
+    x.o.terminarAhora();
+    await vaciar();
+    expect(x.alFacebook).toHaveBeenLastCalledWith(null);
+    jest.advanceTimersByTime(30_000);
+    await vaciar();
+    expect(x.estadoVivo).not.toHaveBeenCalled();
+  });
+
+  it('sin vivo de Facebook (clave fija) no revisa ni muestra nada', async () => {
+    const x = await alAire({ pedirVivo: jest.fn(async () => null) });
+    jest.advanceTimersByTime(30_000);
+    await vaciar();
+    expect(x.estadoVivo).not.toHaveBeenCalled();
+    expect(x.alFacebook).not.toHaveBeenCalledWith(expect.objectContaining({ principal: expect.anything() }));
+  });
+
+  it('corte largo con estado «terminado»: muestra el diálogo y no vuelve a cerrar el vivo', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => ({ estado: 'terminado' as const, extras: [] })) });
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    expect(x.d.estadoVivo).toHaveBeenCalledWith('vivo-1');
+    expect(x.facebookCerro).toHaveBeenCalledTimes(1);
+    expect(x.terminarVivo).not.toHaveBeenCalled();
+    expect(x.o.tienda.obtener().fase).toBe('preparando');
+  });
+
+  it('el diálogo nunca crea un vivo nuevo solo: no se vuelve a pedir ni a iniciar', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => ({ estado: 'terminado' as const, extras: [] })) });
+    const pedidos = (x.d.pedirVivo as jest.Mock).mock.calls.length;
+    const inicios = (x.d.iniciar as jest.Mock).mock.calls.length;
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    jest.advanceTimersByTime(60_000);
+    await vaciar();
+    expect((x.d.pedirVivo as jest.Mock).mock.calls.length).toBe(pedidos);
+    expect((x.d.iniciar as jest.Mock).mock.calls.length).toBe(inicios);
+  });
+
+  it('«Iniciar una nueva» (orq.iniciar) crea un vivo nuevo', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => ({ estado: 'terminado' as const, extras: [] })) });
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    const pedidos = (x.d.pedirVivo as jest.Mock).mock.calls.length;
+    void x.o.iniciar();
+    await vaciar();
+    x.escenas[x.escenas.length - 1].resolver();
+    await vaciar();
+    expect((x.d.pedirVivo as jest.Mock).mock.calls.length).toBe(pedidos + 1);
+  });
+
+  it('corte largo con el vivo todavía activo en Facebook: se cierra como siempre y no hay diálogo', async () => {
+    const x = await alAire();
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    expect(x.facebookCerro).not.toHaveBeenCalled();
+    expect(x.terminarVivo).toHaveBeenCalledTimes(1);
+    expect(x.terminarVivo).toHaveBeenCalledWith('vivo-1');
+  });
+
+  it('corte largo y estadoVivo sin respuesta: se intenta cerrar y no hay diálogo', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => null) });
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    expect(x.facebookCerro).not.toHaveBeenCalled();
+    expect(x.terminarVivo).toHaveBeenCalledWith('vivo-1');
+  });
+
+  it('terminar a mano nunca muestra el diálogo', async () => {
+    const x = await alAire({ estadoVivo: jest.fn(async () => ({ estado: 'terminado' as const, extras: [] })) });
+    x.o.terminarAhora();
+    await vaciar();
+    expect(x.facebookCerro).not.toHaveBeenCalled();
+    expect(x.terminarVivo).toHaveBeenCalledTimes(1);
+  });
+});

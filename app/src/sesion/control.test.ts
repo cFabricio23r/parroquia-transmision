@@ -6,6 +6,7 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 import { crearClienteSupabase, type ClienteSupabase, type Resultado, type SesionSupabase } from '../supabase/cliente';
+import { crearElecciones, registrarElecciones, type NativoElecciones } from '../facebook/elecciones';
 import { crearLimpiezas, crearSincronizador, type Limpiezas } from '../sincronizar/sincronizar';
 import { LLAVES, crearAlmacen, type AlmacenSesion } from './almacen';
 import { crearControlSesion, controlSesion } from './control';
@@ -415,6 +416,31 @@ describe('cerrarSesion', () => {
     expect(control.sesion.actual()).toBeNull();
     expect(Object.keys(mem)).toEqual(['parroquia_ajustes_v1']);
     for (const k of Object.values(LLAVES)) expect(mem[k]).toBeUndefined();
+  });
+});
+
+describe('cerrarSesion y las elecciones de Facebook (Tarea 10)', () => {
+  it('la limpieza de cerrar sesión borra las elecciones guardadas', async () => {
+    const archivos = new Map<string, string>();
+    const nativo: NativoElecciones = {
+      leerDatosApp: async (n) => archivos.get(n) ?? null,
+      guardarDatosApp: async (n, t) => {
+        archivos.set(n, t);
+      },
+      borrarDatosApp: async (prefijo) => {
+        for (const k of [...archivos.keys()]) if (prefijo.endsWith('-') ? k.startsWith(prefijo) : k === prefijo) archivos.delete(k);
+      },
+    };
+    const elecciones = crearElecciones(nativo);
+    const { control, almacen, limpiezas } = armar();
+    registrarElecciones(limpiezas, elecciones);
+    await guardarTodo(almacen, SESION, A);
+    await elecciones.guardarElecciones('ciudad-arce', ['e1']);
+    await elecciones.guardarElecciones('san-jose', ['e2']);
+    await control.cargar();
+    expect(await control.cerrarSesion()).toEqual({});
+    await expect(elecciones.leerElecciones('ciudad-arce')).resolves.toBeNull();
+    await expect(elecciones.leerElecciones('san-jose')).resolves.toBeNull();
   });
 });
 
