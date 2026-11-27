@@ -91,6 +91,26 @@ function leerEstado(c: unknown): EstadoVivo | null {
   return { estado: c.estado, extras: extras.map((e) => ({ id: e.id, nombre: e.nombre, salio: e.salio })) };
 }
 
+/**
+ * Tope total (renovar sesion + pedido + reintento incluidos): a `ms` resuelve sin-conexion.
+ * Un resultado tardio se descarta en silencio (sin console, sin dejar ver la clave).
+ */
+function conLimite<T>(p: Promise<ResultadoFacebook<T>>, ms: number): Promise<ResultadoFacebook<T>> {
+  return new Promise((resolver) => {
+    const t = setTimeout(() => resolver({ ok: false, error: { tipo: 'sin-conexion' } }), ms);
+    p.then(
+      (r) => {
+        clearTimeout(t);
+        resolver(r);
+      },
+      () => {
+        clearTimeout(t);
+        resolver({ ok: false, error: { tipo: 'otro' } });
+      },
+    );
+  });
+}
+
 export function crearClienteFacebook(o: { origen: string; slug: string; sesion: SesionApp; fetch?: typeof fetch }): ClienteFacebook {
   const origen = normalizarOrigen(o.origen);
   if (!origen) throw new Error('Origen de la plataforma inválido.');
@@ -132,7 +152,7 @@ export function crearClienteFacebook(o: { origen: string; slug: string; sesion: 
 
   return {
     destinos: () => pedir('GET', 'facebook', PLAZO_POR_DEFECTO_MS, undefined, leerDestinos),
-    crear: (extras, titulo) => pedir('POST', 'vivo', PLAZO_CREAR_MS, { extras, titulo }, leerVivo),
+    crear: (extras, titulo) => conLimite(pedir('POST', 'vivo', PLAZO_CREAR_MS, { extras, titulo }, leerVivo), PLAZO_CREAR_MS),
     estado: (id) => pedir('GET', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, leerEstado),
     terminar: (id) => pedir<void>('DELETE', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, () => undefined),
   };

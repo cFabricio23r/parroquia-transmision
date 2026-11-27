@@ -71,6 +71,43 @@ describe('crear', () => {
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
   });
 
+  it('da sin-conexion a los 8 s totales si la renovacion de sesion nunca responde', async () => {
+    jest.useFakeTimers();
+    const f = jest.fn();
+    const sesion = { conSesion: () => new Promise(() => {}) } as unknown as SesionApp;
+    const p = cliente(f, sesion).crear([], 'Misa');
+    await jest.advanceTimersByTimeAsync(8_000);
+    expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it('en el reintento por sesion-invalida el total no pasa de 8 s y el resultado tardio se ignora', async () => {
+    jest.useFakeTimers();
+    const espia = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const f = jest.fn(async () => respuesta(401, {}));
+    const sesion = {
+      conSesion: async (fn: (s: unknown) => Promise<{ ok: boolean }>) => {
+        const s = { accessToken: TOKEN, refreshToken: 'r', expiraEn: 9e9, usuarioId: 'u', correo: 'a@b.c' };
+        const r = await fn(s);
+        if (r.ok) return r;
+        await new Promise((res) => setTimeout(res, 6_000)); // renovar
+        return fn(s); // segundo intento, con un fetch que no responde
+      },
+    } as unknown as SesionApp;
+    f.mockImplementationOnce(async () => respuesta(401, {})).mockImplementation(() => new Promise<Response>(() => {}));
+    const p = cliente(f, sesion).crear([], 'Misa');
+    let listo = false;
+    void p.then(() => {
+      listo = true;
+    });
+    await jest.advanceTimersByTimeAsync(7_999);
+    expect(listo).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(espia).not.toHaveBeenCalled();
+  });
+
   it.each(['sin-facebook', 'reconectar', 'requisitos', 'facebook', 'muchos'] as const)('mapea el codigo %s', async (codigo) => {
     const f = jest.fn(async () => respuesta(422, { codigo }));
     expect(await cliente(f).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: codigo } });
