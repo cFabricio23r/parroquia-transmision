@@ -3,7 +3,7 @@ import { createRoot, type TestInstance } from 'test-renderer';
 
 import AntesDeIniciar from './AntesDeIniciar';
 
-async function mostrar(tira: { principal: string; extras: string | null; onCambiar: () => void } | null) {
+async function mostrar(tira: { principal: string; extras: string | null; titulo?: string; onCambiar: () => void } | null) {
   const raiz = createRoot();
   await act(async () => {
     raiz.render(
@@ -44,6 +44,11 @@ describe('AntesDeIniciar: tira «SALE EN FACEBOOK»', () => {
       boton.props.onClick({});
     });
     expect(onCambiar).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra el título del vivo en la tira', async () => {
+    const { texto } = await mostrar({ principal: 'Parroquia Ciudad Arce', extras: null, titulo: 'Alborada Sector 8', onCambiar: jest.fn() });
+    expect(texto).toContain('Alborada Sector 8');
   });
 
   it('sin extras elegidas no dice «y en»', async () => {

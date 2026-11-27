@@ -75,7 +75,7 @@ import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
 import ElegirPaginas from './src/pantallas/ElegirPaginas';
-import { textosVivo } from './src/facebook/textos';
+import { leerFacebook, textosVivo, type TextosVivo } from './src/facebook/textos';
 import EnVivo from './src/pantallas/EnVivo';
 import FacebookCerro from './src/pantallas/FacebookCerro';
 import Portada from './src/pantallas/Portada';
@@ -293,9 +293,14 @@ export default function App(p: {
 
   // Facebook directo (Tarea 9). El título del vivo sale del tipo de la transmisión elegida y la
   // parroquia, p. ej. «Misa dominical · Inmaculada Concepción»; sin elección, «Transmisión · parroquia».
-  const tipoElegidoRef = useRef<string | null>(null);
-  const nombreParroquiaRef = useRef(p.parroquia.nombre);
-  nombreParroquiaRef.current = p.parroquia.nombre;
+  // Título y descripción del vivo: lo guardado en la plataforma (datos.facebook) y, si se cambió en la
+  // hoja, lo editado, que vale solo para esta transmisión.
+  const [tipoElegido, setTipoElegido] = useState<string | null>(null);
+  const [guardadoFb, setGuardadoFb] = useState<TextosVivo>({ titulo: '', descripcion: '' });
+  const [textosEditados, setTextosEditados] = useState<TextosVivo | null>(null);
+  const textosActuales = textosVivo({ guardado: guardadoFb, tipo: tipoElegido, parroquia: p.parroquia.nombre, editado: textosEditados });
+  const textosRef = useRef(textosActuales);
+  textosRef.current = textosActuales;
   const clienteFacebook = useMemo((): ClienteFacebook | null => {
     try {
       return crearClienteFacebook({ origen: p.origen, slug, sesion: controlSesion.sesion });
@@ -313,8 +318,7 @@ export default function App(p: {
     }
     return crearVivoFacebook({
       cliente: clienteFacebook,
-      textos: () =>
-        textosVivo({ guardado: { titulo: '', descripcion: '' }, tipo: tipoElegidoRef.current, parroquia: nombreParroquiaRef.current, editado: null }),
+      textos: () => textosRef.current,
       elecciones: () => leerElecciones(slug),
     });
   }, [clienteFacebook, slug]);
@@ -358,7 +362,9 @@ export default function App(p: {
   useEffect(() => () => seguimiento.soltar(), [seguimiento]);
   useEffect(() => {
     setEleccion('pendiente');
-    tipoElegidoRef.current = null;
+    setTipoElegido(null);
+    setGuardadoFb({ titulo: '', descripcion: '' });
+    setTextosEditados(null);
   }, [slug]);
   const releerSemana = useCallback(async () => {
     const hoy = fechaLocal(new Date());
@@ -401,7 +407,9 @@ export default function App(p: {
       const parche = SEMANA.parcheDePanel(item, tipo);
       panelRef.current?.inyectar(editar ? scriptEditar(slug, parche) : scriptUsar(slug, parche));
       seguimiento.usar(item, tipo);
-      tipoElegidoRef.current = tipo.nombre;
+      setTipoElegido(tipo.nombre);
+      setGuardadoFb(leerFacebook(item.datos));
+      setTextosEditados(null);
       setEleccion('hecha');
     },
     [semana.tipos, slug, seguimiento],
@@ -420,6 +428,12 @@ export default function App(p: {
   const estiloPanel = useMemo(() => [estilos.zona, lugares.panel], [lugares.panel]);
 
   // Al dejar el aire: el zoom vuelve a 1× (el nativo también lo hace) y se sale de pantalla completa.
+  // Al terminar un vivo, lo editado en la hoja se olvida: valía solo para esa transmisión.
+  const estuvoAlAire = useRef(false);
+  useEffect(() => {
+    if (estuvoAlAire.current && !alAire) setTextosEditados(null);
+    estuvoAlAire.current = alAire;
+  }, [alAire]);
   useEffect(() => {
     if (!alAire) {
       setCompleta(false);
@@ -897,7 +911,11 @@ export default function App(p: {
                 noMolestar={noMolestar}
                 onActivarNoMolestar={() => void abrirNoMolestar().catch(() => undefined)}
                 onIniciar={() => void orq.iniciar()}
-                tira={resumenFb ? { principal: resumenFb.principal, extras: resumenFb.extras, onCambiar: () => setPaginasAbiertas(true) } : null}
+                tira={
+                  resumenFb
+                    ? { principal: resumenFb.principal, extras: resumenFb.extras, titulo: textosActuales.titulo, onCambiar: () => setPaginasAbiertas(true) }
+                    : null
+                }
                 onAjustes={() => setEnAjustes(true)}
                 onPrepararOtraVez={volverAPreparar}
                 onVolverAPreparar={() => setListoParaIniciar(false)}
@@ -985,6 +1003,8 @@ export default function App(p: {
             guardarElecciones(slug, ids).catch(() => undefined);
           }}
           onListo={() => setPaginasAbiertas(false)}
+          textos={textosActuales}
+          onCambiarTextos={setTextosEditados}
           onCerrar={() => setPaginasAbiertas(false)}
         />
       ) : null}

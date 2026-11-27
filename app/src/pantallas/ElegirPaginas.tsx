@@ -1,8 +1,10 @@
 // Hoja «Dónde sale en Facebook» (lienzo AppElegirPaginas): la página principal (la elige el
 // coordinador, sin casilla) y una casilla por página extra. Nueva: zonas de 44 px o más y ancho máximo.
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { C, F } from '../componentes/tema';
+import type { TextosVivo } from '../facebook/textos';
 
 interface Props {
   visible: boolean;
@@ -12,6 +14,10 @@ interface Props {
   elegidas: string[];
   onCambiar: (ids: string[]) => void;
   onListo: () => void;
+  /** Título y descripción que van a salir en Facebook. */
+  textos: TextosVivo;
+  /** Los textos tal cual se escribieron (sin recortar). */
+  onCambiarTextos: (t: TextosVivo) => void;
   /** Botón Atrás del celular. */
   onCerrar: () => void;
 }
@@ -22,6 +28,21 @@ export function alternar(elegidas: readonly string[], id: string): string[] {
 }
 
 export default function ElegirPaginas(p: Props) {
+  const [editando, setEditando] = useState(false);
+  const [titulo, setTitulo] = useState(p.textos.titulo);
+  const [descripcion, setDescripcion] = useState(p.textos.descripcion);
+  useEffect(() => {
+    if (!p.visible) setEditando(false);
+  }, [p.visible]);
+  const abrir = () => {
+    setTitulo(p.textos.titulo);
+    setDescripcion(p.textos.descripcion);
+    setEditando(true);
+  };
+  const terminar = () => {
+    p.onCambiarTextos({ titulo, descripcion });
+    setEditando(false);
+  };
   return (
     <Modal
       visible={p.visible}
@@ -40,6 +61,64 @@ export default function ElegirPaginas(p: Props) {
             <Text style={estilos.etiqueta}>PÁGINA PRINCIPAL</Text>
             <Text style={estilos.nombrePrincipal}>{p.principal.nombre}</Text>
             <Text style={estilos.nota}>La elige el coordinador de la parroquia en la plataforma.</Text>
+          </View>
+          <View style={estilos.principal}>
+            {editando ? (
+              <>
+                <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
+                <TextInput
+                  accessibilityLabel="Título"
+                  value={titulo}
+                  onChangeText={setTitulo}
+                  maxLength={254}
+                  style={estilos.campo}
+                  placeholder="Título"
+                  placeholderTextColor={C.suave}
+                />
+                <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
+                <TextInput
+                  accessibilityLabel="Descripción"
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  maxLength={1000}
+                  multiline
+                  numberOfLines={3}
+                  style={[estilos.campo, estilos.campoLargo]}
+                  placeholder="Descripción"
+                  placeholderTextColor={C.suave}
+                />
+                <View style={estilos.fila}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Listo con el título y la descripción"
+                    onPress={terminar}
+                    style={estilos.cambiar}
+                  >
+                    <Text style={estilos.cambiarTexto}>Listo</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
+                <Text style={estilos.nombrePrincipal}>{p.textos.titulo}</Text>
+                <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
+                <Text style={estilos.descripcion} numberOfLines={3}>
+                  {p.textos.descripcion.trim() === '' ? 'Sin descripción' : p.textos.descripcion}
+                </Text>
+                <View style={estilos.fila}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cambiar el título y la descripción"
+                    onPress={abrir}
+                    style={estilos.cambiar}
+                  >
+                    <Text style={estilos.cambiarTexto}>Cambiar</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+            <Text style={estilos.nota}>Lo que cambies aquí vale solo para esta transmisión.</Text>
           </View>
           {p.extras.length > 0 ? (
             <>
@@ -135,4 +214,29 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
   },
   listoTexto: { fontFamily: F.extra, fontSize: 15, color: '#ffffff' },
+  descripcion: { fontFamily: F.semi, fontSize: 13, color: C.texto, marginTop: 2 },
+  campo: {
+    minHeight: 44,
+    marginTop: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.borde,
+    backgroundColor: C.caja,
+    color: C.texto,
+    fontFamily: F.semi,
+    fontSize: 14,
+  },
+  campoLargo: { minHeight: 66, textAlignVertical: 'top', paddingVertical: 8 },
+  cambiar: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: C.boton,
+    borderWidth: 2,
+    borderColor: C.borde,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cambiarTexto: { fontFamily: F.extra, fontSize: 14, color: C.texto },
 });

@@ -33,7 +33,7 @@ interface Props {
   /** Vuelve a mostrar «Elegir transmisión» (plan 3b). */
   onVerSemana?: () => void;
   /** Facebook directo (Tarea 10): con principal, la tira «SALE EN FACEBOOK» reemplaza a «clave guardada». */
-  tira?: { principal: string; extras: string | null; onCambiar: () => void } | null;
+  tira?: { principal: string; extras: string | null; titulo?: string; onCambiar: () => void } | null;
 }
 
 export default function AntesDeIniciar(p: Props) {
@@ -140,6 +140,11 @@ export default function AntesDeIniciar(p: Props) {
                 {p.tira.principal}
                 {p.tira.extras ? <Text style={estilos.tiraExtras}>{` · y en ${p.tira.extras}`}</Text> : null}
               </Text>
+              {p.tira.titulo ? (
+                <Text style={estilos.tiraTitulo} numberOfLines={1}>
+                  {p.tira.titulo}
+                </Text>
+              ) : null}
             </View>
             <Pressable
               accessibilityRole="button"
@@ -198,6 +203,7 @@ const estilos = StyleSheet.create({
   tiraEtiqueta: { fontFamily: F.extra, fontSize: 11, letterSpacing: 1.5, color: C.suave },
   tiraPrincipal: { fontFamily: F.negrita, fontSize: 13, color: '#ffffff' },
   tiraExtras: { fontFamily: F.semi, color: C.suave },
+  tiraTitulo: { fontFamily: F.semi, fontSize: 12, color: C.suave },
   tiraBoton: {
     minHeight: 44,
     minWidth: 44,
