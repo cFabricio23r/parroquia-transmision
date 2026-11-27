@@ -1,0 +1,25 @@
+/* Páginas legales públicas (/privacidad, /terminos, /eliminar-datos). */
+.pv-legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+  color: var(--pv-texto);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.pv-legal h1 { font-size: 28px; font-weight: 800; margin: 0 0 4px; line-height: 1.25; }
+.pv-legal h2 { font-size: 19px; font-weight: 800; margin: 28px 0 8px; }
+.pv-legal p, .pv-legal ul, .pv-legal ol { margin: 0 0 12px; }
+.pv-legal li { margin-bottom: 6px; }
+.pv-legal a { color: var(--pv-primario); font-weight: 700; overflow-wrap: anywhere; }
+.pv-legal a:focus-visible { outline: 3px solid var(--pv-primario); outline-offset: 2px; }
+.pv-legal-fecha { color: var(--pv-texto-suave); font-size: 14px; }
+.pv-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pv-borde);
+}
+.pv-legal-nav a { display: inline-flex; align-items: center; min-height: 44px; }
