@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cuandoRegistro, fechaCompleta, cuandoVersion, fechaHoraCorta, formatearDiaMes, formatearFecha, MESES_CORTOS, ultimaEntrada } from '../../lib/fecha';
+import { cuandoRegistro, fechaCompleta, fechaDiaMesCorta, cuandoVersion, fechaHoraCorta, formatearDiaMes, formatearFecha, MESES_CORTOS, ultimaEntrada } from '../../lib/fecha';
 
 describe('formatearFecha', () => {
   it('muestra la hora de El Salvador (UTC-6) sin depender de la zona del servidor', () => {
@@ -68,6 +68,14 @@ describe('fechaCompleta', () => {
     expect(fechaCompleta('2026-11-15T00:42:00Z')).toBe('14 nov 2026, 18:42');
     expect(fechaCompleta('2026-01-05T16:05:00Z')).toBe('5 ene 2026, 10:05');
     expect(fechaCompleta('x')).toBe('—');
+  });
+});
+
+describe('fechaDiaMesCorta', () => {
+  it('«26 nov» en hora de El Salvador; inválida: «—»', () => {
+    expect(fechaDiaMesCorta('2026-11-26T18:00:00Z')).toBe('26 nov');
+    expect(fechaDiaMesCorta('2026-11-27T03:00:00Z')).toBe('26 nov');
+    expect(fechaDiaMesCorta('no')).toBe('—');
   });
 });
 

@@ -17,7 +17,9 @@ import {
   type CampoApp,
   type EstadoAppTransmision,
   type EstiloFinalApp,
+  type FacebookApp,
 } from './app-transmision-reglas';
+import { leerVista } from './facebook/conexion';
 
 export interface DepsAppTransmision {
   sesion: SupabaseClient;
@@ -39,7 +41,53 @@ async function nombreDe(sesion: SupabaseClient, parroquiaId: string): Promise<st
   return error || !data ? null : (data.nombre as string);
 }
 
-export async function leerAppTransmision(sesion: SupabaseClient, slug: string): Promise<Respuesta<EstadoAppTransmision | ConError>> {
+/**
+ * La tarjeta «Facebook de la parroquia»: estado, cuenta, quién la conectó y dónde sale la misa.
+ * Solo nombres (nunca tokens ni page_id). Todo filtra por parroquia_id. Un error de lectura da null.
+ */
+async function leerFacebook(servicio: SupabaseClient, parroquiaId: string): Promise<FacebookApp | null> {
+  try {
+    const v = await leerVista(servicio, parroquiaId);
+    if (!v) return null;
+    if (v.estado === 'sin-conectar') {
+      return { estado: 'sin-conectar', cuenta: null, conectadoPor: null, conectadoEn: null, principal: null, extras: [] };
+    }
+    const c = await servicio.from('facebook_conexion').select('conectado_por').eq('parroquia_id', parroquiaId).maybeSingle();
+    const e = await servicio.from('facebook_parroquia_extra').select('page_id, por_defecto').eq('parroquia_id', parroquiaId);
+    if (c.error || e.error) return null;
+    let conectadoPor: string | null = null;
+    const quien = c.data?.conectado_por as string | null | undefined;
+    if (quien) {
+      const n = await servicio.from('perfiles').select('nombre').eq('usuario_id', quien).maybeSingle();
+      if (n.error) return null;
+      conectadoPor = (n.data?.nombre as string | undefined) ?? null;
+    }
+    const porDefecto = new Map((e.data ?? []).map((x) => [x.page_id as string, x.por_defecto === true]));
+    return {
+      estado: v.estado,
+      cuenta: v.nombre,
+      conectadoPor,
+      conectadoEn: v.conectadoEn,
+      principal: v.paginas.find((p) => p.uso === 'Principal')?.nombre ?? null,
+      extras: v.paginas
+        .filter((p) => p.uso === 'Extra')
+        .map((p) => ({ nombre: p.nombre, porDefecto: porDefecto.get(p.id) === true }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `servicio` (el cliente de servicio, que salta RLS) se usa SOLO para `facebook` y SOLO después de
+ * `comprobarAcceso`: quien no ve la parroquia no llega a leerlo. Sin él, `facebook` queda en null.
+ */
+export async function leerAppTransmision(
+  sesion: SupabaseClient,
+  slug: string,
+  servicio?: SupabaseClient,
+): Promise<Respuesta<EstadoAppTransmision | ConError>> {
   const acceso = await comprobarAcceso(sesion, slug);
   if (!acceso.ok) return acceso.respuesta;
   const a = await sesion.from('ajustes_app').select(COLUMNAS_AJUSTES).eq('parroquia_id', acceso.parroquiaId).maybeSingle();
@@ -51,6 +99,7 @@ export async function leerAppTransmision(sesion: SupabaseClient, slug: string): 
     cuerpo: {
       ajustes: a.data ? aEditor(a.data as FilaAjustes) : null,
       clave: k.data ? { guardadaEn: k.data.guardada_en as string } : null,
+      facebook: servicio ? await leerFacebook(servicio, acceso.parroquiaId) : null,
     },
   };
 }

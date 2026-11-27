@@ -71,6 +71,14 @@ export function fechaCompleta(iso: string): string {
   return `${p.dia} ${MESES_CORTOS[p.mes - 1]} ${p.anio}, ${p.hora}`;
 }
 
+/** «26 nov», en hora de El Salvador. Inválida: «—». */
+export function fechaDiaMesCorta(iso: string): string {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return '—';
+  const p = partesLocales(f);
+  return `${p.dia} ${MESES_CORTOS[p.mes - 1]}`;
+}
+
 /** «5 nov, 10:12», en hora de El Salvador. Inválida: «—». */
 export function fechaHoraCorta(iso: string): string {
   const f = new Date(iso);

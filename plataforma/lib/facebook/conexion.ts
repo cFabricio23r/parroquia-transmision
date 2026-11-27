@@ -93,7 +93,7 @@ export function comprobarEstado(cookie: string | undefined, recibido: string | n
 
 type FilaPagina = { page_id: string; nombre: string; seguidores: number | null };
 
-async function leerVista(servicio: SupabaseClient, parroquiaId: string): Promise<VistaConexion | null> {
+export async function leerVista(servicio: SupabaseClient, parroquiaId: string): Promise<VistaConexion | null> {
   const c = await servicio
     .from('facebook_conexion')
     .select('nombre_facebook, estado, conectado_en')

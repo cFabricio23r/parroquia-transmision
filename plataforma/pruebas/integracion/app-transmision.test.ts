@@ -185,6 +185,33 @@ describe('editor', () => {
     expect(anotar(await quitarClave(deps(admin), A.slug)).estado).toBe(200);
   });
 
+  it('facebook: sin conexión es sin-conectar; con ella, solo la de su parroquia, sin tokens ni page_id', async () => {
+    const vacio = await leerAppTransmision(cA.cliente, A.slug, servicio);
+    expect((vacio.cuerpo as { facebook: { estado: string } }).facebook.estado).toBe('sin-conectar');
+    const idA = `pg-${sufijo()}-a`;
+    const idB = `pg-${sufijo()}-b`;
+    for (const [p, id, cuenta] of [
+      [A, idA, 'Cuenta de A'],
+      [B, idB, 'Cuenta de B'],
+    ] as const) {
+      expect((await servicio.from('facebook_conexion').insert({ parroquia_id: p.id, nombre_facebook: cuenta, token_usuario: 'v1.TOKEN-FALSO-U', estado: 'conectado' })).error).toBeNull();
+      expect((await servicio.from('facebook_paginas').insert({ parroquia_id: p.id, page_id: id, nombre: `Página ${cuenta}`, token: 'v1.TOKEN-FALSO-P' })).error).toBeNull();
+      expect((await servicio.from('facebook_parroquia').insert({ parroquia_id: p.id, pagina_principal: id })).error).toBeNull();
+    }
+    try {
+      const r = await leerAppTransmision(cA.cliente, A.slug, servicio);
+      expect(r.estado).toBe(200);
+      expect((r.cuerpo as { facebook: unknown }).facebook).toMatchObject({ estado: 'conectado', cuenta: 'Cuenta de A', principal: 'Página Cuenta de A', extras: [] });
+      const texto = JSON.stringify(r.cuerpo);
+      for (const prohibido of ['TOKEN-FALSO', idA, idB, 'Cuenta de B']) expect(texto).not.toContain(prohibido);
+      const ajena = await leerAppTransmision(cA.cliente, B.slug, servicio);
+      expect(ajena.estado).toBe(403);
+      expect(JSON.stringify(ajena.cuerpo)).not.toContain('Cuenta de B');
+    } finally {
+      for (const p of [A, B]) await servicio.from('facebook_conexion').delete().eq('parroquia_id', p.id);
+    }
+  });
+
   it('la clave nunca aparece (Review Focus 2)', async () => {
     for (const e of espias) expect(JSON.stringify(e.mock.calls)).not.toContain('FB-CLAVE-FALSA');
     expect(JSON.stringify(respuestas)).not.toContain('FB-CLAVE-FALSA');

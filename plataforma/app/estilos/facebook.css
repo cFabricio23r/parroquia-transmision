@@ -57,3 +57,32 @@
 .pv-admin-fb-sub { font-size: 12px; font-weight: 600; color: var(--pv-texto-suave); overflow-wrap: anywhere; }
 .pv-admin-fb-pasos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 22px; font-weight: 600; color: #3d4b5f; }
 .pv-admin-fb-nota { font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
+
+/* App y transmisión · tarjeta «Facebook de la parroquia» (C1, C4, D1) y pantalla D2.
+   D11, D16, D17, D19: diálogo con ancho máximo (el de .pv-dialogo), zonas de 44 px o más, estado siempre en texto, título de 26 px. */
+.pv-fbt-tarjeta { display: flex; flex-direction: column; gap: 12px; }
+.pv-fbt-cabeza { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pv-fbt-cabeza-titulo { flex-grow: 1; }
+.pv-fbt-texto { margin: 0; font-size: 14px; line-height: 21px; font-weight: 600; color: #3d4b5f; }
+.pv-fbt-cuenta { font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
+.pv-fbt-sale { padding: 12px 14px; border-radius: 10px; background: var(--pv-fondo, #f4f7fb); display: flex; flex-direction: column; gap: 4px; }
+.pv-fbt-sale-rotulo { font-size: 12px; font-weight: 800; letter-spacing: 1.2px; color: var(--pv-texto-suave); }
+.pv-fbt-sale-principal { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.pv-fbt-sale-extras { font-size: 14px; font-weight: 600; color: #3d4b5f; overflow-wrap: anywhere; }
+.pv-fbt-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.pv-fbt-tarjeta .pv-boton, .pv-fbt-no-invitada .pv-boton { min-height: 44px; display: inline-flex; align-items: center; gap: 10px; }
+.pv-fbt-aviso { padding: 12px 16px; border-radius: 10px; background: #fff4d6; color: #6b4f00; font-size: 14px; font-weight: 700; line-height: 21px; }
+.pv-fbt-pantalla { display: flex; flex-direction: column; gap: 16px; max-width: 920px; }
+.pv-fbt-no-invitada {
+  max-width: 640px;
+  background: #fff;
+  border: 1px solid var(--pv-borde);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pv-fbt-titulo { margin: 0; font-size: 26px; line-height: 32px; font-weight: 800; }
+.pv-fbt-no-invitada-texto { margin: 0; font-size: 15px; line-height: 23px; font-weight: 600; color: #3d4b5f; }
+.pv-fbt-nota { font-size: 13px; line-height: 20px; font-weight: 600; color: var(--pv-texto-suave); }

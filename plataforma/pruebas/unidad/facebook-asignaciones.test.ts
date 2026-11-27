@@ -523,7 +523,8 @@ describe('pantalla de páginas y columna del admin', () => {
   it('el encabezado no lleva el chip del borrador en «¿Dónde sale la misa?», pero sí en las demás secciones', () => {
     expect(sinChipBorrador('/editor/p/sa/app-y-transmision/facebook', 'sa')).toBe(true);
     expect(sinChipBorrador('/editor/p/sa/app-y-transmision/facebook/conectar', 'sa')).toBe(true);
-    expect(sinChipBorrador('/editor/p/sa/app-y-transmision', 'sa')).toBe(false);
+    expect(sinChipBorrador('/editor/p/sa/app-y-transmision', 'sa')).toBe(true); // D13: tampoco en la sección (Tarea 6)
+    expect(sinChipBorrador('/editor/p/sa/app-y-transmisionx', 'sa')).toBe(false);
     expect(sinChipBorrador('/editor/p/sa/identidad', 'sa')).toBe(false);
     expect(sinChipBorrador('/editor/p/sb/app-y-transmision/facebook', 'sa')).toBe(false);
   });

@@ -12,9 +12,23 @@ export interface AjustesAppEditor {
   actualizadoEn: string;
 }
 
+/**
+ * «Facebook de la parroquia» (Tarea 6). Solo nombres: nunca un token ni un page_id.
+ * `null` si no se pudo leer (la sección lo dice y sigue).
+ */
+export interface FacebookApp {
+  estado: 'conectado' | 'reconectar' | 'sin-conectar';
+  cuenta: string | null;
+  conectadoPor: string | null;
+  conectadoEn: string | null;
+  principal: string | null;
+  extras: { nombre: string; porDefecto: boolean }[];
+}
+
 export interface EstadoAppTransmision {
   ajustes: AjustesAppEditor | null;
   clave: { guardadaEn: string } | null;
+  facebook: FacebookApp | null;
 }
 
 export type CampoApp = 'servidor' | 'calidadDefecto' | 'estiloFinal';

@@ -6,15 +6,18 @@
 // Sin type="password" (2026-11-23): con uno en la pantalla, Chrome la trataba como login y llenaba el servidor
 // con el correo y la clave con la contraseña guardados; autocomplete="off" no vale en campos de login (MDN).
 // La clave es texto tapado con `pv-campo-oculto` (-webkit-text-security).
+// La tarjeta «Facebook de la parroquia» (Tarea 6 del plan de Facebook en vivo) va arriba de todo, con los
+// artboards C1, C4 y D1; con `?error=no-invitada` la pantalla es D2. Solo recibe nombres, nunca tokens ni page_id.
 import { useEffect, useRef, useState } from 'react';
 import {
   type CalidadApp,
   type CampoApp,
   type EstadoAppTransmision,
   type EstiloFinalApp,
+  type FacebookApp,
 } from '../../../../../lib/app-transmision-reglas';
-import { fechaCompleta } from '../../../../../lib/fecha';
-import { Boton } from '../../../../componentes/Boton';
+import { fechaCompleta, fechaDiaMesCorta } from '../../../../../lib/fecha';
+import { Boton, clasesBoton } from '../../../../componentes/Boton';
 import { CajaInfo } from '../../../../componentes/CajaInfo';
 import { CampoTexto } from '../../../../componentes/CampoTexto';
 import { Dialogo } from '../../../../componentes/Dialogo';
@@ -30,6 +33,22 @@ export const MENSAJE_GUARDADO_APP = 'Guardado. Los celulares lo bajan la próxim
 export const MENSAJE_SIN_LEER_APP = 'No se pudieron leer los ajustes de la app. Recarga la página.';
 const MENSAJE_SIN_CONEXION = 'No hay conexión con el servidor. Revisa tu internet e intenta de nuevo';
 const CLAVE_FORMULARIO = 'app';
+
+export const TEXTO_FB_SIN_CONECTAR =
+  'Conecta la cuenta de Facebook que administra las páginas de la parroquia. Después eliges en qué página sale la misa y en cuáles más se muestra.';
+export const NOTA_FB_INVITAR =
+  'Antes, la Pastoral de Comunicaciones tiene que invitar la cuenta de Facebook de la parroquia. Se pide una sola vez.';
+export const TEXTO_FB_RECONECTAR =
+  'Facebook ya no acepta el acceso guardado. Pasa si se cambió la contraseña de la cuenta o se quitó el permiso. Las páginas elegidas se mantienen.';
+export const AVISO_FB_RECONECTAR =
+  'Facebook se desconectó. La app transmite con la clave de transmisión de respaldo hasta que vuelvas a conectar.';
+export const MENSAJE_FB_SIN_LEER = 'No se pudo leer el estado de Facebook. Recarga la página.';
+export const MENSAJE_FB_ERROR = 'No se pudo conectar con Facebook. Intenta de nuevo';
+export const TITULO_FB_NO_INVITADA = 'Esta cuenta de Facebook todavía no puede conectarse';
+const NOTA_RESPALDO_SIN_CONECTAR = 'Mientras no conectes Facebook, la app transmite con esta clave de transmisión, como hoy.';
+const NOTA_RESPALDO_RECONECTAR = 'Mientras tanto, la app transmite con esta clave de transmisión a la página principal.';
+const notaRespaldoConectado = (principal: string | null) =>
+  `Se usa solo si Facebook no responde al iniciar. Tiene que ser la clave de transmisión de la página principal${principal ? `, ${principal}` : ''}.`;
 
 type Cuerpo = { error?: string; errores?: Partial<Record<CampoApp, string>>; guardadaEn?: string } & Record<string, unknown>;
 
@@ -51,9 +70,35 @@ async function pedir(url: string, metodo: 'PUT' | 'DELETE', cuerpo?: unknown): P
 const pila = { display: 'grid', gap: 16 } as const;
 const fila = { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } as const;
 
-export function SeccionAppTransmision({ inicial }: { inicial: EstadoAppTransmision | null }) {
+const FB_VACIO: FacebookApp = { estado: 'sin-conectar', cuenta: null, conectadoPor: null, conectadoEn: null, principal: null, extras: [] };
+
+function ChipEstadoFacebook({ estado }: { estado: FacebookApp['estado'] }) {
+  if (estado === 'conectado') return <span className="pv-chip pv-chip--verde">Conectado</span>;
+  if (estado === 'reconectar') return <span className="pv-chip pv-chip--ambar">Hay que volver a conectar</span>;
+  return <span className="pv-chip pv-chip--gris">Sin conectar</span>;
+}
+
+/** «También se puede mostrar en: Vicaría (marcada por defecto), Sector 3.» */
+const textoExtras = (extras: FacebookApp['extras']) =>
+  `También se puede mostrar en: ${extras.map((e) => (e.porDefecto ? `${e.nombre} (marcada por defecto)` : e.nombre)).join(', ')}.`;
+
+export function SeccionAppTransmision({
+  inicial,
+  errorFacebook = null,
+}: {
+  inicial: EstadoAppTransmision | null;
+  /** `?error=` de la vuelta de Facebook: «no-invitada» (D2) o «1» (otra falla). */
+  errorFacebook?: string | null;
+}) {
   const { datos, recordarFormulario } = useBorrador();
   const base = `/editor/api/${encodeURIComponent(datos.slug)}/app`;
+  const seccion = `/editor/p/${encodeURIComponent(datos.slug)}/app-y-transmision`;
+  const rutaConectar = `${seccion}/facebook/conectar`;
+  const [facebook, setFacebook] = useState<FacebookApp | null>(inicial?.facebook ?? null);
+  const [desconectando, setDesconectando] = useState(false);
+  const [errorFb, setErrorFb] = useState<string | null>(null);
+  const enfocarConectar = useRef(false);
+  const envioFb = useEnvio();
 
   const [guardados, setGuardados] = useState({
     servidor: inicial?.ajustes?.servidor ?? '',
@@ -94,6 +139,40 @@ export function SeccionAppTransmision({ inicial }: { inicial: EstadoAppTransmisi
       document.getElementById('app-reemplazar')?.focus();
     }
   }, [guardadaEn, reemplazando]);
+
+  useEffect(() => {
+    if (enfocarConectar.current && facebook?.estado === 'sin-conectar') {
+      enfocarConectar.current = false;
+      document.getElementById('fb-conectar')?.focus();
+    }
+  }, [facebook]);
+
+  if (errorFacebook === 'no-invitada') {
+    return (
+      <div className="pv-fbt-pantalla">
+        <a href={seccion} className="pv-fb-volver">
+          ‹ App y transmisión
+        </a>
+        <section role="alert" className="pv-fbt-no-invitada">
+          <h1 className="pv-fbt-titulo">{TITULO_FB_NO_INVITADA}</h1>
+          <p className="pv-fbt-no-invitada-texto">
+            Pide a la Pastoral de Comunicaciones que invite la cuenta de Facebook de la parroquia. Cuando la cuenta acepte la invitación en Facebook,
+            vuelve a intentarlo.
+          </p>
+          <div className="pv-fbt-acciones">
+            {/* <a> y no <Link>: es una ruta que redirige a Facebook y no se debe precargar. */}
+            <a href={rutaConectar} className={clasesBoton()}>
+              Intentar de nuevo
+            </a>
+            <a href={seccion} className={clasesBoton('secundario')}>
+              Volver
+            </a>
+          </div>
+        </section>
+        <div className="pv-fbt-nota">Mientras tanto, la app sigue transmitiendo con la clave de transmisión de la parroquia.</div>
+      </div>
+    );
+  }
 
   if (!inicial) {
     return (
@@ -156,15 +235,109 @@ export function SeccionAppTransmision({ inicial }: { inicial: EstadoAppTransmisi
     } else setErrorGeneralClave(r.valor.cuerpo.error ?? MENSAJE_SIN_CONEXION);
   }
 
+  async function desconectarFacebook() {
+    setErrorFb(null);
+    const r = await envioFb.enviar(() => pedir(`${base}/facebook/conexion`, 'DELETE'));
+    if (r.tipo === 'ocupado') return;
+    setDesconectando(false);
+    if (r.tipo === 'fallo') return setErrorFb(MENSAJE_SIN_CONEXION);
+    if (r.valor.estado === 200) {
+      enfocarConectar.current = true;
+      setFacebook(FB_VACIO);
+    } else setErrorFb(r.valor.cuerpo.error ?? MENSAJE_SIN_CONEXION);
+  }
+
   const conCampo = !guardadaEn || reemplazando;
+  const estadoFb = facebook?.estado ?? null;
 
   return (
     <>
+      {estadoFb === 'reconectar' && (
+        <div role="alert" className="pv-fbt-aviso">
+          {AVISO_FB_RECONECTAR}
+        </div>
+      )}
       <CabezaSeccion titulo="App y transmisión" texto={TEXTO_APP} />
       <div style={pila}>
-        <Tarjeta como="section" etiqueta="Facebook Live" relleno={22}>
+        <Tarjeta como="section" etiqueta="Facebook de la parroquia" relleno={22}>
+          <div className="pv-fbt-tarjeta">
+            <div className="pv-fbt-cabeza">
+              <h2 className="pv-subtitulo pv-fbt-cabeza-titulo">Facebook de la parroquia</h2>
+              {estadoFb && <ChipEstadoFacebook estado={estadoFb} />}
+            </div>
+            {errorFacebook === '1' && (
+              <div className="pv-alerta" role="alert">
+                {MENSAJE_FB_ERROR}
+              </div>
+            )}
+            {!facebook && (
+              <div className="pv-alerta" role="alert">
+                {MENSAJE_FB_SIN_LEER}
+              </div>
+            )}
+            {facebook?.estado === 'sin-conectar' && (
+              <>
+                <p className="pv-fbt-texto">{TEXTO_FB_SIN_CONECTAR}</p>
+                <div>
+                  {/* <a> y no <Link>: es una ruta que redirige a Facebook y no se debe precargar. */}
+                  <a id="fb-conectar" href={rutaConectar} className={clasesBoton()}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                    </svg>
+                    Conectar con Facebook
+                  </a>
+                </div>
+                <CajaInfo>{NOTA_FB_INVITAR}</CajaInfo>
+              </>
+            )}
+            {facebook?.estado === 'conectado' && (
+              <>
+                <div className="pv-fbt-cuenta">
+                  Con la cuenta {facebook.cuenta}
+                  {' · '}
+                  {facebook.conectadoPor ? `la conectó ${facebook.conectadoPor}` : 'conectada'}
+                  {facebook.conectadoEn ? ` el ${fechaDiaMesCorta(facebook.conectadoEn)}` : ''}
+                </div>
+                <div className="pv-fbt-sale">
+                  <div className="pv-fbt-sale-rotulo">SALE EN</div>
+                  <div className="pv-fbt-sale-principal">{facebook.principal ?? 'Todavía no elegiste dónde sale la misa.'}</div>
+                  {facebook.extras.length > 0 && <div className="pv-fbt-sale-extras">{textoExtras(facebook.extras)}</div>}
+                </div>
+                <div className="pv-fbt-acciones">
+                  <Boton href={`${seccion}/facebook`}>Cambiar páginas</Boton>
+                  <a href={rutaConectar} className={clasesBoton('secundario')}>
+                    Volver a conectar
+                  </a>
+                  <Boton variante="peligro" onClick={() => setDesconectando(true)}>
+                    Desconectar Facebook
+                  </Boton>
+                </div>
+              </>
+            )}
+            {facebook?.estado === 'reconectar' && (
+              <>
+                <p className="pv-fbt-texto">{TEXTO_FB_RECONECTAR}</p>
+                <div>
+                  <a href={rutaConectar} className={clasesBoton()}>
+                    Volver a conectar
+                  </a>
+                </div>
+              </>
+            )}
+            {errorFb && (
+              <div className="pv-alerta" role="alert">
+                {errorFb}
+              </div>
+            )}
+          </div>
+        </Tarjeta>
+
+        <Tarjeta como="section" etiqueta="Clave de transmisión de respaldo" relleno={22}>
           <div style={pila}>
-            <h2 className="pv-subtitulo">Facebook Live</h2>
+            <h2 className="pv-subtitulo">Clave de transmisión de respaldo</h2>
+            {facebook?.estado === 'sin-conectar' && <p className="pv-fbt-texto">{NOTA_RESPALDO_SIN_CONECTAR}</p>}
+            {facebook?.estado === 'conectado' && <CajaInfo>{notaRespaldoConectado(facebook.principal)}</CajaInfo>}
+            {facebook?.estado === 'reconectar' && <p className="pv-fbt-texto">{NOTA_RESPALDO_RECONECTAR}</p>}
             <CampoTexto
               id="app-servidor"
               etiqueta="Servidor (lo muestra Facebook)"
@@ -276,6 +449,20 @@ export function SeccionAppTransmision({ inicial }: { inicial: EstadoAppTransmisi
           </div>
         )}
       </div>
+
+      <Dialogo abierto={desconectando} titulo="¿Desconectar Facebook?" onCerrar={() => setDesconectando(false)}>
+        <p className="pv-dialogo-texto">
+          La app transmite con la clave de transmisión de respaldo hasta que vuelvas a conectar. Las páginas elegidas se mantienen.
+        </p>
+        <div className="pv-dialogo-acciones">
+          <Boton variante="secundario" onClick={() => setDesconectando(false)}>
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" ocupado={envioFb.ocupado} onClick={desconectarFacebook}>
+            Desconectar Facebook
+          </Boton>
+        </div>
+      </Dialogo>
 
       <Dialogo abierto={quitando} titulo="¿Quitar la clave?" onCerrar={() => setQuitando(false)}>
         <p className="pv-dialogo-texto">Los celulares que la usan la van a pedir la próxima vez que abran la app con internet.</p>
