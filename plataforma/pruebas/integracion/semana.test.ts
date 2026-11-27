@@ -345,3 +345,84 @@ describe('la API del editor (leerSemana / aplicarOperacion)', () => {
     expect((await leerSemana(a.cliente, A.slug, '2026-11-17')).estado).toBe(400);
   });
 });
+
+describe('datos.facebook: la app no lo borra (título y descripción del vivo)', () => {
+  const FB = { titulo: 'T', descripcion: 'D' };
+
+  async function fijaCon(datos: Record<string, unknown>): Promise<string> {
+    const { data, error } = await servicio
+      .from('transmisiones_fijas')
+      .insert({ parroquia_id: A.id, dia_semana: 5, hora: '18:00', tipo: 'horasanta', datos })
+      .select('id')
+      .single();
+    if (error || !data) throw new Error(`no se pudo crear la fija: ${error?.message}`);
+    return data.id as string;
+  }
+
+  async function desdeApp(fija: string, fecha: string, datos: Record<string, unknown>) {
+    return a.cliente
+      .from('transmisiones')
+      .upsert(filaDia(fija, fecha, { datos, actualizado_desde: 'app', actualizado_en: new Date(Date.now() + 60_000).toISOString() }), {
+        onConflict: 'parroquia_id,clave',
+      })
+      .select('datos')
+      .single();
+  }
+
+  it('un update de la app sin facebook conserva el de la fila', async () => {
+    const fija = await fijaCon({});
+    const web = await a.cliente.from('transmisiones').insert(filaDia(fija, '2027-01-08', { datos: { evento: 'A', facebook: FB }, actualizado_desde: 'web' }));
+    expect(web.error).toBeNull();
+    const r = await desdeApp(fija, '2027-01-08', { evento: 'B' });
+    expect(r.error).toBeNull();
+    expect(r.data!.datos).toEqual({ evento: 'B', facebook: FB });
+  });
+
+  it('un update de la app con facebook manda el suyo', async () => {
+    const fija = await fijaCon({});
+    await a.cliente.from('transmisiones').insert(filaDia(fija, '2027-01-15', { datos: { facebook: FB }, actualizado_desde: 'web' }));
+    const r = await desdeApp(fija, '2027-01-15', { facebook: { titulo: 'X' } });
+    expect(r.data!.datos).toEqual({ facebook: { titulo: 'X' } });
+  });
+
+  it('un update de la web sin facebook lo quita', async () => {
+    const fija = await fijaCon({});
+    await a.cliente.from('transmisiones').insert(filaDia(fija, '2027-01-22', { datos: { facebook: FB }, actualizado_desde: 'web' }));
+    const r = await a.cliente
+      .from('transmisiones')
+      .update({ datos: { evento: 'W' }, actualizado_desde: 'web' })
+      .eq('parroquia_id', A.id)
+      .eq('clave', `fija:${fija}:2027-01-22`)
+      .select('datos')
+      .single();
+    expect(r.error).toBeNull();
+    expect(r.data!.datos).toEqual({ evento: 'W' });
+  });
+
+  it('el primer cambio de la app a un día de fija hereda facebook de la fija', async () => {
+    const fija = await fijaCon({ facebook: { titulo: 'F' } });
+    const r = await desdeApp(fija, '2027-01-29', { celebrante: 'P. Ana' });
+    expect(r.error).toBeNull();
+    expect(r.data!.datos).toEqual({ celebrante: 'P. Ana', facebook: { titulo: 'F' } });
+  });
+
+  it('el primer cambio de la app a un día de serie hereda facebook de la serie', async () => {
+    const s = await servicio
+      .from('series')
+      .insert({ parroquia_id: A.id, nombre: 'Serie FB', tipo: 'prenovena', inicio: '2027-02-01', dias: 3, hora: '19:00', datos: { facebook: { titulo: 'S' } } })
+      .select('id')
+      .single();
+    expect(s.error).toBeNull();
+    const serie = s.data!.id as string;
+    const r = await a.cliente
+      .from('transmisiones')
+      .insert({
+        parroquia_id: A.id, clave: `serie:${serie}:2027-02-02`, fecha: '2027-02-02', hora: '19:00', tipo: 'prenovena',
+        datos: { dia: 2 }, origen: 'serie', serie_id: serie, editada: true, actualizado_desde: 'app',
+      })
+      .select('datos')
+      .single();
+    expect(r.error).toBeNull();
+    expect(r.data!.datos).toEqual({ dia: 2, facebook: { titulo: 'S' } });
+  });
+});
