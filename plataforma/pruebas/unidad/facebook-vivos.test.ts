@@ -338,6 +338,43 @@ describe('crearVivo · crear', () => {
     expect(tokens.every((x) => x === TOKEN_PAGINA)).toBe(true);
   });
 
+  it('activarCrosspost no demora la respuesta: va en `despues`, con el vivo y el token de la principal', async () => {
+    const t = mundo();
+    const tareas: Array<() => Promise<unknown>> = [];
+    const pedidos: Array<{ vivo: string; token: string; extras: string[] }> = [];
+    const { g, llamadas } = graphFalso({
+      activarCrosspost: async (vivo: string, token: string, extras: string[]) => {
+        pedidos.push({ vivo, token, extras });
+        return ok(undefined);
+      },
+    });
+    const r = await crearVivo({ ...deps(t, g), despues: (tarea) => void tareas.push(tarea) }, 'sa', entrada(['e1', 'e2']));
+    expect(r.estado).toBe(200);
+    expect(llamadas).toEqual(['crearVivo']);
+    expect(pedidos).toEqual([]);
+    expect(tareas).toHaveLength(1);
+    await tareas[0]();
+    expect(pedidos).toEqual([{ vivo: t.facebook_vivos[0].vivo_id, token: TOKEN_PAGINA, extras: ['e1', 'e2'] }]);
+  });
+
+  it('la tarea de crosspost nunca lanza, aunque activarCrosspost falle o lance', async () => {
+    for (const activar of [async () => falla('red'), async () => { throw new Error('boom'); }]) {
+      const t = mundo();
+      const tareas: Array<() => Promise<unknown>> = [];
+      const { g } = graphFalso({ activarCrosspost: activar as never });
+      const r = await crearVivo({ ...deps(t, g), despues: (tarea) => void tareas.push(tarea) }, 'sa', entrada(['e1']));
+      expect(r.estado).toBe(200);
+      await expect(tareas[0]()).resolves.toBeUndefined();
+    }
+  });
+
+  it('sin extras no hay tarea de crosspost', async () => {
+    const t = mundo();
+    const tareas: Array<() => Promise<unknown>> = [];
+    await crearVivo({ ...deps(t, graphFalso().g), despues: (tarea) => void tareas.push(tarea) }, 'sa', entrada([]));
+    expect(tareas).toEqual([]);
+  });
+
   it('sin extras no se llama a activarCrosspost', async () => {
     const t = mundo();
     const { g, llamadas } = graphFalso();
@@ -487,7 +524,7 @@ describe('crearVivo · ya hay un vivo activo', () => {
     expect(llamadas).toEqual(['crearVivo', 'activarCrosspost']);
   });
 
-  it('estadoVivo falla (red): no bloquea. Se intenta cerrar el viejo, se marca terminado y se crea uno nuevo', async () => {
+  it('estadoVivo falla (red): no bloquea y NO cierra el viejo (Ruling 14): se marca terminado y se crea uno nuevo', async () => {
     const t = mundo();
     t.facebook_vivos.push(vivoActivo());
     const { g, llamadas } = graphFalso({ estadoVivo: async () => falla('red') });
@@ -496,26 +533,19 @@ describe('crearVivo · ya hay un vivo activo', () => {
     expect((r.cuerpo as { reusado: boolean }).reusado).toBe(false);
     expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
     expect(t.facebook_vivos[1].terminado_en).toBeNull();
-    expect(llamadas).toEqual(['terminarVivo', 'crearVivo', 'activarCrosspost']);
+    expect(llamadas).toEqual(['crearVivo', 'activarCrosspost']);
+    expect(llamadas).not.toContain('terminarVivo');
   });
 
-  it('estadoVivo da «otro» (estado desconocido): mismo resultado', async () => {
-    const t = mundo();
-    t.facebook_vivos.push(vivoActivo());
-    const { g, llamadas } = graphFalso({ estadoVivo: async () => falla('otro') });
-    const r = await crearVivo(deps(t, g), 'sa', entrada());
-    expect(r.estado).toBe(200);
-    expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
-    expect(llamadas).toContain('crearVivo');
-  });
-
-  it('el cierre del viejo falla o lanza: se ignora y se sigue', async () => {
-    for (const cierre of [async () => falla('red'), async () => { throw new Error('boom'); }]) {
+  it('estadoVivo da «otro» (estado desconocido) o lanza: tampoco se llama a terminarVivo sobre el viejo', async () => {
+    const lecturas = [async () => falla('otro'), async () => falla('token', 190), async () => { throw new Error('boom'); }];
+    for (const lectura of lecturas) {
       const t = mundo();
       t.facebook_vivos.push(vivoActivo());
-      const { g } = graphFalso({ estadoVivo: async () => falla('otro'), terminarVivo: cierre as never });
-      expect((await crearVivo(deps(t, g), 'sa', entrada())).estado).toBe(200);
+      const { g, llamadas } = graphFalso({ estadoVivo: lectura as never });
+      await crearVivo(deps(t, g), 'sa', entrada());
       expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
+      expect(llamadas).not.toContain('terminarVivo');
     }
   });
 
@@ -529,7 +559,7 @@ describe('crearVivo · ya hay un vivo activo', () => {
     expect(llamadas).toEqual(['crearVivo', 'activarCrosspost']);
   });
 
-  it('al preguntar por el activo el token venció: el viejo se cierra y crear falla con 503 reconectar (esa parroquia queda «reconectar»)', async () => {
+  it('al preguntar por el activo el token venció: la fila vieja se marca terminada (sin end_live_video) y crear falla con 503 reconectar (esa parroquia queda «reconectar»)', async () => {
     const t = mundo();
     t.facebook_vivos.push(vivoActivo());
     const { g } = graphFalso({ estadoVivo: async () => falla('token', 190), crearVivo: async () => falla('token', 190) });

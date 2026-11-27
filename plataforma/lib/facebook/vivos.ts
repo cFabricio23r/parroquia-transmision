@@ -22,6 +22,16 @@ export interface DepsVivos {
   graph: GraphFacebook;
   /** Solo para pruebas; en producción la llave sale de FACEBOOK_CLAVE_CIFRADO. */
   llave?: Buffer;
+  /**
+   * Corre una tarea después de responder (la ruta pasa `after` de next/server). Sin él, la tarea arranca
+   * sin esperarla. La tarea nunca lanza.
+   */
+  despues?: (tarea: () => Promise<void>) => void;
+}
+
+function programar(d: DepsVivos, tarea: () => Promise<void>): void {
+  if (d.despues) d.despues(tarea);
+  else void tarea();
 }
 
 export type Destinos = {
@@ -188,17 +198,17 @@ export async function crearVivo(d: DepsVivos, slug: string, entrada: unknown): P
     if (activo.data) {
       const fila = activo.data as FilaVivo;
       const tokenViejo = await tokenDePagina(d, parroquiaId, fila.page_id);
-      const e = tokenViejo === null ? null : await d.graph.estadoVivo(fila.vivo_id, tokenViejo);
+      let e: Awaited<ReturnType<GraphFacebook['estadoVivo']>> | null = null;
+      try {
+        e = tokenViejo === null ? null : await d.graph.estadoVivo(fila.vivo_id, tokenViejo);
+      } catch {
+        e = null; // una lectura que lanza cuenta como una que falla
+      }
       if (tokenViejo !== null && e?.ok && e.valor === 'activo') return responderConFila(d, parroquiaId, fila, tokenViejo, true);
       // Facebook no confirma que siga activo (terminó, no responde, estado desconocido o ya no hay token de esa
-      // página): no bloquea. Se intenta cerrarlo (sin esperar su resultado), se marca terminado y se crea uno nuevo.
-      if (tokenViejo !== null && !(e?.ok && e.valor === 'terminado')) {
-        try {
-          await d.graph.terminarVivo(fila.vivo_id, tokenViejo);
-        } catch {
-          // el cierre es de mejor esfuerzo
-        }
-      }
+      // página): no bloquea. Ruling 14: NUNCA se llama a end_live_video aquí, porque una lectura que falla no prueba
+      // que el vivo esté muerto y cerrarlo podría cortar una misa al aire. Solo se marca la fila terminada y se crea
+      // uno nuevo; si el viejo seguía, Facebook lo cierra solo cuando deja de recibir señal.
       await marcarTerminado(d, parroquiaId, fila.id);
     }
 
@@ -229,8 +239,19 @@ export async function crearVivo(d: DepsVivos, slug: string, entrada: unknown): P
       return responderConFila(d, parroquiaId, g, tokenGanador, true);
     }
 
-    // Replicar a las extras no corta el vivo: si falla, salen «salio: false» en estadoVivo.
-    if (v.extras.length) await d.graph.activarCrosspost(nuevo.valor.vivoId, token, v.extras);
+    // Replicar a las extras no corta el vivo: si falla, salen «salio: false» en estadoVivo. Va DESPUÉS de responder
+    // (Ruling 13): hasta 12 s más de Graph no deben empujar la respuesta más allá del tope de 15 s de la app.
+    if (v.extras.length) {
+      const vivoId = nuevo.valor.vivoId;
+      const extras = v.extras;
+      programar(d, async () => {
+        try {
+          await d.graph.activarCrosspost(vivoId, token, extras);
+        } catch {
+          // de mejor esfuerzo: sin crosspost las extras salen «salio: false»
+        }
+      });
+    }
 
     await registrarSinFallar(
       s,
