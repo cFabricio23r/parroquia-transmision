@@ -96,7 +96,7 @@ export async function leerAsignacion(
 }
 
 /**
- * Comprueba que la principal deje compartir a una extra: handshake y después permiteLive. Nunca falla
+ * Comprueba que la principal deje compartir a una extra: handshake (begin + accept) y, si salió bien, permiteLive. Nunca falla
  * hacia afuera: un error, un `false` o un token que no se descifra dejan la extra en «falta»
  * (guardar no depende de Facebook).
  */
@@ -107,8 +107,10 @@ async function comprobarCrosspost(
 ): Promise<'listo' | 'falta'> {
   if (!principal || !destino) return 'falta';
   try {
-    // NO VERIFICADO (Tarea 0 Paso 2): qué página es el «origen» en cada llamada; ver graph.ts.
-    await d.graph.handshake(principal, destino);
+    // Verificado (Tarea 0): la principal hace el begin y la extra el accept; ver graph.ts. Si el handshake falla
+    // no se pregunta a permiteLive: la extra aparece en la lista ya con el begin, aunque el accept no esté hecho.
+    const h = await d.graph.handshake(principal, destino);
+    if (!h.ok) return 'falta';
     const r = await d.graph.permiteLive(principal, destino.id);
     return r.ok && r.valor === true ? 'listo' : 'falta';
   } catch {

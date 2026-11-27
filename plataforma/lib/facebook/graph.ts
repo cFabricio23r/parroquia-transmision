@@ -1,11 +1,11 @@
 // Verificado contra la API el 2026-11-27 (spec «Verificado contra la API», Tarea 0): estados de `status`, crearVivo sin
 // `privacy`, `crossposted_broadcasts{id,status,from{id}}`, `permalink_url` relativo, `end_live_video`, tokens de página
-// para estado y terminar, y el plazo de crear (3 a 11,5 s).
+// para estado y terminar, el plazo de crear (3 a 11,5 s), activarCrosspost (crossposting_actions con
+// enable_crossposting_and_create_post), el handshake (begin desde la principal, accept desde la extra, allow_live:true)
+// y la lista crosspost_whitelisted_pages (pide pages_manage_metadata).
 // NO VERIFICADO (se confirma al probar con Facebook, marcado en cada método):
 //  - cambiarCodigo / alargar: GET oauth/access_token (client_id, client_secret, redirect_uri, code; grant_type=fb_exchange_token).
 //  - paginas: GET me/accounts con fields=id,name,access_token,followers_count y limit=100 (sin paginar).
-//  - activarCrosspost: POST <vivo> con crossposting_actions = JSON [{page_id, action:'enable_crossposting_and_create_post'}].
-//  - handshake / permiteLive: ruta <pagina>/crosspost_whitelisted_pages; el handshake es un POST page_id en ambos sentidos.
 // Cliente de la Graph API de Facebook detrás de una interfaz.
 // El token (de usuario o de página) va en el cuerpo de los POST y como parámetro de los GET.
 // Nunca se registra ni se copia a un error: los errores solo llevan tipo y códigos numéricos.
@@ -217,7 +217,7 @@ export function crearGraph(o: {
       return vivoId && urlStream ? { ok: true, valor: { vivoId, url: urlStream } } : OTRO;
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): forma y nombre de acción de crossposting_actions.
+    // Verificado (Tarea 0): crossposting_actions = JSON [{page_id, action:'enable_crossposting_and_create_post'}] → {id}.
     async activarCrosspost(vivoId, tokenPagina, pageIds) {
       const acciones = pageIds.map((page_id) => ({
         page_id,
@@ -279,22 +279,29 @@ export function crearGraph(o: {
       return vacio(await llamar('POST', vivoId, { end_live_video: 'true', access_token: tokenPagina }));
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): ruta crosspost_whitelisted_pages y dirección del handshake (ambos sentidos).
+    // Verificado (Tarea 0): POST /{origen} begin_crossposting_handshake con el token del origen y después
+    // POST /{destino} accept_crossposting_handshake con el token del destino; los dos con allow_live:true para
+    // que el vivo se publique solo en la extra. Cada uno responde {success:true}. Aceptar NO exige la tarea MANAGE.
     async handshake(origen, destino) {
-      const a = await llamar('POST', `${origen.id}/crosspost_whitelisted_pages`, {
-        page_id: destino.id,
-        access_token: origen.token,
-      });
+      const a = vacio(
+        await llamar('POST', origen.id, {
+          begin_crossposting_handshake: JSON.stringify([{ partner_page_id: destino.id, allow_live: true }]),
+          access_token: origen.token,
+        }),
+      );
       if (!a.ok) return a;
       return vacio(
-        await llamar('POST', `${destino.id}/crosspost_whitelisted_pages`, {
-          page_id: origen.id,
+        await llamar('POST', destino.id, {
+          accept_crossposting_handshake: JSON.stringify([{ partner_page_id: origen.id, allow_live: true }]),
           access_token: destino.token,
         }),
       );
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): GET crosspost_whitelisted_pages con fields=id.
+    // Verificado (Tarea 0, con pages_manage_metadata): GET crosspost_whitelisted_pages. Solo dice si la extra está en
+    // la lista: aparece ya con el begin, aunque falte el accept, y `allows_live_crossposts` no es confiable (siguió en
+    // false después de un accept con allow_live:true). Por eso se pregunta solo si el handshake salió bien; lo que
+    // confirma de verdad es `crossposted_broadcasts` (crosspostHechos).
     async permiteLive(origen, destinoId) {
       const r = await llamar('GET', `${origen.id}/crosspost_whitelisted_pages`, {
         fields: 'id',

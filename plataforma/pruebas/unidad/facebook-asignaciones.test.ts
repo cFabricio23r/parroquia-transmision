@@ -333,6 +333,17 @@ describe('guardarAsignacion · crosspost', () => {
     expect(t.facebook_parroquia).toMatchObject([{ parroquia_id: A, pagina_principal: 'p2', actualizado_por: 'u-coord' }]);
     expect(t.facebook_parroquia_extra).toEqual([{ parroquia_id: A, page_id: 'p3', por_defecto: true, crosspost: 'listo' }]);
   });
+  it('si el handshake falla queda «falta» sin preguntar a permiteLive (la lista aparece aunque falte el accept)', async () => {
+    const t = mundo();
+    const { g, llamadas } = graphFalso({
+      handshake: () => ({ ok: false, error: { tipo: 'otro' } }),
+      permite: () => ({ ok: true, valor: true }),
+    });
+    const r = await guardarAsignacion(deps(t, g), 'sa', { principal: 'p2', extras: [extra('p3')] });
+    expect(r.estado).toBe(200);
+    expect(llamadas).toEqual(['handshake:p2>p3']);
+    expect((r.cuerpo as { extras: { crosspost: string }[] }).extras[0].crosspost).toBe('falta');
+  });
   it('con permiteLive en false, con error, o si algo lanza, queda «falta»: guardar nunca da 500', async () => {
     const casos: Array<ReturnType<typeof graphFalso>> = [
       graphFalso({ permite: () => ({ ok: true, valor: false }) }),

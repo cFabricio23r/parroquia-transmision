@@ -280,25 +280,39 @@ describe('vivo', () => {
     expect(llamadas[0].metodo).toBe('POST');
     expect(new URLSearchParams(llamadas[0].cuerpo!).get('end_live_video')).toBe('true');
   });
-  it('handshake whitelistea en ambos sentidos con el token de cada lado (supuesto, no verificado)', async () => {
+  it('handshake: begin desde el origen y accept desde el destino, con allow_live y el token de cada lado (verificado)', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }, { json: { success: true } }]);
     const r = await g.handshake({ id: 'O', token: 'tO' }, { id: 'D', token: 'tD' });
     expect(r).toEqual({ ok: true, valor: undefined });
     expect(llamadas).toHaveLength(2);
-    expect(llamadas[0].url).toBe(`https://graph.facebook.com/${V}/O/crosspost_whitelisted_pages`);
-    expect(new URLSearchParams(llamadas[0].cuerpo!).get('page_id')).toBe('D');
-    expect(new URLSearchParams(llamadas[0].cuerpo!).get('access_token')).toBe('tO');
-    expect(llamadas[1].url).toBe(`https://graph.facebook.com/${V}/D/crosspost_whitelisted_pages`);
-    expect(new URLSearchParams(llamadas[1].cuerpo!).get('page_id')).toBe('O');
-    expect(new URLSearchParams(llamadas[1].cuerpo!).get('access_token')).toBe('tD');
+    expect(llamadas[0].metodo).toBe('POST');
+    expect(llamadas[0].url).toBe(`https://graph.facebook.com/${V}/O`);
+    const a = new URLSearchParams(llamadas[0].cuerpo!);
+    expect([...a.keys()].sort()).toEqual(['access_token', 'begin_crossposting_handshake']);
+    expect(JSON.parse(a.get('begin_crossposting_handshake')!)).toEqual([{ partner_page_id: 'D', allow_live: true }]);
+    expect(a.get('access_token')).toBe('tO');
+    expect(llamadas[1].metodo).toBe('POST');
+    expect(llamadas[1].url).toBe(`https://graph.facebook.com/${V}/D`);
+    const b = new URLSearchParams(llamadas[1].cuerpo!);
+    expect([...b.keys()].sort()).toEqual(['accept_crossposting_handshake', 'access_token']);
+    expect(JSON.parse(b.get('accept_crossposting_handshake')!)).toEqual([{ partner_page_id: 'O', allow_live: true }]);
+    expect(b.get('access_token')).toBe('tD');
   });
-  it('handshake corta en el primer error (ruta supuesta, no verificada)', async () => {
+  it('handshake: si el begin falla no hace el accept', async () => {
     const { g, llamadas } = graph([{ status: 400, json: { error: { code: 190 } } }]);
     const r = await g.handshake({ id: 'O', token: 'tO' }, { id: 'D', token: 'tD' });
     expect(r).toEqual({ ok: false, error: { tipo: 'token', codigo: 190 } });
     expect(llamadas).toHaveLength(1);
   });
-  it('permiteLive dice si el destino está en la lista (supuesto, no verificado)', async () => {
+  it('handshake: si el accept falla devuelve el error sin tokens', async () => {
+    const { g, llamadas } = graph([{ json: { success: true } }, { status: 400, json: { error: { code: 200, message: 'tD tO' } } }]);
+    const r = await g.handshake({ id: 'O', token: 'tO' }, { id: 'D', token: 'tD' });
+    expect(r.ok).toBe(false);
+    expect(JSON.stringify(r)).not.toContain('tD');
+    expect(JSON.stringify(r)).not.toContain('tO');
+    expect(llamadas).toHaveLength(2);
+  });
+  it('permiteLive dice si el destino está en la lista (ruta verificada; la lista aparece ya con el begin)', async () => {
     const { g } = graph([{ json: { data: [{ id: 'D' }] } }, { json: { data: [{ id: 'Z' }] } }]);
     expect(await g.permiteLive({ id: 'O', token: 'tO' }, 'D')).toEqual({ ok: true, valor: true });
     expect(await g.permiteLive({ id: 'O', token: 'tO' }, 'D')).toEqual({ ok: true, valor: false });
