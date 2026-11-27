@@ -35,7 +35,7 @@ export const PERMISOS_FACEBOOK = [
   'pages_manage_posts',
   'pages_read_user_content',
   'pages_manage_engagement',
-  'publish_video',
+  'pages_manage_metadata',
 ] as const;
 
 export const NOMBRE_COOKIE_ESTADO = 'fb_estado';
@@ -67,7 +67,7 @@ export function urlDialogo(
   return `https://www.facebook.com/${versionGraph(entorno)}/dialog/oauth?${params.toString()}`;
 }
 
-// PENDIENTE TAREA 0 (Paso 2b): qué devuelve Facebook a una cuenta sin invitar
+// PENDIENTE TAREA 0 (Paso 2b), NO VERIFICADO: qué devuelve Facebook a una cuenta sin invitar
 export const SENALES_NO_INVITADA: readonly { campo: string; valor: string }[] = [];
 
 export function esNoInvitada(params: URLSearchParams, senales = SENALES_NO_INVITADA): boolean {

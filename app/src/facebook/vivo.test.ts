@@ -100,11 +100,11 @@ describe('pedirVivo', () => {
   });
 });
 
-describe('tope de 8 s', () => {
+describe('tope de 15 s', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('destinos nunca responde: a los 8 s da {error:true}', async () => {
+  it('destinos nunca responde: a los 15 s da {error:true}', async () => {
     const { pedirVivo } = armar({ destinos: jest.fn(() => new Promise<never>(() => {})) });
     const r = jest.fn();
     void pedirVivo().then(r);

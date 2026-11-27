@@ -298,7 +298,7 @@ export async function estadoVivo(d: DepsVivos, slug: string, id: string): Promis
       await marcarTerminado(d, parroquiaId, fila.id);
       return vista('terminado', new Set());
     }
-    // NO VERIFICADO (Tarea 0): se compara con el page_id de cada extra. Si crosspostHechos falla, ninguna sale.
+    // crosspostHechos trae los ids de PÁGINA (`from.id`), que se comparan con el page_id de cada extra. Si falla, ninguna sale.
     const hechos = await d.graph.crosspostHechos(fila.vivo_id, token);
     return vista('activo', new Set(hechos.ok ? hechos.valor : []));
   } catch {

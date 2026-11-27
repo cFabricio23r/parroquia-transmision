@@ -20,6 +20,7 @@ export function graphSinConfigurar(): GraphFacebook {
     crosspostHechos: falla,
     estadoVivo: falla,
     urlDeVivo: falla,
+    enlaceDeVivo: falla,
     terminarVivo: falla,
     handshake: falla,
     permiteLive: falla,

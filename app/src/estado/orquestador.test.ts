@@ -512,11 +512,11 @@ describe('Facebook en vivo (pedirVivo / terminarVivo)', () => {
   });
 });
 
-describe('Facebook colgado: tope de 8 s', () => {
+describe('Facebook colgado: tope de 15 s', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('destinos nunca responde: a los 8 s arranca con la clave fija y el aviso', async () => {
+  it('destinos nunca responde: a los 15 s arranca con la clave fija y el aviso', async () => {
     const vivo = crearVivoFacebook({
       cliente: { destinos: () => new Promise<never>(() => {}), crear: jest.fn(), estado: jest.fn(), terminar: jest.fn() },
       titulo: () => 't',

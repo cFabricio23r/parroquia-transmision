@@ -420,6 +420,11 @@ describe('urlDialogo', () => {
     expect(u.searchParams.get('scope')).toBe(PERMISOS_FACEBOOK.join(','));
     expect(u.searchParams.get('config_id')).toBeNull();
   });
+  it('los scopes de respaldo quitan publish_video y suman pages_manage_metadata', () => {
+    const scopes = new URL(urlDialogo('EST', REDIRECT, env)).searchParams.get('scope')!.split(',');
+    expect(scopes).not.toContain('publish_video');
+    expect(scopes).toContain('pages_manage_metadata');
+  });
   it('con FACEBOOK_CONFIG_ID manda config_id en vez de scope', () => {
     const u = new URL(urlDialogo('EST', REDIRECT, { ...env, FACEBOOK_CONFIG_ID: 'cfg' }));
     expect(u.searchParams.get('config_id')).toBe('cfg');
@@ -432,8 +437,9 @@ describe('urlDialogo', () => {
       'pages_manage_posts',
       'pages_read_user_content',
       'pages_manage_engagement',
-      'publish_video',
+      'pages_manage_metadata',
     ]);
+    expect([...PERMISOS_FACEBOOK]).not.toContain('publish_video');
   });
   it('urlVolver apunta a la única dirección de vuelta', () => {
     expect(urlVolver('https://x.example')).toBe('https://x.example/editor/facebook/volver');

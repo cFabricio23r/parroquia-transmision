@@ -78,7 +78,7 @@ export default function BarraSuperior(p: Props) {
       <View style={estilos.barra}>
         <Pastilla fondo={C.boton} punto={C.ambar} etiqueta="CONECTANDO…" />
         <Text style={estilos.parroquia} numberOfLines={1}>
-          Conectando con Facebook
+          Preparando Facebook…
         </Text>
         <Pressable
           accessibilityRole="button"

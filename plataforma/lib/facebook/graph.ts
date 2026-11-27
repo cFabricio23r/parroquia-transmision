@@ -1,12 +1,11 @@
-// NO VERIFICADO — se confirma en la Tarea 0, Paso 2
-// Estas elecciones salen de la memoria, no de la documentación de Facebook:
+// Verificado contra la API el 2026-11-27 (spec «Verificado contra la API», Tarea 0): estados de `status`, crearVivo sin
+// `privacy`, `crossposted_broadcasts{id,status,from{id}}`, `permalink_url` relativo, `end_live_video`, tokens de página
+// para estado y terminar, y el plazo de crear (3 a 11,5 s).
+// NO VERIFICADO (se confirma al probar con Facebook, marcado en cada método):
 //  - cambiarCodigo / alargar: GET oauth/access_token (client_id, client_secret, redirect_uri, code; grant_type=fb_exchange_token).
 //  - paginas: GET me/accounts con fields=id,name,access_token,followers_count y limit=100 (sin paginar).
 //  - activarCrosspost: POST <vivo> con crossposting_actions = JSON [{page_id, action:'enable_crossposting_and_create_post'}].
-//  - crosspostHechos: GET <vivo>?fields=crossposted_broadcasts, respuesta {data:[{id}]}.
-//  - terminarVivo: POST <vivo> con end_live_video=true.
-//  - handshake / permiteLive: ruta <pagina>/crosspost_whitelisted_pages; el handshake es un POST page_id en ambos sentidos, cada uno con el token de su lado.
-//  - estadoVivo: campo `status` (valores en ESTADOS_VIVO_GRAPH, vacíos) y `privacy` en crearVivo.
+//  - handshake / permiteLive: ruta <pagina>/crosspost_whitelisted_pages; el handshake es un POST page_id en ambos sentidos.
 // Cliente de la Graph API de Facebook detrás de una interfaz.
 // El token (de usuario o de página) va en el cuerpo de los POST y como parámetro de los GET.
 // Nunca se registra ni se copia a un error: los errores solo llevan tipo y códigos numéricos.
@@ -34,8 +33,11 @@ export interface EstadosVivoGraph {
   terminado: readonly string[];
 }
 
-// PENDIENTE TAREA 0: valores de `status` que devuelve Facebook
-export const ESTADOS_VIVO_GRAPH: EstadosVivoGraph = { activo: [], terminado: [] };
+// Verificado (2026-11-27): LIVE desde que se crea; PROCESSING, VOD y LIVE_STOPPED después. Cualquier otro valor es «otro».
+export const ESTADOS_VIVO_GRAPH: EstadosVivoGraph = {
+  activo: ['LIVE'],
+  terminado: ['PROCESSING', 'VOD', 'LIVE_STOPPED'],
+};
 
 export interface GraphFacebook {
   cambiarCodigo(codigo: string, redirect: string): Promise<ResultadoGraph<string>>;
@@ -48,9 +50,12 @@ export interface GraphFacebook {
     titulo: string,
   ): Promise<ResultadoGraph<{ vivoId: string; url: string }>>;
   activarCrosspost(vivoId: string, tokenPagina: string, pageIds: string[]): Promise<ResultadoGraph<void>>;
+  /** Los ids de las PÁGINAS (`from.id`) donde el vivo ya se publicó por crosspost; no los ids de los broadcasts. */
   crosspostHechos(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<string[]>>;
   estadoVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<'activo' | 'terminado'>>;
   urlDeVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<string>>;
+  /** El enlace público del vivo, siempre absoluto. */
+  enlaceDeVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<string>>;
   terminarVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<void>>;
   handshake(
     origen: { id: string; token: string },
@@ -75,8 +80,10 @@ function errorDe(json: unknown): ErrorGraph {
   return err;
 }
 
-/** Plazo de cada llamada a Graph: pasado esto, la llamada cuenta como `tipo:'red'`. */
-export const PLAZO_GRAPH_MS = 5_000;
+/** Plazo de cada llamada a Graph: pasado esto, la llamada cuenta como `tipo:'red'`. Crear un vivo tardó hasta 11,5 s. */
+export const PLAZO_GRAPH_MS = 12_000;
+
+const ORIGEN_FACEBOOK = 'https://www.facebook.com';
 
 export function crearGraph(o: {
   appId: string;
@@ -198,7 +205,7 @@ export function crearGraph(o: {
     },
 
     async crearVivo(pageId, tokenPagina, titulo) {
-      // PENDIENTE TAREA 0: ¿hace falta privacy?
+      // Sin `privacy` el vivo sale público (verificado): no se manda.
       const r = await llamar('POST', `${pageId}/live_videos`, {
         status: 'LIVE_NOW',
         title: titulo,
@@ -224,20 +231,21 @@ export function crearGraph(o: {
       );
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): campo crossposted_broadcasts y su respuesta {data:[{id}]}.
+    // Verificado: {crossposted_broadcasts:{data:[{id,status,from:{id}}]}}; `id` es el del broadcast y la página
+    // destino es `from.id`. Si nada se publicó, el campo no viene.
     async crosspostHechos(vivoId, tokenPagina) {
       const r = await llamar('GET', vivoId, {
-        fields: 'crossposted_broadcasts',
+        fields: 'crossposted_broadcasts{id,status,from{id}}',
         access_token: tokenPagina,
       });
       if (!r.ok) return r;
       const cb = r.valor.crossposted_broadcasts as { data?: unknown } | undefined;
       const data = Array.isArray(cb?.data) ? (cb.data as Array<Record<string, unknown>>) : [];
-      const ids = data.map((d) => texto(d?.id)).filter((x): x is string => x !== null);
+      const ids = data.map((d) => texto((d?.from as { id?: unknown } | undefined)?.id)).filter((x): x is string => x !== null);
       return { ok: true, valor: ids };
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): campo `status`; los valores están en ESTADOS_VIVO_GRAPH.
+    // Verificado: `status` con los valores de ESTADOS_VIVO_GRAPH; con el token de la PÁGINA (con el de la cuenta, error 100/33).
     async estadoVivo(vivoId, tokenPagina) {
       const r = await llamar('GET', vivoId, { fields: 'status', access_token: tokenPagina });
       if (!r.ok) return r;
@@ -257,7 +265,16 @@ export function crearGraph(o: {
       return u ? { ok: true, valor: u } : OTRO;
     },
 
-    // NO VERIFICADO (Tarea 0 Paso 2): POST con end_live_video=true.
+    // Verificado: `permalink_url` viene relativo («/<id>/videos/<id>»); se le antepone el origen de Facebook.
+    async enlaceDeVivo(vivoId, tokenPagina) {
+      const r = await llamar('GET', vivoId, { fields: 'permalink_url', access_token: tokenPagina });
+      if (!r.ok) return r;
+      const u = texto(r.valor.permalink_url);
+      if (!u) return OTRO;
+      return { ok: true, valor: u.startsWith('/') ? `${ORIGEN_FACEBOOK}${u}` : u };
+    },
+
+    // Verificado: POST end_live_video=true con el token de la PÁGINA; repetirlo sobre uno terminado no da error.
     async terminarVivo(vivoId, tokenPagina) {
       return vacio(await llamar('POST', vivoId, { end_live_video: 'true', access_token: tokenPagina }));
     },

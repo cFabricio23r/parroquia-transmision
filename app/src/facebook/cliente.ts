@@ -38,7 +38,8 @@ export interface ClienteFacebook {
   terminar(id: string): Promise<ResultadoFacebook<void>>;
 }
 
-export const PLAZO_CREAR_MS = 8_000;
+/** Crear el vivo en Facebook tarda entre 3 y 11,5 s (verificado); este tope es mayor que el de Graph (12 s). */
+export const PLAZO_CREAR_MS = 15_000;
 
 const CODIGOS: readonly ErrorFacebook['tipo'][] = ['sin-facebook', 'reconectar', 'requisitos', 'facebook', 'muchos'];
 

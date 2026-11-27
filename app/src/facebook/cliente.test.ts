@@ -56,32 +56,32 @@ describe('crear', () => {
     expect(JSON.parse(init.body as string)).toEqual({ extras: ['p2'], titulo: 'Misa' });
   });
 
-  it('da sin-conexion a los 8 s si fetch no responde', async () => {
+  it('da sin-conexion a los 15 s si fetch no responde', async () => {
     jest.useFakeTimers();
     const f = jest.fn(() => new Promise<Response>(() => {}));
-    expect(PLAZO_CREAR_MS).toBe(8_000);
+    expect(PLAZO_CREAR_MS).toBe(15_000);
     const p = cliente(f).crear([], 'Misa');
     let listo = false;
     void p.then(() => {
       listo = true;
     });
-    await jest.advanceTimersByTimeAsync(7_999);
+    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS - 1);
     expect(listo).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
   });
 
-  it('da sin-conexion a los 8 s totales si la renovacion de sesion nunca responde', async () => {
+  it('da sin-conexion a los 15 s totales si la renovacion de sesion nunca responde', async () => {
     jest.useFakeTimers();
     const f = jest.fn();
     const sesion = { conSesion: () => new Promise(() => {}) } as unknown as SesionApp;
     const p = cliente(f, sesion).crear([], 'Misa');
-    await jest.advanceTimersByTimeAsync(8_000);
+    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
     expect(f).not.toHaveBeenCalled();
   });
 
-  it('en el reintento por sesion-invalida el total no pasa de 8 s y el resultado tardio se ignora', async () => {
+  it('en el reintento por sesion-invalida el total no pasa de 15 s y el resultado tardio se ignora', async () => {
     jest.useFakeTimers();
     const espia = jest.spyOn(console, 'log').mockImplementation(() => {});
     const f = jest.fn(async () => respuesta(401, {}));
@@ -100,7 +100,7 @@ describe('crear', () => {
     void p.then(() => {
       listo = true;
     });
-    await jest.advanceTimersByTimeAsync(7_999);
+    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS - 1);
     expect(listo).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ESTADOS_VIVO_GRAPH,
+  PLAZO_GRAPH_MS,
   crearGraph,
   partirUrlStream,
   versionGraph,
@@ -218,7 +219,7 @@ describe('partirUrlStream', () => {
 });
 
 describe('vivo', () => {
-  it('activarCrosspost manda crossposting_actions por página (supuesto, no verificado)', async () => {
+  it('activarCrosspost manda crossposting_actions por página', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }]);
     const r = await g.activarCrosspost('V1', TOKEN, ['A', 'B']);
     expect(r).toEqual({ ok: true, valor: undefined });
@@ -231,23 +232,49 @@ describe('vivo', () => {
     ]);
     expect(c.get('access_token')).toBe(TOKEN);
   });
-  it('crosspostHechos lista los ids de crossposted_broadcasts (supuesto, no verificado)', async () => {
+  it('crosspostHechos lista el id de la PÁGINA (from.id), no el del broadcast', async () => {
     const { g, llamadas } = graph([
-      { json: { crossposted_broadcasts: { data: [{ id: 'X1' }, { id: 'X2' }] } } },
+      {
+        json: {
+          crossposted_broadcasts: {
+            data: [
+              { id: 'B1', status: 'LIVE', from: { name: 'Uno', id: 'PG1' } },
+              { id: 'B2', status: 'LIVE', from: { name: 'Dos', id: 'PG2' } },
+            ],
+          },
+        },
+      },
     ]);
-    expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: ['X1', 'X2'] });
-    expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('crossposted_broadcasts');
+    expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: ['PG1', 'PG2'] });
+    expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('crossposted_broadcasts{id,status,from{id}}');
   });
-  it('crosspostHechos sin el campo da lista vacía (supuesto, no verificado)', async () => {
+  it('crosspostHechos ignora una copia sin from.id', async () => {
+    const { g } = graph([{ json: { crossposted_broadcasts: { data: [{ id: 'B1' }, { id: 'B2', from: {} }, { id: 'B3', from: { id: 'PG3' } }] } } }]);
+    expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: ['PG3'] });
+  });
+  it('crosspostHechos sin el campo (nada se publicó) da lista vacía', async () => {
     const { g } = graph([{ json: { id: 'V1' } }]);
     expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: [] });
+  });
+  it('enlaceDeVivo antepone https://www.facebook.com a un permalink_url relativo', async () => {
+    const { g, llamadas } = graph([{ json: { permalink_url: '/122139890474848431/videos/1033944073097585' } }]);
+    expect(await g.enlaceDeVivo('V1', TOKEN)).toEqual({
+      ok: true,
+      valor: 'https://www.facebook.com/122139890474848431/videos/1033944073097585',
+    });
+    expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('permalink_url');
+  });
+  it('enlaceDeVivo deja igual un permalink_url absoluto y da otro si falta', async () => {
+    const { g } = graph([{ json: { permalink_url: 'https://www.facebook.com/x/videos/1' } }, { json: {} }]);
+    expect(await g.enlaceDeVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'https://www.facebook.com/x/videos/1' });
+    expect(await g.enlaceDeVivo('V1', TOKEN)).toEqual({ ok: false, error: { tipo: 'otro' } });
   });
   it('urlDeVivo pide secure_stream_url', async () => {
     const { g, llamadas } = graph([{ json: { secure_stream_url: 'rtmps://h/rtmp/K' } }]);
     expect(await g.urlDeVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'rtmps://h/rtmp/K' });
     expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('secure_stream_url');
   });
-  it('terminarVivo hace POST con end_live_video (supuesto, no verificado)', async () => {
+  it('terminarVivo hace POST con end_live_video', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }]);
     expect(await g.terminarVivo('V1', TOKEN)).toEqual({ ok: true, valor: undefined });
     expect(llamadas[0].metodo).toBe('POST');
@@ -290,13 +317,26 @@ describe('estadoVivo', () => {
     expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: false, error: { tipo: 'otro' } });
     expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('status');
   });
-  it('con los valores reales (vacíos) cualquier status da otro, nunca un estado adivinado', async () => {
-    expect(ESTADOS_VIVO_GRAPH).toEqual({ activo: [], terminado: [] });
-    const { g } = graph([{ json: { status: 'LIVE' } }, { json: { status: 'terminado' } }]);
+  it('los valores reales verificados: LIVE activo; PROCESSING, VOD y LIVE_STOPPED terminado', async () => {
+    expect(ESTADOS_VIVO_GRAPH).toEqual({ activo: ['LIVE'], terminado: ['PROCESSING', 'VOD', 'LIVE_STOPPED'] });
+    const { g } = graph([
+      { json: { status: 'LIVE' } },
+      { json: { status: 'PROCESSING' } },
+      { json: { status: 'VOD' } },
+      { json: { status: 'LIVE_STOPPED' } },
+      { json: { status: 'SCHEDULED_UNPUBLISHED' } },
+      { json: { status: 'live' } },
+    ]);
+    expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'activo' });
+    expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'terminado' });
+    expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'terminado' });
+    expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'terminado' });
     expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: false, error: { tipo: 'otro' } });
     expect(await g.estadoVivo('V1', TOKEN)).toEqual({ ok: false, error: { tipo: 'otro' } });
   });
-  it.todo('estadoVivo con los valores reales de Facebook (Tarea 0)');
+  it('el plazo de cada llamada a Graph es de 12 s (crear tarda hasta 11,5 s)', () => {
+    expect(PLAZO_GRAPH_MS).toBe(12_000);
+  });
 });
 
 describe('sin filtraciones', () => {
