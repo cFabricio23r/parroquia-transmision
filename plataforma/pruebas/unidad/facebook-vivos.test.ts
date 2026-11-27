@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { MENSAJE_SIN_PERMISO, MENSAJE_SIN_SESION } from '../../lib/borrador';
 import { cifrar } from '../../lib/facebook/cifrado';
 import type { ErrorGraph, GraphFacebook, ResultadoGraph } from '../../lib/facebook/graph';
-import { MAX_TITULO, crearVivo, estadoVivo, leerDestinos, terminarVivo, type DepsVivos } from '../../lib/facebook/vivos';
+import { MAX_DESCRIPCION, MAX_TITULO, MENSAJE_DESCRIPCION, MENSAJE_TITULO, crearVivo, estadoVivo, leerDestinos, terminarVivo, type DepsVivos } from '../../lib/facebook/vivos';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -274,7 +274,30 @@ describe('crearVivo · reglas, en orden', () => {
     }
   });
 
-  it('un título de exactamente 255 caracteres es válido', async () => {
+  it('los topes son los de Facebook: título 254, descripción 1000', () => {
+    expect(MAX_TITULO).toBe(254);
+    expect(MAX_DESCRIPCION).toBe(1000);
+    expect(MENSAJE_DESCRIPCION).toBe('La descripción debe tener hasta 1000 caracteres.');
+  });
+
+  it('un título de 255 caracteres es 422', async () => {
+    const t = mundo();
+    const r = await crearVivo(deps(t, graphFalso().g), 'sa', entrada(['e1'], 'x'.repeat(255)));
+    expect(r.estado).toBe(422);
+    expect(r.cuerpo).toEqual({ error: MENSAJE_TITULO });
+  });
+
+  it('una descripción de más de 1000 caracteres es 422; una que no es texto, error de forma', async () => {
+    const t = mundo();
+    const largo = await crearVivo(deps(t, graphFalso().g), 'sa', { ...entrada(), descripcion: 'x'.repeat(1001) });
+    expect(largo.estado).toBe(422);
+    expect(largo.cuerpo).toEqual({ error: MENSAJE_DESCRIPCION });
+    const numero = await crearVivo(deps(t, graphFalso().g), 'sa', { ...entrada(), descripcion: 5 });
+    expect(numero.estado).toBe(422);
+    expect(numero.cuerpo).not.toEqual({ error: MENSAJE_DESCRIPCION });
+  });
+
+  it('un título de exactamente 254 caracteres es válido', async () => {
     const t = mundo();
     const r = await crearVivo(deps(t, graphFalso().g), 'sa', entrada(['e1'], 'x'.repeat(MAX_TITULO)));
     expect(r.estado).toBe(200);
@@ -395,6 +418,21 @@ describe('crearVivo · crear', () => {
     expect(titulos).toEqual(['Misa de 8']);
   });
 
+  it('la descripción que va a Facebook: recortada, o null si falta o está vacía', async () => {
+    const descripciones: (string | null)[] = [];
+    const { g } = graphFalso({
+      crearVivo: async (_p, _t, _titulo, descripcion) => {
+        descripciones.push(descripcion);
+        return ok({ vivoId: `fb-${descripciones.length}`, url: urlDe() });
+      },
+    });
+    for (const cuerpo of [entrada(), { ...entrada(), descripcion: '  ' }, { ...entrada(), descripcion: null }, { ...entrada(), descripcion: ' Hola ' }]) {
+      const t = mundo();
+      expect((await crearVivo(deps(t, g), 'sa', cuerpo)).estado).toBe(200);
+    }
+    expect(descripciones).toEqual([null, null, null, 'Hola']);
+  });
+
   it('registra iniciar_vivo_facebook con slug, página y extras; la clave y los tokens no aparecen en `registro`', async () => {
     const t = mundo();
     const r = await crearVivo(deps(t, graphFalso().g), 'sa', entrada(['e1']));
@@ -495,7 +533,7 @@ describe('crearVivo · ya hay un vivo activo', () => {
     const t = mundo();
     t.facebook_vivos.push(vivoActivo());
     const { g, llamadas, tokens } = graphFalso({ urlDeVivo: async () => ok(urlDe('FB-OTRA-CLAVE')) });
-    const r = await crearVivo(deps(t, g), 'sa', entrada(['e2']));
+    const r = await crearVivo(deps(t, g), 'sa', { ...entrada(['e2']), descripcion: 'Otra descripción' });
     expect(r.estado).toBe(200);
     expect(r.cuerpo).toEqual({
       id: 'vivo-fila-1',

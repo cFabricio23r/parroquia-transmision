@@ -48,6 +48,8 @@ export interface GraphFacebook {
     pageId: string,
     tokenPagina: string,
     titulo: string,
+    /** null: no se manda `description`. */
+    descripcion: string | null,
   ): Promise<ResultadoGraph<{ vivoId: string; url: string }>>;
   activarCrosspost(vivoId: string, tokenPagina: string, pageIds: string[]): Promise<ResultadoGraph<void>>;
   /** Los ids de las PÁGINAS (`from.id`) donde el vivo ya se publicó por crosspost; no los ids de los broadcasts. */
@@ -204,11 +206,13 @@ export function crearGraph(o: {
       return { ok: true, valor };
     },
 
-    async crearVivo(pageId, tokenPagina, titulo) {
-      // Sin `privacy` el vivo sale público (verificado): no se manda.
+    async crearVivo(pageId, tokenPagina, titulo, descripcion) {
+      // Sin `privacy` el vivo sale público (verificado): no se manda. `description` es parámetro de
+      // POST /{page-id}/live_videos (documentación de Meta, 2026-11-27); sin descripción no se manda.
       const r = await llamar('POST', `${pageId}/live_videos`, {
         status: 'LIVE_NOW',
         title: titulo,
+        ...(descripcion === null ? {} : { description: descripcion }),
         access_token: tokenPagina,
       });
       if (!r.ok) return r;

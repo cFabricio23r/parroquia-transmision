@@ -15,6 +15,7 @@ import { NOMBRE_PAGINA_PERDIDA } from './asignaciones';
 import { descifrar } from './cifrado';
 import { marcarReconectar } from './conexion';
 import { partirUrlStream, type ErrorGraph, type GraphFacebook } from './graph';
+import { SEMANA } from '../semana';
 
 export interface DepsVivos {
   sesion: SupabaseClient;
@@ -54,7 +55,9 @@ export type EstadoVivo = {
 export type CodigoVivo = 'sin-facebook' | 'reconectar' | 'requisitos' | 'facebook' | 'muchos';
 export type ErrorVivo = { error: string; codigo: CodigoVivo };
 
-export const MAX_TITULO = 255;
+/** Los topes del título y la descripción: los del núcleo de la semana (el título, lo que acepta Facebook). */
+export const MAX_TITULO = SEMANA.LIMITES_FACEBOOK.titulo;
+export const MAX_DESCRIPCION = SEMANA.LIMITES_FACEBOOK.descripcion;
 /** Cuántos vivos puede crear una parroquia en una hora: «más de 6» recibe 429. */
 export const MAX_VIVOS_POR_HORA = 6;
 
@@ -65,6 +68,7 @@ export const MENSAJE_FACEBOOK = 'No se pudo conectar con Facebook. Intenta de nu
 export const MENSAJE_MUCHOS = 'Se iniciaron demasiadas transmisiones en la última hora. Espera un poco e intenta de nuevo.';
 export const MENSAJE_EXTRAS_NO_VALIDAS = 'Hay páginas que no se pueden usar para esta transmisión.';
 export const MENSAJE_TITULO = `El título debe tener entre 1 y ${MAX_TITULO} caracteres.`;
+export const MENSAJE_DESCRIPCION = `La descripción debe tener hasta ${MAX_DESCRIPCION} caracteres.`;
 export const MENSAJE_VIVO_NO_EXISTE = 'No se encontró esa transmisión.';
 
 const UNICA_VIOLADA = '23505';
@@ -154,17 +158,21 @@ async function responderConFila(
   };
 }
 
-type Entrada = { extras: string[]; titulo: string };
+type Entrada = { extras: string[]; titulo: string; descripcion: string | null };
 
 /** La entrada bien formada, o el mensaje del 422 (las extras se comparan después con lo asignado). */
 function validarEntrada(entrada: unknown): Entrada | string {
   if (typeof entrada !== 'object' || entrada === null || Array.isArray(entrada)) return MENSAJE_FORMA;
-  const { extras, titulo } = entrada as { extras?: unknown; titulo?: unknown };
+  const { extras, titulo, descripcion } = entrada as { extras?: unknown; titulo?: unknown; descripcion?: unknown };
   if (!Array.isArray(extras) || extras.some((x) => typeof x !== 'string' || x === '')) return MENSAJE_FORMA;
   if (typeof titulo !== 'string') return MENSAJE_FORMA;
   const t = titulo.trim();
   if (t.length === 0 || t.length > MAX_TITULO) return MENSAJE_TITULO;
-  return { extras: [...new Set(extras as string[])], titulo: t };
+  // La descripción es opcional (una APK vieja no la manda): vacía o ausente es null, y entonces no va a Facebook.
+  if (descripcion !== undefined && descripcion !== null && typeof descripcion !== 'string') return MENSAJE_FORMA;
+  const d = typeof descripcion === 'string' ? descripcion.trim() : '';
+  if (d.length > MAX_DESCRIPCION) return MENSAJE_DESCRIPCION;
+  return { extras: [...new Set(extras as string[])], titulo: t, descripcion: d === '' ? null : d };
 }
 
 export async function crearVivo(d: DepsVivos, slug: string, entrada: unknown): Promise<Respuesta<VivoCreado | ErrorVivo | ConError>> {
@@ -214,7 +222,7 @@ export async function crearVivo(d: DepsVivos, slug: string, entrada: unknown): P
 
     const token = await tokenDePagina(d, parroquiaId, principal);
     if (token === null) return errorFacebook();
-    const nuevo = await d.graph.crearVivo(principal, token, v.titulo);
+    const nuevo = await d.graph.crearVivo(principal, token, v.titulo, v.descripcion);
     if (!nuevo.ok) return deGraph(d, parroquiaId, nuevo.error);
     const partes = partirUrlStream(nuevo.valor.url);
     if (!partes) {

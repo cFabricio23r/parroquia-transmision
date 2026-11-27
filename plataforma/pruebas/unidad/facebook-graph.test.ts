@@ -73,7 +73,7 @@ describe('errores', () => {
   });
   it.each([1363144, 1363120])('200 con subcódigo %i da tipo requisitos', async (sub) => {
     const { g } = graph([{ status: 400, json: { error: { code: 200, error_subcode: sub } } }]);
-    const r = await g.crearVivo('P1', TOKEN, 'Misa');
+    const r = await g.crearVivo('P1', TOKEN, 'Misa', null);
     expect(r).toEqual({ ok: false, error: { tipo: 'requisitos', codigo: 200, subcodigo: sub } });
   });
   it('otro código da tipo otro', async () => {
@@ -183,7 +183,7 @@ describe('crearVivo', () => {
         },
       },
     ]);
-    const r = await g.crearVivo('P1', TOKEN, 'Misa de 10');
+    const r = await g.crearVivo('P1', TOKEN, 'Misa de 10', null);
     expect(r).toEqual({
       ok: true,
       valor: { vivoId: 'V1', url: 'rtmps://live-api-s.facebook.com:443/rtmp/FB-1' },
@@ -197,9 +197,18 @@ describe('crearVivo', () => {
     expect(c.has('privacy')).toBe(false);
     expect(llamadas[0].url).not.toContain(TOKEN);
   });
+  it('con descripción manda description; sin ella, el cuerpo no la trae', async () => {
+    const respuesta = { json: { id: 'V1', secure_stream_url: 'rtmps://live-api-s.facebook.com:443/rtmp/FB-1' } };
+    const con = graph([respuesta]);
+    await con.g.crearVivo('P1', TOKEN, 'Misa', 'Hola');
+    expect(new URLSearchParams(con.llamadas[0].cuerpo!).get('description')).toBe('Hola');
+    const sin = graph([respuesta]);
+    await sin.g.crearVivo('P1', TOKEN, 'Misa', null);
+    expect(new URLSearchParams(sin.llamadas[0].cuerpo!).has('description')).toBe(false);
+  });
   it('sin secure_stream_url es error otro, aunque haya stream_url', async () => {
     const { g } = graph([{ json: { id: 'V1', stream_url: 'rtmp://x/rtmp/K' } }]);
-    expect(await g.crearVivo('P1', TOKEN, 't')).toEqual({ ok: false, error: { tipo: 'otro' } });
+    expect(await g.crearVivo('P1', TOKEN, 't', null)).toEqual({ ok: false, error: { tipo: 'otro' } });
   });
 });
 
@@ -368,7 +377,7 @@ describe('sin filtraciones', () => {
       const { g } = graph([caso]);
       const resultados = [
         await g.yo(TOKEN),
-        await g.crearVivo('P', TOKEN, 't'),
+        await g.crearVivo('P', TOKEN, 't', null),
         await g.alargar(TOKEN),
         await g.terminarVivo('V', TOKEN),
         await g.estadoVivo('V', TOKEN),
