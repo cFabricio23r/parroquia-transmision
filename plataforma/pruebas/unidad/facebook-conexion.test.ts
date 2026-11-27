@@ -13,11 +13,16 @@ import {
   SENALES_NO_INVITADA,
   urlDialogo,
   urlVolver,
+  type VistaConexion,
 } from '../../lib/facebook/conexion';
 import type { GraphFacebook, PaginaGraph, ResultadoGraph } from '../../lib/facebook/graph';
 import { MENSAJE_SIN_PERMISO } from '../../lib/borrador';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  fallas.clear();
+  ordenBorrados.length = 0;
+});
 
 // ---- Supabase en memoria (solo lo que usa la lib) ----
 type Fila = Record<string, unknown>;
@@ -27,7 +32,10 @@ const PK: Record<string, string[]> = {
   facebook_paginas: ['parroquia_id', 'page_id'],
 };
 
-class Consulta implements PromiseLike<{ data: unknown; error: null }> {
+const fallas = new Set<string>();
+const ordenBorrados: string[] = [];
+
+class Consulta implements PromiseLike<{ data: unknown; error: unknown }> {
   private op: 'select' | 'insert' | 'upsert' | 'update' | 'delete' = 'select';
   private filtros: Array<(f: Fila) => boolean> = [];
   private carga: Fila | Fila[] | null = null;
@@ -104,9 +112,11 @@ class Consulta implements PromiseLike<{ data: unknown; error: null }> {
     return this.maybeSingle();
   }
   then<A, B>(
-    ok?: ((v: { data: unknown; error: null }) => A | PromiseLike<A>) | null,
+    ok?: ((v: { data: unknown; error: unknown }) => A | PromiseLike<A>) | null,
     ko?: ((e: unknown) => B | PromiseLike<B>) | null,
   ) {
+    if (this.op === 'delete') ordenBorrados.push(this.tabla);
+    if (fallas.has(`${this.tabla}:${this.op}`)) return Promise.resolve({ data: null, error: { message: 'x' } }).then(ok, ko);
     return Promise.resolve({ data: this.correr(), error: null }).then(ok, ko);
   }
 }
@@ -310,6 +320,25 @@ describe('leerConexion', () => {
     expect(JSON.stringify(r.cuerpo)).not.toContain(B);
   });
 
+  it('tras reconectar con una cuenta que perdió la principal, la lista marcada visible:false y la fila elegida sigue', async () => {
+    const t = mundo([A, B]);
+    await guardarConexion(deps(t, graphFalso().g), 'sa', 'COD', REDIRECT);
+    t.facebook_parroquia.push({ parroquia_id: A, pagina_principal: 'p1' }, { parroquia_id: B, pagina_principal: 'pB' });
+    t.facebook_parroquia_extra.push({ parroquia_id: A, page_id: 'pextra', por_defecto: false, crosspost: 'listo' });
+    t.facebook_parroquia_extra.push({ parroquia_id: B, page_id: 'pB2', por_defecto: false, crosspost: 'listo' });
+    const nueva = graphFalso({ paginas: [{ id: 'p2', nombre: 'Página Dos', token: 't', seguidores: 3 }] }).g;
+    await guardarConexion(deps(t, nueva), 'sa', 'COD', REDIRECT);
+    const r = await leerConexion(deps(t, nueva), 'sa');
+    const ps = (r.cuerpo as VistaConexion).paginas;
+    expect(ps).toEqual([
+      { id: 'p2', nombre: 'Página Dos', seguidores: 3, uso: null, visible: true },
+      { id: 'p1', nombre: 'Página que esta cuenta ya no ve', seguidores: null, uso: 'Principal', visible: false },
+      { id: 'pextra', nombre: 'Página que esta cuenta ya no ve', seguidores: null, uso: 'Extra', visible: false },
+    ]);
+    expect(t.facebook_parroquia.find((f) => f.parroquia_id === A)).toBeTruthy();
+    expect(JSON.stringify(r.cuerpo)).not.toContain('pB');
+  });
+
   it('reconectar se refleja en estado', async () => {
     const t = mundo();
     await guardarConexion(deps(t, graphFalso().g), 'sa', 'COD', REDIRECT);
@@ -333,6 +362,20 @@ describe('desconectar y marcarReconectar', () => {
     const reg = t.registro.find((x) => x.accion === 'desconectar_facebook');
     expect(reg).toMatchObject({ parroquia_id: A, usuario_id: 'u-coord' });
     expect(JSON.stringify(reg)).not.toContain('v1.');
+  });
+
+  it('borra primero los tokens de página; si el segundo borrado falla, no quedan páginas de una parroquia desconectada', async () => {
+    const t = mundo();
+    await guardarConexion(deps(t, graphFalso().g), 'sa', 'COD', REDIRECT);
+    ordenBorrados.length = 0;
+    fallas.add('facebook_conexion:delete');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await desconectar(deps(t, graphFalso().g), 'sa');
+    expect(r.estado).toBe(500);
+    expect(ordenBorrados).toEqual(['facebook_paginas', 'facebook_conexion']);
+    expect(t.facebook_paginas).toEqual([]);
+    expect(t.facebook_conexion).toHaveLength(1);
+    expect(t.registro.some((x) => x.accion === 'desconectar_facebook')).toBe(false);
   });
 
   it('marcarReconectar solo toca esa parroquia', async () => {

@@ -26,7 +26,7 @@ export type VistaConexion = {
   estado: 'conectado' | 'reconectar' | 'sin-conectar';
   nombre: string | null;
   conectadoEn: string | null;
-  paginas: { id: string; nombre: string; seguidores: number | null; uso: string | null }[];
+  paginas: { id: string; nombre: string; seguidores: number | null; uso: string | null; visible: boolean }[];
 };
 
 export const PERMISOS_FACEBOOK = [
@@ -43,6 +43,7 @@ export const RUTA_COOKIE_ESTADO = '/editor/facebook';
 export const SEGUNDOS_COOKIE_ESTADO = 600;
 export const RUTA_VOLVER = '/editor/facebook/volver';
 
+const NOMBRE_PAGINA_PERDIDA = 'Página que esta cuenta ya no ve';
 const MENSAJE_FACEBOOK = 'No se pudo conectar con Facebook. Intenta de nuevo';
 const VISTA_VACIA: VistaConexion = { estado: 'sin-conectar', nombre: null, conectadoEn: null, paginas: [] };
 
@@ -119,11 +120,26 @@ async function leerVista(servicio: SupabaseClient, parroquiaId: string): Promise
   const uso = (id: string): string | null =>
     id === propia ? 'Principal' : deExtra.has(id) ? 'Extra' : deOtra.has(id) ? 'Principal de otra parroquia' : null;
 
+  const lista: VistaConexion['paginas'] = paginas.map((x) => ({
+    id: x.page_id,
+    nombre: x.nombre,
+    seguidores: x.seguidores,
+    uso: uso(x.page_id),
+    visible: true,
+  }));
+  // Las elegidas de ESTA parroquia que la cuenta ya no ve quedan en la base: se listan marcadas.
+  const vistas = new Set(ids);
+  const elegidas: Array<[string, string]> = [];
+  if (propia) elegidas.push([propia, 'Principal']);
+  for (const e of deExtra) if (e !== propia) elegidas.push([e, 'Extra']);
+  for (const [id, u] of elegidas) {
+    if (!vistas.has(id)) lista.push({ id, nombre: NOMBRE_PAGINA_PERDIDA, seguidores: null, uso: u, visible: false });
+  }
   return {
     estado: c.data.estado === 'reconectar' ? 'reconectar' : 'conectado',
     nombre: c.data.nombre_facebook as string,
     conectadoEn: c.data.conectado_en as string,
-    paginas: paginas.map((x) => ({ id: x.page_id, nombre: x.nombre, seguidores: x.seguidores, uso: uso(x.page_id) })),
+    paginas: lista,
   };
 }
 
@@ -212,10 +228,11 @@ export async function desconectar(d: DepsConexion, slug: string): Promise<Respue
   const acceso = await comprobarAcceso(d.sesion, slug);
   if (!acceso.ok) return acceso.respuesta;
   // Las páginas elegidas (facebook_parroquia / _extra) se dejan: al reconectar siguen ahí.
-  const c = await d.servicio.from('facebook_conexion').delete().eq('parroquia_id', acceso.parroquiaId);
-  if (c.error) return falloSinDetalle('desconectar');
+  // Primero los tokens de página: si algo falla, nunca quedan tokens de una parroquia que figura desconectada.
   const p = await d.servicio.from('facebook_paginas').delete().eq('parroquia_id', acceso.parroquiaId);
   if (p.error) return falloSinDetalle('desconectar');
+  const c = await d.servicio.from('facebook_conexion').delete().eq('parroquia_id', acceso.parroquiaId);
+  if (c.error) return falloSinDetalle('desconectar');
   await registrarSinFallar(
     d.servicio,
     { parroquia_id: acceso.parroquiaId, usuario_id: acceso.usuarioId, accion: 'desconectar_facebook', detalle: { slug } },
