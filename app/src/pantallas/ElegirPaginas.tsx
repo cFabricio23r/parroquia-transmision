@@ -43,6 +43,11 @@ export default function ElegirPaginas(p: Props) {
     p.onCambiarTextos({ titulo, descripcion });
     setEditando(false);
   };
+  // «Listo» de la hoja no pierde lo que se estaba escribiendo.
+  const listo = () => {
+    if (editando) terminar();
+    p.onListo();
+  };
   return (
     <Modal
       visible={p.visible}
@@ -57,97 +62,104 @@ export default function ElegirPaginas(p: Props) {
           <Text style={estilos.titulo} accessibilityRole="header">
             Dónde sale en Facebook
           </Text>
-          <View style={estilos.principal}>
-            <Text style={estilos.etiqueta}>PÁGINA PRINCIPAL</Text>
-            <Text style={estilos.nombrePrincipal}>{p.principal.nombre}</Text>
-            <Text style={estilos.nota}>La elige el coordinador de la parroquia en la plataforma.</Text>
+          {/* Dos columnas (2026-11-27): en horizontal, con todo en una, los campos empujaban la lista y «Listo». */}
+          <View style={estilos.columnas}>
+            <ScrollView testID="columna-paginas" style={estilos.columna} contentContainerStyle={estilos.columnaContenido}>
+              <View style={estilos.principal}>
+                <Text style={estilos.etiqueta}>PÁGINA PRINCIPAL</Text>
+                <Text style={estilos.nombrePrincipal}>{p.principal.nombre}</Text>
+                <Text style={estilos.nota}>La elige el coordinador de la parroquia en la plataforma.</Text>
+              </View>
+              {p.extras.length > 0 ? (
+                <>
+                  <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>TAMBIÉN MOSTRAR EN</Text>
+                  <View style={estilos.listaContenido}>
+                    {p.extras.map((e) => {
+                      const marcada = p.elegidas.includes(e.id);
+                      return (
+                        <Pressable
+                          key={e.id}
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={e.nombre}
+                          accessibilityState={{ checked: marcada }}
+                          onPress={() => p.onCambiar(alternar(p.elegidas, e.id))}
+                          style={[estilos.casilla, marcada && estilos.casillaMarcada]}
+                        >
+                          <View style={[estilos.cuadro, marcada && estilos.cuadroMarcado]}>
+                            {marcada ? <Text style={estilos.tilde}>✓</Text> : null}
+                          </View>
+                          <Text style={estilos.nombre}>{e.nombre}</Text>
+                          {e.porDefecto ? <Text style={estilos.defecto}>Marcada por defecto</Text> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
+            <ScrollView testID="columna-textos" style={estilos.columna} contentContainerStyle={estilos.columnaContenido} keyboardShouldPersistTaps="handled">
+              <View style={estilos.principal}>
+                {editando ? (
+                  <>
+                    <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
+                    <TextInput
+                      accessibilityLabel="Título"
+                      value={titulo}
+                      onChangeText={setTitulo}
+                      maxLength={254}
+                      style={estilos.campo}
+                      placeholder="Título"
+                      placeholderTextColor={C.suave}
+                    />
+                    <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
+                    <TextInput
+                      accessibilityLabel="Descripción"
+                      value={descripcion}
+                      onChangeText={setDescripcion}
+                      maxLength={1000}
+                      multiline
+                      numberOfLines={3}
+                      style={[estilos.campo, estilos.campoLargo]}
+                      placeholder="Descripción"
+                      placeholderTextColor={C.suave}
+                    />
+                    <View style={estilos.fila}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Listo con el título y la descripción"
+                        onPress={terminar}
+                        style={estilos.cambiar}
+                      >
+                        <Text style={estilos.cambiarTexto}>Listo</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
+                    <Text style={estilos.nombrePrincipal}>{p.textos.titulo}</Text>
+                    <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
+                    <Text style={estilos.descripcion} numberOfLines={3}>
+                      {p.textos.descripcion.trim() === '' ? 'Sin descripción' : p.textos.descripcion}
+                    </Text>
+                    <View style={estilos.fila}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Cambiar el título y la descripción"
+                        onPress={abrir}
+                        style={estilos.cambiar}
+                      >
+                        <Text style={estilos.cambiarTexto}>Cambiar</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                )}
+                <Text style={estilos.nota}>Lo que cambies aquí vale solo para esta transmisión.</Text>
+              </View>
+            </ScrollView>
           </View>
-          <View style={estilos.principal}>
-            {editando ? (
-              <>
-                <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
-                <TextInput
-                  accessibilityLabel="Título"
-                  value={titulo}
-                  onChangeText={setTitulo}
-                  maxLength={254}
-                  style={estilos.campo}
-                  placeholder="Título"
-                  placeholderTextColor={C.suave}
-                />
-                <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
-                <TextInput
-                  accessibilityLabel="Descripción"
-                  value={descripcion}
-                  onChangeText={setDescripcion}
-                  maxLength={1000}
-                  multiline
-                  numberOfLines={3}
-                  style={[estilos.campo, estilos.campoLargo]}
-                  placeholder="Descripción"
-                  placeholderTextColor={C.suave}
-                />
-                <View style={estilos.fila}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Listo con el título y la descripción"
-                    onPress={terminar}
-                    style={estilos.cambiar}
-                  >
-                    <Text style={estilos.cambiarTexto}>Listo</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={estilos.etiqueta}>TÍTULO EN FACEBOOK</Text>
-                <Text style={estilos.nombrePrincipal}>{p.textos.titulo}</Text>
-                <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>DESCRIPCIÓN</Text>
-                <Text style={estilos.descripcion} numberOfLines={3}>
-                  {p.textos.descripcion.trim() === '' ? 'Sin descripción' : p.textos.descripcion}
-                </Text>
-                <View style={estilos.fila}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Cambiar el título y la descripción"
-                    onPress={abrir}
-                    style={estilos.cambiar}
-                  >
-                    <Text style={estilos.cambiarTexto}>Cambiar</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-            <Text style={estilos.nota}>Lo que cambies aquí vale solo para esta transmisión.</Text>
-          </View>
-          {p.extras.length > 0 ? (
-            <>
-              <Text style={[estilos.etiqueta, estilos.etiquetaExtras]}>TAMBIÉN MOSTRAR EN</Text>
-              <ScrollView style={estilos.lista} contentContainerStyle={estilos.listaContenido}>
-                {p.extras.map((e) => {
-                  const marcada = p.elegidas.includes(e.id);
-                  return (
-                    <Pressable
-                      key={e.id}
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={e.nombre}
-                      accessibilityState={{ checked: marcada }}
-                      onPress={() => p.onCambiar(alternar(p.elegidas, e.id))}
-                      style={[estilos.casilla, marcada && estilos.casillaMarcada]}
-                    >
-                      <View style={[estilos.cuadro, marcada && estilos.cuadroMarcado]}>
-                        {marcada ? <Text style={estilos.tilde}>✓</Text> : null}
-                      </View>
-                      <Text style={estilos.nombre}>{e.nombre}</Text>
-                      {e.porDefecto ? <Text style={estilos.defecto}>Marcada por defecto</Text> : null}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </>
-          ) : null}
           <View style={estilos.fila}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Listo" onPress={p.onListo} style={estilos.listo}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Listo" onPress={listo} style={estilos.listo}>
               <Text style={estilos.listoTexto}>Listo</Text>
             </Pressable>
           </View>
@@ -162,7 +174,7 @@ const estilos = StyleSheet.create({
   // Ancho máximo, no fijo: en una ventana más angosta se encoge.
   hoja: {
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 860,
     maxHeight: '100%',
     backgroundColor: C.caja,
     borderWidth: 1,
@@ -177,7 +189,9 @@ const estilos = StyleSheet.create({
   etiquetaExtras: { marginTop: 2 },
   nombrePrincipal: { fontFamily: F.negrita, fontSize: 15, color: C.texto, marginTop: 2 },
   nota: { fontFamily: F.semi, fontSize: 12, color: C.suave, marginTop: 2 },
-  lista: { flexGrow: 0 },
+  columnas: { flexDirection: 'row', gap: 12, flexShrink: 1, minHeight: 0 },
+  columna: { flex: 1 },
+  columnaContenido: { gap: 10 },
   listaContenido: { gap: 6 },
   casilla: {
     minHeight: 44,

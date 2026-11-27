@@ -7,6 +7,7 @@ import { PanResponder, Pressable, StyleSheet, Text, View, type GestureResponderE
 import type { Fase } from '../estado/transmision';
 import { formatoFps, formatoReloj, fpsBajo } from '../estado/formato';
 import { etiquetaZoom, limitarZoom, zoomPellizco, zoomSiguiente, type RangoZoom } from '../estado/zoom';
+import { IconoMicrofono, IconoPantallaCompleta } from './Iconos';
 import { C, F } from './tema';
 
 interface Props {
@@ -19,6 +20,9 @@ interface Props {
   fase: Fase;
   segundos: number;
   fps: number | null;
+  /** Micrófono silenciado (2026-11-27). */
+  silenciado: boolean;
+  onSilenciar: (si: boolean) => void;
 }
 
 function distancia(e: GestureResponderEvent): number {
@@ -81,16 +85,27 @@ function ControlesCamaraBase(p: Props) {
             <Text style={estilos.pastillaTexto}>{formatoReloj(p.segundos)}</Text>
           </View>
           <Text style={[estilos.chip, !reconectando && fpsBajo(fps) && { color: C.ambar }]}>{formatoFps(fps)}</Text>
+          {p.silenciado ? <Text style={[estilos.chip, estilos.chipMudo]}>SIN SONIDO</Text> : null}
         </View>
       ) : null}
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={p.silenciado ? 'Activar el micrófono' : 'Silenciar el micrófono'}
+        accessibilityState={{ selected: p.silenciado }}
+        onPress={() => p.onSilenciar(!p.silenciado)}
+        style={[estilos.boton, estilos.icono, estilos.microfono, p.silenciado && estilos.microfonoMudo]}
+      >
+        <IconoMicrofono tachado={p.silenciado} color={C.texto} />
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
         accessibilityLabel={p.completa ? 'Salir de pantalla completa' : 'Pantalla completa'}
         onPress={() => p.onCompleta(!p.completa)}
-        style={[estilos.boton, estilos.completa]}
+        style={[estilos.boton, estilos.icono, estilos.completa]}
       >
-        <Text style={estilos.botonTexto}>{p.completa ? 'Salir' : 'Pantalla completa'}</Text>
+        <IconoPantallaCompleta salir={p.completa} color={C.texto} />
       </Pressable>
 
       {rango ? (
@@ -150,11 +165,17 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  completa: { position: 'absolute', right: 10, top: 10, paddingHorizontal: 12 },
-  zoom: { position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', gap: 6 },
-  cuadrado: { width: 48, height: 48 },
-  nivel: { minWidth: 56, height: 48, paddingHorizontal: 8 },
-  signo: { fontFamily: F.extra, fontSize: 22, color: C.texto },
+  // Botones de ícono: 44×44, el mínimo táctil.
+  icono: { width: 44, height: 44 },
+  completa: { position: 'absolute', right: 10, top: 10 },
+  microfono: { position: 'absolute', left: 10, bottom: 10 },
+  microfonoMudo: { backgroundColor: C.rojo, borderColor: C.rojo },
+  chipMudo: { backgroundColor: C.rojo, color: C.texto },
+  zoom: { position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', gap: 4 },
+  // Zoom un poco más chico (antes 48): 44 es el mínimo táctil.
+  cuadrado: { width: 44, height: 44 },
+  nivel: { minWidth: 48, height: 44, paddingHorizontal: 6 },
+  signo: { fontFamily: F.extra, fontSize: 20, color: C.texto },
   botonTexto: { fontFamily: F.extra, fontSize: 13, color: C.texto },
 });
 

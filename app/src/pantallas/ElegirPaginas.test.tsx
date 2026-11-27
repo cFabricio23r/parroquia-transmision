@@ -139,6 +139,43 @@ describe('ElegirPaginas', () => {
     expect(onCambiarTextos).toHaveBeenCalledWith({ titulo: ' Misa nueva ', descripcion: '' });
   });
 
+  it('dos columnas que se desplazan solas: páginas a la izquierda, textos a la derecha (2026-11-27)', async () => {
+    // En horizontal, con todo en una columna, los campos empujaban la lista de páginas y «Listo» fuera de la hoja.
+    const { raiz } = await mostrar();
+    const porId = (id: string) => raiz.container.queryAll((i: TestInstance) => i.props.testID === id)[0];
+    const paginas = porId('columna-paginas');
+    const textos = porId('columna-textos');
+    expect(paginas).toBeDefined();
+    expect(textos).toBeDefined();
+    expect(paginas.queryAll((i: TestInstance) => i.props.accessibilityRole === 'checkbox')).toHaveLength(EXTRAS.length);
+    expect(
+      textos.queryAll((i: TestInstance) => i.props.accessibilityLabel === 'Cambiar el título y la descripción'),
+    ).not.toHaveLength(0);
+    // «Listo» queda fuera de las columnas, siempre a la vista.
+    const listo = raiz.container.queryAll((i: TestInstance) => i.props.accessibilityLabel === 'Listo')[0];
+    expect(paginas.queryAll((i: TestInstance) => i === listo)).toHaveLength(0);
+    expect(textos.queryAll((i: TestInstance) => i === listo)).toHaveLength(0);
+  });
+
+  it('«Listo» de la hoja guarda el título y la descripción que se estaban editando', async () => {
+    const onCambiarTextos = jest.fn();
+    const onListo = jest.fn();
+    const { raiz } = await mostrar({ textos: { titulo: 'Misa', descripcion: '' }, onCambiarTextos, onListo });
+    const porEtiqueta = (l: string) => raiz.container.queryAll((i: TestInstance) => i.props.accessibilityLabel === l)[0];
+    await act(async () => {
+      porEtiqueta('Cambiar el título y la descripción').props.onClick({});
+    });
+    const titulo = raiz.container.queryAll((i: TestInstance) => i.props.accessibilityLabel === 'Título' && typeof i.props.onChangeText === 'function')[0];
+    await act(async () => {
+      titulo.props.onChangeText('Misa patronal');
+    });
+    await act(async () => {
+      porEtiqueta('Listo').props.onClick({});
+    });
+    expect(onCambiarTextos).toHaveBeenCalledWith({ titulo: 'Misa patronal', descripcion: '' });
+    expect(onListo).toHaveBeenCalledTimes(1);
+  });
+
   it('las zonas para tocar miden 44 px o más', async () => {
     const { raiz, casillas } = await mostrar();
     const listo = raiz.container.queryAll((i: TestInstance) => i.props.accessibilityLabel === 'Listo')[0];
