@@ -3,7 +3,8 @@
 // La app pone en el panel el tipo y los datos de un día con un script que parte de leerEstado(),
 // vuelve a PREDETERMINADO lo de la transmisión, aplica lo del día, pasa por normalizarEstado y
 // escribe directo en localStorage. No llama a guardarEstado: ese marca ultimoPropio y entonces
-// escucharEstado del mismo panel no lo tomaría (comun.js). Lo toma en ≤ 300 ms.
+// escucharEstado del mismo panel no lo tomaría (comun.js). Para que lo tome en el acto, y no cuando le
+// toque la consulta, después del setItem despacha un StorageEvent sintético con la misma clave.
 //
 // El seguimiento compara lo que el panel manda con el día en uso: un cambio del voluntario queda
 // como Pendiente en el celular, 1,5 s después del último cambio.
@@ -40,7 +41,8 @@ function armar(slug: string, parche: ParchePanel, despues: string): string {
     '(function(p){try{var b=leerEstado();p.limpiar.forEach(function(c){' +
     'if(Object.prototype.hasOwnProperty.call(PREDETERMINADO,c))b[c]=JSON.parse(JSON.stringify(PREDETERMINADO[c]));else delete b[c];});' +
     'Object.assign(b,p.poner);var s=normalizarEstado(b);s.rotulo=\'ninguno\';s.rotuloHasta=0;' +
-    'localStorage.setItem(' + clave + ',JSON.stringify(s));' + despues + '}catch(e){}})(' + p + ');true;'
+    'localStorage.setItem(' + clave + ',JSON.stringify(s));' +
+    "window.dispatchEvent(new StorageEvent('storage',{key:" + clave + '}));' + despues + '}catch(e){}})(' + p + ');true;'
   );
 }
 

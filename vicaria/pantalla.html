@@ -548,7 +548,7 @@ function aplicarParroquia(c) {
 aplicarParroquia(PARROQUIA);
 alCambiarParroquia(aplicarParroquia);
 vigilarParroquia();
-escucharEstado(pintar);
+escucharEstado(pintar, MODO_APP ? 2000 : 300);
 latir('pantalla-' + vista);
 </script>
 </body>

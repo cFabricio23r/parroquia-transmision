@@ -875,7 +875,7 @@ grupo('comun por parroquia', () => {
     assert.ok(!('parroquia_obs_estado_v1' in c.__almacen));
     assert.ok(!Object.keys(c.__almacen).some((k) => k.startsWith('parroquia_')));
   });
-  prueba('con MODO_APP escucharEstado consulta cada 2000 ms, y un evento storage llama al cb en el acto', () => {
+  prueba('con MODO_APP y cadaMs 2000 escucharEstado consulta cada 2000 ms, y un evento storage llama al cb en el acto', () => {
     const tics = [];
     const oyentes = {};
     const c = cargarCon(COMUN, {}, CONFIG_CIUDAD_ARCE, {
@@ -885,7 +885,7 @@ grupo('comun por parroquia', () => {
       setInterval: (fn, ms) => { tics.push({ fn, ms }); return 1; }
     });
     const llamadas = [];
-    c.escucharEstado((e) => llamadas.push(e));
+    c.escucharEstado((e) => llamadas.push(e), 2000);
     assert.equal(tics.length, 1);
     assert.equal(tics[0].ms, 2000);
     assert.equal(typeof oyentes.storage, 'function');
@@ -898,6 +898,17 @@ grupo('comun por parroquia', () => {
     oyentes.storage({ key: c.CLAVE });   // sin cambio real: el cb no se repite
     tics[0].fn();
     assert.equal(llamadas.length, antes + 1);
+  });
+  prueba('con MODO_APP y sin intervalo (el panel) escucharEstado consulta cada 300 ms', () => {
+    const tics = [];
+    const c = cargarCon(COMUN, {}, CONFIG_CIUDAD_ARCE, {
+      document: { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, documentElement: { classList: { add() {} } } },
+      URLSearchParams, location: { pathname: '/ciudad-arce/panel.html', search: '?modo=app' },
+      window: { innerWidth: 1920, innerHeight: 1080, addEventListener() {} },
+      setInterval: (fn, ms) => { tics.push({ fn, ms }); return 1; }
+    });
+    c.escucharEstado(() => {});
+    assert.equal(tics[0].ms, 300);
   });
   prueba('sin MODO_APP (OBS) escucharEstado sigue consultando cada 300 ms', () => {
     const tics = [];

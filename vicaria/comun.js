@@ -118,8 +118,11 @@ function guardarEstado(s) {
   try { if (canal) canal.postMessage(s); } catch (e) {}
 }
 
-/* Llama a cb(estado) al inicio y cada vez que el panel cambia algo. */
-function escucharEstado(cb) {
+/* Llama a cb(estado) al inicio y cada vez que el panel cambia algo.
+   cadaMs: cada cuánto consulta el almacenamiento (300 por defecto). El panel necesita los 300: «Usar esta» y
+   «Editar» de la app escriben su localStorage directo y esperan que lo tome enseguida. Solo las páginas de capa
+   que corren en la app pasan MODO_APP ? 2000 : 300. */
+function escucharEstado(cb, cadaMs = 300) {
   let ultimo = null;
   const revisar = () => {
     let crudo = '';
@@ -131,8 +134,7 @@ function escucharEstado(cb) {
   };
   revisar();
   // En la app el estado llega por evento (Capa.kt avisa tras cada setItem); la consulta queda de red de seguridad.
-  // En OBS no cambia: cada 300 ms.
-  setInterval(revisar, MODO_APP ? 2000 : 300);
+  setInterval(revisar, cadaMs);
   window.addEventListener('storage', revisar);
   if (canal) canal.onmessage = (e) => {
     ultimo = JSON.stringify(e.data);

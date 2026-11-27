@@ -155,7 +155,7 @@ function aplicarParroquia(c) {
 aplicarParroquia(PARROQUIA);
 alCambiarParroquia(aplicarParroquia);
 vigilarParroquia();
-escucharEstado(pintar);
+escucharEstado(pintar, MODO_APP ? 2000 : 300);
 setInterval(() => { if (estado.rotuloHasta) pintar(estado); }, 250);
 latir('rotulos');
 </script>

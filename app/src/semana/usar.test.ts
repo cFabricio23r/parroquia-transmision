@@ -17,6 +17,7 @@ const CLAVE = 'pev_ciudad-arce_estado_v1';
 // Copia mínima de pruebas/vicaria/cargar.js, con la página en /ciudad-arce/panel.html.
 function cargar(archivos: string[], almacen: Record<string, string>) {
   const datos: Record<string, string> = { ...almacen };
+  const eventos: unknown[] = [];
   const contexto = vm.createContext({
     localStorage: {
       getItem: (k: string) => (k in datos ? datos[k] : null),
@@ -33,14 +34,15 @@ function cargar(archivos: string[], almacen: Record<string, string>) {
       close() {}
     },
     document: { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null },
-    window: { innerWidth: 1920, innerHeight: 1080, addEventListener() {} },
+    window: { innerWidth: 1920, innerHeight: 1080, addEventListener() {}, dispatchEvent: (e: unknown) => { eventos.push(e); return true; } },
+    StorageEvent: class { type: string; key?: string; constructor(t: string, i?: { key?: string }) { this.type = t; this.key = i?.key; } },
     location: { pathname: '/ciudad-arce/panel.html', search: '' },
     setInterval: () => 0, clearInterval() {}, setTimeout: () => 0, clearTimeout() {},
     console: { log() {}, info() {}, warn() {}, error() {} },
   });
   const fuentes = archivos.map((a) => fs.readFileSync(path.join(RAIZ, a), 'utf8'));
   vm.runInContext(fuentes.join('\n'), contexto, { filename: archivos.join('+') });
-  return { contexto, datos };
+  return { contexto, datos, eventos };
 }
 
 const tipo = (clave: string): TipoCampos => {
@@ -51,13 +53,13 @@ const tipo = (clave: string): TipoCampos => {
 
 describe('scriptUsar en el panel real', () => {
   function previo() {
-    const { contexto, datos } = cargar(['parroquia.js', 'tipos.js', 'comun.js'], {});
+    const { contexto, datos, eventos } = cargar(['parroquia.js', 'tipos.js', 'comun.js'], {});
     const base = vm.runInContext('normalizarEstado({})', contexto) as Record<string, unknown>;
     contexto.__previo = { ...base, tipo: 'dominical', lectura2: 'Rm 8', avisos: [{ t: 'Aviso de prueba' }], rotulo: 'persona' };
     const estado = vm.runInContext('normalizarEstado(__previo)', contexto) as Record<string, unknown>;
     expect(JSON.stringify(estado.avisos)).toContain('Aviso de prueba');
     datos[CLAVE] = JSON.stringify(estado);
-    return { contexto, datos, estado };
+    return { contexto, datos, estado, eventos };
   }
 
   it('cambia el tipo y los datos, y deja lo de la parroquia', () => {
@@ -71,6 +73,14 @@ describe('scriptUsar en el panel real', () => {
       tipo: 'novena', novenaDia: 3, celebrante: 'P. Ana', lectura2: '', rotulo: 'ninguno', rotuloHasta: 0,
     });
     expect(s.avisos).toEqual(estado.avisos);
+  });
+
+  it('avisa con un StorageEvent sintético de la misma clave, para que el panel lo tome en el acto', () => {
+    const { contexto, eventos } = previo();
+    const script = scriptUsar('ciudad-arce', SEMANA.parcheDePanel({ tipo: 'novena', datos: {} }, tipo('novena')));
+    vm.runInContext(script, contexto);
+    expect(eventos).toHaveLength(1);
+    expect(eventos[0]).toMatchObject({ type: 'storage', key: CLAVE });
   });
 
   it('no marca ultimoPropio', () => {
