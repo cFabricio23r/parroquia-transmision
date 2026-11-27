@@ -102,7 +102,7 @@ describe('errores', () => {
 });
 
 describe('cuentas', () => {
-  it('cambiarCodigo pide el token corto', async () => {
+  it('cambiarCodigo pide el token corto (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([{ json: { access_token: 'corto' } }]);
     const r = await g.cambiarCodigo('COD', 'https://x.test/cb');
     expect(r).toEqual({ ok: true, valor: 'corto' });
@@ -112,7 +112,7 @@ describe('cuentas', () => {
     expect(u.searchParams.get('redirect_uri')).toBe('https://x.test/cb');
     expect(u.searchParams.get('client_id')).toBe('APP1');
   });
-  it('alargar usa fb_exchange_token', async () => {
+  it('alargar usa fb_exchange_token (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([{ json: { access_token: 'largo' } }]);
     const r = await g.alargar('corto');
     expect(r).toEqual({ ok: true, valor: 'largo' });
@@ -125,7 +125,7 @@ describe('cuentas', () => {
     expect(await g.yo(TOKEN_USUARIO)).toEqual({ ok: true, valor: { id: '7', nombre: 'Ana' } });
     expect(new URL(llamadas[0].url).searchParams.get('access_token')).toBe(TOKEN_USUARIO);
   });
-  it('paginas devuelve token y seguidores (null si falta)', async () => {
+  it('paginas devuelve token y seguidores, null si falta (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([
       {
         json: {
@@ -197,7 +197,7 @@ describe('partirUrlStream', () => {
 });
 
 describe('vivo', () => {
-  it('activarCrosspost manda crossposting_actions por página', async () => {
+  it('activarCrosspost manda crossposting_actions por página (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }]);
     const r = await g.activarCrosspost('V1', TOKEN, ['A', 'B']);
     expect(r).toEqual({ ok: true, valor: undefined });
@@ -210,14 +210,14 @@ describe('vivo', () => {
     ]);
     expect(c.get('access_token')).toBe(TOKEN);
   });
-  it('crosspostHechos lista los ids de crossposted_broadcasts', async () => {
+  it('crosspostHechos lista los ids de crossposted_broadcasts (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([
       { json: { crossposted_broadcasts: { data: [{ id: 'X1' }, { id: 'X2' }] } } },
     ]);
     expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: ['X1', 'X2'] });
     expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('crossposted_broadcasts');
   });
-  it('crosspostHechos sin el campo da lista vacía', async () => {
+  it('crosspostHechos sin el campo da lista vacía (supuesto, no verificado)', async () => {
     const { g } = graph([{ json: { id: 'V1' } }]);
     expect(await g.crosspostHechos('V1', TOKEN)).toEqual({ ok: true, valor: [] });
   });
@@ -226,13 +226,13 @@ describe('vivo', () => {
     expect(await g.urlDeVivo('V1', TOKEN)).toEqual({ ok: true, valor: 'rtmps://h/rtmp/K' });
     expect(new URL(llamadas[0].url).searchParams.get('fields')).toBe('secure_stream_url');
   });
-  it('terminarVivo hace POST con end_live_video', async () => {
+  it('terminarVivo hace POST con end_live_video (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }]);
     expect(await g.terminarVivo('V1', TOKEN)).toEqual({ ok: true, valor: undefined });
     expect(llamadas[0].metodo).toBe('POST');
     expect(new URLSearchParams(llamadas[0].cuerpo!).get('end_live_video')).toBe('true');
   });
-  it('handshake whitelistea en ambos sentidos con el token de cada lado', async () => {
+  it('handshake whitelistea en ambos sentidos con el token de cada lado (supuesto, no verificado)', async () => {
     const { g, llamadas } = graph([{ json: { success: true } }, { json: { success: true } }]);
     const r = await g.handshake({ id: 'O', token: 'tO' }, { id: 'D', token: 'tD' });
     expect(r).toEqual({ ok: true, valor: undefined });
@@ -244,13 +244,13 @@ describe('vivo', () => {
     expect(new URLSearchParams(llamadas[1].cuerpo!).get('page_id')).toBe('O');
     expect(new URLSearchParams(llamadas[1].cuerpo!).get('access_token')).toBe('tD');
   });
-  it('handshake corta en el primer error', async () => {
+  it('handshake corta en el primer error (ruta supuesta, no verificada)', async () => {
     const { g, llamadas } = graph([{ status: 400, json: { error: { code: 190 } } }]);
     const r = await g.handshake({ id: 'O', token: 'tO' }, { id: 'D', token: 'tD' });
     expect(r).toEqual({ ok: false, error: { tipo: 'token', codigo: 190 } });
     expect(llamadas).toHaveLength(1);
   });
-  it('permiteLive dice si el destino está en la lista', async () => {
+  it('permiteLive dice si el destino está en la lista (supuesto, no verificado)', async () => {
     const { g } = graph([{ json: { data: [{ id: 'D' }] } }, { json: { data: [{ id: 'Z' }] } }]);
     expect(await g.permiteLive({ id: 'O', token: 'tO' }, 'D')).toEqual({ ok: true, valor: true });
     expect(await g.permiteLive({ id: 'O', token: 'tO' }, 'D')).toEqual({ ok: true, valor: false });

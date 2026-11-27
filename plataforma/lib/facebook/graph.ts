@@ -1,3 +1,12 @@
+// NO VERIFICADO — se confirma en la Tarea 0, Paso 2
+// Estas elecciones salen de la memoria, no de la documentación de Facebook:
+//  - cambiarCodigo / alargar: GET oauth/access_token (client_id, client_secret, redirect_uri, code; grant_type=fb_exchange_token).
+//  - paginas: GET me/accounts con fields=id,name,access_token,followers_count y limit=100 (sin paginar).
+//  - activarCrosspost: POST <vivo> con crossposting_actions = JSON [{page_id, action:'enable_crossposting_and_create_post'}].
+//  - crosspostHechos: GET <vivo>?fields=crossposted_broadcasts, respuesta {data:[{id}]}.
+//  - terminarVivo: POST <vivo> con end_live_video=true.
+//  - handshake / permiteLive: ruta <pagina>/crosspost_whitelisted_pages; el handshake es un POST page_id en ambos sentidos, cada uno con el token de su lado.
+//  - estadoVivo: campo `status` (valores en ESTADOS_VIVO_GRAPH, vacíos) y `privacy` en crearVivo.
 // Cliente de la Graph API de Facebook detrás de una interfaz.
 // El token (de usuario o de página) va en el cuerpo de los POST y como parámetro de los GET.
 // Nunca se registra ni se copia a un error: los errores solo llevan tipo y códigos numéricos.
@@ -113,6 +122,7 @@ export function crearGraph(o: {
     r.ok ? { ok: true, valor: undefined } : r;
 
   return {
+    // NO VERIFICADO (Tarea 0 Paso 2): GET oauth/access_token con client_id, client_secret, redirect_uri y code.
     async cambiarCodigo(codigo, redirect) {
       const r = await llamar('GET', 'oauth/access_token', {
         client_id: o.appId,
@@ -125,6 +135,7 @@ export function crearGraph(o: {
       return t ? { ok: true, valor: t } : OTRO;
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): GET oauth/access_token con grant_type=fb_exchange_token.
     async alargar(tokenCorto) {
       const r = await llamar('GET', 'oauth/access_token', {
         grant_type: 'fb_exchange_token',
@@ -144,6 +155,7 @@ export function crearGraph(o: {
       return id ? { ok: true, valor: { id, nombre: texto(r.valor.name) ?? '' } } : OTRO;
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): GET me/accounts con fields id,name,access_token,followers_count; sin paginar.
     async paginas(tokenUsuario) {
       const r = await llamar('GET', 'me/accounts', {
         fields: 'id,name,access_token,followers_count',
@@ -180,6 +192,7 @@ export function crearGraph(o: {
       return vivoId && urlStream ? { ok: true, valor: { vivoId, url: urlStream } } : OTRO;
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): forma y nombre de acción de crossposting_actions.
     async activarCrosspost(vivoId, tokenPagina, pageIds) {
       const acciones = pageIds.map((page_id) => ({
         page_id,
@@ -193,6 +206,7 @@ export function crearGraph(o: {
       );
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): campo crossposted_broadcasts y su respuesta {data:[{id}]}.
     async crosspostHechos(vivoId, tokenPagina) {
       const r = await llamar('GET', vivoId, {
         fields: 'crossposted_broadcasts',
@@ -205,6 +219,7 @@ export function crearGraph(o: {
       return { ok: true, valor: ids };
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): campo `status`; los valores están en ESTADOS_VIVO_GRAPH.
     async estadoVivo(vivoId, tokenPagina) {
       const r = await llamar('GET', vivoId, { fields: 'status', access_token: tokenPagina });
       if (!r.ok) return r;
@@ -224,10 +239,12 @@ export function crearGraph(o: {
       return u ? { ok: true, valor: u } : OTRO;
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): POST con end_live_video=true.
     async terminarVivo(vivoId, tokenPagina) {
       return vacio(await llamar('POST', vivoId, { end_live_video: 'true', access_token: tokenPagina }));
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): ruta crosspost_whitelisted_pages y dirección del handshake (ambos sentidos).
     async handshake(origen, destino) {
       const a = await llamar('POST', `${origen.id}/crosspost_whitelisted_pages`, {
         page_id: destino.id,
@@ -242,6 +259,7 @@ export function crearGraph(o: {
       );
     },
 
+    // NO VERIFICADO (Tarea 0 Paso 2): GET crosspost_whitelisted_pages con fields=id.
     async permiteLive(origen, destinoId) {
       const r = await llamar('GET', `${origen.id}/crosspost_whitelisted_pages`, {
         fields: 'id',
