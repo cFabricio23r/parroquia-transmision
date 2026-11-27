@@ -1,4 +1,4 @@
-import { crearClienteFacebook, PLAZO_CREAR_MS } from './cliente';
+import { crearClienteFacebook, PLAZO_CREAR_MS, PLAZO_PEDIDO_CREAR_MS } from './cliente';
 import type { SesionApp } from '../sesion/sesion';
 
 const ORIGEN = 'https://plataforma.example.org';
@@ -37,6 +37,7 @@ const VIVO = {
   clave: CLAVE,
   principal: { id: 'p1', nombre: 'Parroquia' },
   extras: [{ id: 'p2', nombre: 'Extra' }],
+  reusado: false,
 };
 
 afterEach(() => {
@@ -56,32 +57,47 @@ describe('crear', () => {
     expect(JSON.parse(init.body as string)).toEqual({ extras: ['p2'], titulo: 'Misa' });
   });
 
-  it('da sin-conexion a los 15 s si fetch no responde', async () => {
+  it('el pedido de crear dura más que el tope de 15 s de la app (Ruling 13): a los 45 s da sin-conexion', async () => {
     jest.useFakeTimers();
     const f = jest.fn(() => new Promise<Response>(() => {}));
     expect(PLAZO_CREAR_MS).toBe(15_000);
+    expect(PLAZO_PEDIDO_CREAR_MS).toBe(45_000);
     const p = cliente(f).crear([], 'Misa');
     let listo = false;
     void p.then(() => {
       listo = true;
     });
-    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS - 1);
+    await jest.advanceTimersByTimeAsync(PLAZO_PEDIDO_CREAR_MS - 1);
     expect(listo).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
   });
 
-  it('da sin-conexion a los 15 s totales si la renovacion de sesion nunca responde', async () => {
+  it('una respuesta de crear que llega a los 20 s todavía se lee (para poder cerrar ese vivo)', async () => {
+    jest.useFakeTimers();
+    const f = jest.fn(() => new Promise<Response>((res) => setTimeout(() => res(respuesta(200, VIVO)), 20_000)));
+    const p = cliente(f).crear([], 'Misa');
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(await p).toEqual({ ok: true, valor: VIVO });
+  });
+
+  it('lee `reusado` (sin el campo, false)', async () => {
+    expect(await cliente(jest.fn(async () => respuesta(200, { ...VIVO, reusado: true }))).crear([], 'M')).toEqual({ ok: true, valor: { ...VIVO, reusado: true } });
+    const { reusado: _r, ...sinCampo } = VIVO;
+    expect(await cliente(jest.fn(async () => respuesta(200, sinCampo))).crear([], 'M')).toEqual({ ok: true, valor: { ...VIVO, reusado: false } });
+  });
+
+  it('da sin-conexion a los 45 s totales si la renovacion de sesion nunca responde', async () => {
     jest.useFakeTimers();
     const f = jest.fn();
     const sesion = { conSesion: () => new Promise(() => {}) } as unknown as SesionApp;
     const p = cliente(f, sesion).crear([], 'Misa');
-    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS);
+    await jest.advanceTimersByTimeAsync(PLAZO_PEDIDO_CREAR_MS);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
     expect(f).not.toHaveBeenCalled();
   });
 
-  it('en el reintento por sesion-invalida el total no pasa de 15 s y el resultado tardio se ignora', async () => {
+  it('en el reintento por sesion-invalida el total no pasa de 45 s y el resultado tardio se ignora', async () => {
     jest.useFakeTimers();
     const espia = jest.spyOn(console, 'log').mockImplementation(() => {});
     const f = jest.fn(async () => respuesta(401, {}));
@@ -100,11 +116,11 @@ describe('crear', () => {
     void p.then(() => {
       listo = true;
     });
-    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS - 1);
+    await jest.advanceTimersByTimeAsync(PLAZO_PEDIDO_CREAR_MS - 1);
     expect(listo).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
-    await jest.advanceTimersByTimeAsync(20_000);
+    await jest.advanceTimersByTimeAsync(60_000);
     expect(espia).not.toHaveBeenCalled();
   });
 

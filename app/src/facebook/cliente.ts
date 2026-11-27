@@ -25,6 +25,8 @@ export interface VivoCreado {
   clave: string;
   principal: { id: string; nombre: string };
   extras: { id: string; nombre: string }[];
+  /** true si la plataforma devolvió un vivo que ya existía (el de otro celular): nunca se cierra por llegar tarde. */
+  reusado: boolean;
 }
 export interface EstadoVivo {
   estado: 'activo' | 'terminado';
@@ -38,8 +40,18 @@ export interface ClienteFacebook {
   terminar(id: string): Promise<ResultadoFacebook<void>>;
 }
 
-/** Crear el vivo en Facebook tarda entre 3 y 11,5 s (verificado); este tope es mayor que el de Graph (12 s). */
+/**
+ * Tope de la app para tener el vivo (destinos + crear): crear en Facebook tarda entre 3 y 11,5 s (verificado);
+ * este tope es mayor que el de Graph (12 s). Lo aplica `pedirVivo` (vivo.ts): a los 15 s se cae a la clave fija.
+ */
 export const PLAZO_CREAR_MS = 15_000;
+
+/**
+ * Plazo del pedido HTTP de `crear` (Ruling 13). Es MÁS largo que PLAZO_CREAR_MS a propósito: si la plataforma
+ * termina de crear después de que la app cayó a la clave fija, la respuesta todavía llega y `pedirVivo` cierra
+ * ese vivo. Cubre el peor camino de la plataforma que crea uno nuevo (leer el activo 12 s + crear 12 s + base).
+ */
+export const PLAZO_PEDIDO_CREAR_MS = 45_000;
 
 const CODIGOS: readonly ErrorFacebook['tipo'][] = ['sin-facebook', 'reconectar', 'requisitos', 'facebook', 'muchos'];
 
@@ -82,6 +94,7 @@ function leerVivo(c: unknown): VivoCreado | null {
     clave: c.clave,
     principal: { id: c.principal.id, nombre: c.principal.nombre },
     extras: extras.map((e) => ({ id: e.id, nombre: e.nombre })),
+    reusado: c.reusado === true,
   };
 }
 
@@ -153,7 +166,7 @@ export function crearClienteFacebook(o: { origen: string; slug: string; sesion: 
 
   return {
     destinos: () => pedir('GET', 'facebook', PLAZO_POR_DEFECTO_MS, undefined, leerDestinos),
-    crear: (extras, titulo) => conLimite(pedir('POST', 'vivo', PLAZO_CREAR_MS, { extras, titulo }, leerVivo), PLAZO_CREAR_MS),
+    crear: (extras, titulo) => conLimite(pedir('POST', 'vivo', PLAZO_PEDIDO_CREAR_MS, { extras, titulo }, leerVivo), PLAZO_PEDIDO_CREAR_MS),
     estado: (id) => pedir('GET', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, leerEstado),
     terminar: (id) => pedir<void>('DELETE', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, () => undefined),
   };

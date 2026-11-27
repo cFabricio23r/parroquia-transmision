@@ -43,7 +43,8 @@ export function crearVivoFacebook(o: {
   estadoVivo(id: string): Promise<EstadoVivo | null>;
 } {
   return {
-    // Un solo tope para todo el pedido (destinos + crear): a PLAZO_CREAR_MS se cae a la clave fija.
+    // Un solo tope para todo el pedido (destinos + crear): a PLAZO_CREAR_MS se cae a la clave fija. El pedido de
+    // crear sigue vivo hasta PLAZO_PEDIDO_CREAR_MS para poder cerrar lo que llegue tarde.
     pedirVivo() {
       return new Promise<RespuestaVivo>((resolver) => {
         let vencido = false;
@@ -71,8 +72,9 @@ export function crearVivoFacebook(o: {
           const vivo = await o.cliente.crear(extrasElegidos(destinos.valor, guardadas), o.titulo());
           if (!vivo.ok) return fin({ error: true });
           if (vencido) {
-            // Llegó tarde: no se usa, y se cierra una vez para no dejar un vivo huérfano.
-            void Promise.resolve(o.cliente.terminar(vivo.valor.id)).catch(() => undefined);
+            // Llegó tarde: no se usa, y se cierra una vez para no dejar un vivo huérfano (el pedido de crear dura
+            // más que este tope justo para poder hacerlo). Un vivo reusado es el de otro celular: ese no se toca.
+            if (!vivo.valor.reusado) void Promise.resolve(o.cliente.terminar(vivo.valor.id)).catch(() => undefined);
             return;
           }
           fin({

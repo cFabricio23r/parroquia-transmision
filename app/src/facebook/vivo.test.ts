@@ -1,5 +1,6 @@
 import type { ClienteFacebook, Destinos, ResultadoFacebook, VivoCreado } from './cliente';
-import { PLAZO_CREAR_MS } from './cliente';
+import { PLAZO_CREAR_MS, crearClienteFacebook } from './cliente';
+import type { SesionApp } from '../sesion/sesion';
 import { chipsFacebook, crearVivoFacebook, extrasElegidos, resumenTira } from './vivo';
 
 const DESTINOS: Destinos = {
@@ -16,6 +17,7 @@ const VIVO: VivoCreado = {
   clave: 'VIVO-PRUEBA-0000',
   principal: { id: 'p1', nombre: 'Principal' },
   extras: [],
+  reusado: false,
 };
 const MAL = { ok: false, error: { tipo: 'otro' } } as const;
 
@@ -132,6 +134,50 @@ describe('tope de 15 s', () => {
     expect(r).toHaveBeenCalledTimes(1);
     expect(cliente.terminar).toHaveBeenCalledTimes(1);
     expect(cliente.terminar).toHaveBeenCalledWith('v1');
+  });
+});
+
+describe('Ruling 13: crear lento contra el tope de 15 s, con el cliente real', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const sesion = {
+    conSesion: async (fn: (s: unknown) => Promise<unknown>) =>
+      fn({ accessToken: 'tok', refreshToken: 'r', expiraEn: 9e9, usuarioId: 'u', correo: 'a@b.c' }),
+  } as unknown as SesionApp;
+  const json = (estado: number, cuerpo: unknown) => ({ status: estado, text: async () => JSON.stringify(cuerpo) }) as unknown as Response;
+  const DESTINOS_PLATAFORMA = { conectado: true, principal: { id: 'p1', nombre: 'Principal' }, extras: [] };
+
+  function armarReal(cuerpoCrear: unknown) {
+    const llamadas: string[] = [];
+    const f = jest.fn((url: string, init: RequestInit) => {
+      llamadas.push(`${init.method} ${url.slice(url.indexOf('/app/') + 5)}`);
+      if (init.method === 'GET') return Promise.resolve(json(200, DESTINOS_PLATAFORMA));
+      if (init.method === 'POST') return new Promise<Response>((res) => setTimeout(() => res(json(200, cuerpoCrear)), 20_000));
+      return Promise.resolve(json(200, { terminado: true }));
+    });
+    const cliente = crearClienteFacebook({ origen: 'https://plataforma.example.org', slug: 'ciudad-arce', sesion, fetch: f as unknown as typeof fetch });
+    return { llamadas, ...crearVivoFacebook({ cliente, titulo: () => 'Misa' }) };
+  }
+
+  it('crear responde a los 20 s: la app ya cayó a la clave fija a los 15 s y después cierra ese vivo una vez', async () => {
+    const { llamadas, pedirVivo } = armarReal({ ...VIVO, id: 'tarde', reusado: false });
+    const r = jest.fn();
+    void pedirVivo().then(r);
+    await jest.advanceTimersByTimeAsync(PLAZO_CREAR_MS);
+    expect(r).toHaveBeenCalledWith({ error: true });
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(r).toHaveBeenCalledTimes(1);
+    expect(llamadas.filter((x) => x.startsWith('DELETE'))).toEqual(['DELETE vivo/tarde']);
+  });
+
+  it('si lo que llegó tarde es un vivo REUSADO (el de otro celular), no se cierra', async () => {
+    const { llamadas, pedirVivo } = armarReal({ ...VIVO, id: 'ajeno', reusado: true });
+    const r = jest.fn();
+    void pedirVivo().then(r);
+    await jest.advanceTimersByTimeAsync(25_000);
+    expect(r).toHaveBeenCalledWith({ error: true });
+    expect(llamadas.filter((x) => x.startsWith('DELETE'))).toEqual([]);
   });
 });
 
