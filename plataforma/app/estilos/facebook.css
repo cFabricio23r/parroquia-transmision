@@ -1,0 +1,59 @@
+/* «¿Dónde sale la misa?» (artboard C3 del lienzo de Facebook) y la columna «Facebook» de Parroquias (E1).
+   D11, D13, D16, D17, D19: zonas de 44 px o más, estado siempre con texto, título de 26 px, diálogo con ancho máximo. */
+.pv-fb { display: flex; flex-direction: column; gap: 16px; max-width: 920px; }
+.pv-fb-volver {
+  align-self: flex-start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pv-primario);
+  text-decoration: none;
+}
+.pv-fb-cabeza { display: flex; flex-direction: column; gap: 8px; }
+.pv-fb-titulo { margin: 0; font-size: 26px; line-height: 32px; font-weight: 800; }
+.pv-fb-titulo:focus { outline: none; }
+.pv-fb-cuenta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: #3d4b5f; }
+.pv-fb-cuenta b { color: var(--pv-texto); }
+.pv-fb-estado { font-size: 12px; font-weight: 600; color: var(--pv-texto-suave); }
+.pv-fb-select { max-width: 420px; width: 100%; font-weight: 600; }
+.pv-fb-principal { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.pv-fb-extras { display: flex; flex-direction: column; gap: 4px; }
+.pv-fb-extras-texto { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }
+.pv-fb-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--pv-borde);
+}
+.pv-fb-marca {
+  flex: 1 1 240px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+}
+.pv-fb-defecto {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pv-texto-suave);
+  min-height: 44px;
+}
+.pv-fb-fila input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--pv-primario); flex-shrink: 0; }
+.pv-fb-fila button.pv-enlace { min-height: 44px; display: inline-flex; align-items: center; }
+.pv-fb-acciones { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.pv-fb-pasos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.55; }
+
+/* Parroquias · columna «Facebook» y tarjeta de pasos (E1) */
+.pv-admin-fb { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.pv-admin-fb-sub { font-size: 12px; font-weight: 600; color: var(--pv-texto-suave); overflow-wrap: anywhere; }
+.pv-admin-fb-pasos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 22px; font-weight: 600; color: #3d4b5f; }
+.pv-admin-fb-nota { font-size: 13px; font-weight: 600; color: var(--pv-texto-suave); }

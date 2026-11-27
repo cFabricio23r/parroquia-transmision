@@ -143,7 +143,7 @@ async function leerVista(servicio: SupabaseClient, parroquiaId: string): Promise
   };
 }
 
-export async function leerConexion(d: DepsConexion, slug: string): Promise<Respuesta<VistaConexion | ConError>> {
+export async function leerConexion(d: Pick<DepsConexion, 'sesion' | 'servicio'>, slug: string): Promise<Respuesta<VistaConexion | ConError>> {
   const acceso = await comprobarAcceso(d.sesion, slug);
   if (!acceso.ok) return acceso.respuesta;
   const vista = await leerVista(d.servicio, acceso.parroquiaId);

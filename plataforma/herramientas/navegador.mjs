@@ -46,6 +46,10 @@ const entorno = {
   VERCEL_DEPLOY_HOOK_URL: '',
   // Ni correos de verdad (Decisión 28 del plan 5): sin la llave, lib/correo.ts solo los escribe en la consola.
   RESEND_API_KEY: '',
+  // Facebook (Tarea 5): un Graph falso que no sale a internet (lib/facebook/graph-entorno.ts) y una llave de
+  // cifrado de prueba (32 bytes en base64) para sembrar tokens falsos. Nunca llaves reales.
+  FACEBOOK_GRAPH_FALSO: '1',
+  FACEBOOK_CLAVE_CIFRADO: Buffer.alloc(32, 7).toString('base64'),
   BASE_URL: BASE,
 };
 

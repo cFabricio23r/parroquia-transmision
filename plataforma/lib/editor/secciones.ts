@@ -264,3 +264,12 @@ export function vistaPreviaDeRuta(pathname: string, slug: string): VistaDeRuta {
 export function vistaPreviaDeVista(vista: string): VistaPreviaSeccion | null {
   return VISTAS_EDITOR.includes(vista) ? vistaPreviaDePantalla(vista) : null;
 }
+
+/**
+ * «¿Dónde sale la misa?» y lo que cuelga de «App y transmisión» (Facebook): no es borrador y su encabezado
+ * lleva solo el estado del guardado, sin el chip «Borrador · N cambios sin publicar» (artboard C3).
+ */
+export function sinChipBorrador(pathname: string, slug: string): boolean {
+  const base = `/editor/p/${slug}/${seccion('app').ruta}/facebook`;
+  return pathname === base || pathname.startsWith(`${base}/`);
+}

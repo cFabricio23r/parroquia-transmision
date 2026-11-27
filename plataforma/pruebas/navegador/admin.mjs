@@ -180,16 +180,16 @@ try {
   const cabecera = p.locator('[role="table"] [role="columnheader"]');
   igual((await cabecera.allInnerTexts()).slice(0, 4).join('|'), 'PARROQUIA|LINK|ESTADO|COORDINADORES', 'cabecera de la tabla');
   const fila = (pq) => p.locator('[role="row"]', { hasText: pq.slug });
-  const chipPub = fila(pub).locator('.pv-chip');
+  const chipPub = fila(pub).locator('.pv-chip').first();
   igual(await chipPub.textContent(), 'Publicada · v1', 'chip de la publicada');
   igual(await estilo(chipPub, 'background-color'), 'rgb(226, 246, 236)', 'chip verde');
   const lugarPub = fila(pub).locator('.pv-admin-sub');
   igual(await lugarPub.textContent(), 'Lugar uno', 'el lugar sale de la versión publicada');
   igual(await estilo(lugarPub, 'font-size'), '12px', 'lugar en 12 px');
   revisar((await estilo(fila(pub).locator('.pv-admin-slug'), 'font-family')).includes('monospace'), 'slug en monoespaciada');
-  igual(await fila(sinConf).locator('.pv-chip').textContent(), 'Sin configurar', 'chip «Sin configurar»');
+  igual(await fila(sinConf).locator('.pv-chip').first().textContent(), 'Sin configurar', 'chip «Sin configurar»');
   revisar((await fila(sinConf).textContent()).includes('invitación enviada'), 'columna «invitación enviada»');
-  igual(await fila(deAna).locator('.pv-chip').textContent(), 'Borrador', 'chip «Borrador»');
+  igual(await fila(deAna).locator('.pv-chip').first().textContent(), 'Borrador', 'chip «Borrador»');
   revisar((await fila(deAna).textContent()).includes('Ana Pérez'), 'coordinadora en la columna');
   igual(
     await p.locator('main .pv-info').textContent(),
@@ -200,7 +200,7 @@ try {
 
   // «Visible en la app» (etapa 3a, Decisión 14): empieza apagado, se prende, se anuncia y queda guardado.
   {
-    igual((await cabecera.allInnerTexts())[4], 'VISIBLE EN LA APP', 'columna «Visible en la app»');
+    igual((await cabecera.allInnerTexts())[5], 'VISIBLE EN LA APP', 'columna «Visible en la app»');
     const interruptor = p.getByRole('switch', { name: `Visible en la app: ${pub.nombre}` });
     igual(await interruptor.getAttribute('aria-checked'), 'false', '«Visible en la app» empieza apagado');
     await interruptor.click();
@@ -256,7 +256,7 @@ try {
   await p.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 15_000 });
   const filaNueva = p.locator('[role="row"]', { hasText: `santa-lucia-${suf}` });
   await filaNueva.waitFor({ timeout: 15_000 });
-  igual(await filaNueva.locator('.pv-chip').textContent(), 'Sin configurar', 'la nueva aparece «Sin configurar»');
+  igual(await filaNueva.locator('.pv-chip').first().textContent(), 'Sin configurar', 'la nueva aparece «Sin configurar»');
   revisar(
     (await p.getByRole('status').filter({ hasText: 'Creaste' }).textContent()).includes(
       `Creaste Parroquia Santa Lucía ${suf}. Ahora puedes invitar a quien la va a configurar.`,
@@ -284,7 +284,7 @@ try {
     'texto del diálogo «Desactivar parroquia»',
   );
   await dlgDes.getByRole('button', { name: 'Cancelar' }).click();
-  igual(await fila(deAna).locator('.pv-chip').textContent(), 'Borrador', 'Cancelar no cambia nada');
+  igual(await fila(deAna).locator('.pv-chip').first().textContent(), 'Borrador', 'Cancelar no cambia nada');
   igual(await p.evaluate(() => document.activeElement?.getAttribute('aria-label')), `Desactivar ${deAna.nombre}`, 'el foco vuelve a «Desactivar»');
   await botonDes.click();
   await dlgDes.getByRole('button', { name: 'Sí, desactivar' }).click();

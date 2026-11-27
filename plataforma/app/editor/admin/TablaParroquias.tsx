@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { chipParroquia, textoCoordinadores, type FilaParroquia } from '../../../lib/admin-textos';
 import type { EstadoHook } from '../../../lib/despliegue';
+import type { EstadoFacebook } from '../../../lib/facebook/asignaciones';
+import { celdaFacebook } from '../../../lib/facebook/columna';
 import { Boton } from '../../componentes/Boton';
 import { CajaInfo } from '../../componentes/CajaInfo';
 import { Chip } from '../../componentes/Chip';
@@ -19,6 +21,7 @@ const COLUMNAS = [
   { titulo: 'Link', ancho: '1.4fr' },
   { titulo: 'Estado', ancho: '1.1fr' },
   { titulo: 'Coordinadores', ancho: '1.5fr' },
+  { titulo: 'Facebook', ancho: '1.6fr' },
   { titulo: 'Visible en la app', ancho: '150px' },
   { titulo: '', ancho: '230px' },
 ];
@@ -29,8 +32,19 @@ function anuncioHook(hook: EstadoHook | undefined, desactivada: boolean): string
   return `${desactivada ? 'Quedó desactivada' : 'Quedó reactivada'}, pero no se pudo pedir el despliegue: las pantallas siguen hasta el próximo despliegue.`;
 }
 
+function FacebookDe({ estado }: { estado: EstadoFacebook | undefined }) {
+  const c = celdaFacebook(estado);
+  return (
+    <span className="pv-admin-fb">
+      <Chip tono={c.tono}>{c.texto}</Chip>
+      {c.detalle && <span className="pv-admin-fb-sub">{c.detalle}</span>}
+    </span>
+  );
+}
+
 /** D1 · la cabeza, la tabla de parroquias, sus diálogos y los anuncios. */
-export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
+/** `facebook` es null si no se pudo leer (la celda lo dice); una parroquia sin conexión no figura. */
+export function TablaParroquias({ filas, facebook = {} }: { filas: FilaParroquia[]; facebook?: Record<string, EstadoFacebook> | null }) {
   const router = useRouter();
   const [nuevaAbierta, setNuevaAbierta] = useState(false);
   const [aDesactivar, setADesactivar] = useState<FilaParroquia | null>(null);
@@ -111,6 +125,13 @@ export function TablaParroquias({ filas }: { filas: FilaParroquia[] }) {
                 {chip.texto}
               </Chip>,
               <span key="c">{textoCoordinadores(f)}</span>,
+              facebook === null ? (
+                <span key="f" className="pv-admin-fb-sub">
+                  No se pudo leer
+                </span>
+              ) : (
+                <FacebookDe key="f" estado={facebook[f.id]} />
+              ),
               <Interruptor
                 key="v"
                 etiqueta={`Visible en la app: ${f.nombre}`}

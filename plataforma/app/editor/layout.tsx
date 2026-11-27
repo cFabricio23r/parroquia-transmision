@@ -8,6 +8,7 @@ import '../estilos/componentes.css';
 import '../estilos/marco.css';
 import '../estilos/editor-marco.css';
 import '../estilos/editor-estilo.css';
+import '../estilos/facebook.css';
 
 export default function EditorLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;

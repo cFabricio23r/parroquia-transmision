@@ -4,7 +4,7 @@
 import { usePathname } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 import { textoChipBorrador } from '../../../../lib/editor/cambios';
-import { hrefSeccion, SECCIONES, seccionDeRuta, usaBorrador, vistaPreviaDeRuta } from '../../../../lib/editor/secciones';
+import { hrefSeccion, SECCIONES, seccionDeRuta, sinChipBorrador, usaBorrador, vistaPreviaDeRuta } from '../../../../lib/editor/secciones';
 import { CajaInfo } from '../../../componentes/CajaInfo';
 import { Encabezado } from '../../../componentes/Encabezado';
 import { MenuLateral } from '../../../componentes/MenuLateral';
@@ -49,7 +49,9 @@ export function MarcoEditor({ children }: { children: ReactNode }) {
             <span className="pv-guardado" role="status">
               {textoGuardado(guardado.estado, formularioSinGuardar)}
             </span>
-            <span className={chip.tono === 'verde' ? 'pv-chip-borrador pv-chip-borrador--verde' : 'pv-chip-borrador'}>{chip.texto}</span>
+            {!sinChipBorrador(pathname, datos.slug) && (
+              <span className={chip.tono === 'verde' ? 'pv-chip-borrador pv-chip-borrador--verde' : 'pv-chip-borrador'}>{chip.texto}</span>
+            )}
           </>
         }
       />
