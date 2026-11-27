@@ -487,22 +487,57 @@ describe('crearVivo · ya hay un vivo activo', () => {
     expect(llamadas).toEqual(['crearVivo', 'activarCrosspost']);
   });
 
-  it('Facebook no responde al preguntar por el activo: 502 y el vivo sigue activo en la base', async () => {
+  it('estadoVivo falla (red): no bloquea. Se intenta cerrar el viejo, se marca terminado y se crea uno nuevo', async () => {
     const t = mundo();
     t.facebook_vivos.push(vivoActivo());
-    const { g } = graphFalso({ estadoVivo: async () => falla('red') });
+    const { g, llamadas } = graphFalso({ estadoVivo: async () => falla('red') });
     const r = await crearVivo(deps(t, g), 'sa', entrada());
-    expect(r.estado).toBe(502);
-    expect(t.facebook_vivos[0].terminado_en).toBeNull();
+    expect(r.estado).toBe(200);
+    expect((r.cuerpo as { reusado: boolean }).reusado).toBe(false);
+    expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
+    expect(t.facebook_vivos[1].terminado_en).toBeNull();
+    expect(llamadas).toEqual(['terminarVivo', 'crearVivo', 'activarCrosspost']);
   });
 
-  it('al preguntar por el activo el token venció: 503 reconectar y esa parroquia queda «reconectar»', async () => {
+  it('estadoVivo da «otro» (estado desconocido): mismo resultado', async () => {
     const t = mundo();
     t.facebook_vivos.push(vivoActivo());
-    const { g } = graphFalso({ estadoVivo: async () => falla('token', 190) });
+    const { g, llamadas } = graphFalso({ estadoVivo: async () => falla('otro') });
+    const r = await crearVivo(deps(t, g), 'sa', entrada());
+    expect(r.estado).toBe(200);
+    expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
+    expect(llamadas).toContain('crearVivo');
+  });
+
+  it('el cierre del viejo falla o lanza: se ignora y se sigue', async () => {
+    for (const cierre of [async () => falla('red'), async () => { throw new Error('boom'); }]) {
+      const t = mundo();
+      t.facebook_vivos.push(vivoActivo());
+      const { g } = graphFalso({ estadoVivo: async () => falla('otro'), terminarVivo: cierre as never });
+      expect((await crearVivo(deps(t, g), 'sa', entrada())).estado).toBe(200);
+      expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
+    }
+  });
+
+  it('ya no hay token de la página del viejo: se marca terminado y se crea uno nuevo (sin llamar a Facebook por el viejo)', async () => {
+    const t = mundo();
+    t.facebook_vivos.push(vivoActivo({ page_id: 'pagina-que-ya-no-se-ve' }));
+    const { g, llamadas } = graphFalso();
+    const r = await crearVivo(deps(t, g), 'sa', entrada());
+    expect(r.estado).toBe(200);
+    expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
+    expect(llamadas).toEqual(['crearVivo', 'activarCrosspost']);
+  });
+
+  it('al preguntar por el activo el token venció: el viejo se cierra y crear falla con 503 reconectar (esa parroquia queda «reconectar»)', async () => {
+    const t = mundo();
+    t.facebook_vivos.push(vivoActivo());
+    const { g } = graphFalso({ estadoVivo: async () => falla('token', 190), crearVivo: async () => falla('token', 190) });
     const r = await crearVivo(deps(t, g), 'sa', entrada());
     expect(r.estado).toBe(503);
+    expect(t.facebook_vivos[0].terminado_en).not.toBeNull();
     expect(t.facebook_conexion.find((c) => c.parroquia_id === A)?.estado).toBe('reconectar');
+    expect(t.facebook_conexion.find((c) => c.parroquia_id === B)?.estado).toBe('conectado');
   });
 
   it('el activo de OTRA parroquia no cuenta', async () => {

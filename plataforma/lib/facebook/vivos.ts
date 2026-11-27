@@ -187,11 +187,18 @@ export async function crearVivo(d: DepsVivos, slug: string, entrada: unknown): P
     if (activo.error) throw new Error('lectura');
     if (activo.data) {
       const fila = activo.data as FilaVivo;
-      const token = await tokenDePagina(d, parroquiaId, fila.page_id);
-      if (token === null) return errorFacebook();
-      const e = await d.graph.estadoVivo(fila.vivo_id, token);
-      if (!e.ok) return deGraph(d, parroquiaId, e.error);
-      if (e.valor === 'activo') return responderConFila(d, parroquiaId, fila, token, true);
+      const tokenViejo = await tokenDePagina(d, parroquiaId, fila.page_id);
+      const e = tokenViejo === null ? null : await d.graph.estadoVivo(fila.vivo_id, tokenViejo);
+      if (tokenViejo !== null && e?.ok && e.valor === 'activo') return responderConFila(d, parroquiaId, fila, tokenViejo, true);
+      // Facebook no confirma que siga activo (terminó, no responde, estado desconocido o ya no hay token de esa
+      // página): no bloquea. Se intenta cerrarlo (sin esperar su resultado), se marca terminado y se crea uno nuevo.
+      if (tokenViejo !== null && !(e?.ok && e.valor === 'terminado')) {
+        try {
+          await d.graph.terminarVivo(fila.vivo_id, tokenViejo);
+        } catch {
+          // el cierre es de mejor esfuerzo
+        }
+      }
       await marcarTerminado(d, parroquiaId, fila.id);
     }
 

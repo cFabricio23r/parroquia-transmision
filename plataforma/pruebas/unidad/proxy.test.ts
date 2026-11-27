@@ -114,4 +114,16 @@ describe('proxy y las rutas de la app del celular', () => {
     expect((await proxy(conBearer('/editor/api/una-parroquia/app/vivo', 'Basic abc'))).status).toBe(401);
     expect((await proxy(conBearer('/editor/api/una-parroquia/app/vivo', 'Bearer '))).status).toBe(401);
   });
+
+  it('las rutas hermanas de app/facebook (conexion, paginas) y los segmentos de más conservan la puerta normal: 401 sin cookies', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
+    for (const ruta of [
+      '/editor/api/una-parroquia/app/facebook/conexion',
+      '/editor/api/una-parroquia/app/facebook/paginas',
+      '/editor/api/una-parroquia/app/vivo/abc/otro',
+      '/editor/api/una-parroquia/app/vivos',
+    ]) {
+      expect((await proxy(conBearer(ruta))).status, ruta).toBe(401);
+    }
+  });
 });

@@ -6,7 +6,7 @@ import { MENSAJES_ACCESO } from './lib/mensajes-acceso';
 // Rutas del editor que se pueden ver sin sesión.
 const PUBLICAS = ['/editor/entrar', '/editor/olvide', '/editor/invitacion', '/editor/auth'];
 
-const RUTA_DE_APP = /^\/editor\/api\/[^/]+\/app\/(facebook|vivo)(\/|$)/;
+const RUTA_DE_APP = /^\/editor\/api\/[^/]+\/app\/(facebook|vivo(\/[^/]+)?)\/?$/;
 
 const esPublica = (ruta: string) => PUBLICAS.some((p) => ruta === p || ruta.startsWith(`${p}/`));
 
