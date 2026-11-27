@@ -85,6 +85,27 @@ describe('errores', () => {
     const r = await g.yo(TOKEN);
     expect(r).toEqual({ ok: false, error: { tipo: 'red' } });
   });
+  it('un fetch que nunca responde da tipo red al vencer el plazo, sin filtrar nada', async () => {
+    const f = vi.fn(() => new Promise<Response>(() => {}));
+    const g = crearGraph({ appId: 'a', secreto: 's', fetch: f as unknown as typeof fetch, version: V, plazoMs: 30 });
+    const registro = [vi.spyOn(console, 'error'), vi.spyOn(console, 'log'), vi.spyOn(console, 'warn')];
+    const inicio = Date.now();
+    const r = await g.yo(TOKEN);
+    expect(r).toEqual({ ok: false, error: { tipo: 'red' } });
+    expect(Date.now() - inicio).toBeLessThan(1000);
+    expect(JSON.stringify([r, registro.map((c) => c.mock.calls)])).not.toContain(TOKEN);
+  });
+  it('si el cuerpo nunca termina de llegar, también vence', async () => {
+    const f = vi.fn(async () => ({ ok: true, status: 200, json: () => new Promise(() => {}) }) as unknown as Response);
+    const g = crearGraph({ appId: 'a', secreto: 's', fetch: f as unknown as typeof fetch, version: V, plazoMs: 30 });
+    expect(await g.yo(TOKEN)).toEqual({ ok: false, error: { tipo: 'red' } });
+  });
+  it('cada llamada lleva una señal de aborto', async () => {
+    const f = vi.fn(async (_u: unknown, _init?: RequestInit) => ({ ok: true, status: 200, json: async () => ({ id: '1', name: 'x' }) }) as unknown as Response);
+    const g = crearGraph({ appId: 'a', secreto: 's', fetch: f as unknown as typeof fetch, version: V });
+    await g.yo(TOKEN);
+    expect(f.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+  });
   it('una respuesta que no es JSON da tipo otro', async () => {
     const f = vi.fn(
       async () =>

@@ -361,7 +361,9 @@ describe('guardarAsignacion · crosspost', () => {
     const { g, llamadas } = graphFalso();
     const r = await guardarAsignacion(deps(t, g), 'sa', { principal: 'p2', extras: [extra('p3', true), extra('p4'), extra('p5')] });
     expect(r.estado).toBe(200);
-    expect(llamadas).toEqual(['handshake:p2>p4', 'permite:p2>p4', 'handshake:p2>p5', 'permite:p2>p5']);
+    expect([...llamadas].sort()).toEqual(['handshake:p2>p4', 'handshake:p2>p5', 'permite:p2>p4', 'permite:p2>p5']);
+    expect(llamadas.indexOf('handshake:p2>p4')).toBeLessThan(llamadas.indexOf('permite:p2>p4'));
+    expect(llamadas.indexOf('handshake:p2>p5')).toBeLessThan(llamadas.indexOf('permite:p2>p5'));
     const por = Object.fromEntries(t.facebook_parroquia_extra.map((e) => [e.page_id, e]));
     expect(por.p3).toMatchObject({ por_defecto: true, crosspost: 'listo' });
     expect(por.p4).toMatchObject({ crosspost: 'listo' });
@@ -390,6 +392,32 @@ describe('guardarAsignacion · crosspost', () => {
     expect(r.estado).toBe(200);
     expect(t.facebook_parroquia_extra.map((e) => `${e.parroquia_id}:${e.page_id}`).sort()).toEqual([`${A}:p3`, `${B}:p1`]);
     expect(t.facebook_parroquia_extra.find((e) => e.parroquia_id === B)).toMatchObject({ por_defecto: true, crosspost: 'falta' });
+  });
+});
+
+describe('guardarAsignacion · Facebook lento', () => {
+  it('si Graph nunca responde, guarda igual dentro del plazo: la principal queda y las extras nuevas «falta»', async () => {
+    const t = mundo();
+    t.facebook_parroquia_extra.push({ parroquia_id: A, page_id: 'p3', por_defecto: false, crosspost: 'listo' });
+    t.facebook_parroquia.push({ parroquia_id: A, pagina_principal: 'p2' });
+    const colgado = { handshake: () => new Promise(() => {}), permiteLive: () => new Promise(() => {}) } as unknown as GraphFacebook;
+    const inicio = Date.now();
+    const r = await guardarAsignacion({ ...deps(t, colgado), plazoMs: 50 }, 'sa', { principal: 'p2', extras: [extra('p3'), extra('p4'), extra('p5', true)] });
+    expect(Date.now() - inicio).toBeLessThan(1000);
+    expect(r.estado).toBe(200);
+    expect(t.facebook_parroquia[0]).toMatchObject({ pagina_principal: 'p2' });
+    const por = Object.fromEntries(t.facebook_parroquia_extra.map((e) => [e.page_id, e.crosspost]));
+    expect(por).toEqual({ p3: 'listo', p4: 'falta', p5: 'falta' });
+  });
+  it('lo que termina a tiempo queda «listo» y lo que no, «falta»', async () => {
+    const t = mundo();
+    const g = {
+      handshake: async () => ({ ok: true, valor: undefined }),
+      permiteLive: (_o: unknown, id: string) => (id === 'p3' ? Promise.resolve({ ok: true, valor: true }) : new Promise(() => {})),
+    } as unknown as GraphFacebook;
+    const r = await guardarAsignacion({ ...deps(t, g), plazoMs: 50 }, 'sa', { principal: 'p2', extras: [extra('p3'), extra('p4')] });
+    expect(r.estado).toBe(200);
+    expect(Object.fromEntries(t.facebook_parroquia_extra.map((e) => [e.page_id, e.crosspost]))).toEqual({ p3: 'listo', p4: 'falta' });
   });
 });
 

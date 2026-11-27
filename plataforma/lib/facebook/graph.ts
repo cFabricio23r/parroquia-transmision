@@ -75,12 +75,16 @@ function errorDe(json: unknown): ErrorGraph {
   return err;
 }
 
+/** Plazo de cada llamada a Graph: pasado esto, la llamada cuenta como `tipo:'red'`. */
+export const PLAZO_GRAPH_MS = 5_000;
+
 export function crearGraph(o: {
   appId: string;
   secreto: string;
   fetch?: typeof fetch;
   version?: string;
   estados?: EstadosVivoGraph;
+  plazoMs?: number;
 }): GraphFacebook {
   const version = o.version ?? versionGraph();
   const estados = o.estados ?? ESTADOS_VIVO_GRAPH;
@@ -92,26 +96,40 @@ export function crearGraph(o: {
     ruta: string,
     params: Record<string, string>,
   ): Promise<ResultadoGraph<Record<string, unknown>>> {
-    let res: Response;
-    try {
-      if (metodo === 'GET') {
-        res = await f(`${url(ruta)}?${new URLSearchParams(params).toString()}`);
-      } else {
-        res = await f(url(ruta), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(params).toString(),
-        });
+    const plazo = o.plazoMs ?? PLAZO_GRAPH_MS;
+    const senal = AbortSignal.timeout(plazo);
+    let reloj: ReturnType<typeof setTimeout> | undefined;
+    // Un solo plazo para la llamada entera (pedido y lectura). El error de aborto o de red nunca sale ni se registra.
+    const vencido = new Promise<'vencido'>((ok) => {
+      reloj = setTimeout(() => ok('vencido'), plazo);
+    });
+    const pedir = async (): Promise<{ res: Response; json: unknown } | 'otro'> => {
+      const res =
+        metodo === 'GET'
+          ? await f(`${url(ruta)}?${new URLSearchParams(params).toString()}`, { signal: senal })
+          : await f(url(ruta), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams(params).toString(),
+              signal: senal,
+            });
+      try {
+        return { res, json: await res.json() };
+      } catch {
+        return 'otro';
       }
+    };
+    let salida: { res: Response; json: unknown } | 'otro' | 'vencido';
+    try {
+      salida = await Promise.race([pedir(), vencido]);
     } catch {
       return { ok: false, error: { tipo: 'red' } };
+    } finally {
+      clearTimeout(reloj);
     }
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      return OTRO;
-    }
+    if (salida === 'vencido') return { ok: false, error: { tipo: 'red' } };
+    if (salida === 'otro') return OTRO;
+    const { res, json } = salida;
     if (!res.ok || (json as { error?: unknown } | null)?.error) return { ok: false, error: errorDe(json) };
     if (typeof json !== 'object' || json === null) return OTRO;
     return { ok: true, valor: json as Record<string, unknown> };

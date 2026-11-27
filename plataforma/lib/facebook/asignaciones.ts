@@ -19,6 +19,8 @@ export interface DepsAsignacion {
   graph: GraphFacebook;
   /** Solo para pruebas; en producción la llave sale de FACEBOOK_CLAVE_CIFRADO. */
   llave?: Buffer;
+  /** Solo para pruebas: el plazo total de las comprobaciones con Facebook. */
+  plazoMs?: number;
 }
 
 /** `principal` es el page_id de la página principal (o null); cada extra lleva su `pageId`. */
@@ -123,6 +125,36 @@ function conToken(fila: { page_id: string; token: string } | undefined, llave?: 
   }
 }
 
+/** Plazo total para comprobar todas las extras nuevas. Lo que no termina a tiempo queda en «falta». */
+export const PLAZO_COMPROBACION_MS = 8_000;
+
+/** Las extras (page_id) que salieron «listo» antes del plazo. Nunca lanza ni espera más que el plazo. */
+async function comprobarTodas(
+  d: DepsAsignacion,
+  origen: { id: string; token: string } | null,
+  ids: string[],
+  tokens: Map<string, string>,
+): Promise<string[]> {
+  const listas: string[] = [];
+  const todas = Promise.all(
+    ids.map(async (id) => {
+      const destino = conToken({ page_id: id, token: tokens.get(id) as string }, d.llave);
+      if ((await comprobarCrosspost(d, origen, destino)) === 'listo') listas.push(id);
+    }),
+  );
+  let reloj: ReturnType<typeof setTimeout> | undefined;
+  const plazo = new Promise<void>((ok) => {
+    reloj = setTimeout(ok, d.plazoMs ?? PLAZO_COMPROBACION_MS);
+  });
+  try {
+    await Promise.race([todas, plazo]);
+  } finally {
+    clearTimeout(reloj);
+  }
+  // Una comprobación que termine después del plazo ya no cuenta: se toma una copia de las que llegaron.
+  return [...listas];
+}
+
 export async function guardarAsignacion(d: DepsAsignacion, slug: string, entrada: unknown): Promise<Respuesta<VistaAsignacion | ConError>> {
   const acceso = await comprobarAcceso(d.sesion, slug);
   if (!acceso.ok) return acceso.respuesta;
@@ -152,18 +184,17 @@ export async function guardarAsignacion(d: DepsAsignacion, slug: string, entrada
   const mismaPrincipal = previaPrincipal.data?.pagina_principal === v.principal;
   const yaListas = new Set((previasExtras.data ?? []).filter((x) => x.crosspost === 'listo').map((x) => x.page_id as string));
 
-  // Facebook: solo las extras nuevas (o las que estaban en «falta»). Si cambió la principal, el permiso
-  // era de la anterior y se comprueba todo de nuevo. En serie: son pocas y así el orden es el de la lista.
+  // Guardar no depende de Facebook: primero se escribe todo (las extras nuevas como «falta») y después
+  // se comprueban, en paralelo y con un solo plazo, solo las extras nuevas o las que estaban en «falta».
+  // Si cambió la principal, el permiso era de la anterior y se comprueba todo de nuevo.
   const estados = new Map<string, 'listo' | 'falta'>();
-  let origen: { id: string; token: string } | null | undefined;
+  const porComprobar: string[] = [];
   for (const e of v.extras) {
-    if (mismaPrincipal && yaListas.has(e.pageId)) {
-      estados.set(e.pageId, 'listo');
-      continue;
+    if (mismaPrincipal && yaListas.has(e.pageId)) estados.set(e.pageId, 'listo');
+    else {
+      estados.set(e.pageId, 'falta');
+      porComprobar.push(e.pageId);
     }
-    if (origen === undefined) origen = conToken({ page_id: v.principal, token: tokens.get(v.principal) as string }, d.llave);
-    const destino = conToken({ page_id: e.pageId, token: tokens.get(e.pageId) as string }, d.llave);
-    estados.set(e.pageId, await comprobarCrosspost(d, origen, destino));
   }
 
   const principal = await d.servicio.from('facebook_parroquia').upsert(
@@ -188,6 +219,20 @@ export async function guardarAsignacion(d: DepsAsignacion, slug: string, entrada
       { onConflict: 'parroquia_id,page_id' },
     );
     if (r.error) return falloSinDetalle('guardarAsignacion');
+  }
+
+  if (porComprobar.length) {
+    const origen = conToken({ page_id: v.principal, token: tokens.get(v.principal) as string }, d.llave);
+    const listas = await comprobarTodas(d, origen, porComprobar, tokens);
+    if (listas.length) {
+      const r = await d.servicio.from('facebook_parroquia_extra').upsert(
+        v.extras
+          .filter((e) => listas.includes(e.pageId))
+          .map((e) => ({ parroquia_id: parroquiaId, page_id: e.pageId, por_defecto: e.porDefecto, crosspost: 'listo' })),
+        { onConflict: 'parroquia_id,page_id' },
+      );
+      if (r.error) return falloSinDetalle('guardarAsignacion');
+    }
   }
 
   await registrarSinFallar(
