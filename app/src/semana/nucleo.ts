@@ -47,6 +47,7 @@ export interface NucleoSemana {
   datosDeEstado(estado: unknown, tipo: TipoCampos): Record<string, unknown>;
   parcheDePanel(item: { tipo: string; datos: unknown }, tipo: TipoCampos): { limpiar: string[]; poner: Record<string, unknown> };
   readonly CLAVES_DE_TRANSMISION: readonly string[];
+  readonly LIMITES_FACEBOOK: { readonly titulo: number; readonly descripcion: number };
   textoDia(fecha: string): string;
   textoOrigen(item: ItemSemana): string;
   textoEstado(faltan: number | null): string;

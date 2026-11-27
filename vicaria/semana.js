@@ -173,6 +173,8 @@ const _SEM_NOMBRE_BASE = {
   rosario: 'Santo Rosario', santisimo: 'Exposición del Santísimo', lugar: 'Lugar', oracion: 'Oración', libre: 'Texto libre'
 };
 const _SEM_DATOS_EVENTO = ['evento', 'fecha', 'lugar'];
+/* Límites del título y la descripción de un vivo de Facebook (el título: lo que acepta Facebook). */
+const _SEM_LIMITES_FACEBOOK = Object.freeze({ titulo: 254, descripcion: 1000 });
 /* Lo único que guarda `datos`: estos textos, rotulosTexto y dia. */
 const _SEM_TEXTOS = ['sector', 'santo', 'fecha', 'lugar', 'evento', 'celebrante', 'lectura1', 'lectura2', 'evangelio', 'salmoResp'];
 const _SEM_CLAVES_TRANSMISION = Object.freeze(['sector', 'santo', 'fecha', 'lugar', 'evento', 'celebrante', 'celebranteRol',
@@ -328,6 +330,15 @@ function _semLimpiarDatos(datos) {
     }
     if (Object.keys(rt).length) r.rotulosTexto = rt;
   }
+  // Título y descripción del vivo de Facebook: solo textos, con los límites de Facebook. No van al panel.
+  if (_semPropia(datos, 'facebook') && _semObjeto(datos.facebook)) {
+    const fb = {};
+    for (const k of ['titulo', 'descripcion']) {
+      const v = datos.facebook[k];
+      if (_semPropia(datos.facebook, k) && typeof v === 'string' && v !== '') fb[k] = v.slice(0, _SEM_LIMITES_FACEBOOK[k]);
+    }
+    if (Object.keys(fb).length) r.facebook = fb;
+  }
   return r;
 }
 
@@ -357,6 +368,7 @@ function _semParcheDePanel(item, tipo) {
   const limpio = _semLimpiarDatos(it.datos);
   const dia = limpio.dia;
   delete limpio.dia;
+  delete limpio.facebook; // es del vivo de Facebook, no del panel
   const poner = Object.assign({ tipo: it.tipo }, limpio);
   if (Number.isInteger(dia)) {
     const clave = _semObjeto(tipo) ? tipo.clave : it.tipo;
@@ -384,6 +396,7 @@ const SEMANA = Object.freeze({
   datosDeEstado: _semDatosDeEstado,
   parcheDePanel: _semParcheDePanel,
   CLAVES_DE_TRANSMISION: _SEM_CLAVES_TRANSMISION,
+  LIMITES_FACEBOOK: _SEM_LIMITES_FACEBOOK,
   textoEstado: _semTextoEstado,
   esFecha: _semEsFecha,
   sumarDias: _semSumarDias,

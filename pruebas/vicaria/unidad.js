@@ -3195,6 +3195,31 @@ grupo('semana: campos y faltas', () => {
     assert.deepEqual(j(c.SEMANA.datosDeEstado(estado, deClave(c, 'novena'))), { celebrante: 'P. Ana', lectura1: 'Is 1', dia: 4 });
   });
 
+  prueba('limpiarDatos conserva facebook con sus límites', () => {
+    const S = ctx().SEMANA;
+    assert.deepEqual(j(S.limpiarDatos({ facebook: { titulo: 'Misa', descripcion: 'Hola', otro: 1 } })), { facebook: { titulo: 'Misa', descripcion: 'Hola' } });
+    const l = S.limpiarDatos({ facebook: { titulo: 'x'.repeat(300), descripcion: 'y'.repeat(1200) } });
+    assert.equal(l.facebook.titulo.length, 254);
+    assert.equal(l.facebook.descripcion.length, 1000);
+    assert.deepEqual(j(S.limpiarDatos({ facebook: { titulo: 3 } })), {});
+    assert.deepEqual(j(S.limpiarDatos({ facebook: { titulo: '', descripcion: '' } })), {});
+    assert.deepEqual(j(S.limpiarDatos({ facebook: 'Misa' })), {});
+    assert.deepEqual(j(S.limpiarDatos({ facebook: { descripcion: 'Solo' } })), { facebook: { descripcion: 'Solo' } });
+  });
+
+  prueba('parcheDePanel no manda facebook al panel', () => {
+    const c = ctx();
+    const p = j(c.SEMANA.parcheDePanel({ tipo: 'dominical', datos: { celebrante: 'P. Juan', facebook: { titulo: 'Misa' } } }, deClave(c, 'dominical')));
+    assert.equal(p.poner.celebrante, 'P. Juan');
+    assert.equal('facebook' in p.poner, false);
+  });
+
+  prueba('LIMITES_FACEBOOK', () => {
+    const S = ctx().SEMANA;
+    assert.deepEqual(j(S.LIMITES_FACEBOOK), { titulo: 254, descripcion: 1000 });
+    assert.equal(Object.isFrozen(S.LIMITES_FACEBOOK), true);
+  });
+
   prueba('parcheDePanel', () => {
     const c = ctx();
     const S = c.SEMANA;
