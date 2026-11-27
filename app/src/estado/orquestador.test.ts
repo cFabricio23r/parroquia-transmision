@@ -3,6 +3,7 @@ import type { Ajustes } from '../ajustes/ajustes';
 import {
   ESPERA_TERMINAR_MS,
   MENSAJE_AJUSTES_ILEGIBLES,
+  MENSAJE_FACEBOOK_RESPALDO,
   MENSAJE_TERMINAR_LENTO,
   crearOrquestador,
   type DepsOrquestador,
@@ -363,5 +364,166 @@ describe('terminar', () => {
     expect(d.terminar).toHaveBeenCalledTimes(1);
     expect(o.tienda.obtener().fase).toBe('preparando');
     expect(o.tienda.obtener().error).toBe(MENSAJES.agotado);
+  });
+});
+
+describe('Facebook en vivo (pedirVivo / terminarVivo)', () => {
+  type Vivo = { servidor: string; clave: string; id: string } | { error: true } | null;
+  const VIVO = { servidor: 'rtmps://vivo.example:443/rtmp/', clave: 'VIVO-PRUEBA-0000', id: 'vivo-1' };
+
+  // Lleva el arranque hasta pedirVivo (escena resuelta) y devuelve lo pendiente.
+  async function conVivo(vivo: () => Promise<Vivo>, extra: Partial<DepsOrquestador> = {}) {
+    const terminarVivo = jest.fn(async (_id: string) => {});
+    const x = armar({ pedirVivo: jest.fn(vivo), terminarVivo, ...extra });
+    const fin = x.o.iniciar();
+    await vaciar();
+    x.escenas[0].resolver();
+    await vaciar();
+    return { ...x, fin, terminarVivo };
+  }
+
+  it('con un vivo, iniciar recibe el servidor y la clave del vivo, no los de Ajustes', async () => {
+    const { d, fin, inicios } = await conVivo(async () => VIVO);
+    expect(d.iniciar).toHaveBeenCalledWith(VIVO.servidor, VIVO.clave);
+    expect(d.iniciar).not.toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
+    inicios[0].resolver();
+    await fin;
+  });
+
+  it('con {error:true} y clave válida: usa la clave de Ajustes y avisa', async () => {
+    const { d, fin, inicios } = await conVivo(async () => ({ error: true }));
+    expect(d.avisar).toHaveBeenLastCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    expect(MENSAJE_FACEBOOK_RESPALDO).toBe('Facebook no respondió: se usa la clave de transmisión de la parroquia.');
+    expect(d.iniciar).toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
+    inicios[0].resolver();
+    await fin;
+  });
+
+  it('si pedirVivo rechaza, se trata como {error:true}', async () => {
+    const { d, fin, inicios } = await conVivo(() => Promise.reject(new Error('x')));
+    expect(d.avisar).toHaveBeenLastCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    expect(d.iniciar).toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
+    inicios[0].resolver();
+    await fin;
+  });
+
+  it('con {error:true} y sin clave: abre Ajustes, no arranca y vuelve a preparando', async () => {
+    const { o, d, fin } = await conVivo(async () => ({ error: true }), {
+      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
+    });
+    await fin;
+    expect(d.abrirAjustes).toHaveBeenCalledTimes(1);
+    expect(d.iniciar).not.toHaveBeenCalled();
+    expect(d.avisar).not.toHaveBeenCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    expect(o.tienda.obtener().fase).toBe('preparando');
+  });
+
+  it('con null y sin clave: abre Ajustes como hoy', async () => {
+    const { o, d, fin } = await conVivo(async () => null, {
+      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
+    });
+    await fin;
+    expect(d.abrirAjustes).toHaveBeenCalledTimes(1);
+    expect(d.iniciar).not.toHaveBeenCalled();
+    expect(o.tienda.obtener().fase).toBe('preparando');
+  });
+
+  it('con un vivo y sin clave en Ajustes arranca igual (la clave fija no hace falta)', async () => {
+    const { d, fin, inicios } = await conVivo(async () => VIVO, {
+      leerAjustes: jest.fn(async () => ({ ...AJUSTES, clave: '' })),
+    });
+    expect(d.abrirAjustes).not.toHaveBeenCalled();
+    expect(d.iniciar).toHaveBeenCalledWith(VIVO.servidor, VIVO.clave);
+    inicios[0].resolver();
+    await fin;
+  });
+
+  it('con null usa los Ajustes como hoy, sin aviso', async () => {
+    const { d, fin, inicios } = await conVivo(async () => null);
+    expect(d.iniciar).toHaveBeenCalledWith(AJUSTES.servidor, AJUSTES.clave);
+    expect(d.avisar).not.toHaveBeenCalledWith(MENSAJE_FACEBOOK_RESPALDO);
+    inicios[0].resolver();
+    await fin;
+  });
+
+  it('Cancelar mientras pedirVivo está pendiente: no llama a iniciar y cierra el vivo que llegue tarde', async () => {
+    let soltar!: (v: Vivo) => void;
+    const { o, d, fin, terminarVivo } = await conVivo(() => new Promise<Vivo>((res) => (soltar = res)));
+    expect(d.iniciar).not.toHaveBeenCalled();
+    o.cancelar();
+    soltar(VIVO);
+    await fin;
+    await vaciar();
+    expect(d.iniciar).not.toHaveBeenCalled();
+    expect(terminarVivo).toHaveBeenCalledWith(VIVO.id);
+    expect(o.tienda.obtener().fase).toBe('preparando');
+  });
+
+  it('pedirVivo va después de la escena Inicio: nada se pide antes', async () => {
+    const pedirVivo = jest.fn(async (): Promise<Vivo> => null);
+    const { o, escenas } = armar({ pedirVivo });
+    void o.iniciar();
+    await vaciar();
+    expect(pedirVivo).not.toHaveBeenCalled();
+    escenas[0].resolver();
+    await vaciar();
+    expect(pedirVivo).toHaveBeenCalledTimes(1);
+  });
+
+  describe('terminar', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    async function enVivoConId(terminarVivo: (id: string) => Promise<void>) {
+      const x = await conVivo(async () => VIVO, { terminarVivo: jest.fn(terminarVivo) });
+      x.inicios[0].resolver();
+      await x.fin;
+      x.o.alEvento({ conexion: 'conectado', mbps: 2.5, mensaje: null, motivo: null });
+      return x;
+    }
+
+    it('llama a terminarVivo(id) una vez', async () => {
+      const x = await enVivoConId(async () => {});
+      x.o.terminarAhora();
+      await vaciar();
+      expect(x.d.terminarVivo).toHaveBeenCalledTimes(1);
+      expect(x.d.terminarVivo).toHaveBeenCalledWith(VIVO.id);
+      expect(x.o.tienda.obtener().fase).toBe('terminado');
+    });
+
+    it('si el primer intento rechaza, hace uno más y nunca tres', async () => {
+      const x = await enVivoConId(() => Promise.reject(new Error('x')));
+      x.o.terminarAhora();
+      await vaciar();
+      await vaciar();
+      expect(x.d.terminarVivo).toHaveBeenCalledTimes(2);
+      expect(x.o.tienda.obtener().fase).toBe('terminado');
+    });
+
+    it('no bloquea el pase a terminado si terminarVivo nunca responde', async () => {
+      const x = await enVivoConId(() => new Promise<void>(() => {}));
+      x.o.terminarAhora();
+      await vaciar();
+      expect(x.o.tienda.obtener().fase).toBe('terminado');
+    });
+
+    it('un segundo corte no vuelve a cerrar el mismo vivo', async () => {
+      const x = await enVivoConId(async () => {});
+      x.o.terminarAhora();
+      await vaciar();
+      x.o.terminarAhora();
+      await vaciar();
+      expect(x.d.terminarVivo).toHaveBeenCalledTimes(1);
+    });
+
+    it('sin vivo (clave fija), terminarVivo no se llama', async () => {
+      const x = await conVivo(async () => null);
+      x.inicios[0].resolver();
+      await x.fin;
+      x.o.alEvento({ conexion: 'conectado', mbps: 2.5, mensaje: null, motivo: null });
+      x.o.terminarAhora();
+      await vaciar();
+      expect(x.terminarVivo).not.toHaveBeenCalled();
+    });
   });
 });

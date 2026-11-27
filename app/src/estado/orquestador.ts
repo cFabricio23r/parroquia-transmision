@@ -19,6 +19,11 @@ export const MENSAJE_AJUSTES_ILEGIBLES = 'No se pudieron leer los Ajustes. Ábra
 export const MENSAJE_TERMINAR_LENTO =
   'El celular tardó en cerrar la transmisión. Revise en Facebook que haya terminado.';
 
+export const MENSAJE_FACEBOOK_RESPALDO = 'Facebook no respondió: se usa la clave de transmisión de la parroquia.';
+
+/** Lo que devuelve pedirVivo: el vivo creado, un error (se cae a la clave fija) o null (sin Facebook directo). */
+export type RespuestaVivo = { servidor: string; clave: string; id: string } | { error: true } | null;
+
 export interface DepsOrquestador {
   leerAjustes(): Promise<Ajustes>;
   cambiarEscena(escena: Escena): Promise<void>;
@@ -31,6 +36,10 @@ export interface DepsOrquestador {
   avisar(mensaje: string | null): void;
   /** Corte de tipo «preparar»: volver a preparar la cámara (review N3 de la Tarea 6). */
   volverAPreparar(): void;
+  /** null: la parroquia no tiene Facebook directo (se usa la clave como hoy). */
+  pedirVivo?(): Promise<RespuestaVivo>;
+  /** Cierra el vivo creado. Debe rechazar si no pudo, para que se reintente. */
+  terminarVivo?(id: string): Promise<void>;
 }
 
 export interface Orquestador {
@@ -50,6 +59,20 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
   // (se canceló, o se volvió a tocar Iniciar) no sigue: ni llama al nativo ni despacha un corte.
   let intento = 0;
   let ultimaConexion: Conexion | null = null;
+  // El vivo de Facebook del arranque en curso; se cierra una sola vez al cortar.
+  let vivoId: string | null = null;
+
+  // Dos intentos como máximo; nunca bloquea ni lanza.
+  async function cerrarVivo(id: string): Promise<void> {
+    for (let i = 0; i < 2; i++) {
+      try {
+        await d.terminarVivo?.(id);
+        return;
+      } catch {
+        // se reintenta una vez
+      }
+    }
+  }
 
   // Cuando hay que cortar se llama a terminar() una sola vez. Si se estaba terminando, al
   // resolver (o a los ESPERA_TERMINAR_MS, lo que pase primero) se pasa a 'terminado'.
@@ -65,6 +88,9 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       tienda.despachar({ tipo: 'terminado' });
     };
     const espera = setTimeout(() => cerrar(true), ESPERA_TERMINAR_MS);
+    const id = vivoId;
+    vivoId = null;
+    if (id !== null && d.terminarVivo) void cerrarVivo(id);
     // Dentro de una promesa: si terminar() lanzara de forma síncrona, la excepción no sale de
     // tienda.despachar antes de avisar a los oyentes (review m3 de la Tarea 8).
     Promise.resolve()
@@ -84,7 +110,8 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       d.avisar(MENSAJE_AJUSTES_ILEGIBLES);
       return;
     }
-    if (!validar(a).ok) {
+    // Con Facebook directo la clave fija no hace falta: se revisa después, solo si se necesita.
+    if (!d.pedirVivo && !validar(a).ok) {
       d.abrirAjustes();
       return;
     }
@@ -99,8 +126,36 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
     // Primero la escena Inicio, para que lo primero que salga al aire no sea la cámara.
     await d.cambiarEscena('inicio').catch(() => undefined);
     if (!vigente()) return;
+    let servidor = a.servidor;
+    let clave = a.clave;
+    if (d.pedirVivo) {
+      let vivo: RespuestaVivo;
+      try {
+        vivo = await d.pedirVivo();
+      } catch {
+        vivo = { error: true };
+      }
+      if (!vigente()) {
+        // Se canceló mientras se pedía: si el vivo llegó, no queda abierto en Facebook.
+        if (vivo !== null && 'id' in vivo) void cerrarVivo(vivo.id);
+        return;
+      }
+      if (vivo !== null && 'id' in vivo) {
+        servidor = vivo.servidor;
+        clave = vivo.clave;
+        vivoId = vivo.id;
+      } else if (!validar(a).ok) {
+        // Sin vivo y sin clave fija: no hay con qué transmitir. Se vuelve a preparar y se abre Ajustes.
+        intento++;
+        tienda.despachar({ tipo: 'terminar_ahora' });
+        d.abrirAjustes();
+        return;
+      } else if (vivo !== null) {
+        d.avisar(MENSAJE_FACEBOOK_RESPALDO);
+      }
+    }
     try {
-      await d.iniciar(a.servidor, a.clave);
+      await d.iniciar(servidor, clave);
     } catch (e) {
       if (mio !== intento) return;
       const err = e instanceof ErrorTransmisor ? e : null;

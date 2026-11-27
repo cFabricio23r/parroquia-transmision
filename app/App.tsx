@@ -64,7 +64,9 @@ import {
   type Medida,
   type UltimoDePantalla,
 } from './src/registro/registro';
-import { crearOrquestador, type Orquestador } from './src/estado/orquestador';
+import { crearOrquestador, type Orquestador, type RespuestaVivo } from './src/estado/orquestador';
+import { crearClienteFacebook } from './src/facebook/cliente';
+import { crearVivoFacebook } from './src/facebook/vivo';
 import { ESPERA_GIRO_MS, listoTrasCambio, orientacionPara, pantallaPara, pantallaVisible } from './src/estado/orientacion';
 import type { Escena, EstadoTransmision } from './src/estado/transmision';
 import { limitarZoom, rangoValido, type RangoZoom } from './src/estado/zoom';
@@ -122,6 +124,9 @@ const pantalla = {
   abrirAjustes: () => {},
   avisar: (_m: string | null) => {},
   volverAPreparar: () => {},
+  // Facebook directo (Tarea 9): sin cliente listo, null = se usa la clave fija como hoy.
+  pedirVivo: async (): Promise<RespuestaVivo> => null,
+  terminarVivo: async (_id: string): Promise<void> => {},
 };
 
 const orq: Orquestador = crearOrquestador({
@@ -134,6 +139,8 @@ const orq: Orquestador = crearOrquestador({
   abrirAjustes: () => pantalla.abrirAjustes(),
   avisar: (m) => pantalla.avisar(m),
   volverAPreparar: () => pantalla.volverAPreparar(),
+  pedirVivo: () => pantalla.pedirVivo(),
+  terminarVivo: (id) => pantalla.terminarVivo(id),
 });
 const tienda = orq.tienda;
 
@@ -271,6 +278,25 @@ export default function App(p: {
   const slugRef = useRef(slug);
   slugRef.current = slug;
 
+  // Facebook directo (Tarea 9). El título del vivo sale del tipo de la transmisión elegida y la
+  // parroquia, p. ej. «Misa dominical · Inmaculada Concepción»; sin elección, «Transmisión · parroquia».
+  const tipoElegidoRef = useRef<string | null>(null);
+  const nombreParroquiaRef = useRef(p.parroquia.nombre);
+  nombreParroquiaRef.current = p.parroquia.nombre;
+  const vivoFacebook = useMemo(() => {
+    let cliente;
+    try {
+      cliente = crearClienteFacebook({ origen: p.origen, slug, sesion: controlSesion.sesion });
+    } catch {
+      cliente = null; // origen o slug inválidos: sin Facebook directo, se usa la clave fija
+    }
+    if (!cliente) return { pedirVivo: async (): Promise<RespuestaVivo> => null, terminarVivo: async (_id: string) => {} };
+    return crearVivoFacebook({
+      cliente,
+      titulo: () => `${tipoElegidoRef.current ?? 'Transmisión'} · ${nombreParroquiaRef.current}`,
+    });
+  }, [p.origen, slug]);
+
   // Plan 3b: «Elegir transmisión» sobre Antes de iniciar, y el seguimiento de la que está en uso.
   // Nada de esto corre en vivo: la capa solo se ve en 'antes' y el seguimiento guarda en el celular.
   const [eleccion, setEleccion] = useState<'pendiente' | 'hecha'>('pendiente');
@@ -284,6 +310,7 @@ export default function App(p: {
   useEffect(() => () => seguimiento.soltar(), [seguimiento]);
   useEffect(() => {
     setEleccion('pendiente');
+    tipoElegidoRef.current = null;
   }, [slug]);
   const releerSemana = useCallback(async () => {
     const hoy = fechaLocal(new Date());
@@ -326,6 +353,7 @@ export default function App(p: {
       const parche = SEMANA.parcheDePanel(item, tipo);
       panelRef.current?.inyectar(editar ? scriptEditar(slug, parche) : scriptUsar(slug, parche));
       seguimiento.usar(item, tipo);
+      tipoElegidoRef.current = tipo.nombre;
       setEleccion('hecha');
     },
     [semana.tipos, slug, seguimiento],
@@ -524,6 +552,8 @@ export default function App(p: {
   };
   pantalla.avisar = setAviso;
   pantalla.volverAPreparar = volverAPreparar;
+  pantalla.pedirVivo = vivoFacebook.pedirVivo;
+  pantalla.terminarVivo = vivoFacebook.terminarVivo;
 
   useEffect(() => {
     if (listo && parroquiaLista) void preparar(true);
