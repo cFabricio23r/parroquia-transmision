@@ -1325,14 +1325,18 @@ function pintarCuentaAtras() {
 }
 
 /* barra de progreso del ocultado automático + conexión */
+let anchoPintado = null, cuentaPintada = null;
 setInterval(() => {
   const v = visible();
   const pr = $('progreso');
+  let ancho = '0';
   if (v && s.rotuloHasta) {
     const total = (s.rotuloHasta - (s.rotuloDesde || s.rotuloHasta - (s.duracionSeg || 1) * 1000));
-    pr.style.width = Math.max(0, Math.min(100, 100 * (s.rotuloHasta - Date.now()) / total)) + '%';
-  } else pr.style.width = '0';
-  pintarCuentaAtras();
+    ancho = Math.max(0, Math.min(100, 100 * (s.rotuloHasta - Date.now()) / total)) + '%';
+  }
+  if (ancho !== anchoPintado) { anchoPintado = ancho; pr.style.width = ancho; }   // solo se escribe si cambió
+  const cuenta = v + '|' + (v && s.rotuloHasta ? Math.max(0, Math.ceil((s.rotuloHasta - Date.now()) / 1000)) : 0);
+  if (cuenta !== cuentaPintada) { cuentaPintada = cuenta; pintarCuentaAtras(); }   // solo si cambió el segundo o lo visible
   if (s.rotuloHasta && Date.now() > s.rotuloHasta && s.rotulo !== 'ninguno') refrescar();
 
   let l = {}; try { l = JSON.parse(localStorage.getItem(CLAVE_LATIDO) || '{}'); } catch (e) {}

@@ -103,7 +103,7 @@ describe('scriptGuardadas', () => {
     const claves = [...new Set(script.match(/pev_[a-z0-9_-]+/g))].sort();
     expect(claves).toEqual([CL, CP].sort());
     expect(script).not.toMatch(/token|bearer|apikey|sb_|sesion|authorization|estado_v1/i);
-    expect(script).toContain('300');
+    expect(script).toContain('1000');
     expect(script.trim().endsWith('true;')).toBe(true);
   });
 

@@ -247,7 +247,8 @@ export default function App(p: {
   const ventana = useWindowDimensions();
   // Barra de estado, recorte y navegación (Tareas 9c y 9i): el nativo avisa cada cambio.
   const zonas = useZonas();
-  const lugaresNormales = armarLugares(ventana.width, ventana.height, zonas);
+  // Memoizado: si no, cada tic del reloj arma objetos nuevos y los componentes memoizados se redibujan igual.
+  const lugaresNormales = useMemo(() => armarLugares(ventana.width, ventana.height, zonas), [ventana.width, ventana.height, zonas]);
   // Mientras gira, la ventana todavía tiene la forma vieja: las pantallas se ponen al terminar.
   const formaLista = lugaresNormales.vertical === (orientacion === 'vertical');
   // Si la ventana no gira en 1,5 s (fijarOrientacion falló o el sistema no hizo caso), la pantalla se
@@ -335,7 +336,12 @@ export default function App(p: {
   // Pantalla completa (Tarea 9g): solo al aire y acostado. La vista previa ocupa la pantalla en
   // 16:9; el panel queda montado pero fuera de la pantalla, así no se recarga.
   const enCompleta = completa && visible === 'aire' && !lugaresNormales.vertical;
-  const lugares = enCompleta ? lugaresCompletos(ventana.width, ventana.height, zonas, lugaresNormales) : lugaresNormales;
+  const lugares = useMemo(
+    () => (enCompleta ? lugaresCompletos(ventana.width, ventana.height, zonas, lugaresNormales) : lugaresNormales),
+    [enCompleta, ventana.width, ventana.height, zonas, lugaresNormales],
+  );
+  // Estilo de la columna del panel: estable entre tics (un arreglo nuevo cada vez rompería el React.memo).
+  const estiloPanel = useMemo(() => [estilos.zona, lugares.panel], [lugares.panel]);
 
   // Al dejar el aire: el zoom vuelve a 1× (el nativo también lo hace) y se sale de pantalla completa.
   useEffect(() => {
@@ -709,7 +715,7 @@ export default function App(p: {
           lista={parroquiaLista}
           onEstado={alEstadoPanel}
           onCargado={alCargarPanel}
-          estilo={[estilos.zona, lugares.panel]}
+          estilo={estiloPanel}
         />
         <View style={[estilos.zona, lugares.barra]}>
           {enCompleta ? null : (
@@ -798,7 +804,8 @@ export default function App(p: {
               completa={enCompleta}
               onCompleta={setCompleta}
               fase={estado.fase}
-              segundos={estado.segundos}
+              // El reloj solo se ve en pantalla completa; fuera de ella el valor fijo evita redibujar cada segundo.
+              segundos={enCompleta ? estado.segundos : 0}
               fps={fpsVideo}
             />
           </View>

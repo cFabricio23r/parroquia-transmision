@@ -364,7 +364,9 @@ object Capa {
     // La clave es la de la parroquia elegida, `pev_<slug>_estado_v1`; el slug ya pasó por Copias.fijar.
     val slug = Copias.slug ?: return
     // JSONObject.quote arma un literal de texto válido (comillas, barras, saltos de línea y «</»).
-    val js = "try{localStorage.setItem('pev_${slug}_estado_v1',${JSONObject.quote(json)})}catch(e){}"
+    // Tras guardar se avisa con un StorageEvent en la misma ventana: escucharEstado corre en el acto y no espera a su consulta (2 s).
+    val js = "try{localStorage.setItem('pev_${slug}_estado_v1',${JSONObject.quote(json)});" +
+      "window.dispatchEvent(new StorageEvent('storage',{key:'pev_${slug}_estado_v1'}))}catch(e){}"
     w.evaluateJavascript(js, null)
   }
 

@@ -130,7 +130,9 @@ function escucharEstado(cb) {
     }
   };
   revisar();
-  setInterval(revisar, 300);
+  // En la app el estado llega por evento (Capa.kt avisa tras cada setItem); la consulta queda de red de seguridad.
+  // En OBS no cambia: cada 300 ms.
+  setInterval(revisar, MODO_APP ? 2000 : 300);
   window.addEventListener('storage', revisar);
   if (canal) canal.onmessage = (e) => {
     ultimo = JSON.stringify(e.data);

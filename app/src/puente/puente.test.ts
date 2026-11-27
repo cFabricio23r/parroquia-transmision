@@ -45,7 +45,7 @@ describe('scripts del panel', () => {
     expect(script).toContain("localStorage.getItem('pev_ciudad-arce_estado_v1')");
     expect(script).toContain('window.ReactNativeWebView.postMessage');
     expect(script).not.toContain('parroquia_obs_estado_v1');
-    expect(script).toContain('300');
+    expect(script).toContain('1000');
     expect(script.trim().endsWith('true;')).toBe(true);
   });
 

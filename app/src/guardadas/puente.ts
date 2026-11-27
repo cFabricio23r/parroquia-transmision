@@ -1,6 +1,6 @@
 // Puente de las misas listas entre la app y su panel (Tarea 6). El panel guarda la lista y la cola
 // en su localStorage, con las mismas claves que en la PC (claveDe de vicaria/parroquia.js, decisión R4):
-//   - scriptGuardadas(slug) las lee cada 300 ms y, si cambiaron, manda {tipo:'guardadas', lista, pendientes};
+//   - scriptGuardadas(slug) las lee cada 1000 ms y, si cambiaron, manda {tipo:'guardadas', lista, pendientes};
 //   - scriptPonerGuardadas(slug, nube, cambios) le devuelve lo que pasó en la nube.
 // El panel nunca recibe tokens, la sesión ni otra clave que estas dos: lo nativo sube y baja.
 import { esSlugValido } from '../plataforma/direcciones';
@@ -34,7 +34,7 @@ function literal(v: unknown): string {
 }
 
 /**
- * Cada 300 ms, si la lista o la cola cambiaron, las manda a la app como {tipo:'guardadas', lista,
+ * Cada 1000 ms, si la lista o la cola cambiaron, las manda a la app como {tipo:'guardadas', lista,
  * pendientes}. Lo ilegible va como []. Lo corre lo nativo al terminar de cargar la página, junto a scriptPanel.
  */
 export function scriptGuardadas(slug: string): string {
@@ -60,7 +60,7 @@ export function scriptGuardadas(slug: string): string {
     try { window.ReactNativeWebView.postMessage(JSON.stringify({ tipo: 'guardadas', lista: lista(g), pendientes: lista(p) })); } catch (e) {}
   }
   revisar();
-  setInterval(revisar, 300);
+  setInterval(revisar, 1000);
 })();
 true;`;
 }

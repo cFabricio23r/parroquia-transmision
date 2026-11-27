@@ -7,7 +7,7 @@
 // Solo carga el origen exacto de la plataforma; cualquier otra dirección se bloquea.
 // El panel nunca recibe la clave: solo su propio estado (pev_<slug>_estado_v1) y, de las misas listas
 // (Tarea 6), su lista y su cola (pev_<slug>_guardadas_v1 y _guardadas_pendientes_v1), por canalGuardadas.
-import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { VistaPanel, type EventoMensaje, type VistaPanelNativa } from '../../modules/transmisor';
@@ -36,7 +36,7 @@ interface Props {
   estilo?: StyleProp<ViewStyle>;
 }
 
-export default function ColumnaPanel({ panelRef, origen, slug, lista, onEstado, onCargado, estilo }: Props) {
+function ColumnaPanelBase({ panelRef, origen, slug, lista, onEstado, onCargado, estilo }: Props) {
   // Cada vez que se cae el proceso de la página se monta una vista nueva: un WebView cuyo
   // proceso murió no se puede volver a usar (review M1). El estado del panel queda en localStorage.
   const [montaje, setMontaje] = useState(0);
@@ -106,3 +106,6 @@ const estilos = StyleSheet.create({
   },
   web: { flex: 1, backgroundColor: C.fondo2 },
 });
+
+// Memoizado: App se redibuja cada segundo con el reloj y el panel no debe seguirla (props estables desde App).
+export default memo(ColumnaPanelBase);

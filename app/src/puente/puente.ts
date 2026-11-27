@@ -1,6 +1,6 @@
 // Puente entre la app y el panel de la parroquia (`https://<plataforma>/<slug>/panel.html?modo=app`,
 // en la vista nativa VistaPanel). El panel guarda su estado en localStorage['pev_<slug>_estado_v1'];
-// la app lo lee cada 300 ms con scriptPanel(slug) y se lo pasa a la capa con actualizarEstado(json).
+// la app lo lee cada 1000 ms con scriptPanel(slug) y se lo pasa a la capa con actualizarEstado(json).
 // Ese estado nunca lleva la clave: la clave vive solo en Ajustes (expo-secure-store).
 import { ESCENAS_VALIDAS, type Escena } from '../estado/transmision';
 import { guardadasValidas, pendientesValidos } from '../guardadas/nucleo';
@@ -34,7 +34,7 @@ export function esMensajeDelPanel(url: string | undefined, origen: string): bool
 }
 
 /**
- * Cada 300 ms, si el estado guardado de la parroquia cambió, lo manda a la app como
+ * Cada 1000 ms, si el estado guardado de la parroquia cambió, lo manda a la app como
  * {tipo:'estado', json}. Lo corre lo nativo al terminar de cargar la página.
  */
 export function scriptPanel(slug: string): string {
@@ -50,7 +50,7 @@ export function scriptPanel(slug: string): string {
     try { window.ReactNativeWebView.postMessage(JSON.stringify({ tipo: 'estado', json: json })); } catch (e) {}
   }
   revisar();
-  setInterval(revisar, 300);
+  setInterval(revisar, 1000);
 })();
 true;`;
 }

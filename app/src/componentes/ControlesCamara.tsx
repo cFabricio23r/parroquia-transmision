@@ -1,7 +1,7 @@
 // Zoom y pantalla completa, encima de la vista previa al aire (Tarea 9g).
 // Pellizcar la vista hace zoom; los botones − y + van de a 0,5× y «1×» vuelve al inicio.
 // En pantalla completa también muestra una barra mínima: EN VIVO con el reloj y los fps.
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import type { Fase } from '../estado/transmision';
@@ -29,7 +29,7 @@ function distancia(e: GestureResponderEvent): number {
 
 const dosDedos = (e: GestureResponderEvent) => e.nativeEvent.touches.length >= 2;
 
-export default function ControlesCamara(p: Props) {
+function ControlesCamaraBase(p: Props) {
   // El responder se arma una vez; lee lo actual por ref.
   const actual = useRef(p);
   actual.current = p;
@@ -157,3 +157,6 @@ const estilos = StyleSheet.create({
   signo: { fontFamily: F.extra, fontSize: 22, color: C.texto },
   botonTexto: { fontFamily: F.extra, fontSize: 13, color: C.texto },
 });
+
+// Memoizado: solo se redibuja si cambian sus props (el reloj entra solo en pantalla completa).
+export default memo(ControlesCamaraBase);
