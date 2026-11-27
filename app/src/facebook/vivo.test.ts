@@ -19,6 +19,7 @@ const VIVO: VivoCreado = {
   extras: [],
   reusado: false,
 };
+const TEXTOS = { titulo: 'Misa dominical · Parroquia', descripcion: 'Hola' };
 const MAL = { ok: false, error: { tipo: 'otro' } } as const;
 
 function armar(c: Partial<ClienteFacebook> = {}, elecciones?: () => Promise<string[] | null>) {
@@ -29,7 +30,7 @@ function armar(c: Partial<ClienteFacebook> = {}, elecciones?: () => Promise<stri
     terminar: jest.fn(async (): Promise<ResultadoFacebook<void>> => ({ ok: true, valor: undefined })),
     ...c,
   };
-  return { cliente, ...crearVivoFacebook({ cliente, titulo: () => 'Misa dominical · Parroquia', elecciones }) };
+  return { cliente, ...crearVivoFacebook({ cliente, textos: () => TEXTOS, elecciones }) };
 }
 
 describe('pedirVivo', () => {
@@ -42,7 +43,7 @@ describe('pedirVivo', () => {
       principal: 'Principal',
       extras: [],
     });
-    expect(cliente.crear).toHaveBeenCalledWith(['e1'], 'Misa dominical · Parroquia');
+    expect(cliente.crear).toHaveBeenCalledWith(['e1'], TEXTOS);
   });
 
   it('devuelve los nombres de las páginas del vivo para mostrarlos', async () => {
@@ -58,22 +59,22 @@ describe('pedirVivo', () => {
   it('con una elección guardada usa esa y no las porDefecto', async () => {
     const { cliente, pedirVivo } = armar({}, async () => ['e2']);
     await pedirVivo();
-    expect(cliente.crear).toHaveBeenCalledWith(['e2'], 'Misa dominical · Parroquia');
+    expect(cliente.crear).toHaveBeenCalledWith(['e2'], TEXTOS);
   });
 
   it('una elección vacía es «ninguna extra»', async () => {
     const { cliente, pedirVivo } = armar({}, async () => []);
     await pedirVivo();
-    expect(cliente.crear).toHaveBeenCalledWith([], 'Misa dominical · Parroquia');
+    expect(cliente.crear).toHaveBeenCalledWith([], TEXTOS);
   });
 
   it('si leer las elecciones falla o da null, usa las porDefecto', async () => {
     const a = armar({}, async () => null);
     await a.pedirVivo();
-    expect(a.cliente.crear).toHaveBeenCalledWith(['e1'], expect.any(String));
+    expect(a.cliente.crear).toHaveBeenCalledWith(['e1'], TEXTOS);
     const b = armar({}, () => Promise.reject(new Error('x')));
     await b.pedirVivo();
-    expect(b.cliente.crear).toHaveBeenCalledWith(['e1'], expect.any(String));
+    expect(b.cliente.crear).toHaveBeenCalledWith(['e1'], TEXTOS);
   });
 
   it('principal null: null y no crea nada', async () => {
@@ -157,7 +158,7 @@ describe('Ruling 13: crear lento contra el tope de 15 s, con el cliente real', (
       return Promise.resolve(json(200, { terminado: true }));
     });
     const cliente = crearClienteFacebook({ origen: 'https://plataforma.example.org', slug: 'ciudad-arce', sesion, fetch: f as unknown as typeof fetch });
-    return { llamadas, ...crearVivoFacebook({ cliente, titulo: () => 'Misa' }) };
+    return { llamadas, ...crearVivoFacebook({ cliente, textos: () => ({ titulo: 'Misa', descripcion: '' }) }) };
   }
 
   it('crear responde a los 20 s: la app ya cayó a la clave fija a los 15 s y después cierra ese vivo una vez', async () => {

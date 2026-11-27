@@ -5,6 +5,7 @@
  *
  * Nada de este archivo escribe en `console.*` ni pone la clave de transmisión o el token en un resultado de error.
  */
+import type { TextosVivo } from './textos';
 import { PLAZO_POR_DEFECTO_MS, leerJson, pedirConPlazo, type Resultado as ResultadoSupabase } from '../supabase/cliente';
 import type { SesionApp } from '../sesion/sesion';
 import { esSlugValido, normalizarOrigen } from '../plataforma/direcciones';
@@ -35,7 +36,8 @@ export interface EstadoVivo {
 
 export interface ClienteFacebook {
   destinos(): Promise<ResultadoFacebook<Destinos>>;
-  crear(extras: string[], titulo: string): Promise<ResultadoFacebook<VivoCreado>>;
+  /** La descripción vacía no se manda: el servidor la toma como «sin descripción». */
+  crear(extras: string[], textos: TextosVivo): Promise<ResultadoFacebook<VivoCreado>>;
   estado(id: string): Promise<ResultadoFacebook<EstadoVivo>>;
   terminar(id: string): Promise<ResultadoFacebook<void>>;
 }
@@ -166,7 +168,10 @@ export function crearClienteFacebook(o: { origen: string; slug: string; sesion: 
 
   return {
     destinos: () => pedir('GET', 'facebook', PLAZO_POR_DEFECTO_MS, undefined, leerDestinos),
-    crear: (extras, titulo) => conLimite(pedir('POST', 'vivo', PLAZO_PEDIDO_CREAR_MS, { extras, titulo }, leerVivo), PLAZO_PEDIDO_CREAR_MS),
+    crear: (extras, textos) => {
+      const cuerpo = textos.descripcion === '' ? { extras, titulo: textos.titulo } : { extras, titulo: textos.titulo, descripcion: textos.descripcion };
+      return conLimite(pedir('POST', 'vivo', PLAZO_PEDIDO_CREAR_MS, cuerpo, leerVivo), PLAZO_PEDIDO_CREAR_MS);
+    },
     estado: (id) => pedir('GET', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, leerEstado),
     terminar: (id) => pedir<void>('DELETE', 'vivo/' + encodeURIComponent(id), PLAZO_POR_DEFECTO_MS, undefined, () => undefined),
   };

@@ -519,7 +519,7 @@ describe('Facebook colgado: tope de 15 s', () => {
   it('destinos nunca responde: a los 15 s arranca con la clave fija y el aviso', async () => {
     const vivo = crearVivoFacebook({
       cliente: { destinos: () => new Promise<never>(() => {}), crear: jest.fn(), estado: jest.fn(), terminar: jest.fn() },
-      titulo: () => 't',
+      textos: () => ({ titulo: 't', descripcion: '' }),
     });
     const { o, d, escenas } = armar({ pedirVivo: vivo.pedirVivo });
     void o.iniciar();

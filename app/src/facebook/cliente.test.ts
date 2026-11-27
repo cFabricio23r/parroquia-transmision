@@ -48,7 +48,7 @@ afterEach(() => {
 describe('crear', () => {
   it('manda Bearer y el cuerpo a /app/vivo y devuelve el vivo', async () => {
     const f = jest.fn(async () => respuesta(200, VIVO));
-    const r = await cliente(f).crear(['p2'], 'Misa');
+    const r = await cliente(f).crear(['p2'], { titulo: 'Misa', descripcion: '' });
     expect(r).toEqual({ ok: true, valor: VIVO });
     const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(ORIGEN + '/editor/api/' + SLUG + '/app/vivo');
@@ -57,12 +57,19 @@ describe('crear', () => {
     expect(JSON.parse(init.body as string)).toEqual({ extras: ['p2'], titulo: 'Misa' });
   });
 
+  it('con descripción, el cuerpo la trae', async () => {
+    const f = jest.fn(async () => respuesta(200, VIVO));
+    await cliente(f).crear([], { titulo: 'Misa', descripcion: 'Hola' });
+    const [, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ extras: [], titulo: 'Misa', descripcion: 'Hola' });
+  });
+
   it('el pedido de crear dura más que el tope de 15 s de la app (Ruling 13): a los 45 s da sin-conexion', async () => {
     jest.useFakeTimers();
     const f = jest.fn(() => new Promise<Response>(() => {}));
     expect(PLAZO_CREAR_MS).toBe(15_000);
     expect(PLAZO_PEDIDO_CREAR_MS).toBe(45_000);
-    const p = cliente(f).crear([], 'Misa');
+    const p = cliente(f).crear([], { titulo: 'Misa', descripcion: '' });
     let listo = false;
     void p.then(() => {
       listo = true;
@@ -76,22 +83,22 @@ describe('crear', () => {
   it('una respuesta de crear que llega a los 20 s todavía se lee (para poder cerrar ese vivo)', async () => {
     jest.useFakeTimers();
     const f = jest.fn(() => new Promise<Response>((res) => setTimeout(() => res(respuesta(200, VIVO)), 20_000)));
-    const p = cliente(f).crear([], 'Misa');
+    const p = cliente(f).crear([], { titulo: 'Misa', descripcion: '' });
     await jest.advanceTimersByTimeAsync(20_000);
     expect(await p).toEqual({ ok: true, valor: VIVO });
   });
 
   it('lee `reusado` (sin el campo, false)', async () => {
-    expect(await cliente(jest.fn(async () => respuesta(200, { ...VIVO, reusado: true }))).crear([], 'M')).toEqual({ ok: true, valor: { ...VIVO, reusado: true } });
+    expect(await cliente(jest.fn(async () => respuesta(200, { ...VIVO, reusado: true }))).crear([], { titulo: 'M', descripcion: '' })).toEqual({ ok: true, valor: { ...VIVO, reusado: true } });
     const { reusado: _r, ...sinCampo } = VIVO;
-    expect(await cliente(jest.fn(async () => respuesta(200, sinCampo))).crear([], 'M')).toEqual({ ok: true, valor: { ...VIVO, reusado: false } });
+    expect(await cliente(jest.fn(async () => respuesta(200, sinCampo))).crear([], { titulo: 'M', descripcion: '' })).toEqual({ ok: true, valor: { ...VIVO, reusado: false } });
   });
 
   it('da sin-conexion a los 45 s totales si la renovacion de sesion nunca responde', async () => {
     jest.useFakeTimers();
     const f = jest.fn();
     const sesion = { conSesion: () => new Promise(() => {}) } as unknown as SesionApp;
-    const p = cliente(f, sesion).crear([], 'Misa');
+    const p = cliente(f, sesion).crear([], { titulo: 'Misa', descripcion: '' });
     await jest.advanceTimersByTimeAsync(PLAZO_PEDIDO_CREAR_MS);
     expect(await p).toEqual({ ok: false, error: { tipo: 'sin-conexion' } });
     expect(f).not.toHaveBeenCalled();
@@ -111,7 +118,7 @@ describe('crear', () => {
       },
     } as unknown as SesionApp;
     f.mockImplementationOnce(async () => respuesta(401, {})).mockImplementation(() => new Promise<Response>(() => {}));
-    const p = cliente(f, sesion).crear([], 'Misa');
+    const p = cliente(f, sesion).crear([], { titulo: 'Misa', descripcion: '' });
     let listo = false;
     void p.then(() => {
       listo = true;
@@ -126,30 +133,30 @@ describe('crear', () => {
 
   it.each(['sin-facebook', 'reconectar', 'requisitos', 'facebook', 'muchos'] as const)('mapea el codigo %s', async (codigo) => {
     const f = jest.fn(async () => respuesta(422, { codigo }));
-    expect(await cliente(f).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: codigo } });
+    expect(await cliente(f).crear([], { titulo: 'Misa', descripcion: '' })).toEqual({ ok: false, error: { tipo: codigo } });
   });
 
   it('mapea 401 a sesion', async () => {
     const f = jest.fn(async () => respuesta(401, {}));
-    expect(await cliente(f).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: 'sesion' } });
+    expect(await cliente(f).crear([], { titulo: 'Misa', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'sesion' } });
   });
 
   it('da sesion si no hay sesion', async () => {
     const f = jest.fn();
-    expect(await cliente(f, sesionSinSesion()).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: 'sesion' } });
+    expect(await cliente(f, sesionSinSesion()).crear([], { titulo: 'Misa', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'sesion' } });
     expect(f).not.toHaveBeenCalled();
   });
 
   it('da otro para un codigo desconocido o un 404 sin codigo', async () => {
-    expect(await cliente(jest.fn(async () => respuesta(400, { codigo: 'raro' }))).crear([], 'M')).toEqual({ ok: false, error: { tipo: 'otro' } });
-    expect(await cliente(jest.fn(async () => respuesta(404, 'x'))).crear([], 'M')).toEqual({ ok: false, error: { tipo: 'otro' } });
+    expect(await cliente(jest.fn(async () => respuesta(400, { codigo: 'raro' }))).crear([], { titulo: 'M', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'otro' } });
+    expect(await cliente(jest.fn(async () => respuesta(404, 'x'))).crear([], { titulo: 'M', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'otro' } });
   });
 
   it('da otro si el servidor no empieza con rtmps://', async () => {
     const f = jest.fn(async () => respuesta(200, { ...VIVO, servidor: 'rtmp://x/live' }));
-    expect(await cliente(f).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: 'otro' } });
+    expect(await cliente(f).crear([], { titulo: 'Misa', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'otro' } });
     const g = jest.fn(async () => respuesta(200, { id: 'v1', clave: CLAVE, principal: VIVO.principal, extras: [] }));
-    expect(await cliente(g).crear([], 'Misa')).toEqual({ ok: false, error: { tipo: 'otro' } });
+    expect(await cliente(g).crear([], { titulo: 'Misa', descripcion: '' })).toEqual({ ok: false, error: { tipo: 'otro' } });
   });
 });
 
@@ -193,14 +200,14 @@ describe('secretos', () => {
   it('no escribe en console ni deja la clave o el token en un error', async () => {
     const espias = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => jest.spyOn(console, m).mockImplementation(() => {}));
     const resultados = [
-      await cliente(jest.fn(async () => respuesta(200, VIVO))).crear([], 'M'),
-      await cliente(jest.fn(async () => respuesta(422, { codigo: 'requisitos', clave: CLAVE }))).crear([], 'M'),
-      await cliente(jest.fn(async () => respuesta(401, {}))).crear([], 'M'),
+      await cliente(jest.fn(async () => respuesta(200, VIVO))).crear([], { titulo: 'M', descripcion: '' }),
+      await cliente(jest.fn(async () => respuesta(422, { codigo: 'requisitos', clave: CLAVE }))).crear([], { titulo: 'M', descripcion: '' }),
+      await cliente(jest.fn(async () => respuesta(401, {}))).crear([], { titulo: 'M', descripcion: '' }),
       await cliente(
         jest.fn(async () => {
           throw new Error(TOKEN + CLAVE);
         }),
-      ).crear([], 'M'),
+      ).crear([], { titulo: 'M', descripcion: '' }),
     ];
     for (const e of espias) expect(e).not.toHaveBeenCalled();
     for (const r of resultados.slice(1)) {

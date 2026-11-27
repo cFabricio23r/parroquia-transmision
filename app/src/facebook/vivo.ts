@@ -2,6 +2,7 @@
  * Une el cliente de Facebook con el orquestador (Tarea 9).
  * Nada de este archivo escribe en `console.*` ni deja la clave de transmisión en un error.
  */
+import type { TextosVivo } from './textos';
 import type { RespuestaVivo, VivoVisible } from '../estado/orquestador';
 import { PLAZO_CREAR_MS, type ClienteFacebook, type Destinos, type EstadoVivo } from './cliente';
 
@@ -34,7 +35,8 @@ export function chipsFacebook(v: VivoVisible | null): { verde: string | null; am
 
 export function crearVivoFacebook(o: {
   cliente: ClienteFacebook;
-  titulo(): string;
+  /** Título y descripción de este vivo (textosVivo). */
+  textos(): TextosVivo;
   /** Las casillas guardadas de esta parroquia (leerElecciones). Sin esto, o con null, las porDefecto. */
   elecciones?(): Promise<string[] | null>;
 }): {
@@ -69,7 +71,7 @@ export function crearVivoFacebook(o: {
             guardadas = null; // sin poder leer las casillas, salen las marcadas por defecto
           }
           if (vencido) return;
-          const vivo = await o.cliente.crear(extrasElegidos(destinos.valor, guardadas), o.titulo());
+          const vivo = await o.cliente.crear(extrasElegidos(destinos.valor, guardadas), o.textos());
           if (!vivo.ok) return fin({ error: true });
           if (vencido) {
             // Llegó tarde: no se usa, y se cierra una vez para no dejar un vivo huérfano (el pedido de crear dura

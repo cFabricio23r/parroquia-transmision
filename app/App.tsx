@@ -75,6 +75,7 @@ import AntesDeIniciar, { type EstadoVista } from './src/pantallas/AntesDeIniciar
 import Ajustes from './src/pantallas/Ajustes';
 import ConfirmarTerminar from './src/pantallas/ConfirmarTerminar';
 import ElegirPaginas from './src/pantallas/ElegirPaginas';
+import { textosVivo } from './src/facebook/textos';
 import EnVivo from './src/pantallas/EnVivo';
 import FacebookCerro from './src/pantallas/FacebookCerro';
 import Portada from './src/pantallas/Portada';
@@ -312,7 +313,8 @@ export default function App(p: {
     }
     return crearVivoFacebook({
       cliente: clienteFacebook,
-      titulo: () => `${tipoElegidoRef.current ?? 'Transmisión'} · ${nombreParroquiaRef.current}`,
+      textos: () =>
+        textosVivo({ guardado: { titulo: '', descripcion: '' }, tipo: tipoElegidoRef.current, parroquia: nombreParroquiaRef.current, editado: null }),
       elecciones: () => leerElecciones(slug),
     });
   }, [clienteFacebook, slug]);
