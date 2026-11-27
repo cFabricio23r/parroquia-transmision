@@ -697,4 +697,32 @@ describe('Facebook: revisión a los 20 s y corte largo (Tarea 10)', () => {
     expect(x.facebookCerro).not.toHaveBeenCalled();
     expect(x.terminarVivo).toHaveBeenCalledTimes(1);
   });
+
+  it('un estado tardío «terminado» no abre el diálogo si ya empezó otro intento', async () => {
+    let soltar!: (r: { estado: 'terminado'; extras: [] }) => void;
+    const x = await alAire({ estadoVivo: jest.fn(() => new Promise<never>((res) => (soltar = res as never))) });
+    x.o.alEvento(CORTADO);
+    await vaciar();
+    void x.o.iniciar();
+    await vaciar();
+    soltar({ estado: 'terminado', extras: [] });
+    await vaciar();
+    expect(x.facebookCerro).not.toHaveBeenCalled();
+  });
+
+  it('cerrar sesión durante el arranque cancela y cierra el vivo; sin vivo no hace nada', async () => {
+    const x = armar({ pedirVivo: jest.fn(async () => VIVO), terminarVivo: jest.fn(async () => {}) });
+    void x.o.iniciar();
+    await vaciar();
+    x.escenas[0].resolver();
+    await vaciar();
+    expect(x.o.tienda.obtener().fase).toBe('iniciando');
+    x.o.alLimpiarCuenta();
+    await vaciar();
+    expect(x.o.tienda.obtener().fase).toBe('preparando');
+    expect(x.d.terminarVivo).toHaveBeenCalledWith('vivo-1');
+    const y = armar({ terminarVivo: jest.fn(async () => {}) });
+    y.o.alLimpiarCuenta();
+    expect(y.d.terminarVivo).not.toHaveBeenCalled();
+  });
 });

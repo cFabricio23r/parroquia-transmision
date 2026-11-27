@@ -7,6 +7,8 @@ import { C, F } from '../componentes/tema';
 
 interface Props {
   visible: boolean;
+  /** La cámara está lista y hay clave (lo mismo que habilita «Iniciar transmisión»). */
+  puedeIniciar: boolean;
   onTerminar: () => void;
   onIniciarNueva: () => void;
 }
@@ -37,12 +39,19 @@ export default function FacebookCerro(p: Props) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Iniciar una nueva"
+              accessibilityState={{ disabled: !p.puedeIniciar }}
+              disabled={!p.puedeIniciar}
               onPress={p.onIniciarNueva}
-              style={[estilos.boton, estilos.iniciar]}
+              style={[estilos.boton, estilos.iniciar, !p.puedeIniciar && estilos.apagado]}
             >
               <Text style={estilos.botonTexto}>Iniciar una nueva</Text>
             </Pressable>
           </View>
+          {p.puedeIniciar ? null : (
+            <Text style={estilos.espera} accessibilityLiveRegion="polite">
+              La cámara se está preparando. Cuando esté lista podrás iniciar una nueva.
+            </Text>
+          )}
           <Text style={estilos.nota}>Nunca se crea una transmisión nueva sin este toque.</Text>
         </View>
       </View>
@@ -70,5 +79,7 @@ const estilos = StyleSheet.create({
   terminar: { backgroundColor: C.boton },
   iniciar: { backgroundColor: C.primario },
   botonTexto: { fontFamily: F.extra, fontSize: 15, color: '#ffffff' },
+  apagado: { opacity: 0.5 },
+  espera: { fontFamily: F.negrita, fontSize: 12, color: C.ambarTexto },
   nota: { fontFamily: F.semi, fontSize: 12, color: C.suave },
 });

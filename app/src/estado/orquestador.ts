@@ -69,6 +69,11 @@ export interface Orquestador {
   terminarConGracias(): void;
   terminarAhora(): void;
   seguir(): void;
+  /**
+   * La limpieza de cuentas (cerrar sesión): si se estaba arrancando, se cancela (eso cierra el vivo);
+   * si quedara un vivo guardado, se cierra, y ya no queda id en memoria.
+   */
+  alLimpiarCuenta(): void;
   /** Un evento de la conexión nativa. */
   alEvento(e: EventoEstado): void;
 }
@@ -115,15 +120,16 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
 
   // Se perdió la señal con el vivo al aire. Antes de cerrarlo se pregunta a Facebook: si ya lo cerró
   // él, la pantalla lo dice (el voluntario decide); si sigue activo o no se sabe, se cierra como siempre.
-  async function alPerderVivo(id: string): Promise<void> {
+  async function alPerderVivo(id: string, miIntento: number): Promise<void> {
     let r: EstadoVivo | null = null;
     try {
       r = (await d.estadoVivo?.(id)) ?? null;
     } catch {
       r = null;
     }
+    // Si ya arrancó otro intento mientras se esperaba, el diálogo no se abre sobre el vivo nuevo.
     if (r !== null && r.estado === 'terminado') {
-      d.facebookCerro?.();
+      if (miIntento === intento) d.facebookCerro?.();
       return;
     }
     await cerrarVivo(id);
@@ -252,6 +258,17 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
       // 'seguir' vuelve a en_vivo; si la señal sigue caída, se vuelve a reconectando (review de la Tarea 4).
       if (ultimaConexion === 'reconectando') tienda.despachar({ tipo: 'reconectando' });
     },
+    alLimpiarCuenta() {
+      pararRevision();
+      if (tienda.obtener().fase === 'iniciando') {
+        intento++;
+        tienda.despachar({ tipo: 'terminar_ahora' });
+        return;
+      }
+      const id = vivoId;
+      vivoId = null;
+      if (id !== null && d.terminarVivo) void cerrarVivo(id);
+    },
     alEvento(e) {
       ultimaConexion = e.conexion;
       if (e.conexion === 'conectado') {
@@ -269,7 +286,7 @@ export function crearOrquestador(d: DepsOrquestador): Orquestador {
         const perdido = enAire && d.estadoVivo && d.facebookCerro ? vivoId : null;
         if (perdido !== null) vivoId = null;
         tienda.despachar({ tipo: 'cortado', mensaje: e.mensaje ?? MENSAJES.desconocido });
-        if (perdido !== null) void alPerderVivo(perdido);
+        if (perdido !== null) void alPerderVivo(perdido, intento);
         if (pideVolverAPreparar(e)) d.volverAPreparar();
       }
     },

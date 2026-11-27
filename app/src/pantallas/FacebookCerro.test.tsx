@@ -3,12 +3,12 @@ import { createRoot, type TestInstance } from 'test-renderer';
 
 import FacebookCerro from './FacebookCerro';
 
-async function mostrar() {
+async function mostrar(puedeIniciar = true) {
   const raiz = createRoot();
   const onTerminar = jest.fn();
   const onIniciarNueva = jest.fn();
   await act(async () => {
-    raiz.render(<FacebookCerro visible onTerminar={onTerminar} onIniciarNueva={onIniciarNueva} />);
+    raiz.render(<FacebookCerro visible puedeIniciar={puedeIniciar} onTerminar={onTerminar} onIniciarNueva={onIniciarNueva} />);
   });
   const boton = (etiqueta: string) =>
     raiz.container.queryAll((i: TestInstance) => i.props.accessibilityRole === 'button' && i.props.accessibilityLabel === etiqueta)[0];
@@ -43,5 +43,23 @@ describe('FacebookCerro', () => {
       boton('Iniciar una nueva').props.onClick({});
     });
     expect(onIniciarNueva).toHaveBeenCalledTimes(1);
+  });
+
+  it('con la cámara sin preparar «Iniciar una nueva» queda apagado y dice por qué', async () => {
+    const { raiz, boton } = await mostrar(false);
+    expect(boton('Iniciar una nueva').props.accessibilityState).toEqual({ disabled: true });
+    expect(boton('Terminar').props.accessibilityState?.disabled).toBeFalsy();
+    const t: string[] = [];
+    const ir = (n: unknown) => {
+      if (typeof n === 'string') t.push(n);
+      else if (n && typeof n === 'object' && 'children' in n) (n as TestInstance).children.forEach(ir);
+    };
+    ir(raiz.container);
+    expect(t.join('')).toContain('La cámara se está preparando');
+  });
+
+  it('con la cámara lista está habilitado', async () => {
+    const { boton } = await mostrar(true);
+    expect(boton('Iniciar una nueva').props.accessibilityState).toEqual({ disabled: false });
   });
 });

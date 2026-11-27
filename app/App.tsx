@@ -89,7 +89,7 @@ import { ESPERA_MAXIMA_MS, fasePortada } from './src/portada/portada';
 import { SCRIPT_ESCENA, SCRIPT_IR_A_EN_VIVO, SCRIPT_IR_A_PREPARAR } from './src/puente/puente';
 import { guardiaEnVivo } from './src/sesion/guardia';
 import type { Cuenta, ParroquiaApp } from './src/sesion/tipos';
-import type { Momento } from './src/sincronizar/sincronizar';
+import { limpiezas, type Momento } from './src/sincronizar/sincronizar';
 
 // El splash del sistema lo retiene src/Raiz.tsx (plan 3a, Tarea 16); acá se oculta al pasar a la portada.
 
@@ -153,6 +153,8 @@ const orq: Orquestador = crearOrquestador({
   facebookCerro: () => pantalla.facebookCerro(),
 });
 const tienda = orq.tienda;
+// Cerrar sesión con un arranque o un vivo guardado: se cancela y se cierra el vivo (Tarea 10).
+limpiezas.registrar('vivo-facebook', async () => orq.alLimpiarCuenta());
 
 // Lo último que se sabe de la batería y la subida, para el registro de rendimiento.
 // App lo actualiza en cada render; el registrador lo lee cada 30 s. Nunca lleva la clave.
@@ -986,9 +988,11 @@ export default function App(p: {
       ) : null}
       <FacebookCerro
         visible={cerroFb}
+        puedeIniciar={vista === 'lista' && claveLista === true}
         onTerminar={() => setCerroFb(false)}
         // Único camino a un vivo nuevo: este toque (orq.iniciar crea el vivo de nuevo).
         onIniciarNueva={() => {
+          if (vista !== 'lista' || claveLista !== true) return;
           setCerroFb(false);
           void orq.iniciar();
         }}
