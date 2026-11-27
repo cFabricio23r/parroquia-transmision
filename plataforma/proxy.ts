@@ -6,6 +6,8 @@ import { MENSAJES_ACCESO } from './lib/mensajes-acceso';
 // Rutas del editor que se pueden ver sin sesión.
 const PUBLICAS = ['/editor/entrar', '/editor/olvide', '/editor/invitacion', '/editor/auth'];
 
+const RUTA_DE_APP = /^\/editor\/api\/[^/]+\/app\/(facebook|vivo)(\/|$)/;
+
 const esPublica = (ruta: string) => PUBLICAS.some((p) => ruta === p || ruta.startsWith(`${p}/`));
 
 export const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor. Intenta de nuevo en un momento';
@@ -51,6 +53,11 @@ a:focus-visible{outline:3px solid #1155a4;outline-offset:2px}
  * no finge que la sesión venció: la API contesta 503 en JSON y las páginas muestran el mensaje.
  */
 export async function proxy(peticion: NextRequest) {
+  // La app del celular llama a /editor/api/<slug>/app/… con `Authorization: Bearer` y sin cookies: esas rutas
+  // validan el token ellas mismas (lib/supabase/con-token.ts) y responden 401 por su cuenta.
+  if (RUTA_DE_APP.test(peticion.nextUrl.pathname) && /^Bearer\s+\S+$/i.test(peticion.headers.get('authorization')?.trim() ?? '')) {
+    return NextResponse.next({ request: peticion });
+  }
   let respuesta = NextResponse.next({ request: peticion });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

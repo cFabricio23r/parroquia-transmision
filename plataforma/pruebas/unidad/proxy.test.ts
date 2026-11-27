@@ -94,3 +94,24 @@ describe('proxy con Supabase sin responder', () => {
     expect(r.status).toBe(200);
   });
 });
+
+describe('proxy y las rutas de la app del celular', () => {
+  const conBearer = (ruta: string, valor = 'Bearer un-token') =>
+    new NextRequest(new URL(ruta, 'http://127.0.0.1:3000'), { headers: { authorization: valor } });
+
+  it('con Authorization: Bearer y sin cookies, las rutas de la app pasan (la ruta valida el token) sin llamar a Supabase', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
+    for (const ruta of ['/editor/api/una-parroquia/app/facebook', '/editor/api/una-parroquia/app/vivo', '/editor/api/una-parroquia/app/vivo/abc']) {
+      const r = await proxy(conBearer(ruta));
+      expect(r.status, ruta).toBe(200);
+    }
+  });
+
+  it('el pase es solo para esas rutas: el resto de la API sigue pidiendo la sesión, y un encabezado que no es Bearer no sirve', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
+    expect((await proxy(conBearer('/editor/api/una-parroquia/borrador'))).status).toBe(401);
+    expect((await proxy(conBearer('/editor/api/una-parroquia/app/clave'))).status).toBe(401);
+    expect((await proxy(conBearer('/editor/api/una-parroquia/app/vivo', 'Basic abc'))).status).toBe(401);
+    expect((await proxy(conBearer('/editor/api/una-parroquia/app/vivo', 'Bearer '))).status).toBe(401);
+  });
+});
