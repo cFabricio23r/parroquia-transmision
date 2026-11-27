@@ -1,0 +1,265 @@
+// Cliente de la Graph API de Facebook detrás de una interfaz.
+// El token (de usuario o de página) va en el cuerpo de los POST y como parámetro de los GET.
+// Nunca se registra ni se copia a un error: los errores solo llevan tipo y códigos numéricos.
+
+export function versionGraph(entorno: Record<string, string | undefined> = process.env): string {
+  const v = entorno.FACEBOOK_VERSION_GRAPH;
+  if (!v || !/^v\d+\.\d+$/.test(v)) throw new Error('Falta FACEBOOK_VERSION_GRAPH');
+  return v;
+}
+
+export type ErrorGraph = {
+  tipo: 'token' | 'requisitos' | 'red' | 'otro';
+  codigo?: number;
+  subcodigo?: number;
+};
+export type ResultadoGraph<T> = { ok: true; valor: T } | { ok: false; error: ErrorGraph };
+export interface PaginaGraph {
+  id: string;
+  nombre: string;
+  token: string;
+  seguidores: number | null;
+}
+export interface EstadosVivoGraph {
+  activo: readonly string[];
+  terminado: readonly string[];
+}
+
+// PENDIENTE TAREA 0: valores de `status` que devuelve Facebook
+export const ESTADOS_VIVO_GRAPH: EstadosVivoGraph = { activo: [], terminado: [] };
+
+export interface GraphFacebook {
+  cambiarCodigo(codigo: string, redirect: string): Promise<ResultadoGraph<string>>;
+  alargar(tokenCorto: string): Promise<ResultadoGraph<string>>;
+  yo(token: string): Promise<ResultadoGraph<{ id: string; nombre: string }>>;
+  paginas(tokenUsuario: string): Promise<ResultadoGraph<PaginaGraph[]>>;
+  crearVivo(
+    pageId: string,
+    tokenPagina: string,
+    titulo: string,
+  ): Promise<ResultadoGraph<{ vivoId: string; url: string }>>;
+  activarCrosspost(vivoId: string, tokenPagina: string, pageIds: string[]): Promise<ResultadoGraph<void>>;
+  crosspostHechos(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<string[]>>;
+  estadoVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<'activo' | 'terminado'>>;
+  urlDeVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<string>>;
+  terminarVivo(vivoId: string, tokenPagina: string): Promise<ResultadoGraph<void>>;
+  handshake(
+    origen: { id: string; token: string },
+    destino: { id: string; token: string },
+  ): Promise<ResultadoGraph<void>>;
+  permiteLive(origen: { id: string; token: string }, destinoId: string): Promise<ResultadoGraph<boolean>>;
+}
+
+const BASE = 'https://graph.facebook.com';
+const OTRO: ResultadoGraph<never> = { ok: false, error: { tipo: 'otro' } };
+
+function errorDe(json: unknown): ErrorGraph {
+  const e = (json as { error?: { code?: unknown; error_subcode?: unknown } } | null)?.error;
+  const codigo = typeof e?.code === 'number' ? e.code : undefined;
+  const subcodigo = typeof e?.error_subcode === 'number' ? e.error_subcode : undefined;
+  let tipo: ErrorGraph['tipo'] = 'otro';
+  if (codigo === 190) tipo = 'token';
+  else if (codigo === 200 && (subcodigo === 1363144 || subcodigo === 1363120)) tipo = 'requisitos';
+  const err: ErrorGraph = { tipo };
+  if (codigo !== undefined) err.codigo = codigo;
+  if (subcodigo !== undefined) err.subcodigo = subcodigo;
+  return err;
+}
+
+export function crearGraph(o: {
+  appId: string;
+  secreto: string;
+  fetch?: typeof fetch;
+  version?: string;
+  estados?: EstadosVivoGraph;
+}): GraphFacebook {
+  const version = o.version ?? versionGraph();
+  const estados = o.estados ?? ESTADOS_VIVO_GRAPH;
+  const f = o.fetch ?? fetch;
+  const url = (ruta: string) => `${BASE}/${version}/${ruta}`;
+
+  async function llamar(
+    metodo: 'GET' | 'POST',
+    ruta: string,
+    params: Record<string, string>,
+  ): Promise<ResultadoGraph<Record<string, unknown>>> {
+    let res: Response;
+    try {
+      if (metodo === 'GET') {
+        res = await f(`${url(ruta)}?${new URLSearchParams(params).toString()}`);
+      } else {
+        res = await f(url(ruta), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(params).toString(),
+        });
+      }
+    } catch {
+      return { ok: false, error: { tipo: 'red' } };
+    }
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      return OTRO;
+    }
+    if (!res.ok || (json as { error?: unknown } | null)?.error) return { ok: false, error: errorDe(json) };
+    if (typeof json !== 'object' || json === null) return OTRO;
+    return { ok: true, valor: json as Record<string, unknown> };
+  }
+
+  const texto = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+  const vacio = (r: ResultadoGraph<unknown>): ResultadoGraph<void> =>
+    r.ok ? { ok: true, valor: undefined } : r;
+
+  return {
+    async cambiarCodigo(codigo, redirect) {
+      const r = await llamar('GET', 'oauth/access_token', {
+        client_id: o.appId,
+        client_secret: o.secreto,
+        redirect_uri: redirect,
+        code: codigo,
+      });
+      if (!r.ok) return r;
+      const t = texto(r.valor.access_token);
+      return t ? { ok: true, valor: t } : OTRO;
+    },
+
+    async alargar(tokenCorto) {
+      const r = await llamar('GET', 'oauth/access_token', {
+        grant_type: 'fb_exchange_token',
+        client_id: o.appId,
+        client_secret: o.secreto,
+        fb_exchange_token: tokenCorto,
+      });
+      if (!r.ok) return r;
+      const t = texto(r.valor.access_token);
+      return t ? { ok: true, valor: t } : OTRO;
+    },
+
+    async yo(token) {
+      const r = await llamar('GET', 'me', { fields: 'id,name', access_token: token });
+      if (!r.ok) return r;
+      const id = texto(r.valor.id);
+      return id ? { ok: true, valor: { id, nombre: texto(r.valor.name) ?? '' } } : OTRO;
+    },
+
+    async paginas(tokenUsuario) {
+      const r = await llamar('GET', 'me/accounts', {
+        fields: 'id,name,access_token,followers_count',
+        limit: '100',
+        access_token: tokenUsuario,
+      });
+      if (!r.ok) return r;
+      const data = Array.isArray(r.valor.data) ? (r.valor.data as Array<Record<string, unknown>>) : [];
+      const valor: PaginaGraph[] = [];
+      for (const p of data) {
+        const id = texto(p.id);
+        const token = texto(p.access_token);
+        if (!id || !token) continue;
+        valor.push({
+          id,
+          nombre: texto(p.name) ?? '',
+          token,
+          seguidores: typeof p.followers_count === 'number' ? p.followers_count : null,
+        });
+      }
+      return { ok: true, valor };
+    },
+
+    async crearVivo(pageId, tokenPagina, titulo) {
+      // PENDIENTE TAREA 0: ¿hace falta privacy?
+      const r = await llamar('POST', `${pageId}/live_videos`, {
+        status: 'LIVE_NOW',
+        title: titulo,
+        access_token: tokenPagina,
+      });
+      if (!r.ok) return r;
+      const vivoId = texto(r.valor.id);
+      const urlStream = texto(r.valor.secure_stream_url); // nunca stream_url
+      return vivoId && urlStream ? { ok: true, valor: { vivoId, url: urlStream } } : OTRO;
+    },
+
+    async activarCrosspost(vivoId, tokenPagina, pageIds) {
+      const acciones = pageIds.map((page_id) => ({
+        page_id,
+        action: 'enable_crossposting_and_create_post',
+      }));
+      return vacio(
+        await llamar('POST', vivoId, {
+          crossposting_actions: JSON.stringify(acciones),
+          access_token: tokenPagina,
+        }),
+      );
+    },
+
+    async crosspostHechos(vivoId, tokenPagina) {
+      const r = await llamar('GET', vivoId, {
+        fields: 'crossposted_broadcasts',
+        access_token: tokenPagina,
+      });
+      if (!r.ok) return r;
+      const cb = r.valor.crossposted_broadcasts as { data?: unknown } | undefined;
+      const data = Array.isArray(cb?.data) ? (cb.data as Array<Record<string, unknown>>) : [];
+      const ids = data.map((d) => texto(d?.id)).filter((x): x is string => x !== null);
+      return { ok: true, valor: ids };
+    },
+
+    async estadoVivo(vivoId, tokenPagina) {
+      const r = await llamar('GET', vivoId, { fields: 'status', access_token: tokenPagina });
+      if (!r.ok) return r;
+      const s = texto(r.valor.status);
+      if (s && estados.activo.includes(s)) return { ok: true, valor: 'activo' };
+      if (s && estados.terminado.includes(s)) return { ok: true, valor: 'terminado' };
+      return OTRO;
+    },
+
+    async urlDeVivo(vivoId, tokenPagina) {
+      const r = await llamar('GET', vivoId, {
+        fields: 'secure_stream_url',
+        access_token: tokenPagina,
+      });
+      if (!r.ok) return r;
+      const u = texto(r.valor.secure_stream_url);
+      return u ? { ok: true, valor: u } : OTRO;
+    },
+
+    async terminarVivo(vivoId, tokenPagina) {
+      return vacio(await llamar('POST', vivoId, { end_live_video: 'true', access_token: tokenPagina }));
+    },
+
+    async handshake(origen, destino) {
+      const a = await llamar('POST', `${origen.id}/crosspost_whitelisted_pages`, {
+        page_id: destino.id,
+        access_token: origen.token,
+      });
+      if (!a.ok) return a;
+      return vacio(
+        await llamar('POST', `${destino.id}/crosspost_whitelisted_pages`, {
+          page_id: origen.id,
+          access_token: destino.token,
+        }),
+      );
+    },
+
+    async permiteLive(origen, destinoId) {
+      const r = await llamar('GET', `${origen.id}/crosspost_whitelisted_pages`, {
+        fields: 'id',
+        access_token: origen.token,
+      });
+      if (!r.ok) return r;
+      const data = Array.isArray(r.valor.data) ? (r.valor.data as Array<Record<string, unknown>>) : [];
+      return { ok: true, valor: data.some((d) => d?.id === destinoId) };
+    },
+  };
+}
+
+export function partirUrlStream(url: string): { servidor: string; clave: string } | null {
+  if (!url.startsWith('rtmps://')) return null;
+  const marca = '/rtmp/';
+  const i = url.indexOf(marca);
+  if (i === -1) return null;
+  const clave = url.slice(i + marca.length);
+  if (!clave) return null;
+  return { servidor: url.slice(0, i + marca.length), clave };
+}
