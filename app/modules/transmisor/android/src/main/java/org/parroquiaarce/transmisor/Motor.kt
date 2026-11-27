@@ -257,6 +257,10 @@ object Motor : ConnectChecker {
     cerrando = true
     principal.removeCallbacks(liberarCierre)
     principal.postDelayed(liberarCierre, MAX_CIERRE_MS)
+    // setVideoBitrateOnFly escribe el campo bitRate del codificador y stopStream → prepareEncoders lo reusa:
+    // un bitrate bajado por calor pasaría a la próxima transmisión, y JS ya lo da por vuelto al base
+    // (no vuelve a llamar a fijarBitrate si calidad y micrófono no cambiaron). Se restaura antes de parar.
+    if (bitrateBase > 0) runCatching { s.setVideoBitrateOnFly(bitrateBase) }
     val ok = s.stopStream()
     // Sin vista previa, stopStream también para el GL y suelta los filtros.
     if (!s.isOnPreview) Capa.filtroPerdido()

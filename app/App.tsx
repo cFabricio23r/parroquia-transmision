@@ -46,7 +46,7 @@ import ColumnaPanel, { type PanelRef } from './src/componentes/ColumnaPanel';
 import ControlesCamara from './src/componentes/ControlesCamara';
 import { C, FUENTES } from './src/componentes/tema';
 import { validar, type Calidad } from './src/ajustes/ajustes';
-import { crearAtenuador } from './src/estado/brillo';
+import { BAJO, SISTEMA, crearAtenuador } from './src/estado/brillo';
 import { KBPS, escalonPedido, siguienteEscalon, type Escalon } from './src/estado/termico';
 import { ajustesParroquia, leerAjustesDe } from './src/ajustes/ajustesParroquia';
 import { alCambiarAjustes } from './src/ajustes/descarga';
@@ -367,8 +367,25 @@ export default function App(p: {
   // onTouchStart de la raíz, que llama a tocar() y despierta. Ese mismo onTouchStart reinicia la
   // espera con cualquier toque normal.
   const [atenuada, setAtenuada] = useState(false);
+  // La vista de atenuada solo aparece cuando fijarBrillo(BAJO) salió bien: si falla, no se oscurece nada
+  // y no tiene sentido tapar el panel. nivelPedido descarta un BAJO que resuelve tarde, después de despertar.
+  const nivelPedido = useRef<number>(SISTEMA);
   const atenuador = useMemo(
-    () => crearAtenuador((n) => fijarBrillo(n).catch(() => undefined), setAtenuada),
+    () =>
+      crearAtenuador(
+        (n) => {
+          nivelPedido.current = n;
+          fijarBrillo(n).then(
+            () => {
+              if (n === BAJO && nivelPedido.current === BAJO) setAtenuada(true);
+            },
+            () => undefined,
+          );
+        },
+        (a) => {
+          if (!a) setAtenuada(false);
+        },
+      ),
     [],
   );
   useEffect(() => atenuador.soltar, [atenuador]);
@@ -539,8 +556,20 @@ export default function App(p: {
   calidadRef.current = calidad;
   const escalonRef = useRef<{ escalon: Escalon; desdeMs: number }>({ escalon: 0, desdeMs: 0 });
   // Fuera de en_vivo/reconectando el escalón vuelve a 0 (la próxima vista se prepara con el base).
+  const faseAntesRef = useRef(estado.fase);
   useEffect(() => {
-    if (estado.fase === 'en_vivo' || estado.fase === 'reconectando') return;
+    const antes = faseAntesRef.current;
+    faseAntesRef.current = estado.fase;
+    if (estado.fase === 'en_vivo' || estado.fase === 'reconectando') {
+      // Entrar al aire desde fuera del stream: el nativo vuelve al bitrate base al soltar (Motor.soltar), pero
+      // por si un bitrate bajado de la transmisión anterior sobrevive (RootEncoder lo conserva al preparar
+      // de nuevo), se pide el base una vez. Si falla, no pasa nada: el ciclo térmico lo corrige.
+      const cal = calidadRef.current;
+      if (estado.fase === 'en_vivo' && antes !== 'en_vivo' && antes !== 'reconectando' && cal) {
+        fijarBitrate(KBPS[cal][0]).catch(() => undefined);
+      }
+      return;
+    }
     escalonRef.current = { escalon: 0, desdeMs: 0 };
     ultimo.kbpsPedido = null;
   }, [estado.fase]);
@@ -682,10 +711,6 @@ export default function App(p: {
     if (enAire(tienda.obtener())) panelRef.current?.inyectar(SCRIPT_IR_A_EN_VIVO);
   }, []);
 
-  if (!listo) return <View style={estilos.raiz} />;
-
-  const errorVisible = estado.error !== null && estado.error !== errorSuperado ? estado.error : null;
-  const mensajeAntes = errorVisible ?? aviso ?? avisoEscena;
   // Al reconectar, el aviso «Señal débil» (avisosActivos) ocupa el lugar del mensaje de la conexión.
   const mensajeVivo = avisoServicio ?? avisoEscena ?? aviso;
   const avisos = avisosActivos({
@@ -696,6 +721,27 @@ export default function App(p: {
     hayRed,
     calidad,
   });
+
+  // Con la pantalla atenuada, una reconexión, un aviso nuevo o un mensaje nuevo no pasarían inadvertidos:
+  // se despierta sola. Va antes del return temprano para no cambiar el orden de los hooks.
+  const idsAvisosRef = useRef<string[]>([]);
+  useEffect(() => {
+    const ids = avisos.map((a) => a.id);
+    const previos = idsAvisosRef.current;
+    idsAvisosRef.current = ids;
+    if (ids.some((id) => !previos.includes(id))) atenuador.despertar();
+  }, [avisos, atenuador]);
+  useEffect(() => {
+    if (estado.fase === 'reconectando') atenuador.despertar();
+  }, [estado.fase, atenuador]);
+  useEffect(() => {
+    if (mensajeVivo) atenuador.despertar();
+  }, [mensajeVivo, atenuador]);
+
+  if (!listo) return <View style={estilos.raiz} />;
+
+  const errorVisible = estado.error !== null && estado.error !== errorSuperado ? estado.error : null;
+  const mensajeAntes = errorVisible ?? aviso ?? avisoEscena;
 
   return (
     <View

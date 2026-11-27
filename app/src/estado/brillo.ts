@@ -17,6 +17,8 @@ export function crearAtenuador(
   activar(b: boolean): void;
   /** Devuelve true si el toque solo despertó la pantalla (estaba atenuada). */
   tocar(): boolean;
+  /** Despierta sin que haya un toque (reconexión, aviso nuevo): restaura SISTEMA si estaba atenuada y rearma la espera. */
+  despertar(): void;
   soltar(): void;
 } {
   let activo = false;
@@ -63,6 +65,15 @@ export function crearAtenuador(
       }
       armar();
       return false;
+    },
+    despertar() {
+      if (!activo) return;
+      if (atenuado) {
+        atenuado = false;
+        aplicar(SISTEMA);
+        alCambiar(false);
+      }
+      armar();
     },
     soltar() {
       // No restaura el brillo: el de la ventana es por actividad y muere con ella.

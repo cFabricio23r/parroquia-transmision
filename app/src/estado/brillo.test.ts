@@ -114,4 +114,32 @@ describe('crearAtenuador', () => {
     a.activar(false);
     expect(alCambiar).not.toHaveBeenCalled();
   });
+
+  it('despertar() atenuado restaura SISTEMA, avisa false y rearma la espera', () => {
+    const { aplicar, alCambiar, a } = crear();
+    a.activar(true);
+    jest.advanceTimersByTime(ESPERA_MS);
+    aplicar.mockClear();
+    alCambiar.mockClear();
+    a.despertar();
+    expect(aplicar).toHaveBeenCalledWith(SISTEMA);
+    expect(alCambiar).toHaveBeenCalledWith(false);
+    jest.advanceTimersByTime(ESPERA_MS);
+    expect(aplicar).toHaveBeenLastCalledWith(BAJO);
+  });
+
+  it('despertar() sin atenuar solo reinicia la espera; inactivo no hace nada', () => {
+    const { aplicar, alCambiar, a } = crear();
+    a.despertar();
+    jest.advanceTimersByTime(ESPERA_MS * 2);
+    expect(aplicar).not.toHaveBeenCalled();
+    a.activar(true);
+    jest.advanceTimersByTime(20_000);
+    a.despertar();
+    expect(alCambiar).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(ESPERA_MS - 1);
+    expect(aplicar).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(aplicar).toHaveBeenCalledWith(BAJO);
+  });
 });
