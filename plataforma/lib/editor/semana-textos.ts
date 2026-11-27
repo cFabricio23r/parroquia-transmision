@@ -38,3 +38,9 @@ export function etiquetaFila(item: ItemSemana, nombreTipo: string): string {
 export function etiquetaAccion(accion: string, item: ItemSemana, nombreTipo: string): string {
   return `${accion} el ${DIAS[SEMANA.diaSemana(item.fecha) - 1]} ${Number(item.fecha.slice(8, 10))}, ${item.hora}, ${nombreTipo}`;
 }
+
+/** Título y descripción del vivo de Facebook (spec facebook-en-vivo-directo, 2026-11-27). */
+export const ETIQUETA_FB_TITULO = 'Título en Facebook (opcional)';
+export const ETIQUETA_FB_DESCRIPCION = 'Descripción en Facebook (opcional)';
+export const AYUDA_FB_TITULO = 'Si lo dejas vacío, sale «Tipo · Parroquia». Hasta 254 caracteres.';
+export const AYUDA_FB_DESCRIPCION = 'Se usa solo si la parroquia transmite directo a Facebook. Hasta 1000 caracteres.';

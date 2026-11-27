@@ -88,3 +88,8 @@
   display: grid;
   gap: 12px;
 }
+
+/* Título y descripción del vivo de Facebook (2026-11-27). */
+.sem-facebook { border: 0; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.sem-facebook legend { font-weight: 800; font-size: 14px; margin-bottom: 8px; padding: 0; }
+.sem-facebook-descripcion { padding: 10px 14px; min-height: 96px; resize: vertical; line-height: 1.4; }
