@@ -67,6 +67,13 @@ describe('errores de forma y de completitud', () => {
     expect(r[0]).toContain('avisos[0].desde');
   });
 
+  it('un título en cámara vacío es de completitud: no frena el guardado (2026-11-27)', () => {
+    expect(erroresDeFormaEn({ titulosCamara: ['Adviento', ''] }, slug, ['titulosCamara'])).toEqual([]);
+    expect(clasificarErrores({ titulosCamara: ['Adviento', '  '] }, slug).completitud).toContain('Falta el texto (titulosCamara[1]).');
+    const largo = erroresDeFormaEn({ titulosCamara: ['x'.repeat(41)] }, slug, ['titulosCamara']);
+    expect(largo.some((e) => e.includes('pasa de 40 caracteres'))).toBe(true);
+  });
+
   it('clavesDesconocidas', () => {
     expect(clavesDesconocidas({ nombre: 'a', esquema: 1, foo: 2 })).toEqual(['esquema', 'foo']);
   });

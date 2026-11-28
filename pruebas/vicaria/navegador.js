@@ -3262,6 +3262,12 @@ async function casoTitulosCamara() {
   l = await botones();
   igual(JSON.stringify(l.map((b) => b.p)), JSON.stringify(['false', 'true']), 'titulos: queda marcado el elegido');
 
+  // teclado: elegir con Enter no pierde el foco (revisión final, I2)
+  await panel.focus(`#titulos-camara button[aria-pressed]:has-text("${ADV}")`);
+  await panel.keyboard.press('Enter');
+  await panel.waitForTimeout(700);
+  igual(await panel.evaluate(() => document.activeElement && document.activeElement.textContent.trim()), ADV, 'titulos: con Enter el foco sigue en el botón elegido');
+
   // agregar en este aparato
   await panel.click('#titulo-agregar');
   igual(await panel.getAttribute('#titulo-nuevo', 'maxlength'), '40', 'titulos: el campo nuevo admite 40');
@@ -3277,8 +3283,10 @@ async function casoTitulosCamara() {
   await panel.click('#titulos-camara button[aria-pressed]:has-text("Gaudete")');
   await capa.waitForTimeout(700);
   igual((await capa.textContent('#barra-x')).trim(), 'Gaudete', 'titulos: el agregado sale al aire');
-  await panel.click('button[aria-label="Quitar «Gaudete»"]');
+  await panel.focus('button[aria-label="Quitar «Gaudete»"]');
+  await panel.keyboard.press('Enter');
   await capa.waitForTimeout(700);
+  revisar(await panel.evaluate(() => !!document.activeElement && !!document.activeElement.closest('#titulos-camara')), 'titulos: después de quitar, el foco queda en la fila');
   revisar(!(await botones()).some((b) => b.t === 'Gaudete'), 'titulos: quitado, ya no está');
   igual((await capa.textContent('#barra-x')).trim(), tipo, 'titulos: quitar el elegido vuelve al del tipo');
 

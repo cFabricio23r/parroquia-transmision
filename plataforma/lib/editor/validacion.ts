@@ -80,6 +80,8 @@ export function completarParaForma(borrador: unknown): Record<string, unknown> {
     const l = b[k];
     if (Array.isArray(l)) for (const x of l) if (esObjeto(x) && vacioOpcional(x.texto)) x.texto = RELLENO;
   }
+  // Un título en cámara recién agregado y todavía vacío frena publicar, no guardar (2026-11-27).
+  if (Array.isArray(b.titulosCamara)) b.titulosCamara = b.titulosCamara.map((t) => (vacioOpcional(t) ? RELLENO : t));
   return b;
 }
 

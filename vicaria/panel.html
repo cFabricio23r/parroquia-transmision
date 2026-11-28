@@ -919,12 +919,25 @@ function titulosPropios() {
 }
 function guardarTitulosPropios(l) { try { localStorage.setItem(CLAVE_TITULOS, JSON.stringify(l)); } catch (e) {} }
 function elegirTitulo(t) { s.barraTexto = t.origen === 'tipo' ? '' : t.texto; llenar(); guardar(); }
+let firmaTitulos = null;
+/* Se rearma solo si cambia la lista; si no, solo marca el elegido. Así el foco del teclado no se pierde
+   (revisión final, I2). Si se rearma con el foco adentro, vuelve al botón del mismo título o a «+ Agregar». */
 function pintarTitulosCamara() {
-  const caja = $('titulos-camara'); caja.textContent = '';
+  const caja = $('titulos-camara');
   const propios = titulosPropios();
-  titulosCamara(s, propios).forEach(t => {
+  const lista = titulosCamara(s, propios);
+  const firma = JSON.stringify([lista.map(t => [t.texto, t.origen]), propios.length]);
+  if (firma === firmaTitulos) {
+    caja.querySelectorAll('button[data-texto]').forEach((b, i) => b.setAttribute('aria-pressed', lista[i] && lista[i].elegido ? 'true' : 'false'));
+    return;
+  }
+  firmaTitulos = firma;
+  const enfocado = caja.contains(document.activeElement) ? document.activeElement : null;
+  const volverA = enfocado && enfocado.dataset.texto;
+  caja.textContent = '';
+  lista.forEach(t => {
     const d = nuevo('span', 'titulo-cam');
-    const b = nuevo('button', '', t.texto); b.type = 'button';
+    const b = nuevo('button', '', t.texto); b.type = 'button'; b.dataset.texto = t.texto;
     b.setAttribute('aria-pressed', t.elegido ? 'true' : 'false');
     b.addEventListener('click', () => elegirTitulo(t));
     d.append(b);
@@ -940,6 +953,10 @@ function pintarTitulosCamara() {
   mas.disabled = propios.length >= MAX_TITULOS_CAMARA;
   mas.addEventListener('click', () => { $('titulo-form').hidden = false; $('titulo-nuevo').focus(); });
   caja.append(mas);
+  if (enfocado) {
+    const mismo = volverA && [...caja.querySelectorAll('button[data-texto]')].find(b => b.dataset.texto === volverA);
+    (mismo || (mas.disabled ? caja.querySelector('button') : mas)).focus();
+  }
 }
 function quitarTitulo(texto) {
   guardarTitulosPropios(titulosPropios().filter(t => t.trim().toLowerCase() !== texto.toLowerCase()));
