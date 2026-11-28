@@ -28,6 +28,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       }
     ]
   },
@@ -55,6 +62,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       }
     ]
   },
@@ -126,6 +140,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       }
     ]
   },
@@ -162,6 +183,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       }
     ]
   },
@@ -227,6 +255,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       }
     ]
   },
@@ -261,6 +296,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       },
       {
         "id": "rosario",
@@ -302,6 +344,13 @@
         "nombre": "Evangelio"
       },
       {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
+      },
+      {
         "id": "rosario",
         "base": "rosario",
         "nombre": "Santo Rosario"
@@ -337,6 +386,13 @@
         "id": "evangelio",
         "base": "evangelio",
         "nombre": "Evangelio"
+      },
+      {
+        "id": "fieles",
+        "base": "libre",
+        "nombre": "Oración de los fieles",
+        "ceja": "ORACIÓN DE LOS FIELES · RESPONDEMOS",
+        "texto": "Te rogamos, óyenos"
       },
       {
         "id": "rosario",
