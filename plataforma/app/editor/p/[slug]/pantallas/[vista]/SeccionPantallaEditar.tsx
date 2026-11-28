@@ -43,7 +43,7 @@ import { Boton } from '../../../../../componentes/Boton';
 import { CajaRevisar } from '../../../../../componentes/CajaRevisar';
 import { CampoColor } from '../../../../../componentes/CampoColor';
 import { CampoSelect } from '../../../../../componentes/CampoSelect';
-import { CampoTexto } from '../../../../../componentes/CampoTexto';
+import { CampoTextoDePantalla } from './CampoTextoDePantalla';
 import { DeslizadoresFoto } from '../../../../../componentes/DeslizadoresFoto';
 import { Dialogo } from '../../../../../componentes/Dialogo';
 import { Interruptor } from '../../../../../componentes/Interruptor';
@@ -85,6 +85,7 @@ const TAMANOS_DE_VISTA: Record<string, { cual: CualTamano; etiqueta: string }[]>
   evento: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   gracias: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la frase' }],
   avisos: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }],
+  comunion: [{ cual: 'titulo', etiqueta: 'Tamaño del título' }, { cual: 'frase', etiqueta: 'Tamaño de la oración' }],
   produccion: [{ cual: 'titulo', etiqueta: 'Tamaño del nombre' }],
 };
 
@@ -299,15 +300,11 @@ export function SeccionPantallaEditar({ vista }: { vista: string }) {
       })}
 
       {v.textos.map((t) => (
-        <CampoTexto
+        <CampoTextoDePantalla
           key={t.clave}
-          id={`pantalla-${t.clave}`}
-          etiqueta={t.etiqueta}
-          ayuda={t.ayuda}
-          placeholder={t.placeholder}
-          maxLength={200}
-          value={textos[t.clave] ?? texto(objeto(p.textos)[t.clave])}
-          onChange={(e) => escribir(t.clave, e.target.value)}
+          campo={t}
+          valor={textos[t.clave] ?? texto(objeto(p.textos)[t.clave])}
+          onCambiar={(valor) => escribir(t.clave, valor)}
         />
       ))}
 

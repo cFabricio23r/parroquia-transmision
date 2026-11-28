@@ -126,6 +126,10 @@ describe('vistaPreviaDeRuta (plan 4, Tarea 1)', () => {
   it('las secciones del plan 3 no cambian', () => {
     expect(r('/identidad')).toEqual({ vistaPrevia: seccion('identidad').vistaPrevia, disposicion: 'dos-columnas', anchoFormulario: 560 });
     expect(r('').vistaPrevia).toBeNull();
-    expect(VISTAS_EDITOR).toEqual(['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo']);
+    expect(VISTAS_EDITOR).toEqual(['inicio', 'portada', 'evento', 'avisos', 'comunion', 'gracias', 'produccion', 'envivo']);
+  });
+
+  it('Comunión: su vista previa es la pantalla de comunion, con selector de tipo', () => {
+    expect(r('/pantallas/comunion').vistaPrevia).toMatchObject({ pagina: 'pantalla', vista: 'comunion', conSelectorTipo: true });
   });
 });

@@ -8,6 +8,7 @@ describe('links para OBS', () => {
       ['Inicio (en breve comenzamos)', 'pantalla.html?tipo=inicio'],
       ['Portada', 'pantalla.html?tipo=portada'],
       ['Avisos', 'pantalla.html?tipo=avisos'],
+      ['Comunión espiritual', 'pantalla.html?tipo=comunion'],
       ['Horarios', 'pantalla.html?tipo=horarios'],
       ['Gracias', 'pantalla.html?tipo=gracias'],
       ['Producción (azul)', 'produccion.html?estilo=azul'],

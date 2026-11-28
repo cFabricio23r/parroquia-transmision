@@ -12,6 +12,8 @@ import { DeslizadoresFoto, textoDeslizador } from '../../app/componentes/Desliza
 import { Segmentado } from '../../app/componentes/Segmentado';
 import { CampoColorParroquia } from '../../app/editor/p/[slug]/rotulos/CampoColorParroquia';
 import { formatearRazon } from '../../lib/contraste';
+import { vistaEditor } from '../../lib/editor/pantallas';
+import { CampoTextoDePantalla } from '../../app/editor/p/[slug]/pantallas/[vista]/CampoTextoDePantalla';
 
 const html = (e: ReactElement) => renderToStaticMarkup(e);
 const nada = () => {};
@@ -217,5 +219,24 @@ describe('Segmentado y CampoColorParroquia deshabilitados (Minimal)', () => {
       <CampoColorParroquia id="rotulos-lado" etiqueta="Fondo del rótulo" opciones={[{ valor: '', texto: 'Como viene', hex: null }]} valor="" onCambiar={nada} deshabilitado />,
     );
     expect(h).toMatch(/<select[^>]*disabled=""/);
+  });
+});
+
+describe('CampoTextoDePantalla (Comunión, 2026-11-27)', () => {
+  const [titulo, oracion] = vistaEditor('comunion')!.textos;
+  it('la oración es un <textarea> de hasta 600, con su ayuda', () => {
+    const h = html(<CampoTextoDePantalla campo={oracion} valor={'Creo, Jesús mío,\nAmén.'} onCambiar={nada} />);
+    expect(h).toContain('<textarea');
+    expect(h).toContain('maxLength="600"');
+    expect(h).toContain('Oración');
+    expect(h).toContain('Enter hace un salto de línea.');
+    expect(h).toContain('aria-describedby="pantalla-comunion_oracion-ayuda"');
+    expect(h).not.toContain('<input');
+  });
+  it('el título sigue siendo un <input> de hasta 200', () => {
+    const h = html(<CampoTextoDePantalla campo={titulo} valor="Comunión espiritual" onCambiar={nada} />);
+    expect(h).toContain('<input');
+    expect(h).toContain('maxLength="200"');
+    expect(h).not.toContain('<textarea');
   });
 });

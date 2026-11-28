@@ -155,6 +155,7 @@ export const NOMBRES_VISTAS: Record<string, string> = {
   portada: 'Portada de la fiesta',
   evento: 'Portada de evento',
   avisos: 'Avisos',
+  comunion: 'Comunión',
   gracias: 'Gracias',
   produccion: 'Producción',
   envivo: 'Capa EN VIVO',
@@ -184,8 +185,8 @@ export function hrefSeccion(slug: string, id: IdSeccion): string {
 
 // ---- Vista previa por ruta (plan 4, Tarea 1) ----
 
-/** Las 7 pantallas que el editor deja personalizar, en el orden de F4. */
-export const VISTAS_EDITOR: readonly string[] = ['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo'];
+/** Las 8 pantallas que el editor deja personalizar, en el orden de F4. */
+export const VISTAS_EDITOR: readonly string[] = ['inicio', 'portada', 'evento', 'avisos', 'comunion', 'gracias', 'produccion', 'envivo'];
 
 export interface VistaDeRuta {
   vistaPrevia: VistaPreviaSeccion | null;
@@ -202,6 +203,7 @@ function vistaPreviaDePantalla(vista: string): VistaPreviaSeccion | null {
   switch (vista) {
     case 'inicio':
     case 'avisos':
+    case 'comunion':
     case 'gracias':
       return { pagina: 'pantalla', vista, titulo, conSelectorTipo: true };
     case 'portada':

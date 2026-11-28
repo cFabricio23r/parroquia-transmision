@@ -48,7 +48,7 @@ describe('estados del editor con el borrador del artboard', () => {
   it('da los estados y las frases del Resumen', () => {
     expect(e.identidad).toMatchObject({ estado: 'listo', frase: 'Nombre, logos, colores y fachada.' });
     expect(e.patrono).toMatchObject({ estado: 'listo', frase: 'San José · 19 de marzo · con lema.' });
-    expect(e.pantallas).toMatchObject({ estado: 'listo', frase: '2 de 7 personalizadas; el resto, como vienen.' });
+    expect(e.pantallas).toMatchObject({ estado: 'listo', frase: '2 de 8 personalizadas; el resto, como vienen.' });
     expect(e.rotulos).toMatchObject({ estado: 'revisar', frase: 'El color del rótulo tiene poco contraste.' });
     expect(e.tipos).toMatchObject({ estado: 'listo', frase: '5 activos, 1 propio.' });
     expect(e.galeria).toMatchObject({ estado: 'falta', frase: '1 imagen sin descripción (alt).' });
@@ -126,7 +126,7 @@ describe('reglas sueltas', () => {
     // Plan 4, Decisión 16: cuenta filas; el grupo de la novena es una sola fila.
     expect(estadoDeSeccion({ tipos: { apagados: ['prenovena', 'novena'] } }, 'tipos', [], hoy).frase).toBe('9 activos, sin propios.');
     expect(estadoDeSeccion({ tipos: { apagados: ['prenovena', 'novena', 'patronal'] } }, 'tipos', [], hoy).frase).toBe('8 activos, sin propios.');
-    expect(estadoDeSeccion({}, 'pantallas', [], hoy).frase).toBe('Las 7, como vienen.');
+    expect(estadoDeSeccion({}, 'pantallas', [], hoy).frase).toBe('Las 8, como vienen.');
     expect(estadoDeSeccion({ patrono: { nombre: 'San X', corto: '' }, fiesta: { dia: 1, mes: 2 } }, 'patrono', [], hoy).frase).toBe(
       'San X · 1 de febrero · sin lema.',
     );

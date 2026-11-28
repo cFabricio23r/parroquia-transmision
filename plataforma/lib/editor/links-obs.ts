@@ -11,6 +11,7 @@ export const LINKS_OBS: readonly LinkObs[] = [
   { etiqueta: 'Inicio (en breve comenzamos)', archivo: 'pantalla.html?tipo=inicio' },
   { etiqueta: 'Portada', archivo: 'pantalla.html?tipo=portada' },
   { etiqueta: 'Avisos', archivo: 'pantalla.html?tipo=avisos' },
+  { etiqueta: 'Comunión espiritual', archivo: 'pantalla.html?tipo=comunion' },
   { etiqueta: 'Horarios', archivo: 'pantalla.html?tipo=horarios' },
   { etiqueta: 'Gracias', archivo: 'pantalla.html?tipo=gracias' },
   { etiqueta: 'Producción (azul)', archivo: 'produccion.html?estilo=azul' },

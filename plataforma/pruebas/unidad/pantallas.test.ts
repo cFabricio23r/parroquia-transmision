@@ -31,6 +31,7 @@ describe('catálogo de pantallas', () => {
       'Portada de la fiesta',
       'Portada de evento',
       'Avisos',
+      'Comunión',
       'Gracias',
       'Producción',
       'Capa EN VIVO',
@@ -40,12 +41,23 @@ describe('catálogo de pantallas', () => {
       'Portada de la fiesta',
       'Portada de evento',
       'Pantalla de Avisos',
+      'Pantalla de Comunión',
       'Pantalla de Gracias',
       'Producción',
       'Capa EN VIVO',
     ]);
     expect(vistaEditor('inicio')?.descripcion).toBe('Antes de empezar: «En breve comenzamos», con cuenta regresiva.');
     expect(vistaEditor('produccion')?.descripcion).toBe('Cierre: «Una producción de…».');
+  });
+
+  it('Comunión (2026-11-27): logo, EN VIVO y franja; título de una línea y oración de varias, hasta 600', () => {
+    const c = vistaEditor('comunion')!;
+    expect(c.conFondoEImagen).toBe(true);
+    expect(c.interruptores.map((i) => i.elemento)).toEqual(['marca', 'envivo', 'franja']);
+    expect(c.textos).toEqual([
+      { clave: 'comunion_titulo', etiqueta: 'Título' },
+      { clave: 'comunion_oracion', etiqueta: 'Oración', ayuda: 'Enter hace un salto de línea.', multilinea: true, maximo: 600 },
+    ]);
   });
 
   it('interruptores, textos y fondo de cada una (Decisión 1)', () => {
@@ -204,6 +216,7 @@ describe('estilo de todas las pantallas, tamaños y encuadre (pantallas más opc
     expect(m.LETRAS_DE_VISTA.inicio).toEqual(['titulo', 'frase']);
     expect(m.LETRAS_DE_VISTA.gracias).toEqual(['titulo', 'frase']);
     expect(m.LETRAS_DE_VISTA.avisos).toEqual(['titulo']);
+    expect(m.LETRAS_DE_VISTA.comunion).toEqual(['titulo']);
     expect(m.LETRAS_DE_VISTA.horarios).toBeUndefined();
     expect(m.LETRAS_DE_VISTA.produccion).toEqual(['titulo']);
     expect(m.LETRAS_DE_VISTA.envivo).toBeUndefined();

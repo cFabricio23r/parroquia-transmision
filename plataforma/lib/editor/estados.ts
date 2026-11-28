@@ -38,8 +38,8 @@ export const CLAVES_TIPOS_COMUNES = [
   'evento',
 ] as const;
 
-/** Las 7 pantallas que cuenta el Resumen (sin Horarios, que es una vista interna). */
-export const VISTAS_RESUMEN = ['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo'] as const;
+/** Las 8 pantallas que cuenta el Resumen (sin Horarios, que es una vista interna). */
+export const VISTAS_RESUMEN = ['inicio', 'portada', 'evento', 'avisos', 'comunion', 'gracias', 'produccion', 'envivo'] as const;
 
 export const NOMBRES_REDES: Record<string, string> = {
   facebook: 'Facebook',
@@ -162,9 +162,10 @@ function fraseLista(borrador: Config, id: IdSeccion): string {
     case 'pantallas': {
       const pa = esObjeto(borrador.pantallas) ? borrador.pantallas : {};
       const k = VISTAS_RESUMEN.filter((v) => esObjeto(pa[v]) && (pa[v] as Config).modo === 'personalizada').length;
-      if (k === 0) return 'Las 7, como vienen.';
-      if (k === 7) return 'Las 7 personalizadas.';
-      return `${k} de 7 personalizadas; el resto, como vienen.`;
+      const n = VISTAS_RESUMEN.length;
+      if (k === 0) return `Las ${n}, como vienen.`;
+      if (k === n) return `Las ${n} personalizadas.`;
+      return `${k} de ${n} personalizadas; el resto, como vienen.`;
     }
     case 'rotulos': {
       const r = esObjeto(borrador.rotulos) ? borrador.rotulos : {};

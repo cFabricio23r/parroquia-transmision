@@ -18,6 +18,10 @@ export interface CampoTextoPantalla {
   etiqueta: string;
   ayuda?: string;
   placeholder?: string;
+  /** Varias líneas (un <textarea>): Enter hace un salto de línea. */
+  multilinea?: boolean;
+  /** Tope de caracteres; 200 si no se dice (vicaria `MAX_TEXTO`). */
+  maximo?: number;
 }
 
 export interface VistaEditor {
@@ -39,7 +43,7 @@ const EN_VIVO: InterruptorPantalla = { elemento: 'envivo', etiqueta: 'EN VIVO' }
 
 export const AYUDA_TEXTO_INICIO = 'Cada tipo de transmisión puede tener el suyo; este es el que se usa si no.';
 
-/** Las 7 pantallas de F4, en su orden (Decisiones 1 y 5). */
+/** Las 8 pantallas de F4, en su orden (Decisiones 1 y 5). */
 export const VISTAS_PANTALLA: readonly VistaEditor[] = [
   {
     vista: 'inicio',
@@ -75,6 +79,18 @@ export const VISTAS_PANTALLA: readonly VistaEditor[] = [
     descripcion: 'Avisos fijos, horarios y redes.',
     interruptores: [LOGO, HORARIOS, REDES],
     textos: [{ clave: 'avisos_titulo', etiqueta: 'Título' }],
+    conFondoEImagen: true,
+  },
+  {
+    vista: 'comunion',
+    nombre: NOMBRES_VISTAS.comunion,
+    titulo: 'Pantalla de Comunión',
+    descripcion: 'La oración de comunión espiritual, para quienes no pueden comulgar.',
+    interruptores: [LOGO, EN_VIVO, FRANJA],
+    textos: [
+      { clave: 'comunion_titulo', etiqueta: 'Título' },
+      { clave: 'comunion_oracion', etiqueta: 'Oración', ayuda: 'Enter hace un salto de línea.', multilinea: true, maximo: 600 },
+    ],
     conFondoEImagen: true,
   },
   {
@@ -278,6 +294,7 @@ export const LETRAS_DE_VISTA: Record<string, CualLetra[]> = {
   evento: ['titulo', 'frase'],
   gracias: ['titulo', 'frase'],
   avisos: ['titulo'],
+  comunion: ['titulo'],
   produccion: ['titulo'],
 };
 const COMO_LAS_DEMAS = { valor: '', texto: 'Como las demás pantallas' };

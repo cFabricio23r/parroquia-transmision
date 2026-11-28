@@ -59,7 +59,7 @@ function patrono(p: Config, b: Config): string[] {
   return partes.length ? [`Patrono y fiesta: ${unirLista(partes)}`] : [];
 }
 
-const ORDEN_VISTAS = ['inicio', 'portada', 'evento', 'avisos', 'gracias', 'produccion', 'envivo', 'horarios'];
+const ORDEN_VISTAS = ['inicio', 'portada', 'evento', 'avisos', 'comunion', 'gracias', 'produccion', 'envivo', 'horarios'];
 const DISTRIBUCION: Record<string, string> = { derecha: 'imagen a la derecha', izquierda: 'imagen a la izquierda', centro: 'imagen al centro' };
 const ELEMENTOS: [string, string][] = [
   ['marca', 'logo'],
