@@ -24,6 +24,16 @@ describe('tira de escenas', () => {
     expect(boton.flex).toBe(1);
   });
 
+  it('con columnas (Preparar en vertical), los botones envuelven: 4 por fila, 44 de alto o más', () => {
+    const tira = StyleSheet.flatten(estilosTira.tiraEnFilas) as { flexWrap: string };
+    const boton = StyleSheet.flatten(estilosTira.botonEnFilas) as { flexBasis: string; flexGrow: number; minHeight: number };
+    expect(tira.flexWrap).toBe('wrap');
+    expect(parseFloat(boton.flexBasis) * 4).toBeLessThan(100);
+    expect(parseFloat(boton.flexBasis) * 5).toBeGreaterThan(100);
+    expect(boton.flexGrow).toBe(1);
+    expect(boton.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
   it('Preparar y En vivo usan el mismo orden', () => {
     expect(ESCENAS_PREPARAR.map((e) => e.id)).toEqual(ESCENAS.map((e) => e.id));
   });

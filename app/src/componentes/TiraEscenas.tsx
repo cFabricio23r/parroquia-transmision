@@ -31,11 +31,13 @@ interface Props {
   estilo?: StyleProp<ViewStyle>;
   /** Etiqueta para lectores de pantalla, delante del nombre (por defecto «Escena»). */
   prefijo?: string;
+  /** En filas (Preparar en vertical): 4 botones por fila en vez de todos en una. */
+  enFilas?: boolean;
 }
 
-export default function TiraEscenas({ escena, desactivada, onElegir, escenas = ESCENAS, estilo, prefijo = 'Escena' }: Props) {
+export default function TiraEscenas({ escena, desactivada, onElegir, escenas = ESCENAS, estilo, prefijo = 'Escena', enFilas = false }: Props) {
   return (
-    <View style={[estilos.tira, estilo]}>
+    <View style={[estilos.tira, enFilas && estilos.tiraEnFilas, estilo]}>
       {escenas.map((x) => {
         const elegida = escena === x.id;
         return (
@@ -46,9 +48,9 @@ export default function TiraEscenas({ escena, desactivada, onElegir, escenas = E
             accessibilityState={{ selected: elegida, disabled: desactivada }}
             disabled={desactivada}
             onPress={() => onElegir(x.id)}
-            style={[estilos.boton, elegida && estilos.elegida, desactivada && estilos.apagado]}
+            style={[estilos.boton, enFilas && estilos.botonEnFilas, elegida && estilos.elegida, desactivada && estilos.apagado]}
           >
-            {/* Con seis botones, «Producción» no entra a 14 en vertical: se achica hasta 75 % (Tarea 9d). */}
+            {/* Si un nombre no entra a 14, se achica hasta 75 % (Tarea 9d). */}
             <Text style={estilos.texto} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {x.nombre}
             </Text>
@@ -71,6 +73,9 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
+  // Dos filas de 4 (Preparar en vertical, 2026-11-27): 22 % deja 4 por fila con los huecos, nunca 5.
+  tiraEnFilas: { flexWrap: 'wrap', height: undefined },
+  botonEnFilas: { flex: 0, flexBasis: '22%', flexGrow: 1, minHeight: 44 },
   elegida: { borderColor: C.seleccion, backgroundColor: C.seleccionFondo },
   texto: { fontFamily: F.extra, fontSize: 14, color: C.texto },
   apagado: { opacity: 0.5 },

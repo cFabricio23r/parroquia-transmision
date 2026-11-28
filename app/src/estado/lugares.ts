@@ -17,7 +17,17 @@ export type Lugares = {
 };
 
 // Medidas de Preparar en vertical (lienzo, artboard 9: 390×844 dp).
-const V = { borde: 12, tiraAlto: 48, listoAlto: 60, abajo: 16, hueco: 8, huecoPanel: 12 } as const;
+// La tira va en dos filas de 4 (2026-11-27): con 8 escenas en una fila, a 360 dp cada botón quedaba de ~38 dp
+// y «Comunión» o «Producción» se cortaban.
+export const TIRA_VERTICAL = { columnas: 4, hueco: 5, filaAlto: 44 } as const;
+const V = {
+  borde: 12,
+  tiraAlto: 2 * TIRA_VERTICAL.filaAlto + TIRA_VERTICAL.hueco,
+  listoAlto: 60,
+  abajo: 16,
+  hueco: 8,
+  huecoPanel: 12,
+} as const;
 
 // Acostado: lo que separa la vista previa del panel, y lo mínimo que puede quedar el panel.
 const HUECO_PANEL = 12;

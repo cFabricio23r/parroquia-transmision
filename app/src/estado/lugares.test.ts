@@ -1,4 +1,5 @@
-import { armarLugares } from './lugares';
+import { ESCENAS_PREPARAR } from '../componentes/TiraEscenas';
+import { armarLugares, TIRA_VERTICAL } from './lugares';
 
 // Samsung SM-S948B acostado, medido el 2026-11-16 por adb: 2340×1080 px a densidad 420 (891×411 dp),
 // barra de botones de 126 px (48 dp) a la derecha y el recorte de la cámara a la izquierda (~40 dp).
@@ -41,5 +42,20 @@ describe('armarLugares parado', () => {
     const l = armarLugares(411, 891, { top: 32, bottom: 48, left: 0, right: 0 });
     expect(l.vertical).toBe(true);
     expect(l.lienzo.top + l.listo.top + l.listo.height).toBeLessThanOrEqual(891 - 48);
+  });
+});
+
+describe('armarLugares en vertical: la tira de 8 escenas (Comunión, 2026-11-27)', () => {
+  it('a 360 dp entran dos filas de 4 botones de 44 dp o más de alto y de ancho', () => {
+    const l = armarLugares(360, 780, { top: 0, bottom: 0, left: 0, right: 0 });
+    const { columnas, hueco, filaAlto } = TIRA_VERTICAL;
+    expect(columnas).toBe(4);
+    expect(filaAlto).toBeGreaterThanOrEqual(44);
+    expect(l.tira.height).toBe(2 * filaAlto + hueco);
+    expect((l.tira.width - (columnas - 1) * hueco) / columnas).toBeGreaterThanOrEqual(44);
+    expect(Math.ceil(ESCENAS_PREPARAR.length / columnas)).toBe(2);
+    // El panel de abajo cede ese alto, pero no desaparece.
+    expect(l.panel.top).toBeGreaterThanOrEqual(l.tira.top + l.tira.height);
+    expect(l.panel.height).toBeGreaterThan(0);
   });
 });

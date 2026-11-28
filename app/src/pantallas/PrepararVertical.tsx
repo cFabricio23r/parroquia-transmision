@@ -63,6 +63,7 @@ export default function PrepararVertical(p: Props) {
         escena={p.escena}
         escenas={ESCENAS_PREPARAR}
         prefijo="Ver escena"
+        enFilas
         // Sin cámara lista la capa no puede cambiar de escena.
         desactivada={p.vista !== 'lista'}
         onElegir={p.onEscena}
