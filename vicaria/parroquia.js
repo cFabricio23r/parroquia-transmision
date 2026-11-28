@@ -219,7 +219,8 @@ const CLAVES_TEXTOS = [
   'gracias_pildora', 'gracias_titulo', 'gracias_cursiva', 'gracias_ceja',
   'avisos_sub', 'avisos_titulo', 'horarios_titulo', 'capa_logo', 'barra_y', 'franja',
   'k_lectura1', 'k_salmo', 'k_lectura2', 'k_evangelio', 'k_rosario', 't_rosario',
-  'prod_ceja', 'prod_nombre'
+  'prod_ceja', 'prod_nombre',
+  'comunion_ceja', 'comunion_titulo', 'comunion_oracion'
 ];
 
 /* Ids de los rótulos de cada tipo común, copiados de tipos.js (que se carga después). Una prueba los compara. */
@@ -237,7 +238,7 @@ const IDS_ROTULO_COMUN = {
   evento: ['persona', 'libre']
 };
 
-const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo'];
+const VISTAS_PERSONALIZABLES = ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo', 'comunion'];
 const MODOS_PANTALLA = ['como-viene', 'personalizada'];
 const TIPOS_FONDO = ['degradado', 'color', 'imagen'];
 const IMAGENES_PANTALLA = ['automatica', 'patrono', 'fachada', 'logo', 'custodia', 'santo', 'ninguna'];
@@ -268,6 +269,8 @@ const POSICIONES_ROTULO = ['izquierda', 'centro', 'derecha', 'arriba-derecha'];
 const ESQUINAS_TIPO = ['hoy', 'fecha', 'fiesta', 'texto'];
 const REDES = ['facebook', 'youtube', 'instagram', 'whatsapp', 'web'];
 const MAX_TEXTO = 200;
+/* La oración de la pantalla de Comunión es más larga que cualquier otro texto (~370 caracteres). */
+const MAX_ORACION = 600;
 const RE_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
 const RE_HTTPS = /^https:\/\/\S+$/i;
 
@@ -281,15 +284,15 @@ function _lista(v, campo, max, errores) {
   return true;
 }
 
-/* Texto opcional (si viene debe ser texto de hasta 200 caracteres) u obligatorio (además, no vacío). */
-function _textoCorto(v, campo, errores, obligatorio) {
+/* Texto opcional (si viene debe ser texto de hasta `max` caracteres, 200 si no se dice) u obligatorio (además, no vacío). */
+function _textoCorto(v, campo, errores, obligatorio, max = MAX_TEXTO) {
   if (v === undefined) {
     if (obligatorio) errores.push('Falta el texto (' + campo + ').');
     return;
   }
   if (typeof v !== 'string') errores.push('El valor (' + campo + ') debe ser texto.');
   else if (obligatorio && v.trim() === '') errores.push('Falta el texto (' + campo + ').');
-  else if (v.length > MAX_TEXTO) errores.push('El texto (' + campo + ') pasa de ' + MAX_TEXTO + ' caracteres.');
+  else if (v.length > max) errores.push('El texto (' + campo + ') pasa de ' + max + ' caracteres.');
 }
 
 /* Resuelve un color de la config: un nombre (principal, oscuro, acento, blanco) o un #rrggbb.
@@ -395,7 +398,7 @@ function _validarPantalla(pa, campo, ids, errores) {
     } else {
       for (const k of Object.keys(pa.textos)) {
         if (!CLAVES_TEXTOS.includes(k)) errores.push('Ese texto no existe (' + campo + '.textos.' + k + ').');
-        else _textoCorto(pa.textos[k], campo + '.textos.' + k, errores, false);
+        else _textoCorto(pa.textos[k], campo + '.textos.' + k, errores, false, k === 'comunion_oracion' ? MAX_ORACION : MAX_TEXTO);
       }
     }
   }

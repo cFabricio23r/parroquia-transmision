@@ -278,7 +278,11 @@ grupo('textos heredados', () => {
     k_rosario: 'ORACIÓN',
     t_rosario: 'Santo Rosario',
     prod_ceja: 'UNA PRODUCCIÓN DE',   // claves nuevas de la pantalla final, con el texto que ya tenía produccion.html
-    prod_nombre: 'Comunicaciones'
+    prod_nombre: 'Comunicaciones',
+    // Pantalla de Comunión (2026-11-27): claves nuevas, con el nombre de la parroquia como ceja.
+    comunion_ceja: 'PARROQUIA INMACULADA CONCEPCIÓN DE MARÍA',
+    comunion_titulo: 'Comunión espiritual',
+    comunion_oracion: 'Creo, Jesús mío, que estás realmente presente en el Santísimo Sacramento del Altar. Te amo sobre todas las cosas y deseo recibirte en mi alma. Pero como ahora no puedo recibirte sacramentalmente, ven al menos espiritualmente a mi corazón. Como si ya te hubiese recibido, te abrazo y me uno todo a ti. No permitas, Señor, que jamás me separe de ti. Amén.'
   };
   const cuenta = 'días para nuestra\nFiesta Patronal';
   const esperado = {
@@ -1382,7 +1386,7 @@ grupo('validarConfig: campos del rediseño (2)', () => {
     assert.ok(errs((c) => { c.pantallas = { inicio: { mostrar: ['redes', 'horarios', 'redes'] } }; }).includes('pantallas.inicio.mostrar'));
   });
   prueba('las listas nuevas coinciden con lo pedido', () => {
-    assert.deepEqual(Array.from(p.VISTAS_PERSONALIZABLES), ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo']);
+    assert.deepEqual(Array.from(p.VISTAS_PERSONALIZABLES), ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'evento', 'produccion', 'envivo', 'comunion']);
     assert.ok(p.ELEMENTOS_OCULTABLES.includes('cuenta'));
     assert.deepEqual(Array.from(p.ELEMENTOS_MOSTRABLES), ['redes', 'horarios']);
     assert.ok(p.CLAVES_TEXTOS.includes('prod_ceja') && p.CLAVES_TEXTOS.includes('prod_nombre'));
@@ -4267,6 +4271,45 @@ grupo('transicion', () => {
     assert.deepEqual(plano(x.versionesTransicion({ patrono: { nombre: 'San José' } })), ['logo']);
     assert.deepEqual(plano(x.versionesTransicion({ patrono: { imagen: { src: '', alt: '' } } })), ['logo']);
     assert.deepEqual(plano(x.versionesTransicion({})), ['logo']);
+  });
+});
+
+grupo('comunion', () => {
+  const ORACION = 'Creo, Jesús mío, que estás realmente presente en el Santísimo Sacramento del Altar. Te amo sobre todas las cosas y deseo recibirte en mi alma. Pero como ahora no puedo recibirte sacramentalmente, ven al menos espiritualmente a mi corazón. Como si ya te hubiese recibido, te abrazo y me uno todo a ti. No permitas, Señor, que jamás me separe de ti. Amén.';
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const copia = (cambios) => { const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE)); cambios(c); return c; };
+  const errs = (cambios) => Array.from(p.validarConfig(copia(cambios)).errores);
+  const conOracion = (t) => (c) => { c.pantallas = { comunion: { modo: 'personalizada', imagen: 'custodia', textos: t } }; };
+  const x = cargarCon(['tipos.js', 'comun.js', 'pantallas.js'], {}, CONFIG_CIUDAD_ARCE);
+
+  prueba('textosBase trae título, oración y ceja de Comunión', () => {
+    const t = x.textosBase(x.normalizarEstado({ tipo: 'dominical' }));
+    assert.equal(t.comunion_titulo, 'Comunión espiritual');
+    assert.equal(t.comunion_oracion, ORACION);
+    assert.equal(t.comunion_ceja, CONFIG_CIUDAD_ARCE.nombre.toUpperCase());
+  });
+  prueba('validarConfig acepta pantallas.comunion con una oración de 600 caracteres', () => {
+    assert.deepEqual(errs(conOracion({ comunion_oracion: 'x'.repeat(600) })), []);
+  });
+  prueba('validarConfig rechaza una oración de 601 caracteres', () => {
+    const e = errs(conOracion({ comunion_oracion: 'x'.repeat(601) }));
+    assert.ok(e.some((m) => m.includes('pasa de 600 caracteres')), JSON.stringify(e));
+  });
+  prueba('el tope de 200 sigue para los demás textos, también el título de Comunión', () => {
+    const e = errs(conOracion({ comunion_titulo: 'x'.repeat(201) }));
+    assert.ok(e.some((m) => m.includes('pasa de 200 caracteres')), JSON.stringify(e));
+  });
+  prueba('imagenDeVista de comunion es la custodia', () => {
+    const s = x.normalizarEstado({ tipo: 'dominical' });
+    const custodia = x.imagenDeVista(x.normalizarEstado({ tipo: 'dominical', imagen: 'custodia' }), 'inicio').src;
+    assert.ok(custodia);
+    assert.equal(x.imagenDeVista(s, 'comunion').src, custodia);
+  });
+  prueba('con una imagen elegida en el panel, Comunión sigue con la custodia', () => {
+    const custodia = x.imagenDeVista(x.normalizarEstado({ tipo: 'dominical', imagen: 'custodia' }), 'inicio').src;
+    const conPatrono = x.normalizarEstado({ tipo: 'dominical', imagen: 'patrono' });
+    assert.notEqual(x.imagenDeVista(conPatrono, 'inicio').src, custodia);
+    assert.equal(x.imagenDeVista(conPatrono, 'comunion').src, custodia);
   });
 });
 

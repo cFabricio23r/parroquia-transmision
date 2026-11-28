@@ -3234,6 +3234,41 @@ async function casoTransicion() {
 }
 
 /* Modo app: sin animaciones sin fin (el teléfono las paga en batería y calor); OBS (sin modo=app) queda igual. */
+async function casoComunion() {
+  console.log('Pantalla de Comunión espiritual');
+  const medir = (p) => p.evaluate(() => {
+    const v = document.getElementById('v-comunion').getBoundingClientRect();
+    const o = document.getElementById('c-oracion').getBoundingClientRect();
+    const f = document.querySelector('.franja-entra').getBoundingClientRect();
+    return { arriba: v.top, izq: v.left, der: v.right, abajoOracion: o.bottom, arribaFranja: f.top,
+      lineas: Math.round(o.height / parseFloat(getComputedStyle(document.getElementById('c-oracion')).lineHeight)) };
+  });
+  const ctx = await nuevoContexto();
+  const p = await abrir(ctx, `/${CA}/pantalla.html?tipo=comunion`, 1920, 1080, estadoCA({ tipo: 'dominical' }));
+  await p.waitForTimeout(1500);
+  revisar(await visibleEl(p, '#v-comunion'), 'comunion: la vista se ve');
+  igual((await texto(p, '#c-titulo')).trim(), 'Comunión espiritual', 'comunion: título por defecto');
+  revisar((await texto(p, '#c-oracion')).startsWith('Creo, Jesús mío'), 'comunion: la oración por defecto');
+  revisar((await p.getAttribute('#virgen', 'src') || '').includes('custodia'), 'comunion: la imagen es la custodia');
+  const m = await medir(p);
+  revisar(m.arriba >= 0 && m.izq >= 0 && m.der <= 1920 && m.abajoOracion <= m.arribaFranja, 'comunion: la oración cabe sobre la franja ' + JSON.stringify(m));
+  await captura(p, `comunion/${CA}_comunion`);
+  await ctx.close();
+
+  // oración de 600 caracteres con la frase en «grande», y un salto de línea
+  const ctx2 = await nuevoContexto();
+  const larga = ('Señor, ' + 'x'.repeat(40) + ' ').repeat(13).slice(0, 590) + '\nAmén.';
+  const cfg = conBloques((c) => { c.pantallas = { comunion: { modo: 'personalizada', tamanos: { frase: 'grande' }, textos: { comunion_oracion: larga } } }; });
+  await ctx2.route(rutaConfig, servirConfig(cfg));
+  const q = await abrir(ctx2, `/${CA}/pantalla.html?tipo=comunion`, 1920, 1080, estadoCA({ tipo: 'dominical' }));
+  await q.waitForTimeout(1500);
+  const n = await medir(q);
+  revisar(n.arriba >= 0 && n.der <= 1920 && n.abajoOracion <= n.arribaFranja, 'comunion larga: se achica y no pisa la franja ' + JSON.stringify(n));
+  revisar((await q.evaluate(() => document.getElementById('c-oracion').innerText)).includes('\nAmén.'), 'comunion larga: el salto de línea se respeta');
+  await captura(q, `comunion/${CA}_comunion_larga`);
+  await ctx2.close();
+}
+
 async function casoModoAppSinAnimaciones() {
   console.log('Modo app: sin animaciones sin fin');
   const ctx = await nuevoContexto();
@@ -3332,6 +3367,7 @@ async function casoModoAppSinAnimaciones() {
     await casoMisasListas();
     await casoTransicion();
     await casoLetraPorPantalla();
+    await casoComunion();
     await casoModoAppSinAnimaciones();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

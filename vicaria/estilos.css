@@ -114,6 +114,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:t
 
 /* ================= ANIMACIONES ================= */
 .multilinea{white-space:pre-line}
+/* La oración de Comunión: letra común (no la cursiva) para que se lea entera; se achica con el tamaño de la frase. */
+.oracion{margin:0;font-weight:600;font-size:calc(36px * var(--escala-frase,1));line-height:1.4;color:var(--velo);max-width:940px}
 
 /* Fondo vivo */
 .fachada{animation:kenburns 40s ease-in-out infinite alternate}

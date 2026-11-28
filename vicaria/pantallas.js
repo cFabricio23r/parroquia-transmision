@@ -123,7 +123,9 @@ function visible(vista, elemento) {
    'galeria:<id>' = la de la galería (si ya no existe, la automática); otra clave = esa imagen fija.
    Una imagen elegida en el panel (s.imagen) gana a la de la pantalla: la de la pantalla solo reemplaza a la automática. */
 function imagenDeVista(s, vista) {
-  const eleccion = s && s.imagen ? 'automatica' : ajustesDe(vista).imagen;
+  let eleccion = s && s.imagen ? 'automatica' : ajustesDe(vista).imagen;
+  // Comunión: su imagen de siempre es la custodia, aunque el panel haya elegido otra para el día.
+  if (vista === 'comunion') { eleccion = ajustesDe(vista).imagen; if (eleccion === 'automatica') eleccion = 'custodia'; }
   let im;
   if (eleccion === 'ninguna') {
     im = { src: '', alt: '' };

@@ -274,7 +274,10 @@ function textosBase(s) {
     k_rosario: 'ORACIÓN',
     t_rosario: 'Santo Rosario',
     prod_ceja: 'UNA PRODUCCIÓN DE',
-    prod_nombre: 'Comunicaciones'
+    prod_nombre: 'Comunicaciones',
+    comunion_ceja: nombre.toUpperCase(),
+    comunion_titulo: 'Comunión espiritual',
+    comunion_oracion: 'Creo, Jesús mío, que estás realmente presente en el Santísimo Sacramento del Altar. Te amo sobre todas las cosas y deseo recibirte en mi alma. Pero como ahora no puedo recibirte sacramentalmente, ven al menos espiritualmente a mi corazón. Como si ya te hubiese recibido, te abrazo y me uno todo a ti. No permitas, Señor, que jamás me separe de ti. Amén.'
   };
 }
 

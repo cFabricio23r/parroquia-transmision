@@ -59,6 +59,13 @@
     <div class="extra" hidden></div>   <!-- horarios y redes, solo si la pantalla los pide (mostrar) -->
   </div>
 
+  <!-- COMUNIÓN ESPIRITUAL: la oración para quienes no pueden comulgar (2026-11-27) -->
+  <div class="texto" id="v-comunion" hidden>
+    <p class="ceja" id="c-ceja"></p>
+    <h1 class="titulo" style="font-size:calc(72px * var(--escala-titulo,1));line-height:1"><span class="brilla multilinea" id="c-titulo"></span></h1>
+    <p class="oracion multilinea" id="c-oracion"></p>
+  </div>
+
   <!-- AVISOS -->
   <div class="tarjeta" id="v-avisos" hidden>
     <div class="cab">
@@ -324,7 +331,7 @@ function pintar(s) {
   aplicarAjustes(vistaCfg);
   aplicarEstiloPantallas(vistaCfg);
   tamanosVista = ajustesDe(vistaCfg).tamanos;
-  ['inicio', 'portada', 'gracias', 'avisos', 'horarios'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
+  ['inicio', 'portada', 'gracias', 'avisos', 'horarios', 'comunion'].forEach((n) => { const el = $('v-' + n); if (el) el.hidden = (n !== efectiva); });
 
   const v = $('virgen');
   const im = imagenDeVista(s, efectiva);
@@ -401,6 +408,15 @@ function pintar(s) {
     encajarTitulos($('v-portada'));
     reencajar = () => encajarTitulos($('v-portada'));
     firma = 'portada|' + s.tipo + '|' + src;
+  }
+  if (efectiva === 'comunion') {
+    $('c-ceja').textContent = T('comunion_ceja');
+    $('c-ceja').classList.toggle('larga', $('c-ceja').textContent.length > 34);
+    $('c-titulo').textContent = T('comunion_titulo');
+    $('c-oracion').textContent = T('comunion_oracion');
+    encajarTitulos($('v-comunion'));
+    reencajar = () => encajarTitulos($('v-comunion'));
+    firma = 'comunion|' + src + '|' + $('c-oracion').textContent;
   }
   if (efectiva === 'gracias') {
     $('g-pildora').textContent = T('gracias_pildora');
