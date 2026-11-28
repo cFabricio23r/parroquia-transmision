@@ -435,11 +435,11 @@ describe('urlDialogo', () => {
       'pages_show_list',
       'pages_read_engagement',
       'pages_manage_posts',
+      'pages_read_user_content',
       'pages_manage_metadata',
     ]);
     expect([...PERMISOS_FACEBOOK]).not.toContain('publish_video');
-    // Los de comentarios vuelven con la mejora 1; hasta entonces no se piden.
-    expect([...PERMISOS_FACEBOOK]).not.toContain('pages_read_user_content');
+    // El de escribir comentarios vuelve con la mejora 1; hasta entonces no se pide.
     expect([...PERMISOS_FACEBOOK]).not.toContain('pages_manage_engagement');
   });
   it('urlVolver apunta a la única dirección de vuelta', () => {
