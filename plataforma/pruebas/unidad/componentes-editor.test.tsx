@@ -13,6 +13,7 @@ import { Segmentado } from '../../app/componentes/Segmentado';
 import { CampoColorParroquia } from '../../app/editor/p/[slug]/rotulos/CampoColorParroquia';
 import { formatearRazon } from '../../lib/contraste';
 import { vistaEditor } from '../../lib/editor/pantallas';
+import { ListaTitulosCamara } from '../../app/editor/p/[slug]/rotulos/ListaTitulosCamara';
 import { CampoTextoDePantalla } from '../../app/editor/p/[slug]/pantallas/[vista]/CampoTextoDePantalla';
 
 const html = (e: ReactElement) => renderToStaticMarkup(e);
@@ -238,5 +239,29 @@ describe('CampoTextoDePantalla (Comunión, 2026-11-27)', () => {
     expect(h).toContain('<input');
     expect(h).toContain('maxLength="200"');
     expect(h).not.toContain('<textarea');
+  });
+});
+
+describe('ListaTitulosCamara (2026-11-27)', () => {
+  it('un campo por título, de hasta 40, con Quitar y Agregar', () => {
+    const h = html(<ListaTitulosCamara titulos={['1ª Semana de Adviento']} onCambiar={nada} />);
+    expect(h).toContain('Título 1');
+    expect(h).toContain('maxLength="40"');
+    expect(h).toContain('value="1ª Semana de Adviento"');
+    expect(h).toContain('Quitar el título 1');
+    expect(h).toContain('Agregar título');
+    expect(h).toContain('Salen como botones en el panel, en En vivo. Quien transmite elige cuál se ve en la barra.');
+  });
+  it('con 12 no deja agregar', () => {
+    const h = html(<ListaTitulosCamara titulos={Array(12).fill('x')} onCambiar={nada} />);
+    const fin = h.indexOf('Agregar título');
+    expect(h.slice(h.lastIndexOf('<button', fin), fin)).toContain('disabled');
+    const libre = html(<ListaTitulosCamara titulos={['x']} onCambiar={nada} />);
+    const fin2 = libre.indexOf('Agregar título');
+    expect(libre.slice(libre.lastIndexOf('<button', fin2), fin2)).not.toContain('disabled');
+  });
+  it('vacía, explica qué pasa', () => {
+    const h = html(<ListaTitulosCamara titulos={[]} onCambiar={nada} />);
+    expect(h).toContain('Todavía no hay títulos. Si no agregás ninguno, la barra muestra el del tipo de transmisión.');
   });
 });

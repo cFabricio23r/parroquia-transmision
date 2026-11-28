@@ -141,6 +141,7 @@ function rotulos(p: Config, b: Config): string[] {
   if (pos(a) !== pos(d)) frases.push(`Posición de rótulos: ${pos(d)}`);
   if (distinto(a.logoEsquina, d.logoEsquina)) frases.push('Logo en la esquina');
   if (distinto(a.cargos, d.cargos)) frases.push('Cargos sugeridos');
+  if (distinto(lista(p.titulosCamara), lista(b.titulosCamara))) frases.push('Títulos en cámara');
   return frases;
 }
 

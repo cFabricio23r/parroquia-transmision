@@ -104,6 +104,11 @@ describe('cambiosEntre', () => {
 
 describe('cambiosEntre con las secciones de estilo (plan 4, Tarea 10)', () => {
   const frases = (pub: object, bor: object) => cambiosEntre({ ...base, ...pub }, { ...base, ...bor }, nombresTipos).flatMap((s) => s.frases);
+  it('Títulos en cámara (2026-11-27): una frase en Rótulos si la lista cambió', () => {
+    const c = cambiosEntre({ ...base }, { ...base, titulosCamara: ['Adviento'] }, nombresTipos);
+    expect(c.find((s) => s.seccion === 'rotulos')?.frases).toContain('Títulos en cámara');
+    expect(frases({ titulosCamara: ['Adviento'] }, { titulosCamara: ['Adviento'] })).not.toContain('Títulos en cámara');
+  });
   it('diseño, posición y tipografía nuevos', () => {
     expect(frases({ rotulos: {} }, { rotulos: { diseno: 'tarjeta', posicion: 'derecha', tipografia: 'nunito' } })).toEqual([
       'Diseño de rótulos: Tarjeta',

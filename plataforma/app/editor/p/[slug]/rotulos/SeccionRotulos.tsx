@@ -30,6 +30,7 @@ import { Segmentado } from '../../../../componentes/Segmentado';
 import { CabezaSeccion } from '../CabezaSeccion';
 import { useBorrador, useNotaVistaPrevia } from '../ProveedorBorrador';
 import { CampoColorParroquia } from './CampoColorParroquia';
+import { ListaTitulosCamara } from './ListaTitulosCamara';
 
 export const TEXTO_ROTULOS = 'Cómo se ven los rótulos encima de la cámara: celebrante, lecturas, salmo, oración y los demás.';
 export const NOTA_ROTULOS = 'Los textos de cada rótulo se siguen escribiendo en el panel, el día de la transmisión.';
@@ -127,6 +128,10 @@ export function SeccionRotulos() {
         error={errorCargos}
         value={cargos ?? textoCargos(r.cargos)}
         onChange={(e) => escribirCargos(e.target.value)}
+      />
+      <ListaTitulosCamara
+        titulos={Array.isArray(borrador.titulosCamara) ? borrador.titulosCamara.map((t) => (typeof t === 'string' ? t : '')) : []}
+        onCambiar={(l) => cambiar('titulosCamara', l)}
       />
     </section>
   );

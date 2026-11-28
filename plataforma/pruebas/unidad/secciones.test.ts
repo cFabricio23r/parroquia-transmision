@@ -43,6 +43,11 @@ describe('catálogo de secciones', () => {
     expect(BLOQUES).toContain('estiloPantallas');
   });
 
+  it('Títulos en cámara (2026-11-27) son un bloque de Rótulos', () => {
+    expect(BLOQUES).toContain('titulosCamara');
+    expect(seccionDeBloque('titulosCamara')).toBe('rotulos');
+  });
+
   it('encuentra la sección de una ruta', () => {
     expect(seccionDeRuta('/editor/p/san-jose', 'san-jose').id).toBe('resumen');
     expect(seccionDeRuta('/editor/p/san-jose/', 'san-jose').id).toBe('resumen');

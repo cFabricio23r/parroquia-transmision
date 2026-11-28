@@ -32,7 +32,8 @@ export type Bloque =
   | 'tipos'
   | 'horarios'
   | 'redes'
-  | 'avisos';
+  | 'avisos'
+  | 'titulosCamara';
 
 /** Las claves del borrador que el editor puede cambiar, en este orden. */
 export const BLOQUES: readonly Bloque[] = [
@@ -52,6 +53,7 @@ export const BLOQUES: readonly Bloque[] = [
   'horarios',
   'redes',
   'avisos',
+  'titulosCamara',
 ];
 
 export interface VistaPreviaSeccion {
@@ -103,7 +105,7 @@ export const SECCIONES: readonly Seccion[] = [
     disposicion: 'dos-columnas',
   },
   { id: 'pantallas', texto: 'Pantallas', ruta: 'pantallas', bloques: ['pantallas', 'estiloPantallas'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
-  { id: 'rotulos', texto: 'Rótulos y estilo', ruta: 'rotulos', bloques: ['rotulos'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
+  { id: 'rotulos', texto: 'Rótulos y estilo', ruta: 'rotulos', bloques: ['rotulos', 'titulosCamara'], conPunto: true, vistaPrevia: null, disposicion: 'una-columna' },
   {
     id: 'transicion',
     texto: 'Transición',
