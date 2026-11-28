@@ -251,3 +251,20 @@ describe('«Borrar tipo» que no se pudo guardar (revisión)', () => {
     expect(textoNoSeBorroTipo('rechazado')).toBe('No se pudo borrar el tipo. Intenta de nuevo.');
   });
 });
+
+describe('rótulo «Oración de los fieles» (mejora 3)', () => {
+  it('tiposComunes trae «fieles» justo después del evangelio en dominical', () => {
+    const ids = comunes.find((c) => c.clave === 'dominical')!.rotulos.map((r) => r.id);
+    expect(ids.indexOf('fieles')).toBe(ids.indexOf('evangelio') + 1);
+    const u = comunes.find((c) => c.clave === 'dominical')!.rotulos.find((r) => r.id === 'fieles')!;
+    expect(u).toMatchObject({ base: 'libre', nombre: 'Oración de los fieles' });
+  });
+  it('el formulario de dominical tiene la casilla fieles marcada', () => {
+    expect(formularioDeTipo({}, 'dominical', comunes)!.casillas.fieles).toBe(true);
+  });
+  it('desmarcar fieles guarda ocultarRotulos [fieles]', () => {
+    const f = formularioDeTipo({}, 'dominical', comunes)!;
+    const sin = { ...f, casillas: { ...f.casillas, fieles: false } };
+    expect(aplicarTipo({}, sin, comunes, []).tipos).toEqual({ ajustes: { dominical: { ocultarRotulos: ['fieles'] } } });
+  });
+});
