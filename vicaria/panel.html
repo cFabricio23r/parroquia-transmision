@@ -142,6 +142,16 @@ label{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:12px;
 .modo-app .seccion{padding:8px;gap:6px}
 .modo-app .seccion h3{display:none}
 .modo-app .rotulos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.titulos-camara{display:flex;flex-wrap:wrap;gap:6px}
+.titulos-camara button{min-height:44px}
+.titulo-cam{display:inline-flex;align-items:stretch;border-radius:10px;overflow:hidden}
+.titulo-cam>button{min-height:44px;padding:6px 12px;border-radius:0;font-size:14px;text-align:left}
+.titulo-cam>button[aria-pressed=true]{outline:3px solid var(--acento,#fff);outline-offset:-3px}
+.titulo-cam>.quitar{padding:6px 10px;font-weight:900}
+.titulo-form{display:flex;gap:6px;align-items:flex-end}
+.titulo-form .titulo-campo{flex:1}
+.modo-app .titulos-camara{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.modo-app .titulo-cam>button:first-child{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modo-app .rot{min-height:52px;padding:4px 8px;grid-template-columns:24px minmax(0,1fr);gap:6px}
 .modo-app .rot .tecla{width:24px;height:24px;border-radius:6px;font-size:12px}
 .modo-app .rot .txt{gap:0}
@@ -487,6 +497,13 @@ dialog p{margin:0;font-size:14px;line-height:1.45}
   </div>
   <div class="seccion">
     <h3>Sobre la cámara</h3>
+    <span class="subtitulo" id="titulos-camara-tit">Título en cámara</span>
+    <div class="titulos-camara" id="titulos-camara" role="group" aria-labelledby="titulos-camara-tit"></div>
+    <form class="titulo-form" id="titulo-form" hidden>
+      <label class="titulo-campo">Título nuevo<input type="text" id="titulo-nuevo" maxlength="40" autocomplete="off" placeholder="Ej.: 1ª Semana de Adviento"></label>
+      <button type="submit" class="secundario">Agregar</button>
+    </form>
+    <span class="ayuda" id="titulo-aviso" role="status"></span>
     <button type="button" class="interruptor" role="switch" data-switch="mostrarLogo"><span>Logo de la parroquia</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
     <button type="button" class="interruptor" role="switch" data-switch="mostrarEnVivo"><span>Etiqueta EN VIVO</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
     <button type="button" class="interruptor" role="switch" data-switch="mostrarBarra"><span>Barra con el título</span><span class="lado"><span class="estado-sw"></span><span class="perilla"></span></span></button>
@@ -892,6 +909,54 @@ $('siguiente').addEventListener('click', () => { const u = siguienteUso(); if (u
 $('ocultar').addEventListener('click', ocultar);
 document.querySelectorAll('[data-seg]').forEach(b => b.addEventListener('click', () => { s.duracionSeg = parseInt(b.dataset.seg, 10); guardar(); }));
 document.querySelectorAll('[data-switch]').forEach(b => b.addEventListener('click', () => { s[b.dataset.switch] = !s[b.dataset.switch]; guardar(); }));
+
+/* ---------- Títulos en cámara (2026-11-27)
+   Botones para la parte blanca de la barra (titulosCamara en comun.js). Los agregados acá viven en su propia
+   clave, aparte del estado: «Usar esta» y «Volver a los textos automáticos» no los borran. */
+const CLAVE_TITULOS = claveDe('titulos_camara_v1');
+function titulosPropios() {
+  try { const l = JSON.parse(localStorage.getItem(CLAVE_TITULOS) || '[]'); return Array.isArray(l) ? l.filter(t => typeof t === 'string') : []; } catch (e) { return []; }
+}
+function guardarTitulosPropios(l) { try { localStorage.setItem(CLAVE_TITULOS, JSON.stringify(l)); } catch (e) {} }
+function elegirTitulo(t) { s.barraTexto = t.origen === 'tipo' ? '' : t.texto; llenar(); guardar(); }
+function pintarTitulosCamara() {
+  const caja = $('titulos-camara'); caja.textContent = '';
+  const propios = titulosPropios();
+  titulosCamara(s, propios).forEach(t => {
+    const d = nuevo('span', 'titulo-cam');
+    const b = nuevo('button', '', t.texto); b.type = 'button';
+    b.setAttribute('aria-pressed', t.elegido ? 'true' : 'false');
+    b.addEventListener('click', () => elegirTitulo(t));
+    d.append(b);
+    if (t.origen === 'aparato') {
+      const q = nuevo('button', 'quitar', '×'); q.type = 'button';
+      q.setAttribute('aria-label', 'Quitar «' + t.texto + '»');
+      q.addEventListener('click', () => quitarTitulo(t.texto));
+      d.append(q);
+    }
+    caja.append(d);
+  });
+  const mas = nuevo('button', 'secundario', '+ Agregar'); mas.type = 'button'; mas.id = 'titulo-agregar';
+  mas.disabled = propios.length >= MAX_TITULOS_CAMARA;
+  mas.addEventListener('click', () => { $('titulo-form').hidden = false; $('titulo-nuevo').focus(); });
+  caja.append(mas);
+}
+function quitarTitulo(texto) {
+  guardarTitulosPropios(titulosPropios().filter(t => t.trim().toLowerCase() !== texto.toLowerCase()));
+  if ((s.barraTexto || '').trim() === texto) s.barraTexto = '';
+  llenar(); guardar();
+}
+$('titulo-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const r = normalizarTituloCamara($('titulo-nuevo').value);
+  const propios = titulosPropios();
+  if (r === null) { $('titulo-aviso').textContent = 'Escribí un título de 1 a ' + MAX_TITULO_CAMARA + ' caracteres.'; return; }
+  if (titulosCamara(s, propios).some(t => t.texto.toLowerCase() === r.toLowerCase())) { $('titulo-aviso').textContent = 'Ese título ya está.'; return; }
+  if (propios.length >= MAX_TITULOS_CAMARA) { $('titulo-aviso').textContent = 'Ya hay ' + MAX_TITULOS_CAMARA + ' títulos en este aparato.'; return; }
+  guardarTitulosPropios(propios.concat(r));
+  $('titulo-nuevo').value = ''; $('titulo-form').hidden = true; $('titulo-aviso').textContent = '';
+  pintarTitulosCamara();
+});
 
 /* Atajos de teclado.
    - Esc (ocultar) funciona siempre, salvo dentro de una casilla (ahí solo sale de la casilla).
@@ -1309,6 +1374,7 @@ function refrescar() {
   });
   $('frase').placeholder = textoDe(vacio, 'inicio', 'franja');
   $('barraTexto').placeholder = tituloCelebracion(s);
+  pintarTitulosCamara();
   ocultarFueraDeCamara();   // al final: ocultar() vuelve a refrescar con el estado ya limpio
 }
 

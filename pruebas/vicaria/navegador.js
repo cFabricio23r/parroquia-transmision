@@ -3234,6 +3234,90 @@ async function casoTransicion() {
 }
 
 /* Modo app: sin animaciones sin fin (el teléfono las paga en batería y calor); OBS (sin modo=app) queda igual. */
+/* Títulos en cámara (2026-11-27): botones en En vivo que eligen la parte blanca de la barra. */
+async function casoTitulosCamara() {
+  console.log('Títulos en cámara');
+  const ADV = '1ª Semana de Adviento';
+  const cfg = JSON.parse(JSON.stringify(CONFIG[CA]));
+  cfg.titulosCamara = [ADV];
+  const ctx = await nuevoContexto();
+  await ctx.route(rutaConfig, servirConfig(cfg));
+  const panel = await abrir(ctx, `/${CA}/panel.html`, 1280, 900, estadoCA({ tipo: 'dominical', mostrarBarra: true }));
+  await panel.click('#tab-vivo');
+  const capa = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080);
+  await capa.waitForTimeout(800);
+  const botones = () => panel.$$eval('#titulos-camara button[aria-pressed]', (bs) => bs.map((b) => ({ t: b.textContent.trim(), p: b.getAttribute('aria-pressed') })));
+  const grupo = await panel.$('[role=group][aria-labelledby=titulos-camara-tit]');
+  revisar(!!grupo, 'titulos: hay un grupo «Título en cámara»');
+  igual(((await panel.textContent('#titulos-camara-tit')) || '').trim(), 'Título en cámara', 'titulos: nombre del grupo');
+  const tipo = (await capa.textContent('#barra-x')).trim();
+  const y0 = (await capa.textContent('#barra-y')).trim();
+  let l = await botones();
+  igual(l[0] && l[0].t, tipo, 'titulos: el primero es el del tipo');
+  igual(l[0] && l[0].p, 'true', 'titulos: el del tipo empieza elegido');
+  await panel.click(`#titulos-camara button[aria-pressed]:has-text("${ADV}")`);
+  await capa.waitForTimeout(700);
+  igual((await capa.textContent('#barra-x')).trim(), ADV, 'titulos: tocar uno cambia la parte blanca');
+  igual((await capa.textContent('#barra-y')).trim(), y0, 'titulos: la parte azul no cambia');
+  l = await botones();
+  igual(JSON.stringify(l.map((b) => b.p)), JSON.stringify(['false', 'true']), 'titulos: queda marcado el elegido');
+
+  // agregar en este aparato
+  await panel.click('#titulo-agregar');
+  igual(await panel.getAttribute('#titulo-nuevo', 'maxlength'), '40', 'titulos: el campo nuevo admite 40');
+  await panel.fill('#titulo-nuevo', 'Gaudete');
+  await panel.press('#titulo-nuevo', 'Enter');
+  l = await botones();
+  revisar(l.some((b) => b.t === 'Gaudete'), 'titulos: aparece el agregado');
+  revisar(!!(await panel.$('button[aria-label="Quitar «Gaudete»"]')), 'titulos: el agregado se puede quitar');
+  await panel.reload(); await panel.click('#tab-vivo'); await panel.waitForTimeout(400);
+  revisar((await botones()).some((b) => b.t === 'Gaudete'), 'titulos: el agregado sigue al recargar');
+
+  // quitar el que está al aire: vuelve el del tipo
+  await panel.click('#titulos-camara button[aria-pressed]:has-text("Gaudete")');
+  await capa.waitForTimeout(700);
+  igual((await capa.textContent('#barra-x')).trim(), 'Gaudete', 'titulos: el agregado sale al aire');
+  await panel.click('button[aria-label="Quitar «Gaudete»"]');
+  await capa.waitForTimeout(700);
+  revisar(!(await botones()).some((b) => b.t === 'Gaudete'), 'titulos: quitado, ya no está');
+  igual((await capa.textContent('#barra-x')).trim(), tipo, 'titulos: quitar el elegido vuelve al del tipo');
+
+  // con 12 propios, «+ Agregar» se apaga
+  await panel.evaluate((k) => { localStorage.setItem(k, JSON.stringify(Array.from({ length: 12 }, (_, i) => 'T' + i))); }, `pev_${CA}_titulos_camara_v1`);
+  await panel.reload(); await panel.click('#tab-vivo'); await panel.waitForTimeout(400);
+  revisar(await panel.isDisabled('#titulo-agregar'), 'titulos: con 12 propios no se agregan más');
+
+  // elegir el del tipo
+  await panel.click('#titulos-camara button[aria-pressed] >> nth=0');
+  await capa.waitForTimeout(700);
+  igual((await capa.textContent('#barra-x')).trim(), tipo, 'titulos: elegir el del tipo lo vuelve a poner');
+
+  // ancho: 40 «M» con cada tipo, la barra no se sale por la izquierda
+  const tipos = await capa.evaluate(() => ordenTipos());
+  let peor = { left: Infinity };
+  for (const t of tipos) {
+    await capa.evaluate(([k, t]) => {
+      const e = JSON.parse(localStorage.getItem(k) || '{}');
+      Object.assign(e, { tipo: t, barraTexto: 'M'.repeat(40), mostrarBarra: true, rotuloVisible: null });
+      localStorage.setItem(k, JSON.stringify(e)); window.dispatchEvent(new StorageEvent('storage', { key: k }));
+    }, [`pev_${CA}_estado_v1`, t]);
+    await capa.waitForTimeout(500);
+    const r = await capa.evaluate(() => ({ left: document.getElementById('barra').getBoundingClientRect().left, y: document.getElementById('barra-y').textContent }));
+    if (r.left < peor.left) peor = Object.assign(r, { tipo: t });
+  }
+  revisar(peor.left >= 0, 'titulos: 40 «M» no sacan la barra de la pantalla ' + JSON.stringify(peor));
+  await ctx.close();
+
+  // modo app a 360: botones de 44 o más
+  const ctx2 = await nuevoContexto();
+  await ctx2.route(rutaConfig, servirConfig(cfg));
+  const app = await abrir(ctx2, `/${CA}/panel.html?modo=app`, 360, 800, estadoCA({ tipo: 'dominical' }));
+  await app.click('#tab-vivo');
+  const altos = await app.$$eval('#titulos-camara button', (bs) => bs.map((b) => b.getBoundingClientRect().height));
+  revisar(altos.length >= 2 && altos.every((h) => h >= 44), 'titulos: en modo app los botones miden 44 o más ' + JSON.stringify(altos));
+  await ctx2.close();
+}
+
 async function casoComunion() {
   console.log('Pantalla de Comunión espiritual');
   const medir = (p) => p.evaluate(() => {
@@ -3316,7 +3400,7 @@ async function casoModoAppSinAnimaciones() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla, casoModoAppSinAnimaciones };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla, casoModoAppSinAnimaciones, casoTitulosCamara };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -3368,6 +3452,7 @@ async function casoModoAppSinAnimaciones() {
     await casoTransicion();
     await casoLetraPorPantalla();
     await casoComunion();
+    await casoTitulosCamara();
     await casoModoAppSinAnimaciones();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {
