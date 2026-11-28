@@ -33,10 +33,10 @@ export const PERMISOS_FACEBOOK = [
   'pages_show_list',
   'pages_read_engagement',
   'pages_manage_posts',
-  'pages_read_user_content',
-  'pages_manage_engagement',
   'pages_manage_metadata',
 ] as const;
+// pages_read_user_content y pages_manage_engagement (comentarios) vuelven con la mejora 1.
+// La configuración de Facebook Login for Business tampoco los pide.
 
 export const NOMBRE_COOKIE_ESTADO = 'fb_estado';
 export const RUTA_COOKIE_ESTADO = '/editor/facebook';
