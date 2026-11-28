@@ -225,16 +225,16 @@ const CLAVES_TEXTOS = [
 
 /* Ids de los rótulos de cada tipo común, copiados de tipos.js (que se carga después). Una prueba los compara. */
 const IDS_ROTULO_COMUN = {
-  dominical: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
-  semana: ['persona', 'lectura1', 'salmo', 'evangelio'],
+  dominical: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles'],
+  semana: ['persona', 'lectura1', 'salmo', 'evangelio', 'fieles'],
   horasanta: ['guia', 'santisimo', 'lectura1', 'oracion', 'bendicion'],
-  sector: ['persona', 'lugar', 'lectura1', 'salmo', 'evangelio'],
-  patronalsector: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
+  sector: ['persona', 'lugar', 'lectura1', 'salmo', 'evangelio', 'fieles'],
+  patronalsector: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles'],
   procesion: ['lugar', 'oracion', 'rosario', 'persona'],
-  otros: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio'],
-  prenovena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
-  novena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
-  patronal: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'rosario'],
+  otros: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles'],
+  prenovena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles', 'rosario'],
+  novena: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles', 'rosario'],
+  patronal: ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles', 'rosario'],
   evento: ['persona', 'libre']
 };
 

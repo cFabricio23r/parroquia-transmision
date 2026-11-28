@@ -468,8 +468,8 @@ grupo('rotulos', () => {
   const ids = (s) => Array.from(c.rotulosDe(s), (r) => r.id);
   const uso = (s, id) => c.rotulosDe(s).find((r) => r.id === id);
   prueba('el orden de los rótulos es el del tipo', () => {
-    assert.deepEqual(ids({ tipo: 'dominical' }), ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio']);
-    assert.deepEqual(ids({ tipo: 'semana' }), ['persona', 'lectura1', 'salmo', 'evangelio']);
+    assert.deepEqual(ids({ tipo: 'dominical' }), ['persona', 'lectura1', 'salmo', 'lectura2', 'evangelio', 'fieles']);
+    assert.deepEqual(ids({ tipo: 'semana' }), ['persona', 'lectura1', 'salmo', 'evangelio', 'fieles']);
   });
   prueba('Hora Santa: la guía usa la ceja del uso y su propio nombre (no el del celebrante)', () => {
     const g = c.rotulosDe({ tipo: 'horasanta', celebrante: 'Pbro. X', rotulosTexto: { guia: { t: 'Juan' } } })[0];
@@ -494,11 +494,11 @@ grupo('rotulos', () => {
   prueba('Santo Rosario: prenovena, novena y patronal lo llevan al final; dominical y otros no', () => {
     for (const k of ['prenovena', 'novena', 'patronal']) {
       const r = c.TIPOS[k].rotulos;
-      assert.equal(r.length, 6, k);
-      assert.deepEqual(Object.assign({}, r[5]), { id: 'rosario', base: 'rosario', nombre: 'Santo Rosario' }, k);
+      assert.equal(r.length, 7, k);
+      assert.deepEqual(Object.assign({}, r[6]), { id: 'rosario', base: 'rosario', nombre: 'Santo Rosario' }, k);
     }
     for (const k of ['dominical', 'otros']) assert.ok(!c.TIPOS[k].rotulos.some((r) => r.id === 'rosario'), k);
-    assert.equal(c.TIPOS.dominical.rotulos.length, 5);
+    assert.equal(c.TIPOS.dominical.rotulos.length, 6);
   });
   prueba('Hora Santa: la lectura única sale con ceja LECTURA; en la misa sigue PRIMERA LECTURA', () => {
     assert.equal(uso({ tipo: 'horasanta', rotulosTexto: {} }, 'lectura1').texto.k, 'LECTURA');
@@ -2517,7 +2517,7 @@ grupo('tipos propios y apagados', () => {
     const x = cargarTipos((cfg) => { cfg.tipos = { propios: [{ clave: 'adoracion', nombre: 'Adoración', rotulos: ['persona'] }] }; });
     x.tipoDe({ tipo: 'adoracion' });
     assert.equal(Object.keys(x.TIPOS).length, 11);
-    assert.equal(x.TIPOS.dominical.rotulos.length, 5);
+    assert.equal(x.TIPOS.dominical.rotulos.length, 6);
     assert.equal(x.tipoDe({ tipo: 'dominical' }), x.TIPOS.dominical);
   });
 });
@@ -4366,6 +4366,49 @@ grupo('titulos en camara', () => {
     assert.ok(errs(['x'.repeat(41)]).some((m) => m.includes('pasa de 40 caracteres')));
     assert.ok(errs(['']).some((m) => m.includes('Falta el texto (titulosCamara[0])')));
     assert.ok(errs([5]).some((m) => m.includes('debe ser texto')));
+  });
+});
+
+grupo('rotulo oracion de los fieles', () => {
+  const MISAS = ['dominical', 'semana', 'sector', 'patronalsector', 'otros', 'prenovena', 'novena', 'patronal'];
+  const x = cargarCon(['tipos.js', 'comun.js'], {}, CONFIG_CIUDAD_ARCE);
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const ids = (k) => Array.from(x.TIPOS[k].rotulos, (r) => r.id);
+  const fieles = (extra) => x.rotulosDe(x.normalizarEstado(Object.assign({ tipo: 'dominical' }, extra || {}))).find((r) => r.id === 'fieles');
+  const errs = (ajustes) => {
+    const c = JSON.parse(JSON.stringify(CONFIG_CIUDAD_ARCE));
+    c.tipos = { ajustes };
+    return Array.from(p.validarConfig(c).errores).join(' | ');
+  };
+  prueba('las misas tienen «fieles» justo después del evangelio', () => {
+    for (const k of MISAS) {
+      const l = ids(k);
+      assert.ok(l.includes('fieles'), k);
+      assert.equal(l.indexOf('fieles'), l.indexOf('evangelio') + 1, k);
+    }
+  });
+  prueba('horasanta, procesion y evento no lo tienen', () => {
+    for (const k of ['horasanta', 'procesion', 'evento']) assert.ok(!ids(k).includes('fieles'), k);
+  });
+  prueba('el uso es de la base libre con su nombre', () => {
+    const u = x.TIPOS.dominical.rotulos.find((r) => r.id === 'fieles');
+    assert.equal(u.base, 'libre');
+    assert.equal(u.nombre, 'Oración de los fieles');
+  });
+  prueba('rotulosDe muestra ceja, respuesta y parroquia', () => {
+    const r = fieles();
+    assert.equal(r.texto.k, 'ORACIÓN DE LOS FIELES · RESPONDEMOS');
+    assert.equal(r.texto.t, 'Te rogamos, óyenos');
+    assert.equal(r.texto.s, x.lineaParroquia(x.normalizarEstado({ tipo: 'dominical' })));
+  });
+  prueba('la respuesta se puede cambiar y vuelve a la de siempre si se borra', () => {
+    assert.equal(fieles({ rotulosTexto: { fieles: { t: 'Escúchanos, Señor' } } }).texto.t, 'Escúchanos, Señor');
+    assert.equal(fieles({ rotulosTexto: { fieles: { t: '' } } }).texto.t, 'Te rogamos, óyenos');
+  });
+  prueba('ocultarRotulos [fieles] valida en dominical y no en horasanta', () => {
+    assert.equal(errs({ dominical: { ocultarRotulos: ['fieles'] } }), '');
+    assert.ok(errs({ horasanta: { ocultarRotulos: ['fieles'] } }).includes('Ese rótulo no existe en este tipo'));
+    assert.equal(errs({ dominical: { ocultarRotulos: ['lectura2'] } }), '');
   });
 });
 

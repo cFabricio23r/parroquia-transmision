@@ -25,13 +25,17 @@ const ROTULOS = {
 /* Sugerencias del cargo del rótulo «persona» en el panel (se puede escribir otro). */
 const CARGOS = ['CELEBRANTE', 'PREDICADOR', 'CONCELEBRANTE', 'DIÁCONO', 'GUÍA', 'CORO'];
 
+/* Oración de los fieles: lo que responde el pueblo en cada petición. Va después del Evangelio en todas las misas. */
+const _FIELES = { id: 'fieles', base: 'libre', nombre: 'Oración de los fieles', ceja: 'ORACIÓN DE LOS FIELES · RESPONDEMOS', texto: 'Te rogamos, óyenos' };
+
 /* Rótulos de una misa con segunda lectura (el orden de la misa). */
 const _MISA_COMPLETA = [
   { id: 'persona',   base: 'persona',   nombre: 'Celebrante' },
   { id: 'lectura1',  base: 'lectura1',  nombre: '1.ª lectura' },
   { id: 'salmo',     base: 'salmo',     nombre: 'Salmo' },
   { id: 'lectura2',  base: 'lectura2',  nombre: '2.ª lectura' },
-  { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' }
+  { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' },
+  _FIELES
 ];
 
 /* Misa completa más el Santo Rosario (prenovena, novena y fiesta patronal). Lista nueva: no muta _MISA_COMPLETA. */
@@ -86,7 +90,8 @@ const TIPOS = {
       { id: 'persona',   base: 'persona',   nombre: 'Celebrante' },
       { id: 'lectura1',  base: 'lectura1',  nombre: '1.ª lectura' },
       { id: 'salmo',     base: 'salmo',     nombre: 'Salmo' },
-      { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' }
+      { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' },
+      _FIELES
     ],
     datos: []
   },
@@ -136,7 +141,8 @@ const TIPOS = {
       { id: 'lugar',     base: 'lugar',     nombre: 'Lugar' },
       { id: 'lectura1',  base: 'lectura1',  nombre: '1.ª lectura' },
       { id: 'salmo',     base: 'salmo',     nombre: 'Salmo' },
-      { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' }
+      { id: 'evangelio', base: 'evangelio', nombre: 'Evangelio' },
+      _FIELES
     ],
     datos: ['sector', 'lugar']
   },

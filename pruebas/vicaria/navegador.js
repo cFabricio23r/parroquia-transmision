@@ -3235,6 +3235,54 @@ async function casoTransicion() {
 
 /* Modo app: sin animaciones sin fin (el teléfono las paga en batería y calor); OBS (sin modo=app) queda igual. */
 /* Títulos en cámara (2026-11-27): botones en En vivo que eligen la parte blanca de la barra. */
+async function casoFieles() {
+  console.log('Rótulo «Oración de los fieles»');
+  const K = 'ORACIÓN DE LOS FIELES · RESPONDEMOS';
+  for (const diseno of ['clasico', 'tarjeta', 'minimal', 'etiqueta']) {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(conBloques((c) => { c.rotulos = { diseno }; })));
+    const r = await abrir(ctx, `/${CA}/rotulos.html`, 1920, 1080, estadoCA({ tipo: 'dominical', rotulo: 'fieles' }));
+    await r.waitForSelector('#rotulo.en');
+    await r.waitForTimeout(1600);
+    const m = await r.evaluate(() => {
+      const k = document.getElementById('r-k');
+      const caja = document.getElementById('rotulo').getBoundingClientRect();
+      return { k: k.textContent.trim(), t: document.getElementById('r-t').textContent.trim(), der: Math.round(caja.right), kAncho: k.scrollWidth - k.clientWidth };
+    });
+    igual(m.k, K, `fieles ${diseno}: la ceja`);
+    igual(m.t, 'Te rogamos, óyenos', `fieles ${diseno}: la respuesta`);
+    revisar(m.der <= 1920 && m.kAncho <= 1, `fieles ${diseno}: cabe en la pantalla ` + JSON.stringify(m));
+    if (diseno === 'clasico') await captura(r, 'fieles_clasico');
+    await ctx.close();
+  }
+  // panel en el celular: el botón se lee entero y se puede tocar (en la escena Cámara)
+  for (const ancho of [360, 400]) {
+    const ctx = await nuevoContexto();
+    await ctx.route(rutaConfig, servirConfig(CONFIG[CA]));
+    const panel = await abrir(ctx, `/${CA}/panel.html?modo=app`, ancho, 900, estadoCA({ tipo: 'dominical' }));
+    await panel.click('#tab-vivo').catch(() => {});
+    await panel.evaluate(() => window.fijarEscenaApp('camara'));
+    await panel.waitForTimeout(400);
+    const b = await panel.evaluate(() => {
+      const x = document.querySelector('#rotulos [data-rotulo="fieles"]');
+      if (!x) return null;
+      const nom = x.querySelector('.nom');
+      return { nom: nom.textContent, ancho: nom.scrollWidth - nom.clientWidth, alto: nom.scrollHeight - nom.clientHeight, boton: Math.round(x.getBoundingClientRect().height) };
+    });
+    revisar(!!b, `fieles app ${ancho}: hay botón`);
+    if (b) {
+      igual(b.nom, 'Oración de los fieles', `fieles app ${ancho}: nombre del botón`);
+      revisar(b.ancho <= 1 && b.alto <= 1, `fieles app ${ancho}: el nombre se lee entero ` + JSON.stringify(b));
+      revisar(b.boton >= 44, `fieles app ${ancho}: alto para tocar ` + JSON.stringify(b));
+      await panel.click('#rotulos [data-rotulo="fieles"]');
+      await panel.waitForTimeout(500);
+      const est = await panel.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}').rotulo, `pev_${CA}_estado_v1`);
+      igual(est, 'fieles', `fieles app ${ancho}: tocarlo lo pone al aire`);
+    }
+    await ctx.close();
+  }
+}
+
 async function casoTitulosCamara() {
   console.log('Títulos en cámara');
   const ADV = '1ª Semana de Adviento';
@@ -3408,7 +3456,7 @@ async function casoModoAppSinAnimaciones() {
   // --solo=casoX corre solo ese caso (para trabajar en él); la corrida completa es sin la marca
   const solo = (process.argv.find((a) => a.startsWith('--solo=')) || '').slice(7);
   if (solo) {
-    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla, casoModoAppSinAnimaciones, casoTitulosCamara };
+    const casos = { casoClasicoIgual, casoPantallasIgual, casoEstiloPantallas, casoEncuadre, casoRotulosDisenos, casoRotulosLugares, casoTipografiasNuevas, casoRevisionFinal, casoPantallasRediseno, casoLineaBase, casoDisenoDatos, casoDisenoFondo, casoDisenoColores, casoDisenoRotulo, casoDisenoProduccion, casoFaltasIguales, casoMisasListas, casoTransicion, casoLetraPorPantalla, casoModoAppSinAnimaciones, casoTitulosCamara, casoFieles };
     try { await casos[solo](); } catch (e) { console.log('  ✘ la prueba se interrumpió: ' + (e && e.stack || e)); fallos++; }
     await browser.close(); servidor.close();
     console.log('\n(solo ' + solo + ') ' + (fallos + errores.length ? (fallos + errores.length) + ' fallo(s): ' + errores.join(' / ') : 'bien'));
@@ -3461,6 +3509,7 @@ async function casoModoAppSinAnimaciones() {
     await casoLetraPorPantalla();
     await casoComunion();
     await casoTitulosCamara();
+    await casoFieles();
     await casoModoAppSinAnimaciones();
     if (!process.argv.includes('--sin-comparacion')) await comparacion();
   } catch (e) {

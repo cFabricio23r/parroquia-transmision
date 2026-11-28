@@ -272,7 +272,7 @@ Ejemplo de `ajustes` (Hora Santa con otro nombre y sin el rótulo de bendición)
 }
 ```
 
-Los ids de rótulo de cada tipo común: `dominical`, `patronalsector` y `otros` tienen `persona`, `lectura1`, `salmo`, `lectura2`, `evangelio`; `semana`, `persona`, `lectura1`, `salmo`, `evangelio`; `horasanta`, `guia`, `santisimo`, `lectura1`, `oracion`, `bendicion`; `sector`, `persona`, `lugar`, `lectura1`, `salmo`, `evangelio`; `procesion`, `lugar`, `oracion`, `rosario`, `persona`; `prenovena`, `novena` y `patronal`, los de `dominical` más `rosario`; `evento`, `persona`, `libre`.
+Los ids de rótulo de cada tipo común: `dominical`, `patronalsector` y `otros` tienen `persona`, `lectura1`, `salmo`, `lectura2`, `evangelio`, `fieles`; `semana`, `persona`, `lectura1`, `salmo`, `evangelio`, `fieles`; `horasanta`, `guia`, `santisimo`, `lectura1`, `oracion`, `bendicion`; `sector`, `persona`, `lugar`, `lectura1`, `salmo`, `evangelio`, `fieles`; `procesion`, `lugar`, `oracion`, `rosario`, `persona`; `prenovena`, `novena` y `patronal`, los de `dominical` más `rosario`; `evento`, `persona`, `libre`. `fieles` es la oración de los fieles: «ORACIÓN DE LOS FIELES · RESPONDEMOS» y «Te rogamos, óyenos», que se cambia en el panel.
 
 Lo que un tipo propio no dice, queda así: `titulo` = su `nombre`; `ceja` = `{parroquia}` (nombre de la parroquia y su lugar, «nombre · lugar»); `cursiva` en blanco; `franja` = el lema de la fiesta entre comillas; `imagen` = `patrono`; `esquina` = `hoy`; `nombrePanel` = su `nombre`. Sin `portada` (o con `ninguna`), un tipo propio no tiene cuenta regresiva ni portada. Si un tipo propio se borra de la configuración y alguien lo tenía elegido, el panel y la pantalla pasan al primer tipo disponible, sin error.
 
