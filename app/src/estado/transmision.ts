@@ -2,10 +2,10 @@
 // Las pantallas despachan eventos; cada segundo llega un 'tic'. Cuando
 // debeCortar(antes, despues) da true, la app llama al terminar() nativo una sola vez.
 
-export type Escena = 'camara' | 'inicio' | 'portada' | 'avisos' | 'horarios' | 'gracias' | 'produccion';
+export type Escena = 'camara' | 'inicio' | 'portada' | 'avisos' | 'comunion' | 'horarios' | 'gracias' | 'produccion';
 
 /** Todas las escenas, en una lista cerrada: el puente y el registro solo aceptan estas (Tarea 9d suma Producción; la etapa 3, Horarios). */
-export const ESCENAS_VALIDAS: readonly Escena[] = Object.freeze(['camara', 'inicio', 'portada', 'avisos', 'horarios', 'gracias', 'produccion']);
+export const ESCENAS_VALIDAS: readonly Escena[] = Object.freeze(['camara', 'inicio', 'portada', 'avisos', 'comunion', 'horarios', 'gracias', 'produccion']);
 export type Fase = 'preparando' | 'iniciando' | 'en_vivo' | 'reconectando' | 'terminando' | 'terminado';
 
 export interface EstadoTransmision {

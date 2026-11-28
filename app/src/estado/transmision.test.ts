@@ -114,8 +114,11 @@ describe('escena', () => {
     expect(reducir(ter, ev)).toBe(ter);
   });
   it('Producción es una escena válida y se puede elegir al aire (Tarea 9d)', () => {
-    expect(ESCENAS_VALIDAS).toEqual(['camara', 'inicio', 'portada', 'avisos', 'horarios', 'gracias', 'produccion']);
+    expect(ESCENAS_VALIDAS).toEqual(['camara', 'inicio', 'portada', 'avisos', 'comunion', 'horarios', 'gracias', 'produccion']);
     expect(reducir(enVivo(), { tipo: 'escena', escena: 'produccion' }).escena).toBe('produccion');
+  });
+  it('Comunión es una escena válida y se puede elegir al aire (2026-11-27)', () => {
+    expect(reducir(enVivo(), { tipo: 'escena', escena: 'comunion' }).escena).toBe('comunion');
   });
   it('Horarios es una escena válida y se puede elegir al aire (etapa 3)', () => {
     expect(reducir(enVivo(), { tipo: 'escena', escena: 'horarios' }).escena).toBe('horarios');

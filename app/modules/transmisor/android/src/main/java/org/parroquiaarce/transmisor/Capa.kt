@@ -25,7 +25,7 @@ import org.json.JSONObject
  * - Las escenas cargan las páginas de la parroquia elegida, `https://<plataforma>/<slug>/…` (etapa 3a).
  *   Interceptor.kt responde cada pedido: desde la copia guardada, el respaldo de la app o la red.
  * - Siempre cargadas: «camara» (rotulos.html), «inicio» y la transición.
- * - «portada», «avisos», «horarios», «gracias» y «produccion» se cargan al pedirlas y se descargan al
+ * - «portada», «avisos», «comunion», «horarios», «gracias» y «produccion» se cargan al pedirlas y se descargan al
  *   salir (calor, Tarea 1).
  * - «produccion» (Tarea 9d) carga produccion.html con el estilo elegido en Ajustes (claro o azul).
  * - Se ve una sola escena a la vez; las demás quedan INVISIBLE.
@@ -54,6 +54,7 @@ object Capa {
     "inicio" to "pantalla.html?tipo=inicio",
     "portada" to "pantalla.html?tipo=portada",
     "avisos" to "pantalla.html?tipo=avisos",
+    "comunion" to "pantalla.html?tipo=comunion",
     "horarios" to "pantalla.html?tipo=horarios",
     "gracias" to "pantalla.html?tipo=gracias",
     "produccion" to "produccion.html?estilo=azul",

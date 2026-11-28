@@ -9,6 +9,8 @@ export const ESCENAS: { id: Escena; nombre: string }[] = [
   { id: 'camara', nombre: 'Cámara' },
   { id: 'portada', nombre: 'Portada' },
   { id: 'avisos', nombre: 'Avisos' },
+  // La oración de comunión espiritual, para quienes no pueden comulgar (2026-11-27).
+  { id: 'comunion', nombre: 'Comunión' },
   // La pantalla de horarios de la parroquia (etapa 3).
   { id: 'horarios', nombre: 'Horarios' },
   { id: 'gracias', nombre: 'Gracias' },
@@ -73,3 +75,6 @@ const estilos = StyleSheet.create({
   texto: { fontFamily: F.extra, fontSize: 14, color: C.texto },
   apagado: { opacity: 0.5 },
 });
+
+/** Para las pruebas: el alto de la tira y el reparto de los botones. */
+export const estilosTira = estilos;
