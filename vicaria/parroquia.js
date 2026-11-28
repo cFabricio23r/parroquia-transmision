@@ -717,6 +717,12 @@ function _validarAvisos(av, errores) {
   });
 }
 
+/* Títulos en cámara (2026-11-27): lista opcional de textos para la parte blanca de la barra. */
+function _validarTitulosCamara(t, errores) {
+  if (t === undefined || !_lista(t, 'titulosCamara', 12, errores)) return;
+  t.forEach((x, i) => _textoCorto(x, 'titulosCamara[' + i + ']', errores, true, 40));
+}
+
 /* validarConfig(c) -> { ok, errores }. Los errores son frases en español para mostrar en el panel. */
 function validarConfig(c) {
   const errores = [];
@@ -792,6 +798,7 @@ function validarConfig(c) {
   _validarHorarios(c.horarios, errores);
   _validarRedes(c.redes, errores);
   _validarAvisos(c.avisos, errores);
+  _validarTitulosCamara(c.titulosCamara, errores);
 
   return { ok: errores.length === 0, errores: errores };
 }

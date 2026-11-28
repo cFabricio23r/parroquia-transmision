@@ -235,6 +235,40 @@ function tituloPortadaEvento(s) {
   return rellenar('{evento}', s).toUpperCase().trim();
 }
 
+/* ---------- Títulos en cámara (2026-11-27)
+   Los botones del panel para la parte blanca de la barra: el del tipo, los de la parroquia (config.titulosCamara)
+   y los agregados en este aparato. Elegir uno escribe s.barraTexto ('' = el del tipo). */
+const MAX_TITULOS_CAMARA = 12;
+const MAX_TITULO_CAMARA = 40;
+
+/* El texto recortado si tiene entre 1 y 40 caracteres; si no, null. */
+function normalizarTituloCamara(t) {
+  if (typeof t !== 'string') return null;
+  const r = t.trim();
+  return r && r.length <= MAX_TITULO_CAMARA ? r : null;
+}
+
+/* [{ texto, origen: 'tipo' | 'parroquia' | 'aparato', elegido }], sin repetir (sin mirar mayúsculas). */
+function titulosCamara(s, propios) {
+  const lista = [{ texto: tituloCelebracion(s), origen: 'tipo' }];
+  const vistos = new Set([lista[0].texto.toLowerCase()]);
+  const sumar = (t, origen) => {
+    const r = normalizarTituloCamara(t);
+    if (r === null || vistos.has(r.toLowerCase())) return;
+    vistos.add(r.toLowerCase());
+    lista.push({ texto: r, origen });
+  };
+  (Array.isArray(PARROQUIA.titulosCamara) ? PARROQUIA.titulosCamara : []).forEach((t) => sumar(t, 'parroquia'));
+  (Array.isArray(propios) ? propios : []).forEach((t) => sumar(t, 'aparato'));
+  const actual = typeof s.barraTexto === 'string' ? s.barraTexto.trim() : '';
+  let marcado = false;
+  return lista.map((t, i) => {
+    const elegido = !marcado && (actual === '' ? i === 0 : t.texto === actual);
+    if (elegido) marcado = true;
+    return Object.assign(t, { elegido });
+  });
+}
+
 /* ---------- Textos editables
    Cada texto tiene un valor automático (según la celebración). Si en el panel
    se escribe algo, eso reemplaza al automático. Salto de línea = Enter. */

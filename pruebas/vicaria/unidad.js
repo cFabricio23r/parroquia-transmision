@@ -4313,6 +4313,62 @@ grupo('comunion', () => {
   });
 });
 
+grupo('titulos en camara', () => {
+  const ADV = '1ª Semana de Adviento';
+  const INM = 'Inmaculada Concepción';
+  const conTitulos = Object.assign({}, CONFIG_CIUDAD_ARCE, { titulosCamara: [ADV, INM] });
+  const x = cargarCon(['tipos.js', 'comun.js'], {}, conTitulos);
+  const sinLista = cargarCon(['tipos.js', 'comun.js'], {}, CONFIG_CIUDAD_ARCE);
+  const est = (m, extra) => m.normalizarEstado(Object.assign({ tipo: 'dominical' }, extra || {}));
+  const p = cargarCon([], {}, CONFIG_CIUDAD_ARCE);
+  const errs = (t) => Array.from(p.validarConfig(Object.assign({}, CONFIG_CIUDAD_ARCE, { titulosCamara: t })).errores);
+
+  prueba('primero el del tipo, después los de la parroquia; elegido el del tipo sin barraTexto', () => {
+    const s = est(x);
+    const l = Array.from(x.titulosCamara(s, []));
+    assert.deepEqual(l.map((t) => t.texto), [x.tituloCelebracion(s), ADV, INM]);
+    assert.deepEqual(l.map((t) => t.origen), ['tipo', 'parroquia', 'parroquia']);
+    assert.deepEqual(l.map((t) => t.elegido), [true, false, false]);
+  });
+  prueba('el elegido es el que coincide con barraTexto (sin espacios de los extremos)', () => {
+    const l = Array.from(x.titulosCamara(est(x, { barraTexto: ' ' + INM + ' ' }), []));
+    assert.deepEqual(l.map((t) => t.elegido), [false, false, true]);
+  });
+  prueba('los del aparato van al final y no repiten (sin mirar mayúsculas)', () => {
+    const l = Array.from(x.titulosCamara(est(x), ['inmaculada concepción', 'Gaudete', '  ']));
+    assert.deepEqual(l.map((t) => t.texto).slice(1), [ADV, INM, 'Gaudete']);
+    assert.equal(l[3].origen, 'aparato');
+  });
+  prueba('sin titulosCamara en la config sale solo el del tipo', () => {
+    const l = Array.from(sinLista.titulosCamara(est(sinLista), []));
+    assert.equal(l.length, 1);
+    assert.equal(l[0].origen, 'tipo');
+  });
+  prueba('un barraTexto escrito a mano que no está en la lista no marca ninguno', () => {
+    const l = Array.from(x.titulosCamara(est(x, { barraTexto: 'Algo escrito a mano' }), []));
+    assert.ok(l.every((t) => !t.elegido));
+  });
+  prueba('normalizarTituloCamara recorta y pone el tope de 40', () => {
+    assert.equal(x.MAX_TITULOS_CAMARA, 12);
+    assert.equal(x.MAX_TITULO_CAMARA, 40);
+    assert.equal(x.normalizarTituloCamara('  Adviento '), 'Adviento');
+    assert.equal(x.normalizarTituloCamara(''), null);
+    assert.equal(x.normalizarTituloCamara('   '), null);
+    assert.equal(x.normalizarTituloCamara('x'.repeat(41)), null);
+    assert.equal(x.normalizarTituloCamara('x'.repeat(40)), 'x'.repeat(40));
+  });
+  prueba('validarConfig acepta 12 títulos de 40 y la config sin la clave', () => {
+    assert.deepEqual(errs(Array(12).fill('x'.repeat(40))), []);
+    assert.deepEqual(Array.from(p.validarConfig(CONFIG_CIUDAD_ARCE).errores), []);
+  });
+  prueba('validarConfig rechaza 13 títulos, 41 caracteres, vacíos y no-texto', () => {
+    assert.ok(errs(Array(13).fill('a')).some((m) => m.includes('admite como máximo 12')));
+    assert.ok(errs(['x'.repeat(41)]).some((m) => m.includes('pasa de 40 caracteres')));
+    assert.ok(errs(['']).some((m) => m.includes('Falta el texto (titulosCamara[0])')));
+    assert.ok(errs([5]).some((m) => m.includes('debe ser texto')));
+  });
+});
+
 /* ---------- Resultado ---------- */
 cola.then(() => {
   console.log('\n' + (total - fallos) + '/' + total + ' pruebas pasan');

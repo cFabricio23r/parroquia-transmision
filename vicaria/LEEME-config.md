@@ -339,6 +339,14 @@ Se ven en la pantalla de avisos, **antes** de los que se escriben en el panel. E
 | `desde`, `hasta` | Opcionales, `AAAA-MM-DD`. El aviso se ve desde el día `desde` hasta el día `hasta`, **ambos inclusive** (hora local de la pantalla). `desde` no puede ser posterior a `hasta`. Sin fechas, siempre se ve. |
 | `orden` | Opcional; número entero. Va primero el menor; si empatan, el que está antes en la lista. |
 
+### `titulosCamara`: títulos para la barra sobre la cámara (hasta 12)
+
+Opcional. Una lista de textos (cada uno de 1 a 40 caracteres) que el panel muestra como botones en **En vivo → Título en cámara**. Quien transmite toca uno y sale en la parte blanca de la barra; la parte azul no cambia. El primer botón es siempre el título del tipo de transmisión. Cada aparato (PC o celular) puede sumar los suyos, que se guardan solo en ese aparato.
+
+```json
+"titulosCamara": ["1ª Semana de Adviento", "Inmaculada Concepción"]
+```
+
 ## Vista previa del editor
 
 El editor muestra las pantallas dentro de un `iframe` del mismo origen con `?vista-previa=1` (por ejemplo `pantalla.html?tipo=inicio&vista-previa=1` o `rotulos.html?vista-previa=1`). En ese modo la página no pide `config.json`: espera un mensaje (`postMessage`) de la ventana padre, del mismo origen:
